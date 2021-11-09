@@ -49,16 +49,16 @@ MODULE mo_initicon_io
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
     &                               MODE_COSMO, iss, iorg, ibc, iso4, idu, SUCCESS,     &
     &                               vname_len
-  USE mo_exception,           ONLY: message, finish, message_text
+  USE mo_exception,           ONLY: message, finish, message_text, warning
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
     &                               my_process_is_mpi_workroot,    &
     &                               my_process_is_stdio
   USE mo_io_config,           ONLY: default_read_method
   USE mo_limarea_config,      ONLY: latbc_config
-  USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
-    &                               read_2d_1time, read_2d_1lev_1time, &
-    &                               read_3d_1time, on_cells, on_edges
+  USE mo_read_interface,      ONLY: t_stream_id, openInputFile, closeFile, on_cells, on_edges, &
+    &                               read_2d_1time, read_2d_1lev_1time, read_3d_1time
+  USE mo_netcdf_errhandler,   ONLY: nf
   USE mo_nwp_sfc_tiles,       ONLY: t_tileinfo_icon, trivial_tile_att
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
     &                               ntiles_water, lmulti_snow, lsnowtile, &
@@ -852,6 +852,13 @@ MODULE mo_initicon_io
         &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,3))
       CALL read_2d_1lev_1time(stream_id, on_cells, 'SMIL4', &
         &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,4))
+
+      ! Checks
+      IF(ANY(initicon(jg)%sfc_in%snowweq < 0._wp)) THEN
+        CALL warning(routine,'W_SNOW contains negative values: Setting to Zero')
+        initicon(jg)%sfc_in%snowweq =  &
+          & MERGE(initicon(jg)%sfc_in%snowweq, 0._wp, (initicon(jg)%sfc_in%snowweq >= 0._wp))
+      ENDIF
 
       ! close file
       !

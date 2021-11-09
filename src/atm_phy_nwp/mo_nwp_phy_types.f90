@@ -216,6 +216,7 @@ MODULE mo_nwp_phy_types
       &  swflxclrsfc_a(:,:),   & !! Clear-sky surface net solar radiation [W/m2], accumulated or mean since model start
       &  lwflxtoa_a(:,:),      & !! TOA net thermal radiation [W/m2], accumulated or mean since model start
       &  swflxtoa_a(:,:),      & !! shortwave net flux at toa [W/m2], accumulated or mean since model start
+      &  dursun(:,:),          & !! duration of sunshine [s]
       &  asod_t    (:,:),      & !! Top down solar radiation  [W/m2], accumulated or mean since model start
       &  asou_t    (:,:),      & !! Top up solar radiation  [W/m2], accumulated or mean since model start
       &  athd_s    (:,:),      & !! Surface down thermal radiation [W/m2], accumulated or mean since model start
@@ -391,7 +392,7 @@ MODULE mo_nwp_phy_types
       p_ctop(:,:) !         & !>cloud top pressure
       !cld_opt_thck(
 
-    ! for old aerosol climatology from COSMO (to be used with inwp_radiation==2)
+    ! for old aerosol climatology from COSMO (to be used with now removed Ritter-Geleyn radiation)
     REAL(wp), POINTER       &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS          &

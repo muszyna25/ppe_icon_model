@@ -71,6 +71,7 @@ USE mo_nwp_ww,               ONLY: configure_ww
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
   &                                construct_nh_state, destruct_nh_state,      &
   &                                duplicate_prog_state
+USE mo_prepadv_state,        ONLY: construct_prepadv_state, destruct_prepadv_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag,      &
   &                                compute_lonlat_area_weights
 USE mo_nwp_phy_state,        ONLY: prm_diag, prm_nwp_tend,                     &
@@ -98,6 +99,7 @@ USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 
 ! ECHAM physics
 USE mo_echam_phy_memory,    ONLY: construct_echam_phy_state
+USE mo_cloud_two_memory,    ONLY: construct_cloud_two_memory
 #ifdef __NO_RTE_RRTMGP__
 USE mo_psrad_forcing_memory, ONLY: construct_rad_forcing_list => construct_psrad_forcing_list
 #else
@@ -257,14 +259,18 @@ CONTAINS
     ! Add optional diagnostic variable lists (might remain empty)
     CALL construct_opt_diag(p_patch(1:), .TRUE.)
 
+    ! construct prep_adv state, which is required for tracer transport
+    CALL construct_prepadv_state (p_patch(1:))
+
     IF (iforcing == inwp) THEN
       CALL construct_nwp_phy_state( p_patch(1:), var_in_output)
       CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, var_in_output(:)%smi, n_timelevels=2 )
     END IF
 
     IF (iforcing == iecham) THEN
-      CALL construct_echam_phy_state ( p_patch(1:), ntracer )
-      CALL construct_rad_forcing_list( p_patch(1:) )
+      CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
+      CALL construct_cloud_two_memory  ( p_patch(1:) )
+      CALL construct_rad_forcing_list  ( p_patch(1:) )
     END IF
 
     CALL upatmo_initialize(p_patch)
@@ -740,6 +746,8 @@ CONTAINS
     DEALLOCATE (p_nh_state, p_nh_state_lists, STAT=ist)
     IF (ist /= SUCCESS) CALL finish(routine,'deallocation for state failed')
 
+
+    CALL destruct_prepadv_state()
 
     ! close LES diag files
     DO jg = 1 , n_dom

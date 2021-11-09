@@ -200,9 +200,9 @@ CONTAINS
               & qs     =xlqs            (:,:)       , & !< inout: snow
               & qg     =xlqg            (:,:)       , & !< inout: graupel
               & qnc    =zqnc                        , & !< inout: cloud droplet number
-              & prr_gsp=field%rain_gsp_rate (:, jb)   , & !< inout precp rate rain
-              & prs_gsp=field%snow_gsp_rate (:, jb)   , & !< inout precp rate snow
-              & prg_gsp=field%graupel_gsp_rate (:, jb), & !< inout precp rate graupel
+              & prr_gsp=field%rain_gsp_rate (:, jb) , & !< inout precp rate rain
+              & prs_gsp=field%snow_gsp_rate (:, jb) , & !< inout precp rate snow
+              & prg_gsp=field%graupel_gsp_rate (:, jb) , & !< inout precp rate graupel
               & qrsflux=zqrsflux                    , & !< out  precipitation flux
               & l_cv=.TRUE.                         , &
               & ldiag_ttend = echam_mig_config(jg)%ldiag_ttend , & !< in:  if temp.  tendency shall be diagnosed

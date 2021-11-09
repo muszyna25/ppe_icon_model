@@ -31,14 +31,13 @@ MODULE mo_bc_greenhouse_gases
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amc11, amc12
   USE mo_netcdf_parallel,    ONLY: p_nf_open, p_nf_inq_dimid, p_nf_inq_dimlen, &
        &                           p_nf_inq_varid, p_nf_get_var_double, p_nf_close, &
-       &                           nf_read, nf_noerr, nf_strerror
+       &                           nf_read, nf_noerr
   USE mtime,                 ONLY: datetime, no_of_sec_in_a_day, &
        &                           getNoOfDaysInYearDateTime, &
        &                           getdayofyearfromdatetime,  &
        &                           getnoofsecondselapsedindaydatetime
 
   IMPLICIT NONE
-
   PRIVATE
 
   PUBLIC :: read_bc_greenhouse_gases
@@ -224,10 +223,10 @@ CONTAINS
   END SUBROUTINE cleanup_greenhouse_gases
 
   SUBROUTINE nf_check(iret)
+    USE mo_netcdf_errhandler, ONLY: nf
     INTEGER, INTENT(in) :: iret
-    IF (iret /= nf_noerr) THEN
-      CALL finish('mo_bc_greenhouse_gases', nf_strerror(iret))
-    ENDIF
+
+    CALL nf( iret, 'mo_bc_greenhouse_gases')
   END SUBROUTINE nf_check
 
 END MODULE mo_bc_greenhouse_gases

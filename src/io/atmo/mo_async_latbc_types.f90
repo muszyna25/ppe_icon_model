@@ -24,8 +24,8 @@ MODULE mo_async_latbc_types
   USE mo_kind,                     ONLY: sp
   USE mo_dictionary,               ONLY: DICT_MAX_STRLEN
   USE mtime,                       ONLY: event, datetime, timedelta, &
-    &                                    deallocateTimedelta, deallocateEvent, deallocateDatetime
-  USE mo_initicon_types,           ONLY: t_init_state, t_init_state_const
+    &                                    deallocateTimedelta, deallocateEvent
+  USE mo_initicon_types,           ONLY: t_init_state, t_init_state_const, t_pi_atm, t_init_state_finalize
   USE mo_impl_constants,           ONLY: SUCCESS, max_ntracer, vname_len
   USE mo_exception,                ONLY: finish, message
   USE mo_run_config,               ONLY: msg_level
@@ -43,6 +43,7 @@ MODULE mo_async_latbc_types
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_latbc_types'
 
   ! derived data types:
+  PUBLIC :: t_latbc_state
   PUBLIC :: t_latbc_data
   PUBLIC :: t_patch_data
   PUBLIC :: t_mem_win
@@ -76,6 +77,20 @@ MODULE mo_async_latbc_types
   TYPE t_size
      REAL(sp), POINTER :: buffer(:,:,:) => NULL()
   END TYPE t_size
+
+
+  !> Data structure containing the lateral boundary forcing data.
+  !> Compared to t_init_state it allows to store forcing data 
+  !< for additional child domains, if required. 
+  !< This is required in case of upper boundary nudging.
+  !
+  TYPE, EXTENDS (t_init_state) :: t_latbc_state
+
+    TYPE (t_pi_atm), ALLOCATABLE  :: atm_child(:)  ! atmospheric state for child domains
+                                                   ! (excluding the base domain)
+   CONTAINS
+     PROCEDURE :: finalize => t_latbc_state_finalize   !< destructor
+  END TYPE t_latbc_state
 
 
   TYPE t_buffer
@@ -198,7 +213,7 @@ MODULE mo_async_latbc_types
     TYPE(t_init_state_const), POINTER :: latbc_data_const => NULL()
 
     ! storage for two time-level boundary data
-    TYPE(t_init_state) :: latbc_data(2)
+    TYPE(t_latbc_state) :: latbc_data(2)
 
     ! raw buffer
     TYPE(t_buffer) :: buffer
@@ -293,6 +308,21 @@ CONTAINS
     IF (ALLOCATED(buffer%hgrid))          DEALLOCATE(buffer%hgrid)
   END SUBROUTINE t_buffer_finalize
 
+
+  SUBROUTINE t_latbc_state_finalize(init_data)
+    CLASS(t_latbc_state), INTENT(INOUT) :: init_data
+    INTEGER :: jg 
+
+    CALL t_init_state_finalize(init_data)
+    !
+    IF (ALLOCATED(init_data%atm_child)) THEN
+      DO jg=1, SIZE(init_data%atm_child)
+        CALL init_data%atm_child(jg)%finalize
+      ENDDO
+      DEALLOCATE(init_data%atm_child)
+    ENDIF
+
+  END SUBROUTINE t_latbc_state_finalize
 
   !-------------------------------------------------------------------------
   !>

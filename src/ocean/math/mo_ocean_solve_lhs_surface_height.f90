@@ -114,7 +114,7 @@ CONTAINS
     INTEGER :: start_index, end_index, jc, blkNo, ico
     TYPE(t_subset_range), POINTER :: cells_in_domain
     REAL(wp), POINTER, DIMENSION(:,:,:), CONTIGUOUS :: lhs_coeffs
-    REAL(wp) :: xco(9)
+!     REAL(wp) :: xco(9)
     INTEGER, POINTER, DIMENSION(:,:,:), CONTIGUOUS :: idx, blk
 
     cells_in_domain => this%patch_2D%cells%in_domain
@@ -127,9 +127,22 @@ CONTAINS
       lhs(:,blkNo) = 0.0_wp
       DO jc = start_index, end_index
         IF(.NOT.(this%patch_3d%lsm_c(jc,1,blkNo) > sea_boundary)) THEN
-          FORALL(ico = 1:9) xco(ico) = x(idx(ico, jc, blkNo), blk(ico, jc, blkNo))
+!           FORALL(ico = 1:9) xco(ico) = x(idx(ico, jc, blkNo), blk(ico, jc, blkNo))
+!           lhs(jc,blkNo) = x(jc,blkNo) * lhs_coeffs(0, jc, blkNo) + &
+!             & SUM(xco(:) * lhs_coeffs(1:9, jc, blkNo))
+            
           lhs(jc,blkNo) = x(jc,blkNo) * lhs_coeffs(0, jc, blkNo) + &
-            & SUM(xco(:) * lhs_coeffs(1:9, jc, blkNo))
+               & x(idx(1, jc, blkNo), blk(1, jc, blkNo)) * lhs_coeffs(1, jc, blkNo) + &
+               & x(idx(2, jc, blkNo), blk(2, jc, blkNo)) * lhs_coeffs(2, jc, blkNo) + &
+               & x(idx(3, jc, blkNo), blk(3, jc, blkNo)) * lhs_coeffs(3, jc, blkNo) + &
+               & x(idx(4, jc, blkNo), blk(4, jc, blkNo)) * lhs_coeffs(4, jc, blkNo) + &
+               & x(idx(5, jc, blkNo), blk(5, jc, blkNo)) * lhs_coeffs(5, jc, blkNo) + &
+               & x(idx(6, jc, blkNo), blk(6, jc, blkNo)) * lhs_coeffs(6, jc, blkNo) + &
+               & x(idx(7, jc, blkNo), blk(7, jc, blkNo)) * lhs_coeffs(7, jc, blkNo) + &
+               & x(idx(8, jc, blkNo), blk(8, jc, blkNo)) * lhs_coeffs(8, jc, blkNo) + &               
+               & x(idx(9, jc, blkNo), blk(9, jc, blkNo)) * lhs_coeffs(9, jc, blkNo) 
+               
+               
         END IF
       END DO
     END DO ! blkNo

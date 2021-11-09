@@ -80,7 +80,6 @@ steps_per_file=15
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
 
 #--------------------------------------------------------------------------------------------------
 
@@ -398,6 +397,7 @@ cat > ${atmo_namelist} << EOF
 /
 ! ser_nml: serialization configuration ----------------------------------------
 &ser_nml
+ ser_initialization          =                            0,12,12
  ser_output_diag             =                            0,12,12
  ser_latbc_data              =                            0,12,12
  ser_dynamics                =                            0,12,12
@@ -406,6 +406,8 @@ cat > ${atmo_namelist} << EOF
  ser_physics                 =                            0,12,12
  ser_surface                 =                            0,12,12
  ser_microphysics            =                            0,12,12
+ ser_turbtrans               =                            0,12,12
+ ser_turbdiff                =                            0,12,12
  ser_lhn                     =                            0,12,12
  ser_cover                   =                            0,12,12
  ser_radiation               =                            0,12,12

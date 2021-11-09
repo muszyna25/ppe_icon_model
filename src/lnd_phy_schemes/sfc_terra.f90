@@ -285,6 +285,7 @@ CONTAINS
 !
                   runoff_s         , & ! surface water runoff; sum over forecast       (kg/m2)
                   runoff_g         , & ! soil water runoff; sum over forecast          (kg/m2)
+                  resid_wso     , & ! soil water budget, residuum                   (kg/m2)
 ! for TERRA_URB
 !                 w_imp            , & ! impervious water storage                        --
 !                 w_isa            , & ! same, multiplied by fr_paved                    --
@@ -300,6 +301,7 @@ CONTAINS
                   zshfl_sfc        , & ! sensible heat flux surface interface          (W/m2)
                   zlhfl_sfc        , & ! latent   heat flux surface interface          (W/m2)
                   zqhfl_sfc        , & ! moisture      flux surface interface          (kg/m2/s)
+                  lres_soilwatb    , & ! flag for computing the soil water budget
                   lacc               ) ! flag for activating OpenACC
                                      
 
@@ -390,7 +392,8 @@ CONTAINS
                   tch              , & ! turbulent transfer coefficient for heat       ( -- )
                   tcm              , & ! turbulent transfer coefficient for momentum   ( -- )
                   runoff_s         , & ! surface water runoff; sum over forecast       (kg/m2)
-                  runoff_g             ! soil water runoff; sum over forecast          (kg/m2)
+                  runoff_g         , & ! soil water runoff; sum over forecast          (kg/m2)
+                  resid_wso         ! residuum of the budget of soil water content  (kg/m2)
 ! for TERRA_URB
 !                 w_imp            , & ! impervious water storage                        --
 !                 w_isa                ! same, multiplied by fr_paved                    --
@@ -454,6 +457,7 @@ CONTAINS
                   zlhfl_sfc        , & ! latent   heat flux surface interface          (W/m2)
                   zqhfl_sfc            ! latent   heat flux surface interface          (W/m2)
 
+  LOGICAL, INTENT(IN)           :: lres_soilwatb
   LOGICAL, OPTIONAL, INTENT(IN) :: lacc
 
   LOGICAL :: lzacc
@@ -686,6 +690,7 @@ CONTAINS
     zdlw_fr_ksop05 , & ! hydraulic diffusivity coefficient at half level below
     zklw_fr_ksop05 , & ! hydraulic conductivity coefficient at half level below
     zinf           , & ! infiltration
+    zcou_roffg     , & ! indicator to sum up runoffg in hydrological active layers
 
     ! Snow density
     ztau_snow      , & ! 'ageing constant' for snow density          (-)
@@ -949,6 +954,9 @@ CONTAINS
     zage        (nvec,0:ke_soil+ke_snow+1)
 
 
+  REAL    (KIND=wp) ::  &
+    zhwso_budget(nvec)      ! utility variables for soil water budget
+
   LOGICAL     :: &
     limit_tch (nvec)         ! indicator for flux limitation problem
 #endif
@@ -996,10 +1004,6 @@ mcid =   0
 mtid =   0
 mvid =   8
 
-  zaga = 1.0_wp
-  zagb = 1.0_wp
-  zagc = 1.0_wp
-
 !------------------------------------------------------------------------------
 ! Begin Subroutine terra
 !------------------------------------------------------------------------------
@@ -1017,7 +1021,8 @@ mvid =   8
 #ifdef _OPENMP
      IF (my_thrd_id == mtid) THEN
 #endif
-      WRITE(*,'(A,3I5)'   ) 'SFC-DIAGNOSIS terra start:   ', ke_soil, ke_snow, ke_soil_hy
+      WRITE(*,'(A,3I5)'   ) 'SFC-DIAGNOSIS terra start (ke_soil, ke_snow, ke_soil_hy): ', &
+                            ke_soil, ke_snow, ke_soil_hy
 #ifdef _OPENMP
      ENDIF
 #endif
@@ -1043,7 +1048,7 @@ mvid =   8
 !       WRITE(*,'(A,F28.16)') '   ai_uf            :  ', ai_uf       (i)
 !       WRITE(*,'(A,F28.16)') '   alb_red_uf       :  ', alb_red_uf  (i)
         WRITE(*,'(A,F28.16)') '   rsmin2d          :  ', rsmin2d     (i)
-        WRITE(*,'(A      )') ' Other input parameters:'
+        WRITE(*,'(A       )') ' Other input parameters:'
         WRITE(*,'(A,F28.16)') '   u     ke         :  ', u           (i)
         WRITE(*,'(A,F28.16)') '   v     ke         :  ', v           (i)
         WRITE(*,'(A,F28.16)') '   t     ke         :  ', t           (i)
@@ -1065,30 +1070,33 @@ mvid =   8
         WRITE(*,'(A,F28.16)') '   sobs             :  ', sobs        (i)
         WRITE(*,'(A,F28.16)') '   thbs             :  ', thbs        (i)
         WRITE(*,'(A,F28.16)') '   pabs             :  ', pabs        (i)
-
+        WRITE(*,'(A       )') ' Soil initial parameters:'
         WRITE(*,'(A,F28.16)') '   t_snow_now       :  ', t_snow_now  (i)
         WRITE(*,'(A,F28.16)') '   t_s_now          :  ', t_s_now     (i)
         WRITE(*,'(A,F28.16)') '   t_g              :  ', t_g         (i)
-do k = 0, ke_soil+1
-        WRITE(*,'(A,I1,A,F28.16)') '   t_so    (',k,')      :  ', t_so_now    (i,k)
-enddo
-do k = 1, ke_soil+1
-        WRITE(*,'(A,I1,A,F28.16)') '   w_so    (',k,')      :  ', w_so_now    (i,k)
-enddo
-        WRITE(*,'(A,F28.16)') '   qv_s             :  ', qv_s        (i)
+DO k = 0, ke_soil+1
+        WRITE(*,'(A,I1,A,F28.16)') '   t_so_now    (',k,')      :  ', t_so_now    (i,k)
+ENDDO
+DO k = 1, ke_soil+1
+        WRITE(*,'(A,I1,A,F28.16)') '   w_so_now    (',k,')      :  ', w_so_now    (i,k)
+ENDDO
+DO k = 1, ke_soil+1
+        WRITE(*,'(A,I1,A,F28.16)') '   w_so_ice_now   (',k,')      :  ',  w_so_ice_now (i,k)
+ENDDO
+        WRITE(*,'(A,F28.16)') '   qv_s (in)        :  ', qv_s        (i)
         WRITE(*,'(A,F28.16)') '   w_snow_now       :  ', w_snow_now  (i)
         WRITE(*,'(A,F28.16)') '   rho_snow_now     :  ', rho_snow_now(i)
-        WRITE(*,'(A,F28.16)') '   h_snow           :  ', h_snow      (i)
+        WRITE(*,'(A,F28.16)') '   h_snow (in)      :  ', h_snow      (i)
         WRITE(*,'(A,F28.16)') '   w_i_now          :  ', w_i_now     (i)
         WRITE(*,'(A,F28.16)') '   w_p_now          :  ', w_p_now     (i)
         WRITE(*,'(A,F28.16)') '   w_s_now          :  ', w_s_now     (i)
-        WRITE(*,'(A,F28.16)') '   freshsnow        :  ', freshsnow   (i)
-        WRITE(*,'(A,F28.16)') '   zf_snow          :  ', zf_snow     (i)
+        WRITE(*,'(A,F28.16)') '   freshsnow (in)   :  ', freshsnow   (i)
+        WRITE(*,'(A,F28.16)') '   zf_snow (in)     :  ', zf_snow     (i)
         WRITE(*,'(A,F28.16)') '   tch              :  ', tch         (i)
         WRITE(*,'(A,F28.16)') '   tcm              :  ', tcm         (i)
         WRITE(*,'(A,F28.16)') '   tfv              :  ', tfv         (i)
-        WRITE(*,'(A,F28.16)') '   runoff_s         :  ', runoff_s    (i)
-        WRITE(*,'(A,F28.16)') '   runoff_g         :  ', runoff_g    (i)
+        WRITE(*,'(A,F28.16)') '   runoff_s (in)    :  ', runoff_s    (i)
+        WRITE(*,'(A,F28.16)') '   runoff_g (in)    :  ', runoff_g    (i)
 
 #ifdef _OPENMP
        ENDIF
@@ -1195,7 +1203,7 @@ enddo
   !$acc create(zextinct, zfor_snow_mult, hzalam, zdqvtsnow)         &
   !$acc create(zrho_snow, zts_pm, ztsk_pm, ztfunc, ztsnow_pm, zeisa)&
   !$acc create(zagd, zage, limit_tch, zdz_snow)                     &
-  !$acc copyin(zaga, zagb, zagc)                                    &
+  !$acc create(zaga, zagb, zagc)                                    &
 
   ! Terra data module fields
   !$acc present(cporv, cfcap, cpwp, cadp, cik2, ckw0, ckw1, cdw0)    &
@@ -1205,9 +1213,38 @@ enddo
 ! for the optional fields for itype_trvg
   !$acc data present (plevap, z0) if (PRESENT(plevap) .AND. lzacc)
 
+  ! for the soil water budget
+  !$acc data present(resid_wso) create(zhwso_budget) if (lres_soilwatb)
+
+  IF (lres_soilwatb) THEN
+    ! Calculation of soil water budget: store recent runoff fluxes
+    ! the final runoff fluxes are subtracted at the end
+    !$acc parallel async
+    !$acc loop gang vector
+    DO i = ivstart, ivend
+      zhwso_budget(i) = runoff_s(i) + runoff_g(i)
+      ! in COSMO another procedure is used than in ICON to 
+      !   initialize the values of runoff_s and runoff_g (COSMO:
+      !   actual values, ICON: zeros) -> for ICON the following init is possible
+      !   zhwso_budget(i) = 0.0_wp
+    ENDDO
+    !$acc end parallel
+  ENDIF
+
 #ifndef _OPENACC
   ln_10 = LOG(10.0_wp)
 #endif
+
+  !$acc parallel async if(lzacc)
+  !$acc loop gang vector collapse(2)
+  DO kso = 0, UBOUND(zaga,2)
+    DO i = 1, nvec
+      zaga(i,kso) = 1.0_wp
+      zagb(i,kso) = 1.0_wp
+      zagc(i,kso) = 1.0_wp
+    ENDDO
+  ENDDO
+  !$acc end parallel
 
 ! Temperaturedifference for liquid water content in frozen soil at -40 degC
 !  J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
@@ -3705,8 +3742,10 @@ enddo
           !   (i.e. only sedimentation flux allowed between ke_soil_hy and ke_soil_hy+1)
           IF (soiltyp_subs(i) == 8)  THEN
             zfmb_fak = MERGE(1.0_wp, 0.0_wp, kso==ke_soil_hy_m)
+            zcou_roffg = MERGE(1.0_wp, 0.0_wp, kso<=ke_soil_hy_m)
           ELSE
             zfmb_fak = MERGE(1.0_wp, 0.0_wp, kso==ke_soil_hy)
+            zcou_roffg = MERGE(1.0_wp, 0.0_wp, kso<=ke_soil_hy)
           END IF
 
           ! first runoff calculation without consideration of
@@ -3730,9 +3769,11 @@ enddo
           zdwgdt(i,kso)= zdwg + zkorr - zro2
           zro    = zro      + zro2
           runoff_s(i) = runoff_s(i) + zro*zro_sfak*zroffdt
-          runoff_g(i) = runoff_g(i) + zro*zro_gfak*zroffdt
-
-          ! runoff_g reformulation:
+          ! only count runoff_g in the hydrological active layers
+          runoff_g(i) = runoff_g(i) + zcou_roffg*zro*zro_gfak*zroffdt
+          ! runoff_g reformulation due to drainage flux through bottom of layer ke_soil_hy
+          !  zfmb_fak is only 1 at the last active horizont and 0 elsewhere
+          !  only at this level the gravitational settling has to be counted for runoff (bulk view)
           runoff_g(i) = runoff_g(i) - (zrunoff_grav(i,kso) * zfmb_fak &
                                              + zkorr) * zroffdt
           !if (runoff_g(i) > 1000.0_wp) then
@@ -3757,6 +3798,7 @@ enddo
       ! - soil moisture gradient related flux is switched off below
       !   (i.e. only sedimentation flux allowed between ke_soil_hy and ke_soil_hy+1)
       zfmb_fak = MERGE(1.0_wp, 0.0_wp, kso==ke_soil_hy)
+      zcou_roffg = MERGE(1.0_wp, 0.0_wp, kso<=ke_soil_hy)
 
       ! sedimentation and capillary transport in soil
       !$acc loop gang vector private(zdwg, zredfu, zro, zwgn, zro2, zkorr)
@@ -3783,9 +3825,11 @@ enddo
           zdwgdt(i,kso)= zdwg + zkorr - zro2
           zro    = zro      + zro2
           runoff_s(i) = runoff_s(i) + zro*zro_sfak*zroffdt
-          runoff_g(i) = runoff_g(i) + zro*zro_gfak*zroffdt
-
-          ! runoff_g reformulation:
+          ! only count runoff_g in the hydrological active layers
+          runoff_g(i) = runoff_g(i) + zcou_roffg*zro*zro_gfak*zroffdt
+          ! runoff_g reformulation due to drainage flux through bottom of layer ke_soil_hy
+          !  zfmb_fak is only 1 at the last active horizont and 0 elsewhere
+          !  only at this level the gravitational settling has to be counted for runoff (bulk view)
           runoff_g(i) = runoff_g(i) - (zrunoff_grav(i,kso) * zfmb_fak &
                                             + zkorr) * zroffdt
         END IF
@@ -5656,59 +5700,113 @@ enddo
     !$acc end parallel
   END IF
 
+  ! This block tests the residuum of water mass content in soil
+  IF (lres_soilwatb) THEN
+    !$acc parallel async
+    !$acc loop gang vector
+    DO i = ivstart, ivend
+      ! the rain rates 
+      IF ( nclass_gscp >= 2000 ) THEN
+        ! only possible when running 2-moment microphysics
+#ifdef TWOMOM_SB
+        zhwso_budget(i) = zhwso_budget(i) + &
+          ( prr_con(i) + prs_con(i) + prr_gsp(i) + prs_gsp(i) + prg_gsp(i) + prh_gsp(i) )*zdt
+#endif
+      ELSEIF ( nclass_gscp >= 6 ) THEN
+        zhwso_budget(i) = zhwso_budget(i) + &
+          ( prr_con(i) + prs_con(i) + prr_gsp(i) + prs_gsp(i) + prg_gsp(i) )*zdt
+      ELSE
+        zhwso_budget(i) = zhwso_budget(i) + &
+          ( prr_con(i) + prs_con(i) + prr_gsp(i) + prs_gsp(i) )*zdt
+      ENDIF
+      ! the evapotranspiration (not clear if zqhfl_sfc or zqhfl_s???????)
+      zhwso_budget(i) = zhwso_budget(i) + zqhfl_sfc(i)*zdt
+      ! surface + subsurface runoff (subtraction because water is lost)
+      zhwso_budget(i) = zhwso_budget(i) - runoff_s(i) - runoff_g(i)
+      ! snow + interception storage (convert m H2O in mm H2O)
+      zhwso_budget(i) = zhwso_budget(i) - ( w_snow_new(i) - w_snow_now(i) )*1000.0_wp
+      zhwso_budget(i) = zhwso_budget(i) - ( w_i_new(i)    - w_i_now(i)    )*1000.0_wp
+      IF (itype_interception == 2) THEN
+        zhwso_budget(i) = zhwso_budget(i) - ( w_p_new(i)    - w_p_now(i)    )*1000.0_wp
+        zhwso_budget(i) = zhwso_budget(i) - ( w_s_new(i)    - w_s_now(i)    )*1000.0_wp
+      ENDIF
+      ! residuum = recharge - budget (RHS)
+      resid_wso(i) = resid_wso(i) + ( ( SUM(w_so_new(i,1:ke_soil_hy)) - & 
+        SUM(w_so_now(i,1:ke_soil_hy)) )*1000.0_wp - zhwso_budget(i) )
+    END DO
+    !$acc end parallel
+  ENDIF
+
+!$acc wait
+
+! for optional fields related to soil water budget
+!$acc end data
+
 ! for optional fields plevap, z0
-!$acc end data 
+!$acc end data
 !!!if (PRESENT(plevap))
 
+! for general fields
 !$acc end data
 
   IF (msg_level >= 19) THEN
     DO i = ivstart, ivend
 
-     IF (ABS(t_s_now(i)-t_s_new(i)) > 15.0_wp .or. ABS(t_sk_now(i)-t_sk_new(i)) > 15.0_wp) THEN
+!     IF (ABS(t_s_now(i)-t_s_new(i)) > 15.0_wp .or. ABS(t_sk_now(i)-t_sk_new(i)) > 15.0_wp) THEN
+!     consistent to the first debug output, we ask for a specific grid point
+     IF (i== mvid .AND. iblock == mbid .AND. my_cart_id == mcid) THEN
 
         WRITE(*,'(A        )') '                                '
         WRITE(*,'(A,2I5)'  ) 'SFC-DIAGNOSIS terra output:  iblock = ', iblock, i
 
-        WRITE(*,'(A        )') '   Temperatures and Humidities: '
+        WRITE(*,'(A        )') ' Temperatures and Humidities: '
         WRITE(*,'(A,2F28.16)') '   t_s      now/new :  ', t_s_now(i),       t_s_new(i)
         WRITE(*,'(A,2F28.16)') '   t_snow   now/new :  ', t_snow_now(i),    t_snow_new(i)
         WRITE(*,'(A, F28.16)') '   t_g              :  ', t_g(i)
-        WRITE(*,'(A, F28.16)') '   qv_s             :  ', qv_s(i)
+        WRITE(*,'(A, F28.16)') '   qv_s (out)       :  ', qv_s(i)
         WRITE(*,'(A,2F28.16)') '   w_snow   now/new :  ', w_snow_now(i),    w_snow_new(i)
         WRITE(*,'(A,2F28.16)') '   rho_snow now/new :  ', rho_snow_now(i),  rho_snow_new(i)
         WRITE(*,'(A,2F28.16)') '   h_snow   now/new :  ', h_snow_now(i),    h_snow_new(i)
         WRITE(*,'(A, F28.16)') '   fresh_snow       :  ', freshsnow(i)
-        WRITE(*,'(A,2F28.16)') '   zf_snow sn_frac  :  ', zf_snow(i),       sn_frac(i)
+        WRITE(*,'(A, F28.16)') '   zf_snow (out)    :  ', zf_snow(i)
+        WRITE(*,'(A, F28.16)') '   sn_frac (out)    :  ', sn_frac(i)
         WRITE(*,'(A,2F28.16)') '   w_i      now/new :  ', w_i_now(i),       w_i_new(i)
         WRITE(*,'(A,2F28.16)') '   w_p      now/new :  ', w_p_now(i),       w_p_new(i)
         WRITE(*,'(A,2F28.16)') '   w_s      now/new :  ', w_s_now(i),       w_s_new(i)
-do k = 0, ke_soil+1
-        WRITE(*,'(A,I1,A,2F28.16)') '   t_so    (',k,')      :  ', t_so_now (i,k), t_so_new (i,k)
-enddo
-do k = 1, ke_soil+1
-        WRITE(*,'(A,I1,A,2F28.16)') '   w_so    (',k,')      :  ', w_so_now (i,k), w_so_new (i,k)
-enddo
-do k = 1, ke_soil+1
-        WRITE(*,'(A,I1,A,2F28.16)') '   w_so_ice(',k,')      :  ', w_so_ice_now (i,k), w_so_ice_new (i,k)
-enddo
+        DO k = 0, ke_soil+1
+          WRITE(*,'(A,I1,A,2F28.16)') '   t_so    (',k,')      :  ', t_so_now (i,k), t_so_new (i,k)
+        ENDDO
+        DO k = 1, ke_soil+1
+          WRITE(*,'(A,I1,A,2F28.16)') '   w_so    (',k,')      :  ', w_so_now (i,k), w_so_new (i,k)
+        ENDDO
+        DO k = 1, ke_soil+1
+          WRITE(*,'(A,I1,A,2F28.16)') '   w_so_ice(',k,')      :  ', w_so_ice_now (i,k), w_so_ice_new (i,k)
+        ENDDO
         WRITE(*,'(A        )') '                                '
-        WRITE(*,'(A        )') '   Fluxes etc.:                 '
+        WRITE(*,'(A        )') ' Fluxes etc.            :  '
         WRITE(*,'(A, F28.16)') '   tcm              :  ', tcm(i)
         WRITE(*,'(A, F28.16)') '   tch              :  ', tch(i)
-        WRITE(*,'(A, F28.16)') '   runoff_s         :  ', runoff_s(i)
-        WRITE(*,'(A, F28.16)') '   runoff_g         :  ', runoff_g(i)
-        WRITE(*,'(A, F28.16)') '   rstom            :  ', rstom(i)
-        WRITE(*,'(A, F28.16)') '   plevap           :  ', plevap(i)
-        WRITE(*,'(A,2F28.16)') '   zs/lhfl_sfc      :  ', zshfl_sfc(i),     zlhfl_sfc(i)
-        WRITE(*,'(A, F28.16)') '   zqhfl_sfc        :  ', zqhfl_sfc(i)
-        WRITE(*,'(A,2F28.16)') '   zs/lhfl_s        :  ', zshfl_s(i),       zlhfl_s(i)
-        WRITE(*,'(A,2F28.16)') '   zs/lhfl_snow     :  ', zshfl_snow(i),    zlhfl_snow(i)
-        WRITE(*,'(A, F28.16)') '   zgsb             :  ', zgsb(i)
-        WRITE(*,'(A, F28.16)') '   lhfl_bs          :  ', lhfl_bs(i)
-do k = 1, ke_soil
-        WRITE(*,'(A,I1,A, F28.16)') '   lhfl_pl (',k,')      :  ', lhfl_pl(i,k)
-enddo
+        WRITE(*,'(A, F28.16)') '   runoff_s (out)       :  ', runoff_s(i)
+        WRITE(*,'(A, F28.16)') '   runoff_g (out)       :  ', runoff_g(i)
+        WRITE(*,'(A, F28.16)') '   rstom            : ', rstom(i)
+        IF (itype_trvg == 3) THEN
+          WRITE(*,'(A, F28.16)') '   plevap               :  ', plevap(i)
+        ENDIF
+        WRITE(*,'(A,2F28.16)') '   zshfl/zlhfl (surface):  ', zshfl_sfc(i), zlhfl_sfc(i)
+        WRITE(*,'(A, F28.16)') '   zqhfl (surface)      :  ', zqhfl_sfc(i)
+        WRITE(*,'(A,2F28.16)') '   zshfl/zlhfl (soil)   :  ', zshfl_s(i), zlhfl_s(i)
+        WRITE(*,'(A, F28.16)') '   zqhfl (soil)         :  ', zqhfl_s(i)
+        WRITE(*,'(A,2F28.16)') '   zshfl/lhfl  (snow)   :  ', zshfl_snow(i), zlhfl_snow(i)
+        WRITE(*,'(A, F28.16)') '   zqhfl (snow)         :  ', zqhfl_snow(i)
+        WRITE(*,'(A, F28.16)') '   zgsb (heat flux throw snow) :  ', zgsb(i)
+        WRITE(*,'(A, F28.16)') '   lhfl_bs              :  ', lhfl_bs(i)
+        DO k = 1, ke_soil
+          WRITE(*,'(A,I1,A, F28.16)') '   lhfl_pl (',k,')      :  ', lhfl_pl(i,k)
+        ENDDO
+        DO k = 1, ke_soil+1
+          WRITE(*,'(A,I1,A, F28.16)') '   zrunoff_grav [kg/m2/s] (',k,')      :  ', zrunoff_grav(i,kso)
+        ENDDO
+
       ENDIF
     ENDDO
   ENDIF

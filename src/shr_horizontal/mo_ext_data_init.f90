@@ -55,7 +55,6 @@ MODULE mo_ext_data_init
     &                              itype_vegetation_cycle, read_nc_via_cdi, pp_glacier_sso
   USE mo_initicon_config,    ONLY: icpl_da_sfcevap, dt_ana
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
-  USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_process_topo,       ONLY: smooth_topo_real_data, postproc_glacier_sso
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
@@ -74,9 +73,9 @@ MODULE mo_ext_data_init
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_time_config,        ONLY: time_config
   USE mo_io_config,          ONLY: default_read_method
-  USE mo_read_interface,     ONLY: nf, openInputFile, closeFile, on_cells, &
-    &                              t_stream_id, read_2D, read_2D_int, &
-    &                              read_3D_extdim, read_2D_extdim
+  USE mo_read_interface,     ONLY: openInputFile, closeFile, on_cells, t_stream_id, &
+    &                              read_2D, read_2D_int, read_3D_extdim, read_2D_extdim
+  USE mo_netcdf_errhandler,  ONLY: nf
   USE turb_data,             ONLY: c_lnd, c_sea
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d,     &
     &                              read_cdi_3d, t_inputParameters,                 &
@@ -934,20 +933,6 @@ CONTAINS
 
         CALL closeFile(stream_id)
 
-        ! If JSBACH is used open/read the mask for the hydrological discharge model
-        IF ( echam_phy_config(jg)%ljsb ) THEN
-
-          CALL openInputFile(stream_id, 'hd_mask.nc', p_patch(jg), default_read_method)
-     
-          ! get land-sea-mask on cells, integer marks are:
-          ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
-          ! boundary land (1, cells and vertices), inner land (2)
-          CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
-            &              ext_data(jg)%atm%lsm_hd_c)
-
-          CALL closeFile(stream_id)
-
-        END IF
 
       END DO
 
@@ -1809,6 +1794,13 @@ CONTAINS
            IF (1._wp-ext_data(jg)%atm%fr_land(jc,jb)-ext_data(jg)%atm%fr_lake(jc,jb) &
              &   >= frsea_thrhld) THEN
              i_count_sea=i_count_sea + 1
+
+             ! Ensure that sea and lake tiles do not coexist on any grid point (this is already done
+             ! in extpar but might not be fulfilled in data sets generated with other software)
+             IF (ext_data(jg)%atm%fr_lake(jc,jb) >= frlake_thrhld) THEN
+               CALL finish('', "Lake and sea tiles must not coexist on any grid point")
+             ENDIF
+
              ext_data(jg)%atm%list_sea%idx(i_count_sea,jb) = jc  ! write index of sea-points
              ext_data(jg)%atm%list_sea%ncount(jb) = i_count_sea
              ! set land-cover class

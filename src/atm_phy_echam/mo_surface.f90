@@ -37,6 +37,7 @@ MODULE mo_surface
                                 & matrix_to_richtmyer_coeff
   USE mo_surface_diag,      ONLY: wind_stress, surface_fluxes
   USE mo_index_list,        ONLY: generate_index_list_batched
+  USE mtime,                ONLY: datetime
 #ifndef __NO_JSBACH__
   USE mo_jsb_interface,     ONLY: jsbach_interface
 #endif
@@ -71,6 +72,7 @@ CONTAINS
                            & kice,                              &! in
                            & klev, ksfc_type,                   &! in
                            & idx_wtr, idx_ice, idx_lnd,         &! in
+                           & datetime_old,                      &! in
                            & pdtime,                            &! in
                            & pfrc,                              &! in
                            & pcfh_tile, pcfm_tile,              &! in
@@ -145,6 +147,7 @@ CONTAINS
                            & albvisdir_ice, albvisdif_ice,      &! inout
                            & albnirdir_ice, albnirdif_ice)       ! inout
 
+    TYPE(datetime), INTENT(IN), POINTER :: datetime_old ! date and time at beginning of this time step
     REAL(wp),INTENT(IN) :: pdtime
     INTEGER, INTENT(IN) :: jg
     INTEGER, INTENT(IN) :: jcs, kproma, kbdim
@@ -562,7 +565,8 @@ CONTAINS
 
       IF (echam_phy_config(jg)%ljsb ) THEN
       IF (echam_phy_config(jg)%llake) THEN
-        CALL jsbach_interface ( jg, nblock, jcs, kproma, pdtime, pdtime,                     & ! in
+        CALL jsbach_interface ( jg, nblock, jcs, kproma,                                     & ! in
+          & datetime_old, pdtime, pdtime,                                                    & ! in
           & t_air             = ptemp(jcs:kproma),                                           & ! in
           & q_air             = pq(jcs:kproma),                                              & ! in
           & rain              = rain_tmp(jcs:kproma),                                        & ! in
@@ -695,7 +699,8 @@ CONTAINS
 #endif
 #endif
       ELSE
-        CALL jsbach_interface ( jg, nblock, jcs, kproma, pdtime, pdtime,                     & ! in
+        CALL jsbach_interface ( jg, nblock, jcs, kproma,                                     & ! in
+          & datetime_old, pdtime, pdtime,                                                    & ! in
           & t_air             = ptemp(jcs:kproma),                                           & ! in
           & q_air             = pq(jcs:kproma),                                              & ! in
           & rain              = rain_tmp(jcs:kproma),                                        & ! in

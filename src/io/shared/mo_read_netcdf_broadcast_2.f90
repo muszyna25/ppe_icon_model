@@ -42,6 +42,7 @@ MODULE mo_read_netcdf_broadcast_2
     &                              process_mpi_root_id, p_bcast
   USE mo_communication,      ONLY: t_scatterPattern
   USE mo_fortran_tools,      ONLY: t_ptr_2d, t_ptr_2d_int, t_ptr_3d, t_ptr_3d_int
+  USE mo_netcdf_errhandler,  ONLY: nf
   !-------------------------------------------------------------------------
 
   IMPLICIT NONE
@@ -49,7 +50,6 @@ MODULE mo_read_netcdf_broadcast_2
 
   INCLUDE 'netcdf.inc'
 
-  PUBLIC :: nf
   PUBLIC :: netcdf_open_input, netcdf_close
 
   PUBLIC :: netcdf_read_att_int
@@ -1747,35 +1747,5 @@ CONTAINS
     ! write(0,*)  TRIM(variable_name), " miss=", has_missValue, missValue
      
   END SUBROUTINE netcdf_get_missValue
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  SUBROUTINE nf(STATUS, routine, warnonly, silent)
-
-    INTEGER, INTENT(in)           :: STATUS
-    CHARACTER(len=*), INTENT(in) :: routine
-    LOGICAL, INTENT(in), OPTIONAL :: warnonly
-    LOGICAL, INTENT(in), OPTIONAL :: silent
-
-    LOGICAL :: lwarnonly, lsilent
-
-    lwarnonly = .FALSE.
-    lsilent   = .FALSE.
-    IF(PRESENT(warnonly)) lwarnonly = .TRUE.
-    IF(PRESENT(silent))   lsilent   = silent
-
-    IF (lsilent) RETURN
-
-
-    IF (STATUS /= nf_noerr) THEN
-      IF (lwarnonly) THEN
-        CALL message(routine, 'netCDF error: '//nf_strerror(STATUS), &
-          & level=em_warn)
-      ELSE
-        CALL finish(routine, 'netCDF error: '//nf_strerror(STATUS))
-      ENDIF
-    ENDIF
-
-  END SUBROUTINE nf
 
 END MODULE mo_read_netcdf_broadcast_2

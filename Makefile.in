@@ -36,7 +36,10 @@ help:
 	echo "where <jobs> is the number of simultaneous building jobs and <target> is one of"; \
 	echo "the following:"; \
 	echo "  'all' (default) build ICON"; \
-	echo "  'check'         check whether ICON is built correctly"; \
+	echo "  'check'         build ICON and check whether the bundled libraries are built"; \
+	echo "                  correctly"; \
+	echo "  'check-bundled' skip building ICON and check whether the bundled libraries are"; \
+	echo "                  built correctly"; \
 	echo "  'install'       install ICON"; \
 	echo "  'depend'        generate dependency files"; \
 	echo "  'preprocess'    run source file preprocessing"; \

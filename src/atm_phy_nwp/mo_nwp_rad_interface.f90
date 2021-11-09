@@ -1,6 +1,6 @@
 !>
 !! This module is the interface between nwp_nh_interface to the radiation schemes
-!! (ecRad, RRTM or Ritter-Geleyn).
+!! (ecRad and RRTM).
 !!
 !! @author Thorsten Reinhardt, AGeoBw, Offenbach
 !!
@@ -18,11 +18,12 @@
 
 MODULE mo_nwp_rad_interface
 
-  USE mo_exception,            ONLY: finish, message
+  USE mo_exception,            ONLY: finish, message, message_text
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
+  USE mo_nh_testcases_nml,     ONLY: nh_test_name, albedo_set
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_impl_constants,       ONLY: MODIS
+  USE mo_impl_constants,       ONLY: MODIS, min_rlcell_int
   USE mo_kind,                 ONLY: wp
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_model_domain,         ONLY: t_patch
@@ -33,8 +34,6 @@ MODULE mo_nwp_rad_interface
   USE mo_nwp_rrtm_interface,   ONLY: nwp_rrtm_radiation,             &
     &                                nwp_rrtm_radiation_reduced,     &
     &                                nwp_ozon_aerosol
-  USE mo_nwp_rg_interface,     ONLY: nwp_rg_radiation,               &
-    &                                nwp_rg_radiation_reduced
 #ifdef __ECRAD
   USE mo_nwp_ecrad_interface,  ONLY: nwp_ecrad_radiation,            &
     &                                nwp_ecrad_radiation_reduced
@@ -42,6 +41,8 @@ MODULE mo_nwp_rad_interface
 #endif
   USE mo_albedo,               ONLY: sfc_albedo, sfc_albedo_modis
   USE mtime,                   ONLY: datetime
+  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
+  USE mo_loopindices,          ONLY: get_indices_c
   USE mo_nwp_gpu_util,         ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp
   USE mo_bc_greenhouse_gases,  ONLY: bc_greenhouse_gases_time_interpolation
 #if defined( _OPENACC )
@@ -62,8 +63,7 @@ MODULE mo_nwp_rad_interface
   !---------------------------------------------------------------------------------------
   !>
   !! This subroutine is the interface between nwp_nh_interface to the radiation schemes.
-  !! Depending on inwp_radiation, it can call RRTM (1), Ritter-Geleyn (2), or 
-  !! ecRad(4).
+  !! Depending on inwp_radiation, it can call RRTM (1) or ecRad(4).
   !!
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
@@ -97,7 +97,12 @@ MODULE mo_nwp_rad_interface
       & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
 
-    INTEGER :: jg
+    INTEGER :: jg, irad
+    INTEGER :: jb, jc          !< loop indices
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startidx, i_endidx    !< slices
+    INTEGER :: i_nchdom                !< domain index
     LOGICAL :: lacc
 
     REAL(wp):: zsct        ! solar constant (at time of year)
@@ -107,6 +112,13 @@ MODULE mo_nwp_rad_interface
 
     ! patch ID
     jg = pt_patch%id
+    i_nchdom  = MAX(1,pt_patch%n_childdom)
+
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
     ! openACC flag (initialization run is left on)
     IF(PRESENT(linit)) THEN
@@ -135,13 +147,6 @@ MODULE mo_nwp_rad_interface
       ! In radiative transfer routine RRTM skips all points with cosmu0<=0. That's why 
       ! points to be skipped need to be marked with a value <=0
       cosmu0_dark = -1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
-    CASE (2)
-      ! Ritter-Geleyn
-      ! Skipping of points is performed on block- rather than cell-level. I.e. if a block 
-      ! contains at least 1 point with cosmu0>1.E-8, radiatve transfer is computed for 
-      ! the entire block. Therefore cosmu0_dark = -1.e-9_wp does not work here (crashes).
-      ! For all points cosmu0 must be <0.
-      cosmu0_dark =  1.e-9_wp   ! minimum cosmu0, for smaller values no shortwave calculations
     CASE (4)
       ! ecRad
       ! ecRad skips cosmu0<=0 as well.
@@ -170,6 +175,13 @@ MODULE mo_nwp_rad_interface
     IF ( albedo_type == MODIS ) THEN
       ! MODIS albedo
       CALL sfc_albedo_modis(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag, lacc)
+!!
+!! in case sfc_albedo_scm has been implemented the following lines should be
+!! active instead of the RCEMIP_analytical IF-BLOCK, see below.
+!!    ELSE IF ( albedo_type == 3 ) THEN
+!!       albedo_value = 0.07_wp                  !should equal albedo_set for RCEMIP_analytical
+!!       CALL sfc_albedo_scm(pt_patch, ext_data, albedo_value, prm_diag)
+!!
     ELSE
 #ifdef _OPENACC
       IF (lacc) CALL finish('nwp_radiation','sfc_albedo not ported to gpu')
@@ -178,6 +190,22 @@ MODULE mo_nwp_rad_interface
       CALL sfc_albedo(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
     ENDIF
 
+    !FOR RCEMIP, SET ALBEDO TO FIXED VALUE
+!! 
+!! Use the upper 'IF ( albedo_type == 3 )' as soon as sfc_albedo_scm has been introduced !!!!
+!!
+    IF( nh_test_name=='RCEMIP_analytical' ) THEN
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+        DO jc = i_startidx, i_endidx
+          prm_diag%albdif(jc,jb)    = albedo_set
+          prm_diag%albvisdif(jc,jb) = albedo_set
+          prm_diag%albnirdif(jc,jb) = albedo_set
+          prm_diag%albvisdir(jc,jb) = albedo_set
+          prm_diag%albnirdir(jc,jb) = albedo_set
+        ENDDO
+      ENDDO  ! jb
+    ENDIF
 
     
     !-------------------------------------------------------------------------
@@ -212,16 +240,6 @@ MODULE mo_nwp_rad_interface
           
       ENDIF
 
-    CASE (2) ! Ritter-Geleyn
-
-      IF (.NOT. lredgrid) THEN
-        CALL nwp_rg_radiation ( p_sim_time, mtime_datetime, pt_patch, &
-          & ext_data,pt_prog,pt_diag,prm_diag, lnd_prog, zsct )
-      ELSE
-        CALL nwp_rg_radiation_reduced ( p_sim_time, mtime_datetime, pt_patch,pt_par_patch, &
-          & ext_data, pt_prog, pt_diag, prm_diag, lnd_prog, zsct )
-      ENDIF
-
     CASE (4) ! ecRad
 #ifdef __ECRAD
       CALL nwp_ozon_aerosol ( p_sim_time, mtime_datetime, pt_patch, ext_data, &
@@ -230,17 +248,23 @@ MODULE mo_nwp_rad_interface
       IF (.NOT. lredgrid) THEN
         CALL nwp_ecRad_radiation ( mtime_datetime, pt_patch, ext_data,      &
           & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                              &
-          & pt_diag, prm_diag, lnd_prog, ecrad_conf )
+          & pt_diag, prm_diag, pt_prog, lnd_prog, ecrad_conf )
       ELSE
         CALL nwp_ecRad_radiation_reduced ( mtime_datetime, pt_patch,pt_par_patch, &
           & ext_data, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                          &
-          & pt_diag, prm_diag, lnd_prog, ecrad_conf )
+          & pt_diag, prm_diag, pt_prog, lnd_prog, ecrad_conf )
       ENDIF
 #else
       CALL finish(routine,  &
         &      'atm_phy_nwp_config(jg)%inwp_radiation = 4 needs -D__ECRAD.')
 #endif
+
+    CASE DEFAULT !Invalid inwp_radiation
+      WRITE (message_text, '(a,i2,a)') 'inwp_radiation = ', atm_phy_nwp_config(jg)%inwp_radiation, &
+        &                  ' not valid. Valid choices are 0: none, 1:RRTM, 4:ecRad '
+      CALL finish(routine,message_text)
     END SELECT ! inwp_radiation
+
 #ifdef _OPENACC
     IF(lacc) THEN
       CALL message('mo_nh_interface_nwp', 'Host to device copy after Radiation. This needs to be removed once port is finished!')

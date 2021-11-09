@@ -52,10 +52,10 @@ author_list="Monika Esch & Rene Redler"
 # (1) Basic model configuration
 # -----------------------------
 
-atmos_gridID="0013"
+atmos_gridID="0043"
 atmos_refinement="R02B04"
 
-ocean_gridID="0014"
+ocean_gridID="0036"
 ocean_refinement="R02B04"
 
 nproma_atm=48
@@ -111,26 +111,26 @@ atmo_dyn_grid=${atm_grid_name}.nc
 # start and end date+time
 # -----------------------
 start_date=${start_date:="1979-01-01T00:00:00Z"}
-    end_date=${end_date:="2015-01-01T00:00:00Z"}
+    end_date=${end_date:="1979-01-03T00:00:00Z"}  # short test
 
 # restart intervals
 # -----------------
 checkpoint_interval="P1Y"
-restart_interval="P1D"
+restart_interval="P2D"
 
 # output intervals
 # ----------------
 
-atm_file_interval="P1Y"
-atm_output_interval="P1M"
+atm_file_interval="P1D"
+atm_output_interval="P1D"
 
-oce_file_interval="P1Y"
-oce_output_interval="P1M"
+oce_file_interval="P1D"
+oce_output_interval="P1D"
 
 # namelist files
 # --------------
 atm_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
+jsbach_namelist=NAMELIST_${EXPNAME}_lnd
 oce_namelist=NAMELIST_${EXPNAME}_oce
 
 #--------------------------------------------------------------------------------------------------
@@ -139,7 +139,6 @@ oce_namelist=NAMELIST_${EXPNAME}_oce
 #-----------------------------------
 
 # JSBACH settings
-run_jsbach=yes
 jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
 jsbach_with_lakes=yes
 jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
@@ -147,7 +146,6 @@ jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
 # Some further processing for land configuration
 # ----------------------------------------------
 
-ljsbach=$([ "${run_jsbach:=no}" == yes ]          && echo .TRUE. || echo .FALSE. )
 llake=$([ "${jsbach_with_lakes:=yes}" == yes ]    && echo .TRUE. || echo .FALSE. )
 lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 
@@ -268,24 +266,24 @@ cat > coupling_${EXPNAME}.xml << EOF
          <model>ICON</model>
          <simulated>ocean</simulated>
          <transient_grid_refs>
-            <transient_grid_ref collection_size="2" grid_ref="1" id="1" transient_ref="1"/>
-            <transient_grid_ref collection_size="2" grid_ref="1" id="2" transient_ref="2"/>
-            <transient_grid_ref collection_size="3" grid_ref="1" id="3" transient_ref="3"/>
-            <transient_grid_ref collection_size="4" grid_ref="1" id="4" transient_ref="4"/>
-            <transient_grid_ref collection_size="2" grid_ref="1" id="5" transient_ref="5"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="6" transient_ref="6"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="7" transient_ref="7"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="8" transient_ref="8"/>
-            <transient_grid_ref collection_size="3" grid_ref="1" id="9" transient_ref="9"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="10" transient_ref="10"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="11" transient_ref="11"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="12" transient_ref="12"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="13" transient_ref="13"/>
-            <transient_grid_ref collection_size="1" grid_ref="1" id="14" transient_ref="14"/>
+            <transient_grid_ref collection_size="2" grid_ref="2" id="1" transient_ref="1"/>
+            <transient_grid_ref collection_size="2" grid_ref="2" id="2" transient_ref="2"/>
+            <transient_grid_ref collection_size="3" grid_ref="2" id="3" transient_ref="3"/>
+            <transient_grid_ref collection_size="4" grid_ref="2" id="4" transient_ref="4"/>
+            <transient_grid_ref collection_size="2" grid_ref="2" id="5" transient_ref="5"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="6" transient_ref="6"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="7" transient_ref="7"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="8" transient_ref="8"/>
+            <transient_grid_ref collection_size="3" grid_ref="2" id="9" transient_ref="9"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="10" transient_ref="10"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="11" transient_ref="11"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="12" transient_ref="12"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="13" transient_ref="13"/>
+            <transient_grid_ref collection_size="1" grid_ref="2" id="14" transient_ref="14"/>
          </transient_grid_refs>
       </component>
       <component id="3">
-         <name>name_list_io</name>
+         <name>dummy</name>
          <model>ICON</model>
          <simulated>IO</simulated>
       </component>
@@ -307,7 +305,8 @@ cat > coupling_${EXPNAME}.xml << EOF
       <transient id="14" transient_standard_name="sea_level_pressure"/>
    </transients>
    <grids>
-      <grid alias_name="grid1" id="1"/>
+      <grid alias_name="icon_atmos_grid" id="1"/>
+      <grid alias_name="icon_ocean_grid" id="2"/>
    </grids>
    <dates>
       <start_date>+1800-01-01T00:00:00.000</start_date>
@@ -330,12 +329,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="2">
@@ -349,12 +346,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="3">
@@ -368,12 +363,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="4">
@@ -387,12 +380,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="5">
@@ -406,12 +397,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="6">
@@ -425,12 +414,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="7">
@@ -444,12 +431,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="8">
@@ -463,12 +448,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="9">
@@ -482,12 +465,10 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="10">
@@ -501,12 +482,27 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
+         </transient_couple>
+         <transient_couple transient_id="11">
+            <source component_ref="1" transient_grid_ref="11"/>
+            <target transient_grid_ref="11"/>
+            <timestep>
+               <source>${atmTimeStep}</source>
+               <target>${oceTimeStep}</target>
+               <coupling_period operation="average">${couplingTimeStep}</coupling_period>
+               <source_timelag>${atm_lag}</source_timelag>
+               <target_timelag>${oce_lag}</target_timelag>
+            </timestep>
+            <mapping_on_source>true</mapping_on_source>
+            <interpolation_requirements>
+               <interpolation method="source_to_target_map" spread_distance="0.0"/>
+               <interpolation method="fixed_value" user_value="-999.9"/>
+            </interpolation_requirements>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="14">
@@ -520,17 +516,15 @@ cat > coupling_${EXPNAME}.xml << EOF
                <target_timelag>${oce_lag}</target_timelag>
             </timestep>
             <mapping_on_source>true</mapping_on_source>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="0.0"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
       </couple>
    </couples>
-   <created date="10-04-2019 17:21" tool="YAC-CouplingGUI v.1.5.1"/>
+   <created date="26-02-2021 16:00" tool="YAC-CouplingGUI v.2.0.0"/>
 </coupling>
 
 
@@ -557,8 +551,11 @@ cat > ${atm_namelist} << EOF
   coupled_mode     = .TRUE.
 /
 &parallel_nml
- nproma            = ${nproma_atm}
- num_io_procs      = ${mpi_atm_io_procs}
+ nproma             = ${nproma_atm}
+ num_io_procs       = ${mpi_atm_io_procs}
+ num_restart_procs  = 3
+ io_process_stride  = 12
+ io_proc_chunk_size = 36
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grid}"
@@ -629,7 +626,7 @@ cat > ${atm_namelist} << EOF
  echam_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- echam_phy_config(1)%ljsb   = ${ljsbach}
+ echam_phy_config(1)%ljsb   = .TRUE.
  echam_phy_config(1)%lamip  = .FALSE.
  echam_phy_config(1)%lice   = .TRUE.
  echam_phy_config(1)%lmlo   = .FALSE.
@@ -653,7 +650,7 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%irad_o2    =  2
  echam_rad_config(1)%irad_cfc11 =  4
  echam_rad_config(1)%irad_cfc12 =  4
- echam_rad_config(1)%irad_aero  = 18
+ echam_rad_config(1)%irad_aero  = 12
 /
 &echam_gwd_nml
 /
@@ -676,7 +673,7 @@ EOF
 # jsbach namelist
 # ---------------
 
-cat > ${lnd_namelist} << EOF
+cat > ${jsbach_namelist} << EOF
 &jsb_model_nml
   usecase              = "${jsbach_usecase}"
   use_lakes            = ${llake}
@@ -765,7 +762,7 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 # namelist files
 # --------------
 add_required_file ${basedir}/run/${atm_namelist}                        ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
+add_required_file ${basedir}/run/${jsbach_namelist}                     ./
 
 # dictionary file for output variable names
 #
@@ -776,12 +773,12 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 # initial conditions
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-datadir=${atmo_data_InputFolder}/initial_condition/r0002
+datadir=${atmo_data_InputFolder}/initial_condition/r0001
 add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2icon.nc
 #
 # - land: source?, date+time?
-datadir=${atmo_data_InputFolder}/land/r0009
-add_link_file ${datadir}/ic_land_soil_1992.nc                           ./ic_land_soil.nc
+datadir=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}/land/r0002
+add_link_file ${datadir}/ic_land_soil_1979.nc                           ./ic_land_soil.nc
 
 # boundary conditions
 #
@@ -799,39 +796,21 @@ end_year=$(( ${end_date%%-*} + 1 ))
 # - ozone
 # -- for irad_o3=8
 #
-datadir=${atmo_data_InputFolder}/ozone/r0002
+datadir=${atmo_data_InputFolder}/ozone/r0001
 #
 add_link_file ${datadir}/bc_ozone_picontrol.nc                          ./bc_ozone.nc
 #
-# - tropospheric anthropogenic aerosols, simple plumes (irad_aero=18)
+#   Kinne background aerosols are needed for the year 1850 (irad_aero=12,18,19)
 #
-datadir=${icon_data_poolFolder}/independent/MACv2_simple_plumes_merged
-#
-add_link_file ${datadir}/MACv2.0-SP-merged-historical-and-SSP2-45_v1.nc ./MACv2.0-SP_v1.nc
-#
-#   Kinne background aerosols are needed for the year 1850 (irad_aero=18)
-#
-#   Here we use revised data (r0002) based on work by Sebastian Rast
-#
-datadir=${atmo_data_InputFolder}/aerosol_kinne/r0002
+datadir=${atmo_data_InputFolder}/aerosol_kinne/r0001
 #
 add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                  ./
 add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                  ./
 add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
 #
-# - stratospheric aerosol (CMIP6) (irad_aero=18)
-#
-datadir=${icon_data_poolFolder}/independent/CMIP6Forcing
-#
-if [ ! -d $datadir ]; then
-  echo 'directory '$datadir' for stratospheric aerosol data does not exist'
-  exit -1
-fi	
-add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_1850.nc       ./bc_aeropt_cmip6_volc_lw_b16_sw_b14.nc
-#
 # - sst and sic
 #
-datadir=${atmo_data_InputFolder}/sst_and_seaice/r0002
+datadir=${atmo_data_InputFolder}/sst_and_seaice/r0001
 #
 add_link_file ${datadir}/bc_sic_1979_2016.nc                               ./bc_sic.nc
 add_link_file ${datadir}/bc_sst_1979_2016.nc                               ./bc_sst.nc
@@ -844,12 +823,12 @@ add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc             ./bc_
 #
 # - land parameters
 #
-datadir=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}/land
+datadir=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}/land/r0002
 #
-add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1992.nc               ./bc_land_frac.nc
-add_link_file ${datadir}/bc_land_phys_1992.nc                              ./bc_land_phys.nc
-add_link_file ${datadir}/bc_land_soil_1992.nc                              ./bc_land_soil.nc
-add_link_file ${datadir}/bc_land_sso_1992.nc                               ./bc_land_sso.nc
+add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1979.nc               ./bc_land_frac.nc
+add_link_file ${datadir}/bc_land_phys_1979.nc                              ./bc_land_phys.nc
+add_link_file ${datadir}/bc_land_soil_1979.nc                              ./bc_land_soil.nc
+add_link_file ${datadir}/bc_land_sso_1979.nc                               ./bc_land_sso.nc
 #
 # - lctlib file for JSBACH
 #
@@ -857,7 +836,7 @@ add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def           ./lct
 #
 # - HD mask for interpolation of runoff
 #
-datadir=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}/land
+datadir=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}/land/r0001
 #
 add_link_file ${datadir}/hdrestart_R02B04_013_G_210120_1334_with_grid_file_mask.nc ./ic_land_hd.nc
 add_link_file ${datadir}/hdpara_icon_r2b4_013_using_grid_lsmask.nc         ./bc_land_hd.nc
@@ -880,7 +859,7 @@ cat >> ${atm_namelist} << EOF
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
  restart_file_type= 5
-! restart_write_mode = "joint procs multifile" !not necessary/useful in default r2b4 setup
+ restart_write_mode = "joint procs multifile" !not necessary/useful in default r2b4 setup
 /
 EOF
 
@@ -1056,6 +1035,7 @@ cat > ${oce_namelist} << EOF
 &parallel_nml
  nproma                      = ${nproma_oce}
  num_io_procs                = ${mpi_oce_io_procs}
+ num_restart_procs           = 3
  p_test_run                  = .FALSE.
  l_fast_sum                  = .TRUE.
  num_prefetch_proc           = 0
@@ -1270,7 +1250,7 @@ cat >> ${oce_namelist} << EOF
 &io_nml
   restart_file_type                          = 5
   write_last_restart                         = .TRUE.
-! restart_write_mode                         = "joint procs multifile"
+  restart_write_mode                         = "joint procs multifile"
 ! lkeep_in_sync                              = .TRUE.           ! sync after each timestep
 /
 EOF
@@ -1282,11 +1262,12 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 # Ocean initialisation input
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
-  add_link_file ${ocean_data_InputFolder}/restart/r0001/rar0026_restart_oce_20500101T000000Z.nc restart_ocean_DOM01.nc 
+# add_link_file ${ocean_data_InputFolder}/restart/r0001/rar0407_restart_oce_19800101T000000Z.mfr multifile_restart_ocean.mfr
+  add_link_file ${ocean_data_InputFolder}/restart/r0001/ler1166_restart_oce_21000101T000000Z.nc  restart_ocean_DOM01.nc
 fi
 #
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then
-  add_link_file ${ocean_data_InputFolder}/initial_condition/r0001/ts_phc3.0_annual_icon_grid_0014_R02B04_O_L40.nc initial_state.nc
+  add_link_file ${ocean_data_InputFolder}/initial_conditions/r0001/ts_phc3.0_annual_icon_grid_${ocean_gridID}_${ocean_refinement}_O_L40.nc initial_state.nc
 fi
 # Ocean grid
 #

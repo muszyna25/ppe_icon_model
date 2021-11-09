@@ -31,10 +31,9 @@ MODULE mo_io_util
     &                                 FILETYPE_GRB, FILETYPE_GRB2
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
   USE mo_util_string,           ONLY: tolower
-  USE mo_read_interface,        ONLY: nf
+  USE mo_netcdf_errhandler,     ONLY: nf
 
   IMPLICIT NONE
-
   PRIVATE
 
   INCLUDE 'netcdf.inc'

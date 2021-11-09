@@ -1,0 +1,10 @@
+#!/bin/bash
+
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
+
+# ${ICON_DIR}/config/dkrz/mistral.nag-6.2.6223_oes_lvector --enable-yaxt --disable-openmp
+${ICON_DIR}/config/dkrz/mistral.nag-6.2.6223_oes_lvector --disable-openmp --disable-atmo --disable-rttov --disable-ecrad --disable-dace --disable-emvorado --disable-rte-rrtmgp --disable-concurrent-psrad --disable-jsbach --disable-coupling
+
+MAKE_PROCS=8
+make -j ${MAKE_PROCS}

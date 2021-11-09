@@ -47,7 +47,7 @@ MODULE mo_name_list_output_init
     &                                             GRID_EDGE, GRID_CELL, LONLAT_PREFIX
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_master_config,                     ONLY: getModelBaseDir, isRestart
-  USE mo_master_control,                    ONLY: my_process_is_oceanic
+  USE mo_master_control,                    ONLY: my_process_is_oceanic, my_process_is_jsbach
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
   USE mo_dictionary,                        ONLY: t_dictionary
@@ -185,6 +185,7 @@ MODULE mo_name_list_output_init
   USE yaxt,                                 ONLY: xt_idxlist, &
        xt_idxvec_new, xt_idxlist_delete, xt_idxstripes_from_idxlist_new, &
        xt_int_kind, xt_idxstripes_new, xt_idxempty_new, xt_stripe
+  USE mo_io_coupling,     ONLY: construct_io_coupler
 #endif
   IMPLICIT NONE
 
@@ -210,7 +211,9 @@ MODULE mo_name_list_output_init
   PUBLIC :: isRegistered
   PUBLIC :: nlevs_of_var
 
+#ifdef HAVE_CDI_PIO
   PUBLIC :: init_cdipio_cb
+#endif
 
   !------------------------------------------------------------------------------------------------
 
@@ -1587,12 +1590,20 @@ CONTAINS
     END IF
   END SUBROUTINE print_output_event_table
 
+#ifdef HAVE_CDI_PIO
   ! called by all CDI-PIO async ranks after the initialization of
   ! communication replicates the output events on CDI PIO rank 0, so
   ! that output rank 0 can write the ready files later
   SUBROUTINE init_cdipio_cb
     INTEGER :: dom_sim_step_info_jstep0
     TYPE(t_event_data_local) :: event_list_dummy(1)
+    
+    IF ( is_coupled_run() ) THEN
+
+       CALL construct_io_coupler ( "dummy" )
+
+    ENDIF
+
     IF (p_pe_work == 0) THEN
       CALL p_recv(dom_sim_step_info_jstep0, p_source=0, p_tag=156, &
         &         comm=p_comm_work_io)
@@ -1606,6 +1617,7 @@ CONTAINS
       CALL print_output_event_table(dom_sim_step_info_jstep0)
     END IF
   END SUBROUTINE init_cdipio_cb
+#endif
 
   FUNCTION add_out_event(of, i, local_i, sim_step_info, &
     &                    dom_sim_step_info_jstep0, &
@@ -1677,13 +1689,13 @@ CONTAINS
     dom_sim_step_info = sim_step_info
     CALL getPTStringFromSeconds(NINT(start_time(of%log_patch_id),i8), time_offset_str)
     mtime_td   => newTimedelta(time_offset_str)
-    dom_sim_step_info%dom_start_time = time_config%tc_startdate + mtime_td
+    dom_sim_step_info%dom_start_time = time_config%tc_exp_startdate + mtime_td
     CALL deallocateTimedelta(mtime_td)
 
     IF (end_time(of%log_patch_id) < DEFAULT_ENDTIME) THEN
       CALL getPTStringFromSeconds(NINT(end_time(of%log_patch_id),i8), time_offset_str)
       mtime_td   => newTimedelta(time_offset_str)
-      dom_sim_step_info%dom_end_time = time_config%tc_startdate + mtime_td
+      dom_sim_step_info%dom_end_time = time_config%tc_exp_startdate + mtime_td
       CALL deallocateTimedelta(mtime_td)
     ELSE
       dom_sim_step_info%dom_end_time = dom_sim_step_info%sim_end
@@ -1778,7 +1790,7 @@ CONTAINS
       IF (.not. my_process_is_oceanic()) THEN ! atm
         SELECT CASE(p_of%ilev_type)
         CASE (level_type_ml)
-          CALL setup_ml_axes_atmo(p_of%verticalAxisList, p_of%level_selection, p_of%log_patch_id)
+          IF (.NOT. my_process_is_jsbach()) CALL setup_ml_axes_atmo(p_of%verticalAxisList, p_of%level_selection, p_of%log_patch_id)
 #ifndef __NO_JSBACH__
           IF (ANY(echam_phy_config(:)%ljsb)) CALL setup_zaxes_jsbach(p_of%verticalAxisList)
 #endif

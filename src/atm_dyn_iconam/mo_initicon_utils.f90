@@ -57,6 +57,7 @@ MODULE mo_initicon_utils
     &                               l2lay_rho_snow, lprog_albsi
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+  USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE sfc_terra_data,         ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
@@ -79,6 +80,7 @@ MODULE mo_initicon_utils
   USE mo_time_config,         ONLY: time_config
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
+  USE mo_aerosol_sources_types,  ONLY: p_dust_source_const
   USE mo_upatmo_config,       ONLY: upatmo_config
   USE mo_2mom_mcrph_driver,   ONLY: set_qnc, set_qnr, set_qni,   &
     &                               set_qns, set_qng, set_qnh
@@ -244,7 +246,18 @@ MODULE mo_initicon_utils
           COUNT(.NOT.aerosol_fg_present(jg,1:5)),' of 5 types'
         CALL message('init_aerosol', TRIM(message_text))
       ENDIF
+
+      CALL p_dust_source_const(jg)%init(ext_data(jg)%atm%i_lc_shrub_eg,  &
+        &                               ext_data(jg)%atm%i_lc_shrub,     &
+        &                               ext_data(jg)%atm%i_lc_grass,     &
+        &                               ext_data(jg)%atm%i_lc_bare_soil, &
+        &                               ext_data(jg)%atm%i_lc_sparse,    &
+        &                               i_st_sand=3, i_st_sandyloam=4,   &
+        &                               i_st_loam=5, i_st_clayloam=6,    &
+        &                               i_st_clay=7, nlu_classes=23,     &
+        &                               soiltype_sidx=0, soiltype_eidx=9)
 !$OMP END MASTER
+
     ENDDO
 !$OMP END PARALLEL
 
@@ -686,7 +699,7 @@ MODULE mo_initicon_utils
             IF ( (atm_phy_nwp_config(jg)%lhave_graupel) .OR. ( iqg /= 0 .AND. iqg <= ntracer) ) THEN
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = 0.0_wp
             END IF
-            IF ( atm_phy_nwp_config(jg)%l2moment ) THEN
+            IF ( atm_phy_nwp_config(jg)%l2moment .OR. echam_phy_config(jg)%l2moment) THEN
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqh)  = 0.0_wp
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnc) = 0.0_wp
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqni) = 0.0_wp
@@ -714,6 +727,15 @@ MODULE mo_initicon_utils
               IF ( iqg /= 0 .AND. iqg <= ntracer) THEN
                 ! as qg is not in atm initialize with zero
                 p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = 0.0_wp
+              END IF
+              IF ( echam_phy_config(jg)%l2moment) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqh)  = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnc) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqni) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnr) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqns) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqng) = 0.0_wp
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqnh) = 0.0_wp
               END IF
             ENDDO
           ENDDO
@@ -2910,6 +2932,9 @@ MODULE mo_initicon_utils
         IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%runoff_g)) &
           & CALL printChecksum(prefix(1:pfx_tlen)//"runoff_g: ", &
           & p_lnd_state(jg)%diag_lnd%runoff_g)
+        IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%resid_wso)) &
+          & CALL printChecksum(prefix(1:pfx_tlen)//"resid_wso: ", &
+          & p_lnd_state(jg)%diag_lnd%resid_wso)
         IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%fr_seaice)) &
           & CALL printChecksum(prefix(1:pfx_tlen)//"fr_seaice: ", &
           & p_lnd_state(jg)%diag_lnd%fr_seaice)
@@ -2922,6 +2947,9 @@ MODULE mo_initicon_utils
         IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%runoff_g_t)) &
           & CALL printChecksum(prefix(1:pfx_tlen)//"runoff_g_t: ", &
           & p_lnd_state(jg)%diag_lnd%runoff_g_t)
+        IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%resid_wso_t)) &
+          & CALL printChecksum(prefix(1:pfx_tlen)//"resid_wso_t: ", &
+          & p_lnd_state(jg)%diag_lnd%resid_wso_t)
         IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%rstom)) &
           & CALL printChecksum(prefix(1:pfx_tlen)//"rstom: ", &
           & p_lnd_state(jg)%diag_lnd%rstom)

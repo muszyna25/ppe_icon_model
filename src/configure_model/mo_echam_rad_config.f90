@@ -338,6 +338,8 @@ CONTAINS
           CALL message('','Solar flux for RCE simulations without diurnal cycle')
        CASE (6)
           CALL message('','Average 1850-1873 of transient CMIP6 solar')
+       CASE (7)
+          CALL message('','Solar flux for RCEmip analyticalsimulations without diurnal cycle')
        CASE default 
           WRITE (message_text, '(a,i0,a)') &
                'ERROR: isolrad = ', isolrad, ' is not supported'
@@ -657,6 +659,13 @@ CONTAINS
        !
        CALL message   ('','')
        !
+
+       ! nproma might be negative in the namelist
+       ! The default value of (rrtmgp_columns_chunk = nproma) might not be initialized correctly in that case
+       IF (rrtmgp_columns_chunk < 0 ) THEN
+         rrtmgp_columns_chunk = nproma
+       ENDIF
+       
        IF (rrtmgp_columns_chunk > 0 ) THEN
          IF (rrtmgp_columns_chunk > nproma) THEN
             CALL warning(routine, 'Column chunk size: rrtmgp_columns_chunk cannot be bigger than nproma, adjusted')

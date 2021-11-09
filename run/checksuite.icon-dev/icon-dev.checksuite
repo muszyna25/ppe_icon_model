@@ -548,6 +548,11 @@ if [ "${EXPERIMENT}" == 'atm_sma_test' ]; then
     DATES=${DATES='20080101T000000Z 20080101T000002Z 20080101T000004Z 20080101T000006Z 20080101T000008Z'}
     RESTART_DATE=${RESTART_DATE='20080101T000004Z'}
 fi
+if [ "${EXPERIMENT}" == 'atm_2mom_bubble_rceTorus_test' ]; then
+    TYPES=${TYPES='atm_2d_ml atm_3d_ml'}
+    DATES=${DATES='20080801T000000Z 20080801T000200Z 20080801T000400Z'}
+    RESTART_DATE=${RESTART_DATE='20080801T000200Z'}
+fi
 
 echo " "
 echo "=============================================================="
@@ -787,7 +792,13 @@ if string_in_list $MD $CMODES; then
 
         N_NPROMA=`grep "nproma=" ${RUN_SCRIPT}`
         N_NPROMA=${N_NPROMA#nproma=}
-        ((N_NPROMA_NEW=N_NPROMA + 1))
+        # When using a negative nproma as no. blocks, decrease this value by one instead of increasing it
+        # This is mainly so nproma=-1 doesn't get changed to nproma=0
+        if [ ${N_NPROMA} -lt 0 ]; then
+            ((N_NPROMA_NEW=N_NPROMA - 1))
+        else
+            ((N_NPROMA_NEW=N_NPROMA + 1))
+        fi
         sed s/nproma=$N_NPROMA/nproma=$N_NPROMA_NEW/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
         mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
 

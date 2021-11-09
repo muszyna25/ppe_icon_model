@@ -174,7 +174,8 @@ MODULE mo_name_list_output
   USE mo_parallel_config,           ONLY: pio_type
   USE mo_impl_constants,            ONLY: pio_type_cdipio
   USE yaxt,                         ONLY: xt_idxlist, xt_stripe, xt_is_null, &
-    xt_idxlist_get_index_stripes, xt_idxstripes_new, xt_idxempty_new
+    xt_idxlist_get_index_stripes, xt_idxstripes_new, xt_idxempty_new, &
+    xt_int_kind
 #endif
   ! post-ops
 
@@ -456,6 +457,10 @@ CONTAINS
 #ifdef HAVE_CDI_PIO
       IF (pio_type == pio_type_cdipio) &
         CALL namespaceSetActive(prev_cdi_namespace)
+
+      IF ( is_coupled_run() ) THEN
+        IF (my_process_is_io() ) CALL destruct_io_coupler ( "dummy" )
+      ENDIF
 #endif
 #ifndef NOMPI
 #ifndef __NO_ICON_ATMO__
@@ -2464,6 +2469,7 @@ CONTAINS
     INTEGER :: nlevs_max, nstripes, j, k
     TYPE(xt_idxlist), ALLOCATABLE :: lists_realloc(:)
     TYPE(xt_stripe), ALLOCATABLE :: stripes(:), stripes_project(:,:)
+    CHARACTER(len=*), PARAMETER :: routine = modname//":get_partdesc"
     nlevs_max = SIZE(reorder_idxlst_xt)
     IF (nlevs > nlevs_max) THEN
       ALLOCATE(lists_realloc(nlevs))
@@ -2475,13 +2481,16 @@ CONTAINS
       IF (ALLOCATED(stripes)) THEN
         nstripes = SIZE(stripes)
         ALLOCATE(stripes_project(nstripes, nlevs))
+        IF ((HUGE(1_xt_int_kind) - (n_glb - 1)) / (n_glb - 1) < nlevs) &
+          CALL finish(routine, "YAXT index type too small for array!")
         DO j = 1, nstripes
           stripes_project(j, 1) = stripes(j)
         END DO
         DO k = 2, nlevs
           DO j = 1, nstripes
             stripes_project(j, k) &
-              &     = xt_stripe(stripes(j)%start + (k-1) * n_glb, &
+              &     = xt_stripe(stripes(j)%start &
+              &                 + INT(k-1, xt_int_kind) * n_glb, &
               &                 stripes(j)%stride, stripes(j)%nstrides)
           END DO
         END DO
@@ -2601,7 +2610,7 @@ CONTAINS
     ! construct_io_coupler needs to be called after init_name_list_output
     ! due to calling sequence in subroutine atmo_model for other atmosphere
     ! processes
-    IF ( is_coupled_run() ) CALL construct_io_coupler ( "name_list_io" )
+    IF ( is_coupled_run() ) CALL construct_io_coupler ( "dummy" )
 #endif
     ! setup of meteogram output
     DO jg =1,n_dom
@@ -2723,7 +2732,7 @@ CONTAINS
       &                        int2string(p_pe,'(i0)'), p_comm_work)
 
 #ifdef YAC_coupling
-    IF ( is_coupled_run() ) CALL destruct_io_coupler ( "name_list_io" )
+    IF ( is_coupled_run() ) CALL destruct_io_coupler ( "dummy" )
 #endif
 
     ! Shut down MPI

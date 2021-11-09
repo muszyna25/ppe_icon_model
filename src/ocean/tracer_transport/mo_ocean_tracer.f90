@@ -433,9 +433,15 @@ CONTAINS
         top_bc(:) = 0.0_wp
       ENDIF
         
+#ifdef __LVECTOR__
+      level = 1
+      DO jc = start_cell_index, end_cell_index
+        IF (patch_3d%p_patch_1d(1)%dolic_c(jc,jb) < level) CYCLE
+#else
       DO jc = start_cell_index, end_cell_index
         !TODO check algorithm: inv_prism_thick_c vs. del_zlev_m | * vs. /
         DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1
+#endif
 
           delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+transport_state%h_old(jc,jb)
           delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+transport_state%h_new(jc,jb)
@@ -451,8 +457,13 @@ CONTAINS
             & (delta_t  / delta_z_new) * top_bc(jc))
 
         ENDDO
-
+#ifdef __LVECTOR__
+      DO level = 2, MAXVAL(patch_3d%p_patch_1d(1)%dolic_c(start_cell_index:end_cell_index,jb))
+        DO jc = start_cell_index, end_cell_index
+          IF (patch_3d%p_patch_1d(1)%dolic_c(jc,jb) < level) CYCLE
+#else                
         DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+#endif
           new_tracer%concentration(jc,level,jb) =                          &
             &  old_tracer%concentration(jc,level,jb)                       &
             &  - (delta_t /  patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb))    &

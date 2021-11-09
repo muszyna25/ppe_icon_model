@@ -28,8 +28,12 @@ MODULE mo_atmo_model
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
 #ifdef HAVE_RADARFWO
-  USE mo_mpi, ONLY: my_process_is_mpi_test, my_process_is_radario, process_mpi_radario_size
-  USE mo_emvorado_init,           ONLY: prep_emvorado_domains
+  USE mo_mpi, ONLY: my_process_is_work, my_process_is_mpi_test, my_process_is_radario,        &
+                    get_my_mpi_all_id, process_mpi_radario_size,                              &
+                    MPI_COMM_NULL, MPI_UNDEFINED, p_comm_work, get_my_mpi_work_id,            &
+                    process_mpi_all_comm, num_work_procs, process_mpi_all_workroot_id,        &
+                    process_mpi_all_radarioroot_id, process_mpi_all_size
+  USE mo_emvorado_init,           ONLY: prep_emvorado_domains, init_emvorado_mpi
   USE mo_emvorado_interface,      ONLY: radar_mpi_barrier
 #ifndef NOMPI
   USE mo_emvorado_interface,      ONLY: exchg_with_detached_emvorado_io,                      &
@@ -116,7 +120,7 @@ MODULE mo_atmo_model
 
   ! coupling
   USE mo_coupling_config,         ONLY: is_coupled_run
-  USE mo_interface_echam_ocean,   ONLY: construct_atmo_coupler, destruct_atmo_coupler
+  USE mo_atmo_coupling_frame,     ONLY: construct_atmo_coupling, destruct_atmo_coupling
 
   ! I/O
   USE mo_restart,                 ONLY: detachRestartProcs
@@ -177,7 +181,7 @@ CONTAINS
     ! construct the coupler
     !
     IF ( is_coupled_run() ) THEN
-      CALL construct_atmo_coupler(p_patch)
+      CALL construct_atmo_coupling(p_patch)
     ENDIF
 
 
@@ -219,7 +223,7 @@ CONTAINS
     ! destruct the coupler
     !
     IF ( is_coupled_run() ) THEN
-      CALL destruct_atmo_coupler ()
+      CALL destruct_atmo_coupling ()
     ENDIF
 
     !---------------------------------------------------------------------
@@ -246,6 +250,8 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:construct_atmo_model"
     INTEGER                 :: jg, jgp, error_status, dedicatedRestartProcs
+    CHARACTER(len=1000)     :: message_text = ''
+    INTEGER                 :: icomm_cart, my_cart_id
 
     ! initialize global registry of lon-lat grids
     CALL lonlat_grids%init()
@@ -270,7 +276,6 @@ CONTAINS
     ! 1.2 Cross-check namelist setups
     !---------------------------------------------------------------------
 
-    !! DR end temporary hack !!
     CALL atm_crosscheck
 
 #ifdef MESSY
@@ -308,6 +313,38 @@ CONTAINS
          &                          num_io_procs_radar=num_io_procs_radar,        &
          &                          radar_flag_doms_model=luse_radarfwo(1:n_dom), &
          &                          num_dio_procs=proc0_shift)
+
+#ifdef HAVE_RADARFWO
+    IF (iequations == inh_atmosphere .AND. iforcing == inwp .AND. ANY(luse_radarfwo(1:n_dom))) THEN
+      message_text(:) = ' '
+#ifdef NOMPI
+      CALL init_emvorado_mpi ( luse_radarfwo(1:n_dom), & ! INPUT
+                               MPI_COMM_NULL, 0, 1,    & ! INPUT
+                               MPI_COMM_NULL, 0, 1,    & ! INPUT
+                               .TRUE.,                 & ! INPUT
+                               0, 0, 0,                & ! INPUT
+                               error_status, message_text )
+#else
+      IF (my_process_is_work()) THEN
+        icomm_cart = p_comm_work
+        my_cart_id = get_my_mpi_work_id()
+      ELSE
+        icomm_cart = MPI_COMM_NULL
+        my_cart_id = MPI_UNDEFINED
+      END IF
+      CALL init_emvorado_mpi ( luse_radarfwo(1:n_dom),                        & ! INPUT
+           process_mpi_all_comm, get_my_mpi_all_id(), process_mpi_all_size,   & ! INPUT
+           icomm_cart, my_cart_id, num_work_procs,                            & ! INPUT
+           my_process_is_work(),                                              & ! INPUT
+           process_mpi_radario_size, process_mpi_all_workroot_id,             & ! INPUT
+           process_mpi_all_radarioroot_id,                                    & ! INPUT
+           error_status, message_text)
+#endif
+      IF (error_status /= 0) THEN
+        CALL finish ('init_emvorado_mpi', TRIM(message_text))
+      END IF
+    ENDIF
+#endif
 
 #ifdef _OPENACC
     CALL update_nproma_on_device( my_process_is_work() )

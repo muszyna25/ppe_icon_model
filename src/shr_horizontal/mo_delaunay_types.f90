@@ -26,8 +26,7 @@ MODULE mo_delaunay_types
 !$  USE OMP_LIB
 
   USE mo_util_file,         ONLY: util_file_is_writable
-  USE mo_read_interface,    ONLY: nf
-
+  USE mo_netcdf_errhandler, ONLY: nf
   USE mo_exception,         ONLY: finish
   USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_kind,              ONLY: wp

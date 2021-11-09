@@ -16,7 +16,7 @@
 MODULE mo_grid_config
 !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message_text, finish
+  USE mo_exception,          ONLY: message_text, finish, message
   USE mo_impl_constants,     ONLY: max_dom
   USE mo_io_units,           ONLY: filename_max 
   USE mo_physical_constants, ONLY: earth_radius, earth_angular_velocity
@@ -24,7 +24,7 @@ MODULE mo_grid_config
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
-
+  USE mo_netcdf_errhandler,  ONLY: nf
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
 ! mo_netcdf_parallel where only 1 processor is reading and
@@ -38,7 +38,6 @@ USE mo_netcdf_parallel, ONLY:                     &
 #endif
 
   IMPLICIT NONE
-
   PRIVATE
 
   PUBLIC :: init_grid_configuration, get_grid_rescale_factor
@@ -64,10 +63,9 @@ USE mo_netcdf_parallel, ONLY:                     &
   ! ------------------------------------------------------------------------
 
   !> module name string
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_grid_config'
+  CHARACTER(*), PARAMETER :: modname = 'mo_grid_config'
 
   REAL(wp), PARAMETER :: DEFAULT_ENDTIME = 1.e30_wp
-
 
 #ifdef NOMPI
 INCLUDE 'netcdf.inc'
@@ -184,13 +182,15 @@ CONTAINS
 
     IF (no_of_dynamics_grids < 1) &
       CALL finish( routine, 'no dynamics grid is defined')
+    
+    IF (no_of_dynamics_grids > 1) CALL message(routine,'Warning: You are using one nproma for multiple grids!')
 
     ! get here the nroot, eventually it should be moved into the patch info
-    CALL nf(nf_open(dynamics_grid_filename(1), nf_nowrite, ncid))
+    CALL nf(nf_open(dynamics_grid_filename(1), nf_nowrite, ncid), routine)
     CALL get_gridfile_root_level(ncid, nroot, start_lev)
 !     CALL get_gridfile_sphere_radius(ncid, grid_sphere_radius)
     grid_sphere_radius = earth_radius ! the grid-based radious is not used
-    CALL nf(nf_close(ncid))
+    CALL nf(nf_close(ncid), routine)
 
     ! domain geometric properties
     IF ( grid_rescale_factor <= 0.0_wp ) grid_rescale_factor = 1.0_wp
@@ -227,9 +227,10 @@ CONTAINS
   SUBROUTINE get_gridfile_root_level( ncid, grid_root, grid_level )
     INTEGER,    INTENT(in)     :: ncid
     INTEGER,    INTENT(inout)  :: grid_root, grid_level
+    CHARACTER(*), PARAMETER :: routine = modname//":get_gridfile_root_level"
 
-    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', grid_root))
-    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', grid_level))
+    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', grid_root), routine)
+    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', grid_level), routine)
 
   END SUBROUTINE get_gridfile_root_level
   !-------------------------------------------------------------------------
@@ -261,30 +262,17 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   INTEGER FUNCTION get_grid_root( patch_file )
-    CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
-
+    CHARACTER(*),    INTENT(in)  ::  patch_file   ! name of grid file
+    CHARACTER(*), PARAMETER :: routine = modname//":get_grid_root"
     INTEGER :: ncid, grid_root
 
-    CALL nf(nf_open(TRIM(patch_file), nf_nowrite, ncid))
-    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', grid_root))
-    CALL nf(nf_close(ncid))
-
+    CALL nf(nf_open(TRIM(patch_file), nf_nowrite, ncid), routine)
+    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', grid_root), routine)
+    CALL nf(nf_close(ncid), routine)
     get_grid_root = grid_root
-
   END FUNCTION get_grid_root
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  SUBROUTINE nf(status)
-    INTEGER, INTENT(in) :: status
-    IF (status /= nf_noerr) THEN
-      CALL finish('mo_grid_config netCDF error', nf_strerror(status))
-    ENDIF
-  END SUBROUTINE nf
-  !-------------------------------------------------------------------------
-
-
-  !-------------------------------------------------------------------------
   SUBROUTINE set_patches_grid_filename( grid_filename, grid_filename_grfinfo )
 
     CHARACTER(LEN=filename_max), INTENT(OUT) :: grid_filename(n_dom_start:)

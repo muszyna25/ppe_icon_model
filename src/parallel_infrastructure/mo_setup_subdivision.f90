@@ -39,6 +39,7 @@ MODULE mo_setup_subdivision
   !    modified for ICON project, DWD/MPI-M 2006
   !-------------------------------------------------------------------------
   !
+  USE mo_sync,               ONLY: global_max, global_min, global_sum
   USE mo_kind,               ONLY: wp
   USE mo_util_string,        ONLY: int2string
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell,  &
@@ -57,7 +58,7 @@ MODULE mo_setup_subdivision
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
     &                              uniform_partition
-  USE mo_mpi,                ONLY: proc_split, p_max
+  USE mo_mpi,                ONLY: proc_split, p_max, num_work_procs
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, &
        mpi_in_place, mpi_success, mpi_sum, mpi_lor, p_bool
@@ -65,7 +66,7 @@ MODULE mo_setup_subdivision
   USE mo_mpi,                ONLY: p_comm_work, p_int, &
     & p_pe_work, p_n_work, my_process_is_mpi_parallel, p_alltoall, p_alltoallv
 
-  USE mo_parallel_config,       ONLY:  nproma, ldiv_phys_dom, &
+  USE mo_parallel_config,       ONLY:  nproma, ldiv_phys_dom, set_nproma, &
     & division_method, division_file_name, n_ghost_rows, &
     & div_geometric, ext_div_from_file, write_div_to_file, use_div_from_file, proc0_shift
 
@@ -108,7 +109,7 @@ MODULE mo_setup_subdivision
 #endif
   USE ppm_extents,            ONLY: extent, extent_start, extent_end, extent_size
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
-    &                                   distrib_nf_close, distrib_read, nf, &
+    &                                   distrib_nf_close, distrib_read, &
     &                                   delete_distrib_read, setup_distrib_read
   USE ppm_distributed_array,  ONLY: dist_mult_array, global_array_desc
   USE mo_util_uuid_types,     ONLY: uuid_string_length
@@ -116,9 +117,9 @@ MODULE mo_setup_subdivision
   USE mo_read_netcdf_broadcast_2, ONLY: netcdf_open_input, netcdf_close, &
     &                                   netcdf_read_att_int
   USE mo_fortran_tools,       ONLY: t_ptr_2d_int
+  USE mo_netcdf_errhandler, ONLY: nf
 
   IMPLICIT NONE
-
   PRIVATE
 
   INCLUDE 'netcdf.inc'
@@ -127,14 +128,13 @@ MODULE mo_setup_subdivision
   !subroutines
   PUBLIC :: decompose_domain
 
-
   TYPE nb_flag_list_elem
     INTEGER, ALLOCATABLE :: idx(:)
     INTEGER, ALLOCATABLE :: owner(:)
   END TYPE nb_flag_list_elem
 
   !> module name string
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_setup_subdivision'
+  CHARACTER(*), PARAMETER :: modname = 'mo_setup_subdivision'
 
 CONTAINS
 
@@ -164,6 +164,7 @@ CONTAINS
     INTEGER :: my_process_type, order_type_of_halos
     INTEGER, POINTER :: local_ptr(:)
     TYPE(dist_mult_array) :: dist_cell_owner, dist_cell_owner_p
+    INTEGER :: jg_normal
 
     CALL message(routine, 'start of domain decomposition')
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
@@ -319,7 +320,19 @@ CONTAINS
     ! Divide patches
     ! -----------------------------------------------------------------------------
 
-    DO jg = n_dom_start, n_dom
+    DO jg_normal = n_dom_start, n_dom
+      ! Reorder index to start with a "normal" patch in case there is a reduced radiation grid
+      IF (n_dom_start == 0) THEN
+        IF (jg_normal == 0) THEN
+          jg = 1
+        ELSE IF(jg_normal == 1) THEN
+          jg = 0
+        ELSE
+          jg = jg_normal
+        ENDIF
+      ELSE
+        jg=jg_normal
+      ENDIF
 
       jgp = p_patch_pre(jg)%parent_id
 
@@ -362,7 +375,7 @@ CONTAINS
       ! order_type_of_halos = 0 order for parent (l_compute_grid = false)
       !                       1 order root grid  (l_compute_grid = true)
       !                       2 all halos go to the end, for ocean
-      
+
       IF (my_process_is_oceanic()) THEN
         order_type_of_halos = 2
       ELSE
@@ -1006,6 +1019,7 @@ CONTAINS
 
     CALL prepare_patch(wrk_p_patch_pre, wrk_p_patch, &
          SUM(n2_ilev_c(:)), SUM(n2_ilev_e(:)), SUM(n2_ilev_v(:)))
+    
 
     !-----------------------------------------------------------------------------------------------
     ! Set the global ownership for cells, edges and verts (needed for boundary exchange).
@@ -1703,8 +1717,34 @@ CONTAINS
       TYPE(t_patch), INTENT(inout) :: wrk_p_patch
       TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
       INTEGER, INTENT(in) :: n_patch_cells, n_patch_edges, n_patch_verts
+      INTEGER :: nblocks, new_nproma
+      CHARACTER(LEN=64) :: message_text
+      CHARACTER(LEN=64) :: routine = modname//'::prepare_patch'
+      real(wp) :: nproma_avg
+      INTEGER :: nproma_max, nproma_min
 
       wrk_p_patch%n_patch_cells = n_patch_cells
+      IF (nproma < 0) THEN
+        IF (wrk_p_patch_pre%id == 1) THEN
+          nblocks = -nproma
+          new_nproma = (n_patch_cells-1) / nblocks + 1
+          CALL set_nproma(new_nproma)
+
+          IF(num_work_procs > 1) THEN
+            nproma_max = global_max(new_nproma)
+            nproma_min = global_min(new_nproma)
+            nproma_avg = REAL(global_sum(new_nproma))/num_work_procs
+            CALL message(routine, 'Set new nproma for each MPI work process.')
+            write(message_text,'(a,2i7,f10.2)') 'max/min/avg: ', nproma_max, nproma_min, nproma_avg
+            CALL message('# New nproma values: ', message_text)
+          ELSE
+            write(message_text,'(i7)') nproma
+            CALL message('New nproma: ', message_text)
+          ENDIF
+
+        ENDIF
+      ENDIF
+
       wrk_p_patch%n_patch_edges = n_patch_edges
       wrk_p_patch%n_patch_verts = n_patch_verts
 
@@ -5029,32 +5069,25 @@ CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE write_netcdf_decomposition(netcdf_file_name, dist_cell_owner, &
     &                                   no_of_cells)
-    CHARACTER(LEN=*) :: netcdf_file_name
+    CHARACTER(*) :: netcdf_file_name
     TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner
     INTEGER, INTENT(IN) :: no_of_cells
-
-    INTEGER :: i, j, ncid, dimid, varid
+    INTEGER :: i, j, ncid, dimid, varid, part_size, num_parts
+    INTEGER :: curr_part_size, start_value(1), value_count(1)
     INTEGER, ALLOCATABLE :: cell_owner_buffer(:)
-    INTEGER :: part_size, num_parts, curr_part_size
-    INTEGER :: start_value(1), value_count(1)
+    CHARACTER(*), PARAMETER :: routine = "write_netcdf_decomposition"
 
     IF (p_pe_work == 0) THEN
-
       WRITE(0,*) "Write decomposition to file: ", TRIM(netcdf_file_name)
-
       ! generate decomposition file
-      CALL nf(nf_create(TRIM(netcdf_file_name), NF_CLOBBER, ncid))
-
+      CALL nf(nf_create(TRIM(netcdf_file_name), NF_CLOBBER, ncid), routine)
       ! define dimension
-      CALL nf(nf_def_dim(ncid, "ncells", no_of_cells, dimid))
-
+      CALL nf(nf_def_dim(ncid, "ncells", no_of_cells, dimid), routine)
       ! define variable
-      CALL nf(nf_def_var(ncid, "cell_owner", NF_INT, 1, (/dimid/), varid))
-
+      CALL nf(nf_def_var(ncid, "cell_owner", NF_INT, 1, (/dimid/), varid), routine)
       ! put the number of processes
-      CALL nf(nf_put_att_int(ncid, varid, "nprocs", NF_INT, 1, (/p_n_work/)))
-
-      CALL nf(nf_enddef(ncid))
+      CALL nf(nf_put_att_int(ncid, varid, "nprocs", NF_INT, 1, (/p_n_work/)), routine)
+      CALL nf(nf_enddef(ncid), routine)
 
       ! write cell owner to file
       part_size = MIN(1024 * 1024 / 8, no_of_cells);
@@ -5070,29 +5103,21 @@ CONTAINS
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
         CALL dist_mult_array_rma_sync(dist_cell_owner)
 #endif
-
         start_value(1) = part_size * (i - 1) + 1
         value_count(1) = curr_part_size
-
         CALL nf(nf_put_vara_int(ncid, varid, start_value, value_count, &
-          &     cell_owner_buffer))
-
+          &     cell_owner_buffer), routine)
       END DO
-
       DEALLOCATE(cell_owner_buffer)
-
-      CALL nf(nf_close(ncid))
-
+      CALL nf(nf_close(ncid), routine)
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
     ELSE
       part_size = MIN(1024 * 1024 / 8, no_of_cells);
       num_parts = (no_of_cells + part_size - 1) / part_size
-
       DO i = 1, num_parts
         CALL dist_mult_array_rma_sync(dist_cell_owner)
       END DO
 #endif
-
     END IF
 
   END SUBROUTINE write_netcdf_decomposition

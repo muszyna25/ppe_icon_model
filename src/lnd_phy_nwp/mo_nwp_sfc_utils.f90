@@ -55,6 +55,7 @@ MODULE mo_nwp_sfc_utils
                                     itype_snowevap, zml_soil, dzsoil
   USE mo_nwp_tuning_config,   ONLY: tune_minsnowfrac
   USE mo_initicon_config,     ONLY: init_mode_soil, ltile_coldstart, init_mode, lanaread_tseasfc, use_lakeiceana
+  USE mo_io_config,           ONLY: var_in_output
   USE mo_run_config,          ONLY: msg_level
   USE sfc_terra_init,         ONLY: terra_init
   USE sfc_flake,              ONLY: flake_init
@@ -72,6 +73,7 @@ MODULE mo_nwp_sfc_utils
     &                                set_table_entry, print_table, finalize_table
   USE mo_util_string,         ONLY: int2string
   USE mo_mpi,                 ONLY: my_process_is_stdio
+  USE mo_index_list,          ONLY: generate_index_list
 
   IMPLICIT NONE
 
@@ -1239,6 +1241,7 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< number of child domains
     INTEGER :: jc, jb, jk, isubs
+    INTEGER :: jg
 
     REAL(wp) :: tilefrac ! fractional area covered by tile
     REAL(wp) :: rho_snow_lim !< Snow density limited to [crhosmin_ml, crhosmax_ml]
@@ -1247,6 +1250,9 @@ CONTAINS
     INTEGER :: icount         ! index list length per block
     INTEGER :: ic
     INTEGER :: styp           ! soil type index
+
+    ! patch ID
+    jg = p_patch%id
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
@@ -1281,6 +1287,10 @@ CONTAINS
           lnd_diag%runoff_s (jc,jb) = lnd_diag%runoff_s_t (jc,jb,1)
           lnd_diag%runoff_g (jc,jb) = lnd_diag%runoff_g_t (jc,jb,1)
           lnd_diag%rstom    (jc,jb) = lnd_diag%rstom_t    (jc,jb,1)
+          IF (var_in_output(jg)%res_soilwatb) THEN
+            lnd_diag%resid_wso(jc,jb) = lnd_diag%resid_wso_t(jc,jb,1)
+          ENDIF
+
 
           IF(lmulti_snow) THEN
             lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
@@ -1332,7 +1342,11 @@ CONTAINS
 
         ! First initialize fields to zero in order to prepare
         ! subsequent summation over the tiles
-        !
+        ! Ronny Petrik, Hereon: the quantities which are summed up in time (runoff, resid_wso)
+        ! are not initialized here because their fraction-weighted aggregation
+        !   over the tiles needs to be treated like this: starting from the value
+        !   of the former timestep they are updated using the area-weighted mean 
+        !   of instanteneous values
         lnd_diag%t_snow   (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%t_s      (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%t_sk     (i_startidx:i_endidx,jb)  = 0._wp
@@ -1341,9 +1355,8 @@ CONTAINS
         lnd_diag%h_snow   (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%freshsnow(i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%snowfrac (i_startidx:i_endidx,jb)  = 0._wp
-        lnd_diag%runoff_s (i_startidx:i_endidx,jb)  = 0._wp
-        lnd_diag%runoff_g (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%rstom    (i_startidx:i_endidx,jb)  = 0._wp
+        
 
         lnd_diag%t_so    (i_startidx:i_endidx,:,jb) = 0._wp
         lnd_diag%w_so    (i_startidx:i_endidx,:,jb) = 0._wp
@@ -1392,12 +1405,18 @@ CONTAINS
               &                         * lnd_diag%freshsnow_t(jc,jb,isubs)
             lnd_diag%snowfrac(jc,jb)  = lnd_diag%snowfrac(jc,jb) + tilefrac  &
               &                         * lnd_diag%snowfrac_t(jc,jb,isubs)
-            lnd_diag%runoff_s(jc,jb)  = lnd_diag%runoff_s(jc,jb) + tilefrac  &
-              &                         * lnd_diag%runoff_s_t(jc,jb,isubs)
-            lnd_diag%runoff_g(jc,jb)  = lnd_diag%runoff_g(jc,jb) + tilefrac  &
-              &                         * lnd_diag%runoff_g_t(jc,jb,isubs)
             lnd_diag%rstom(jc,jb)     = lnd_diag%rstom(jc,jb) + tilefrac     &
               &                         * lnd_diag%rstom_t(jc,jb,isubs)
+
+            ! aggregation of variables summed up over the forecast (different procedure)
+            lnd_diag%runoff_s(jc,jb)  = lnd_diag%runoff_s(jc,jb) + tilefrac  &
+              &                         * lnd_diag%runoff_s_inst_t(jc,jb,isubs)
+            lnd_diag%runoff_g(jc,jb)  = lnd_diag%runoff_g(jc,jb) + tilefrac  &
+              &                         * lnd_diag%runoff_g_inst_t(jc,jb,isubs)
+            IF (var_in_output(jg)%res_soilwatb) THEN
+              lnd_diag%resid_wso(jc,jb) = lnd_diag%resid_wso(jc,jb) + tilefrac &
+              &                         * lnd_diag%resid_wso_inst_t(jc,jb,isubs) 
+            ENDIF
 
             IF(lmulti_snow) THEN
               lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_diag%t_snow_mult(jc,nlev_snow+1,jb)+ &
@@ -1650,12 +1669,13 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD (2012-08-03)
   !!
-  SUBROUTINE init_sea_lists(p_patch, ext_data, p_lnd_diag, lseaice)
+  SUBROUTINE init_sea_lists(p_patch, ext_data, p_lnd_diag, lseaice, opt_lverbose)
 
-    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch        !< grid/patch info.
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data
-    TYPE(t_lnd_diag)     , INTENT(INOUT) :: p_lnd_diag     !< diag vars for sfc
-    LOGICAL              , INTENT(IN)    :: lseaice        !< seaice model on/off
+    TYPE(t_patch), TARGET, INTENT(IN)              :: p_patch        !< grid/patch info.
+    TYPE(t_external_data), INTENT(INOUT)           :: ext_data
+    TYPE(t_lnd_diag)     , INTENT(INOUT)           :: p_lnd_diag     !< diag vars for sfc
+    LOGICAL              , INTENT(IN)              :: lseaice        !< seaice model on/off
+    LOGICAL              , INTENT(IN), OPTIONAL    :: opt_lverbose   !< trigger message() output
 
     ! Local array bounds:
 
@@ -1670,10 +1690,16 @@ CONTAINS
     INTEGER :: i_count_sea, i_count_ice, i_count_water
     INTEGER :: npoints_ice, npoints_wtr, npoints_sea
     REAL(wp):: frac_sea                  ! for sanity check
+    LOGICAL :: lverbose
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_utils:init_sea_lists'
 !-------------------------------------------------------------------------
 
+    IF (.NOT. PRESENT(opt_lverbose)) THEN
+      lverbose = .TRUE.  ! the default
+    ELSE
+      lverbose = opt_lverbose
+    ENDIF
 
     ! patch ID
     jg = p_patch%id
@@ -1844,21 +1870,22 @@ CONTAINS
 !$OMP END PARALLEL
 
 
-      ! Some diagnostics: compute total number of sea-ice and open water points
-      npoints_ice = ext_data%atm%list_seaice%get_sum_global(i_startblk,i_endblk)
-      npoints_wtr = ext_data%atm%list_seawtr%get_sum_global(i_startblk,i_endblk)
-      npoints_sea = ext_data%atm%list_sea   %get_sum_global(i_startblk,i_endblk)
-      !
-      WRITE(message_text,'(a,i3,a,i10)') 'Number of (partly) seaice covered points in domain',jg, &
-        &  ':',npoints_ice
-      CALL message('', TRIM(message_text))
-      WRITE(message_text,'(a,i3,a,i10)') 'Number of (partly) ice-free sea points in domain',jg, &
-        &  ':',npoints_wtr
-      CALL message('', TRIM(message_text))
-      WRITE(message_text,'(a,i3,a,i10)') 'Number of sea points in domain',jg, &
-           &  ':',npoints_sea
-      CALL message('', TRIM(message_text))
-
+      IF ( lverbose .OR. msg_level >= 13 ) THEN
+        ! Some diagnostics: compute total number of sea-ice and open water points
+        npoints_ice = ext_data%atm%list_seaice%get_sum_global(i_startblk,i_endblk)
+        npoints_wtr = ext_data%atm%list_seawtr%get_sum_global(i_startblk,i_endblk)
+        npoints_sea = ext_data%atm%list_sea   %get_sum_global(i_startblk,i_endblk)
+        !
+        WRITE(message_text,'(a,i3,a,i10)') 'Number of (partly) seaice covered points in domain',jg, &
+          &  ':',npoints_ice
+        CALL message('', TRIM(message_text))
+        WRITE(message_text,'(a,i3,a,i10)') 'Number of (partly) ice-free sea points in domain',jg, &
+          &  ':',npoints_wtr
+        CALL message('', TRIM(message_text))
+        WRITE(message_text,'(a,i3,a,i10)') 'Number of sea points in domain',jg, &
+             &  ':',npoints_sea
+        CALL message('', TRIM(message_text))
+      ENDIF
 
     ELSE   ! seaice model switched off
 
@@ -2039,6 +2066,8 @@ CONTAINS
     LOGICAL, OPTIONAL,           INTENT(in)   :: lacc          !< GPU flag
     LOGICAL :: lzacc
 
+    INTEGER :: cond1(lp_count), cond2(lp_count), icount_tmp, ic_tot, idx_lst_tmp(nproma)
+
     !-------------------------------------------------------------------------
 
     IF(PRESENT(lacc)) THEN
@@ -2047,43 +2076,55 @@ CONTAINS
         lzacc = .FALSE.
     ENDIF
 
+   !$acc enter data create(cond1, cond2, idx_lst_tmp)
+
    !$acc data                                                              &
    !$acc present(idx_lst_lp, idx_lst, idx_lst_snow, snowtile_flag)         &
    !$acc present(snowtile_flag_snow, lc_frac, snowfrac, partial_frac)      &
    !$acc present(partial_frac_snow) if(lzacc)
 
+
     icount = 0
+    icount_tmp = 0
     icount_snow = 0
 
 !$NEC ivdep
     !$acc parallel if(lzacc)
-    !$acc loop seq
+    !$acc loop gang vector private(jc)
     DO ic = 1, lp_count
       jc = idx_lst_lp(ic)
-
       IF (snowtile_flag(jc) == -1) THEN
-        icount = icount + 1
-        idx_lst(icount) = jc
+        cond1(ic) = 1
         partial_frac(jc) = lc_frac(jc)
       ELSE
-        ! Reset snowfrac to 0/1 in case of very small deviations (just to be safe)
+        cond1(ic) = 0
         IF (snowfrac(jc) < eps) snowfrac(jc) = 0._wp
         IF (1._wp - snowfrac(jc) < eps) snowfrac(jc) = 1._wp
       ENDIF
     ENDDO
     !$acc end parallel
 
+    CALL generate_index_list(cond1, idx_lst, 1, lp_count, icount, 1,lacc=lzacc)
+
+    !$acc parallel if(lzacc)
+    !$acc loop gang vector
+    DO ic = 1,icount
+      idx_lst(ic) = idx_lst_lp(idx_lst(ic))
+    ENDDO
+    !$acc end parallel
 
 !$NEC ivdep
     !$acc parallel if(lzacc)
-    !$acc loop seq
+    !$acc loop gang vector private(jc)
     DO ic = 1, lp_count
       jc = idx_lst_lp(ic)
+      cond1(ic) = 0
+      cond2(ic) = 0
 
       IF (snowtile_flag(jc) /= -1) THEN
+
         IF (snowfrac(jc) > 0._wp) THEN ! snow tile is active
-          icount_snow = icount_snow + 1
-          idx_lst_snow(icount_snow) = jc
+          cond1(ic) = 1
           partial_frac_snow(jc) = lc_frac(jc)*snowfrac(jc)
           IF (snowtile_flag_snow(jc) == 0) THEN
             snowtile_flag_snow(jc) = 2 ! newly activated, initialization needed
@@ -2091,12 +2132,13 @@ CONTAINS
             snowtile_flag_snow(jc) = 1
           ENDIF
         ELSE
+          cond1(ic) = 0
           snowtile_flag_snow(jc) = 0
           partial_frac_snow(jc) = 0._wp
         ENDIF
+
         IF (snowfrac(jc) < 1._wp) THEN ! snow-free tile is active
-          icount = icount + 1
-          idx_lst(icount) = jc
+          cond2(ic) = 1
           partial_frac(jc) = lc_frac(jc)*(1._wp-snowfrac(jc))
           IF (snowtile_flag(jc) == 0) THEN
             snowtile_flag(jc) = 2 ! newly activated, initialization needed
@@ -2104,18 +2146,39 @@ CONTAINS
             snowtile_flag(jc) = 1
           ENDIF
         ELSE
+          cond2(ic) = 0
           snowtile_flag(jc) = 0
           partial_frac(jc) = 0._wp
         ENDIF
       ENDIF
     ENDDO
-    !$acc end parallel 
+    !$acc end parallel
 
-    gp_count = icount
+    CALL generate_index_list(cond1, idx_lst_snow, 1, lp_count, icount_snow, 1,lacc=lzacc)
+
+    CALL generate_index_list(cond2, idx_lst_tmp, 1, lp_count, icount_tmp, 1,lacc=lzacc)
+
+    !$acc parallel if(lzacc)
+    !$acc loop gang vector
+    DO ic = 1,icount_snow
+      idx_lst_snow(ic) = idx_lst_lp(idx_lst_snow(ic))
+    ENDDO
+    !$acc end parallel
+
+    !$acc parallel if(lzacc)
+    !$acc loop gang vector private(ic_tot)
+    DO ic = 1,icount_tmp
+      ic_tot = ic + icount
+      idx_lst(ic_tot) = idx_lst_lp(idx_lst_tmp(ic))
+    ENDDO
+    !$acc end parallel
+
+    gp_count = icount + icount_tmp
     gp_count_snow = icount_snow
     !$acc update device(gp_count,gp_count_snow)
 
     !$acc end data
+    !$acc exit data delete(cond1,cond2,idx_lst_tmp)
 
   END SUBROUTINE update_idx_lists_lnd
 
@@ -2564,7 +2627,8 @@ CONTAINS
         CALL init_sea_lists(p_patch    = p_patch,   &
              &              ext_data   = ext_data,  &
              &              p_lnd_diag = p_lnd_state%diag_lnd,&
-             &              lseaice    = lseaice    )
+             &              lseaice    = lseaice,   &
+             &              opt_lverbose   = .FALSE.    )
 
 
         ! store updated index lists

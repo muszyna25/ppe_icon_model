@@ -3,11 +3,11 @@
 MY_DIR=`dirname "$0"`
 
 "${MY_DIR}/mkhelper/deplist.py" -t icon -f - <<_EOF
-icon: cuda cub mpi netcdf-fortran rte-rrtmgp ecrad rttov sct yaxt cdi serialbox2 mtime blas lapack yac tixi self eccodes hdf5 zlib
+icon: stdc++ cuda cub mpi netcdf-fortran rte-rrtmgp ecrad rttov sct yaxt cdi serialbox2 mtime blas lapack yac tixi eccodes hdf5 zlib
 netcdf-fortran: netcdf
 netcdf: hdf5 zlib
 cdi: eccodes netcdf aec mpi yaxt
-yac: lapack mtime xml2 netcdf mpi
+yac: lapack mtime xml2 netcdf yaxt mpi
 lapack: blas
 sct: hdf5 mpi
 hdf5: mpi aec zlib
@@ -18,7 +18,6 @@ ecrad: netcdf-fortran
 serialbox2: netcdf stdc++
 eccodes: aec
 cub: cuda stdc++
-cuda: stdc++
 xml2: zlib
 _EOF
 

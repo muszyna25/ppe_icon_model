@@ -74,8 +74,6 @@ MODULE mo_ext_data_types
     INTEGER, POINTER  ::   &   !< atmosphere land-sea-mask on cell centers [ ]
       &  lsm_ctr_c(:,:)        !  index1=1,nproma, index2=1,nblks_c
 
-    INTEGER, POINTER  ::   &   !< land-sea-mask for HDmodel on cell centers [ ]
-      &  lsm_hd_c(:,:)         !  index1=1,nproma, index2=1,nblks_c
 
     REAL(wp), POINTER  ::   &  !< elevation at cell centers               [m]
       &  elevation_c(:,:)
@@ -338,11 +336,11 @@ MODULE mo_ext_data_types
     INTEGER :: i_lc_snow_ice   !< Land-cover classification index for snow and ice
     INTEGER :: i_lc_water      !< Land-cover classification index for water
     INTEGER :: i_lc_urban      !< Land-cover classification index for urban / artificial surface
-    INTEGER :: i_lc_shrub_eg   !< Shrub cover Grassland/Forest // Evergreen. Currently used by ART only
-    INTEGER :: i_lc_shrub      !< Closed to open Shrubland (deciduous). Currently used by ART only
-    INTEGER :: i_lc_grass      !< Grassland//herbaceous. Currently used by ART only
-    INTEGER :: i_lc_bare_soil  !< Land-cover classification index for bare soil. Currently used by ART only only
-    INTEGER :: i_lc_sparse     !< Land-cover classification index for sparse vergetation. Currently used by ART only
+    INTEGER :: i_lc_shrub_eg   !< Shrub cover Grassland/Forest // Evergreen.
+    INTEGER :: i_lc_shrub      !< Closed to open Shrubland (deciduous).
+    INTEGER :: i_lc_grass      !< Grassland//herbaceous.
+    INTEGER :: i_lc_bare_soil  !< Land-cover classification index for bare soil.
+    INTEGER :: i_lc_sparse     !< Land-cover classification index for sparse vergetation.
     INTEGER :: i_lc_crop_irrig !< post-flooding or irrigated croplands. Currently used by ART only
     INTEGER :: i_lc_crop_rain  !< Rainfed croplands. Currently used by ART only
     INTEGER :: i_lc_crop_mos   !< Mosaic: cropland > vegetation. Currently used by ART only

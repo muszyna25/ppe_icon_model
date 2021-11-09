@@ -76,6 +76,12 @@ if [ x$namelist_list = x ]; then
     namelist_list[0]="$hamocc_namelist"
     modelname_list[0]="hamocc"
     modeltype_list[0]=4
+  elif [ x$jsbach_namelist != x ]; then
+    # this is the jsbach standalone model
+    namelist_list[0]="$jsbach_namelist"
+    modelname_list[0]="jsbach"
+    modeltype_list[0]=5
+    run_jsbach_standalone="true"
   elif [ x$testbed_namelist != x ]; then
     # this is the testbed model
     namelist_list[0]="$testbed_namelist"
@@ -112,8 +118,12 @@ fi
 run_atmo=${run_atmo="false"}
 if [ x$atmo_namelist != x ]; then
   run_atmo="true"
+  run_jsbach_standalone="false"
 fi
 run_jsbach=${run_jsbach="false"}
+if [ x$jsbach_namelist != x ]; then
+  run_jsbach="true"
+fi
 run_ocean=${run_ocean="false"}
 if [ x$ocean_namelist != x ]; then
   run_ocean="true"
@@ -198,7 +208,7 @@ cat > $master_namelist << EOF
 /
 EOF
 else
-if [ x$calendar = x ]; then
+if [ "x$calendar" = "x" ]; then
   calendar='proleptic gregorian'
   calendar_type=1
 else
@@ -273,14 +283,23 @@ done
 
 #-----------------------------------------------------------------------------
 # Add JSBACH part to master_namelist
+# For several domains, $jsbach_namelist is only the basename for each domain's jsbach namelist;
+#   the actual namelist files are appended by suffixes '_d1', '_d2', etc.
 
 if [[ $run_jsbach == @(yes|true) ]]; then
   cat >> $master_namelist << EOF
 &jsb_control_nml
- is_standalone      = .false.
- restart_jsbach     = .false.
+ is_standalone      = .${run_jsbach_standalone:=false}.
+ restart_jsbach     = ${restart}
  debug_level        = 0
  timer_level        = 0
+EOF
+if [[ ${run_jsbach_standalone} == true ]]; then
+  cat >> $master_namelist << EOF
+ l_force_from_obs   = .${l_force_from_obs:-false}.
+EOF
+fi
+  cat >> $master_namelist << EOF
 /
 EOF
 #
@@ -307,15 +326,16 @@ do
  model_name = "JSBACH${domain}"
  model_shortname = "jsb${domain_suffix}"
  model_description = 'JSBACH land surface model'
- model_namelist_filename = "${lnd_namelist}${domain_suffix}"
+ model_namelist_filename = "${jsbach_namelist}${domain_suffix}"
 /
 EOF
-  if [[ -f ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix} && -f ${EXPDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix} ]] ; then
-    # namelist file has already been copied to expdir by copy_required_files above
-    rm ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix}
-    check_error $? "rm ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix}"
-  else
-    check_error 1 "${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix} does not exist"
+  if [[ ${run_jsbach_standalone} != true ]]; then
+    if [[ -f ${RUNSCRIPTDIR}/${jsbach_namelist}${domain_suffix} ]] ; then
+      mv ${RUNSCRIPTDIR}/${jsbach_namelist}${domain_suffix} ${EXPDIR}
+      check_error $? "mv ${RUNSCRIPTDIR}/${jsbach_namelist}${domain_suffix}"
+    else
+      check_error 1 "${RUNSCRIPTDIR}/${jsbach_namelist}${domain_suffix} does not exist"
+    fi
   fi
   j=`expr ${j} + 1`
 done

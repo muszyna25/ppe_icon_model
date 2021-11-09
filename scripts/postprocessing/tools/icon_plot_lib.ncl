@@ -14,7 +14,7 @@
 ;     name. This is similar to NCL itself, e.g. getfilevardims()
 ;   # set* methods are procedures
 ;---------------------------------------------------------------
-; Authors       : Ralf Mueller (ralf.mueller@zmaw.de)
+; @authors       : Ralf Mueller (ralf.mueller@dkrz.de)
 ;                 Stephan Lorenz (stephan.lorenz@zmaw.de)
 ; VERSION = "0.0.9"
 ;-------------------------------------------------------------------------------

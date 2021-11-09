@@ -109,7 +109,8 @@ MODULE mo_nh_stepping
   USE mo_nh_nest_utilities,        ONLY: compute_tendencies, boundary_interpolation,    &
                                          prep_bdy_nudging, nest_boundary_nudging,       &
                                          prep_rho_bdy_nudging, density_boundary_nudging,&
-                                         limarea_bdy_nudging, save_progvars
+                                         limarea_nudging_bdy, limarea_nudging_latbdy,   &
+                                         limarea_nudging_upbdy, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback, lhn_feedback
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, inoforcing, iheldsuarez, inwp, iecham,       &
@@ -122,6 +123,7 @@ MODULE mo_nh_stepping
   USE mo_update_dyn,               ONLY: add_slowphys
   USE mo_advection_stepping,       ONLY: step_advection
   USE mo_advection_aerosols,       ONLY: aerosol_2D_advection, setup_aerosol_advection
+  USE mo_aerosol_util,             ONLY: aerosol_2D_diffusion
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_memory_log,               ONLY: memory_log_add
@@ -168,6 +170,7 @@ MODULE mo_nh_stepping
   USE mo_nh_init_utils,            ONLY: compute_iau_wgt, save_initial_state, restore_initial_state
   USE mo_hydro_adjust,             ONLY: hydro_adjust_const_thetav
   USE mo_td_ext_data,              ONLY: update_nwp_phy_bcs, set_sst_and_seaice
+  USE mo_initicon_types,           ONLY: t_pi_atm
   USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, is_avgFG_time, &
                                          iterate_iau, dt_iau
   USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
@@ -180,7 +183,8 @@ MODULE mo_nh_stepping
     &                                    update_lin_interc
   USE mo_interface_les,            ONLY: les_phy_interface
   USE mo_restart,                  ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
-  USE mo_nh_prepadv_types,         ONLY: prep_adv, t_prepare_adv, jstep_adv
+  USE mo_prepadv_types,            ONLY: t_prepare_adv
+  USE mo_prepadv_state,            ONLY: prep_adv, jstep_adv
   USE mo_action,                   ONLY: reset_act
   USE mo_output_event_handler,     ONLY: get_current_jfile
   USE mo_nwp_diagnosis,            ONLY: nwp_diag_for_output, nwp_opt_diagnostics
@@ -193,7 +197,7 @@ MODULE mo_nh_stepping
   USE mo_async_latbc_utils,        ONLY: recv_latbc_data, update_lin_interpolation
   USE mo_async_latbc_types,        ONLY: t_latbc_data
   USE mo_nonhydro_types,           ONLY: t_nh_state
-  USE mo_fortran_tools,            ONLY: swap, copy, init
+  USE mo_fortran_tools,            ONLY: swap, copy
   USE mtime,                       ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString,     &
        &                                 timedelta, newTimedelta, deallocateTimedelta, timedeltaToString, &
        &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN, newDatetime,        &
@@ -240,7 +244,7 @@ MODULE mo_nh_stepping
 #endif
   use mo_icon2dace,                ONLY: mec_Event, init_dace_op, run_dace_op, dace_op_init
   USE mo_extpar_config,            ONLY: generate_td_filename
-  USE mo_nudging_config,           ONLY: nudging_config, l_global_nudging
+  USE mo_nudging_config,           ONLY: nudging_config, l_global_nudging, indg_type
   USE mo_nudging,                  ONLY: nudging_interface  
   USE mo_opt_nwp_diagnostics,      ONLY: compute_field_dbz3d_lin
   USE mo_nwp_gpu_util,             ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp, devcpy_nwp, hostcpy_nwp
@@ -267,12 +271,12 @@ MODULE mo_nh_stepping
 
   PUBLIC :: perform_nh_stepping
 
-  TYPE(t_sst_sic_reader), TARGET :: sst_reader
-  TYPE(t_sst_sic_reader), TARGET :: sic_reader
-  TYPE(t_time_intp)      :: sst_intp
-  TYPE(t_time_intp)      :: sic_intp
-  REAL(wp), ALLOCATABLE  :: sst_dat(:,:,:,:)
-  REAL(wp), ALLOCATABLE  :: sic_dat(:,:,:,:)
+  TYPE(t_sst_sic_reader), ALLOCATABLE, TARGET :: sst_reader(:) 
+  TYPE(t_sst_sic_reader), ALLOCATABLE, TARGET :: sic_reader(:)
+  TYPE(t_time_intp),      ALLOCATABLE         :: sst_intp(:)
+  TYPE(t_time_intp),      ALLOCATABLE         :: sic_intp(:)
+  REAL(wp),               ALLOCATABLE         :: sst_dat(:,:,:,:)
+  REAL(wp),               ALLOCATABLE         :: sic_dat(:,:,:,:)
 
   TYPE t_datetime_ptr
     TYPE(datetime), POINTER :: ptr => NULL()
@@ -355,6 +359,10 @@ MODULE mo_nh_stepping
     ! Does this really work for nested setups, or does it rather require domain specific 
     ! objects like sst/sic_reader(jg), sst/sic_intp(jg)?
     IF (sstice_mode == SSTICE_INST) THEN
+      ALLOCATE(sst_reader(n_dom))
+      ALLOCATE(sic_reader(n_dom))
+      ALLOCATE(sst_intp(n_dom))
+      ALLOCATE(sic_intp(n_dom))
       DO jg = 1, n_dom
         month = mtime_current%date%month
         year = mtime_current%date%year
@@ -381,17 +389,17 @@ MODULE mo_nh_stepping
 
         ENDIF
 
-        CALL sst_reader%init(p_patch(jg), sst_td_filename)
-        CALL sst_intp%init(sst_reader, mtime_current, "SST")
-        CALL sst_intp%intp(mtime_current, sst_dat)
+        CALL sst_reader(jg)%init(p_patch(jg), sst_td_file)
+        CALL sst_intp(jg)%init(sst_reader(jg), mtime_current, "SST")
+        CALL sst_intp(jg)%intp(mtime_current, sst_dat)
 
         WHERE (sst_dat(:,1,:,1) > 0.0_wp)
           p_lnd_state(jg)%diag_lnd%t_seasfc(:,:) = sst_dat(:,1,:,1)
         END WHERE
 
-        CALL sic_reader%init(p_patch(jg), ci_td_filename)
-        CALL sic_intp%init(sic_reader, mtime_current, "SIC")
-        CALL sic_intp%intp(mtime_current, sic_dat)
+        CALL sic_reader(jg)%init(p_patch(jg), ci_td_file)
+        CALL sic_intp(jg)%init(sic_reader(jg), mtime_current, "SIC")
+        CALL sic_intp(jg)%intp(mtime_current, sic_dat)
 
         WHERE (sic_dat(:,1,:,1) < frsi_min)
           p_lnd_state(jg)%diag_lnd%fr_seaice(:,:) = 0.0_wp
@@ -668,6 +676,10 @@ MODULE mo_nh_stepping
 
   CALL deallocate_nh_stepping
 
+  IF (ALLOCATED(sst_reader)) DEALLOCATE(sst_reader)
+  IF (ALLOCATED(sic_reader)) DEALLOCATE(sic_reader)
+  IF (ALLOCATED(sst_intp)) DEALLOCATE(sst_intp)
+  IF (ALLOCATED(sic_intp)) DEALLOCATE(sic_intp)
 
   END SUBROUTINE perform_nh_stepping
   !-------------------------------------------------------------------------
@@ -690,7 +702,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: ierr
   LOGICAL                              :: l_compute_diagnostic_quants,  &
     &                                     l_nml_output, l_nml_output_dom(max_dom), lprint_timestep, &
-    &                                     lwrite_checkpoint, lcfl_watch_mode, l_need_dbz3d
+    &                                     lwrite_checkpoint, lcfl_watch_mode
   TYPE(t_simulation_status)            :: simulation_status
   TYPE(datetime),   POINTER            :: mtime_old         ! copy of current datetime (mtime)
 
@@ -892,6 +904,10 @@ MODULE mo_nh_stepping
   ENDIF
 #endif
 
+  !$ser verbatim DO jg = 1, n_dom
+    !$ser verbatim   CALL serialize_all(nproma, jg, "initialization", .FALSE., opt_lupdate_cpu=.TRUE.)
+  !$ser verbatim ENDDO
+  
   TIME_LOOP: DO
 
     ! optional memory loggin
@@ -939,6 +955,8 @@ MODULE mo_nh_stepping
     lprint_timestep = lprint_timestep .OR. (jstep == jstep0+1) .OR. (jstep == jstep0+nsteps)
 
     IF (lprint_timestep) THEN
+
+      CALL message('','')
 
       IF (iforcing == inwp) THEN
         WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3,a,a)') &
@@ -1026,12 +1044,12 @@ MODULE mo_nh_stepping
         i_am_accel_node = .FALSE.
 #endif
         DO jg=1, n_dom
-          CALL sst_intp%intp(mtime_current, sst_dat)
+          CALL sst_intp(jg)%intp(mtime_current, sst_dat)
           WHERE (sst_dat(:,1,:,1) > 0.0_wp)
             p_lnd_state(jg)%diag_lnd%t_seasfc(:,:) = sst_dat(:,1,:,1)
           END WHERE
 
-          CALL sic_intp%intp(mtime_current, sic_dat)
+          CALL sic_intp(jg)%intp(mtime_current, sic_dat)
           WHERE (sic_dat(:,1,:,1) < frsi_min)
             p_lnd_state(jg)%diag_lnd%fr_seaice(:,:) = 0.0_wp
           ELSEWHERE  (sic_dat(:,1,:,1) > 1.0_wp-frsi_min)
@@ -1236,7 +1254,7 @@ MODULE mo_nh_stepping
     IF (iforcing == inwp) THEN
       CALL nwp_opt_diagnostics(p_patch(1:), p_patch_local_parent, p_int_state_local_parent, &
                                p_nh_state, p_int_state(1:), prm_diag, &
-                               l_nml_output_dom, nnow, nnow_rcf, var_in_output, lpi_max_Event, celltracks_Event,  &
+                               l_nml_output_dom, nnow, nnow_rcf, lpi_max_Event, celltracks_Event,  &
                                dbz_Event, mtime_current, time_config%tc_dt_model)
     ENDIF
 
@@ -1348,7 +1366,6 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! check whether time has come for writing restart file
 
-    CALL message('','')
     !
     ! default is to assume we do not write a checkpoint/restart file
     lwrite_checkpoint = .FALSE.
@@ -1472,7 +1489,7 @@ MODULE mo_nh_stepping
       !$ser verbatim CALL serialize_all(nproma, 1, "latbc_data", .TRUE., opt_lupdate_cpu=.TRUE.)
       latbc_read_datetime = latbc%mtime_last_read + latbc%delta_dtime
       CALL recv_latbc_data(latbc               = latbc,              &
-         &                  p_patch             = p_patch(1),         &
+         &                  p_patch             = p_patch(1:),        &
          &                  p_nh_state          = p_nh_state(1),      &
          &                  p_int               = p_int_state(1),     &
          &                  cur_datetime        = mtime_current,      &
@@ -1577,7 +1594,7 @@ MODULE mo_nh_stepping
     INTEGER , INTENT(IN)    :: iau_iter     !< counter for IAU iteration
     REAL(wp), INTENT(IN)    :: dt_loc       !< time step applicable to local grid level
     TYPE(timedelta), POINTER :: mtime_dt_loc !< time step applicable to local grid level (mtime format)
-    TYPE(t_latbc_data), INTENT(INOUT) :: latbc
+    TYPE(t_latbc_data), TARGET, INTENT(INOUT) :: latbc
 
     ! Local variables
 
@@ -1597,6 +1614,8 @@ MODULE mo_nh_stepping
     INTEGER, PARAMETER :: nsteps_nest=2 ! number of time steps executed in nested domain
 
     REAL(wp)                             :: sim_time !< elapsed simulation time on this grid level
+
+    TYPE(t_pi_atm), POINTER :: ptr_latbc_data_atm_old, ptr_latbc_data_atm_new
 
     ! calculate elapsed simulation time in seconds (local time for
     ! this domain!)
@@ -1847,21 +1866,21 @@ MODULE mo_nh_stepping
 
           IF (ldynamics) THEN
 
-            !$ser verbatim CALL serialize_all(nproma, jg, "dynamics", .TRUE., opt_lupdate_cpu=.TRUE.)
+            !$ser verbatim CALL serialize_all(nproma, jg, "dynamics", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
             ! dynamics integration with substepping
             !
             CALL perform_dyn_substepping (p_patch(jg), p_nh_state(jg), p_int_state(jg), &
               &                           prep_adv(jg), jstep, iau_iter, dt_loc, datetime_local(jg)%ptr)
-            !$ser verbatim CALL serialize_all(nproma, jg, "dynamics", .FALSE., opt_lupdate_cpu=.TRUE.)
+            !$ser verbatim CALL serialize_all(nproma, jg, "dynamics", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
 
             ! diffusion at physics time steps
             !
             IF (diffusion_config(jg)%lhdiff_vn .AND. lhdiff_rcf) THEN
-              !$ser verbatim CALL serialize_all(nproma, jg, "diffusion", .TRUE., opt_lupdate_cpu=.TRUE.)
+              !$ser verbatim CALL serialize_all(nproma, jg, "diffusion", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
               CALL diffusion(p_nh_state(jg)%prog(nnew(jg)), p_nh_state(jg)%diag,     &
                 &            p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg),   &
                 &            dt_loc/ndyn_substeps, .FALSE.)
-              !$ser verbatim CALL serialize_all(nproma, jg, "diffusion", .FALSE., opt_lupdate_cpu=.TRUE.)
+              !$ser verbatim CALL serialize_all(nproma, jg, "diffusion", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
             ENDIF
 
           ELSE IF (iforcing == inwp .OR. (iforcing == iecham .AND. echam_phy_config(jg)%ldcphycpl)) THEN
@@ -1915,7 +1934,7 @@ MODULE mo_nh_stepping
             CALL message('integrate_nh', message_text)
           ENDIF
 
-          !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .TRUE., opt_lupdate_cpu=.TRUE.)
+          !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
           CALL step_advection(                                                &
             &       p_patch           = p_patch(jg),                          & !in
             &       p_int_state       = p_int_state(jg),                      & !in
@@ -1938,20 +1957,22 @@ MODULE mo_nh_stepping
             &       opt_ddt_tracer_adv= p_nh_state(jg)%diag%ddt_tracer_adv,   & !out
             &       opt_deepatmo_t1mc = p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
             &       opt_deepatmo_t2mc = p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
-          !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .FALSE., opt_lupdate_cpu=.TRUE.)
+          !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
 
           IF (iprog_aero >= 1) THEN
             
 #ifdef _OPENACC
             CALL finish (routine, 'aerosol_2D_advection: OpenACC version currently not implemented')
 #endif
-            CALL aerosol_2D_advection( p_patch(jg), p_int_state(jg), iprog_aero, & !in
+            CALL sync_patch_array(SYNC_C, p_patch(jg), prm_diag(jg)%aerosol)
+            CALL aerosol_2D_advection( p_patch(jg), p_int_state(jg), iprog_aero,   & !in
               &          dt_loc, prm_diag(jg)%aerosol, prep_adv(jg)%vn_traj,       & !in, inout, in
               &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,       & !in
               &          p_nh_state(jg)%metrics%ddqz_z_full_e,                     & !in
               &          p_nh_state(jg)%diag%airmass_now,                          & !in
               &          p_nh_state(jg)%diag%airmass_new                           ) !in
-            
+            CALL sync_patch_array(SYNC_C, p_patch(jg), prm_diag(jg)%aerosol)
+            CALL aerosol_2D_diffusion( p_patch(jg), p_int_state(jg), nproma, prm_diag(jg)%aerosol)
           ENDIF
 
         ! ART tracer sedimentation:
@@ -2048,7 +2069,7 @@ MODULE mo_nh_stepping
 
 
               ! nwp physics
-              !$ser verbatim CALL serialize_all(nproma, jg, "physics", .TRUE., opt_lupdate_cpu=.TRUE.)
+              !$ser verbatim CALL serialize_all(nproma, jg, "physics", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
               CALL nwp_nh_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
                 &                  .FALSE.,                            & !in
                 &                  lredgrid_phys(jg),                  & !in
@@ -2074,7 +2095,7 @@ MODULE mo_nh_stepping
                 &                  p_nh_state_lists(jg)%prog_list(n_new_rcf),& !in
                 &                  prm_upatmo(jg)                      ) !inout
   
-              !$ser verbatim CALL serialize_all(nproma, jg, "physics", .FALSE., opt_lupdate_cpu=.TRUE.)
+              !$ser verbatim CALL serialize_all(nproma, jg, "physics", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
 
             CASE (iecham) ! iforcing
 
@@ -2184,60 +2205,97 @@ MODULE mo_nh_stepping
 
       ENDIF  ! itime_scheme
 
-      ! Update nudging tendency fields for limited-area mode
-      IF ((jg == 1 .AND. l_limited_area .AND. (.NOT. l_global_nudging))  .AND. (.NOT. bench_config%d_n) ) THEN
+
+      !
+      ! lateral nudging and optional upper boundary nudging in limited area mode
+      !
+      IF ( (l_limited_area .AND. (.NOT. l_global_nudging)) .AND. (.NOT. bench_config%d_n) ) THEN
 #ifdef _OPENACC
         CALL message('mo_nh_stepping', 'Device to host copy before nudging. This needs to be removed once port is finished!')
         CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg))
         i_am_accel_node = .FALSE.
 #endif
-        !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .TRUE., opt_lupdate_cpu=.TRUE.)
+        !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
         
         tsrat = REAL(ndyn_substeps,wp) ! dynamics-physics time step ratio
 
-        IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
-          
+        IF (latbc_config%itype_latbc > 0) THEN  ! use time-dependent boundary data
+
           IF (latbc_config%nudge_hydro_pres) CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 2, &
             p_nh_state(jg)%diag%pres, p_nh_state(jg)%diag%temp, opt_varname="diag%pres and diag%temp")
-          
-          IF (num_prefetch_proc >= 1) THEN
-            
-            ! Asynchronous LatBC read-in:
+
+          IF (num_prefetch_proc >= 1) THEN  ! Asynchronous LatBC read-in
+
             ! update the coefficients for the linear interpolation
             CALL update_lin_interpolation(latbc, datetime_local(jg)%ptr)
-            CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-              &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
-              &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
-              &  p_latbc_old=latbc%latbc_data(latbc%prev_latbc_tlev())%atm,         &
-              &  p_latbc_new=latbc%latbc_data(latbc%new_latbc_tlev)%atm)
-          ELSE
-            
-            ! update the coefficients for the linear interpolation
-            CALL update_lin_interc(datetime_local(jg)%ptr)
-            CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-              &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
-              &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
-              &  p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,                     &
-              &  p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
-            
+
+            IF (jg==1) THEN
+              ! lateral boundary nudging (for DOM01 only)
+              CALL limarea_nudging_latbdy(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),  &
+                &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
+                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
+                &  p_latbc_old=latbc%latbc_data(latbc%prev_latbc_tlev())%atm,         &
+                &  p_latbc_new=latbc%latbc_data(latbc%new_latbc_tlev)%atm)
+            ENDIF
+
+            IF (nudging_config(jg)%ltype(indg_type%ubn)) THEN
+              ! set pointer to upper boundary nudging data
+              IF (jg==1) THEN
+                ptr_latbc_data_atm_old =>latbc%latbc_data(latbc%prev_latbc_tlev())%atm
+                ptr_latbc_data_atm_new =>latbc%latbc_data(latbc%new_latbc_tlev   )%atm
+              ELSE
+                ptr_latbc_data_atm_old =>latbc%latbc_data(latbc%prev_latbc_tlev())%atm_child(jg)
+                ptr_latbc_data_atm_new =>latbc%latbc_data(latbc%new_latbc_tlev   )%atm_child(jg)
+              ENDIF
+              !
+              ! upper boundary nudging
+              CALL limarea_nudging_upbdy(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),   &
+                &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
+                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
+                &  p_latbc_old=ptr_latbc_data_atm_old,                                &
+                &  p_latbc_new=ptr_latbc_data_atm_new )
+            ENDIF
+
+          ELSE  ! Synchronous LatBC read-in:
+
+            ! Please note that upper boundary nudging for child domains is not implemented 
+            ! for the synchronous latbc read-in mode.
+            IF (jg==1) THEN
+              ! update the coefficients for the linear interpolation
+              CALL update_lin_interc(datetime_local(jg)%ptr)
+
+              ! this is a wrapper for limarea_nudging_latbdy + limarea_nudging_upbdy
+              CALL limarea_nudging_bdy(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
+                &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
+                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
+                &  p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,                     &
+                &  p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
+            ENDIF
+
           ENDIF
-          
-        ELSE ! constant lateral boundary data
-          
-          CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)), &
-            &                      p_nh_state(jg)%prog(n_new_rcf)%tracer,     &
-            & p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),     &
-            & tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
-          
+
+        ELSE  ! constant lateral boundary data
+
+          IF (jg==1) THEN
+            ! Model state is nudged towards constant state along the lateral boundaries
+            ! Currently only implemented for the base domain
+            !
+            CALL limarea_nudging_latbdy(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),  &
+              &                         p_nh_state(jg)%prog(n_new_rcf)%tracer,      &
+              &                         p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg), &
+              &                         tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
+          ENDIF
+
         ENDIF
 #ifdef _OPENACC
         CALL message('mo_nh_stepping', 'Host to device copy after nudging. This needs to be removed once port is finished!')
         CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg))
         i_am_accel_node = my_process_is_work()
 #endif
-        !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .FALSE., opt_lupdate_cpu=.TRUE.)
-        
-      ELSEIF (jg == 1 .AND. l_global_nudging) THEN
+        !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
+
+
+      ELSE IF (l_global_nudging .AND. jg==1) THEN
         
 #ifdef _OPENACC
         CALL finish (routine, 'nudging_interface: OpenACC version currently not implemented')
@@ -2257,7 +2315,7 @@ MODULE mo_nh_stepping
           &                     last_latbc_tlev  = last_latbc_tlev,        & !in
           &                     read_latbc_tlev  = read_latbc_tlev,        & !in
           &                     upatmo_config    = upatmo_config(jg),      & !in
-          &                     nudging_config   = nudging_config          ) !inout
+          &                     nudging_config   = nudging_config(jg)      ) !inout
 
       ENDIF
 
@@ -3333,27 +3391,12 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE deallocate_nh_stepping
 
-  INTEGER                              ::  jg, ist
+  INTEGER :: ist,jg
 
   !-----------------------------------------------------------------------
   !
   ! deallocate auxiliary fields for tracer transport and rcf
   !
-  DO jg = 1, n_dom
-    DEALLOCATE( prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,     &
-      &         prep_adv(jg)%vn_traj, prep_adv(jg)%topflx_tra, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ( modname//': perform_nh_stepping',            &
-        &    'deallocation for mass_flx_me, mass_flx_ic, vn_traj,' // &
-        &    'topflx_tra failed' )
-    ENDIF
-  ENDDO
-
-  DEALLOCATE( prep_adv, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( modname//': perform_nh_stepping',              &
-      &    'deallocation for prep_adv failed' )
-  ENDIF
 
   DEALLOCATE( jstep_adv, STAT=ist )
   IF (ist /= SUCCESS) THEN
@@ -3370,8 +3413,16 @@ MODULE mo_nh_stepping
       &    'deallocation for linit_dyn failed' )
   ENDIF
 
-  CALL sst_reader%deinit 
-  CALL sic_reader%deinit 
+  IF (ALLOCATED(sst_reader)) THEN
+    DO jg = 1, n_dom
+      CALL sst_reader(jg)%deinit
+    ENDDO
+  ENDIF
+  IF (ALLOCATED(sic_reader)) THEN
+    DO jg = 1, n_dom
+      CALL sic_reader(jg)%deinit
+    ENDDO
+  ENDIF
 
   END SUBROUTINE deallocate_nh_stepping
   !-------------------------------------------------------------------------
@@ -3395,11 +3446,6 @@ MODULE mo_nh_stepping
     !
     ! allocate axiliary fields for transport
     !
-    ALLOCATE(prep_adv(n_dom), STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish(routine, 'allocation for prep_adv failed')
-    ENDIF
-
     ALLOCATE(jstep_adv(n_dom), STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish(routine, 'allocation for jstep_adv failed' )
@@ -3430,28 +3476,6 @@ MODULE mo_nh_stepping
     ENDIF
 
     DO jg=1, n_dom
-      ALLOCATE(                                                                      &
-        &  prep_adv(jg)%mass_flx_me (nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_e), &
-        &  prep_adv(jg)%mass_flx_ic (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
-        &  prep_adv(jg)%vn_traj     (nproma,p_patch(jg)%nlev,  p_patch(jg)%nblks_e), &
-        &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,MAX(1,ntracer)),     &
-        &       STAT=ist )
-      IF (ist /= SUCCESS) THEN
-        CALL finish(routine,                                             &
-          &      'allocation for mass_flx_me, mass_flx_ic, vn_traj, ' // &
-          &      'topflx_tra failed' )
-      ENDIF
-      !
-      ! initialize (as long as restart output is synchroinzed with advection,
-      ! these variables do not need to go into the restart file)
-!$OMP PARALLEL
-      CALL init(prep_adv(jg)%mass_flx_me)
-      CALL init(prep_adv(jg)%mass_flx_ic)
-      CALL init(prep_adv(jg)%vn_traj)
-      CALL init(prep_adv(jg)%topflx_tra)
-!$OMP END PARALLEL
-
-
       IF (iforcing == inwp) THEN
         ! reads elapsed_time from the restart file, to re-initialize 
         ! NWP physics events.

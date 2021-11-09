@@ -298,7 +298,7 @@ do
  model_name = "JSBACH${domain}"
  model_shortname = "jsb${domain_suffix}"
  model_description = 'JSBACH land surface model'
- model_namelist_filename = "${lnd_namelist}${domain_suffix}"
+ model_namelist_filename = "${jsbach_namelist}${domain_suffix}"
 /
 EOF
   if [[ -f ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix} && -f ${EXPDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix} ]] ; then

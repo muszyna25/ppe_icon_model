@@ -1,0 +1,133 @@
+#!/bin/bash
+
+set -eu
+unset CDPATH
+
+SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
+
+MODULES='gcc/6.3.0 nag/6.2 mpich3/3.2.1-nag62'
+
+XAS_SW_ROOT='/sw/stretch-x64'
+SPACK_SW_ROOT='/data/mpi/sclab/sip/m300488/sw/nag-6.2'
+
+# We avoid using MPI wrappers for tree reasons:
+#   1) mpicc calls system gcc instead of the one provided with the module
+#      (a possible workaround is to specify MPICH_CC=gcc);
+#   2) mpif90 injects flags '-mismatch', which is in conflict with '-C=all'
+#      (a possible workaround is to specify '-C=alias' '-C=array' '-C=bits'
+#       '-C=dangling' '-C=do' '-C=intovf' '-C=present' '-C=pointer'
+#       '-C=recursion', which is equivalent to '-C=all' but without '-C=calls',
+#       which enables checks that are really in conflict with '-mismatch');
+#   3) we want to make sure that NAG passes the list of libraries in the same
+#      order it receives it (see comments on '--as-needed' linker flag below).
+# Therefore, we specify the required flags explicitly:
+MPICH_ROOT="${XAS_SW_ROOT}/mpi/mpich3-3.2.1-nag62"
+MPICH_LIBS='-lmpifort -lmpi'
+
+# We cannot use ${XAS_SW_ROOT}/netcdf/netcdf_fortran-4.4.4-nag62 because the
+# file ${XAS_SW_ROOT}/netcdf/netcdf_fortran-4.4.4-nag62/lib/libnetcdff.la has an
+# entry "inherited_linker_flags=' -Wl,-pthread'", which seems to be inherited
+# from curl. The problem is that '-Wl,-pthread' is injected by libtool, which is
+# used by several bundled libraries, when linking with 'gcc' and that leads to
+# the linker error '/usr/bin/ld: unrecognized option '-pthread'. Therefore, we
+# use libraries from ${SPACK_SW_ROOT}:
+HDF5_ROOT="${SPACK_SW_ROOT}/hdf5-1.10.3-apnriqy"
+HDF5_LIBS='-lhdf5'
+
+NETCDF_ROOT="${SPACK_SW_ROOT}/netcdf-4.6.1-4x2bjig"
+NETCDF_LIBS='-lnetcdf'
+
+NETCDFF_ROOT="${SPACK_SW_ROOT}/netcdf-fortran-4.4.4-insiw2u"
+NETCDFF_LIBS='-lnetcdff'
+
+GRIBAPI_ROOT="${XAS_SW_ROOT}/grib_api/grib_api-1.21.0-gccsys"
+GRIBAPI_LIBS='-lgrib_api'
+
+BLAS_LAPACK_LIBS='-llapack -lblas'
+
+XML2_ROOT='/usr'
+XML2_LIBS='-lxml2'
+
+################################################################################
+
+BUILD_ENV=". /etc/profile.d/mpim.sh; . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${MPICH_ROOT}/lib:${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${GRIBAPI_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
+
+# We need the absolute path to 'gcc':
+set +eu
+eval "$BUILD_ENV"
+set -eu
+GCC_PATH=$(which gcc)
+
+CC='gcc'
+CFLAGS='-g -march=native'
+ICON_CFLAGS='-O3'
+ICON_BUNDLED_CFLAGS='-O2'
+CPPFLAGS="-I${MPICH_ROOT}/include -I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${GRIBAPI_ROOT}/include -I${XML2_ROOT}/include/libxml2"
+
+FC='nagfor'
+FCFLAGS="-I${MPICH_ROOT}/include -I${NETCDFF_ROOT}/include -colour -f2008 -Wc=${GCC_PATH} -w=uep -O0 -Wc,-g -float-store -nan -gline -g"
+ICON_FCFLAGS='-Wc,-pipe -Wc,--param,max-vartrack-size=200000000 -Wc,-mno-fma -C=all -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_irecv,mpi_isend,mpi_pack,mpi_recv,mpi_reduce,mpi_rget,mpi_scatter,mpi_scatterv,mpi_send,mpi_sendrecv,mpi_unpack,mpi_win_create,nf_def_var,nf_get_att_double,nf_get_att_int,nf_get_vara_int,nf_put_att_double,nf_put_att_int,nf_put_vara_double,nf_put_vara_int -D__LVECTOR__'
+ICON_BUNDLED_FCFLAGS='-wmismatch=xt_slice_c_loc'
+
+LDFLAGS="-L${MPICH_ROOT}/lib -L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${GRIBAPI_ROOT}/lib"
+LIBS="${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${MPICH_LIBS}"
+
+# In order to avoid redundant dependencies on the libraries (e.g. -lgrib_api is
+# not needed when GRIB2 support is disabled), we can use linker flag
+# '--as-needed'. This flag must be passed to the linker (i.e. to 'ld') before
+# the list of libraries. To achive that with NAG compiler, we need to use two
+# tricks:
+#   1) We put '-Wl,-Wl,,--as-needed' not to LDFLAGS or LIBS, which are used by
+#      both Fortran and C compilers (the latter is used for linking by the
+#      bundled libraries), and not to FCFLAGS, which would break libtool (used
+#      by the bundled libraries), but to ICON_FCFLAGS:
+ICON_FCFLAGS+=' -Wl,-Wl,,--as-needed'
+#   2) We prepend each '-l<library>' flag with '-Wl,' because otherwise NAG
+#      puts them before '-Wl,--as-needed' when calling gcc for linking and the
+#      flag does not give the desired effect:
+LIBS=$(echo "${LIBS}" | sed 's/\([ ]\|^\)-l/\1-Wl,-l/g')
+
+MPI_LAUNCH='mpiexec'
+
+EXTRA_CONFIG_ARGS=''
+
+################################################################################
+
+"${ICON_DIR}/configure" \
+BUILD_ENV="${BUILD_ENV}" \
+CC="${CC}" \
+CFLAGS="${CFLAGS}" \
+CPPFLAGS="${CPPFLAGS}" \
+FC="${FC}" \
+FCFLAGS="${FCFLAGS}" \
+ICON_BUNDLED_CFLAGS="${ICON_BUNDLED_CFLAGS}" \
+ICON_BUNDLED_FCFLAGS="${ICON_BUNDLED_FCFLAGS}" \
+ICON_CFLAGS="${ICON_CFLAGS}" \
+ICON_FCFLAGS="${ICON_FCFLAGS}" \
+LDFLAGS="${LDFLAGS}" \
+LIBS="${LIBS}" \
+MPI_LAUNCH="${MPI_LAUNCH}" \
+${EXTRA_CONFIG_ARGS} \
+"$@"
+
+for arg in "$@"; do
+  case $arg in
+    -help | --help | --hel | --he | -h | -help=r* | --help=r* | --hel=r* | --he=r* | -hr* | -help=s* | --help=s* | --hel=s* | --he=s* | -hs*)
+      test -n "${EXTRA_CONFIG_ARGS}" && echo '' && echo "This wrapper script ('$0') calls the configure script with the following extra arguments, which might override the default values listed above: ${EXTRA_CONFIG_ARGS}"
+      exit 0 ;;
+  esac
+done
+
+# Copy runscript-related files when building out-of-source:
+if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
+  echo "Copying runscript input files from the source directory..."
+  rsync -uavz ${ICON_DIR}/run . --exclude='*.in' --exclude='.*' --exclude='standard_*'
+  ln -sf -t run/ ${ICON_DIR}/run/standard_*
+  ln -sf set-up.info run/SETUP.config
+  rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
+  rsync -uavz ${ICON_DIR}/make_runscripts .
+  ln -sf ${ICON_DIR}/data
+  ln -sf ${ICON_DIR}/vertical_coord_tables
+fi
+
