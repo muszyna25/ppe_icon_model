@@ -40,7 +40,8 @@ MODULE mo_ocean_ab_timestepping_zstar
     & MASS_MATRIX_INVERSION_ALLTERMS, &
     & PPscheme_type, PPscheme_ICON_Edge_vnPredict_type, &
     & solver_FirstGuess, MassMatrix_solver_tolerance,     &
-    & createSolverMatrix, l_solver_compare, solver_comp_nsteps
+    & createSolverMatrix, l_solver_compare, solver_comp_nsteps, &
+    & surface_flux_type
   USE mo_run_config,                ONLY: dtime, debug_check_level, nsteps, output_mode
   USE mo_timer, ONLY: timer_start, timer_stop, timers_level, timer_extra1, &
     & timer_extra2, timer_extra3, timer_extra4, timer_ab_expl, timer_ab_rhs4sfc, timer_total
@@ -96,7 +97,6 @@ MODULE mo_ocean_ab_timestepping_zstar
   USE mo_memory_log,             ONLY: memory_log_add 
   USE mo_ocean_surface_refactor, ONLY: update_ocean_surface_refactor, update_atmos_fluxes
   USE mo_ocean_physics,         ONLY: update_ho_params
-  USE mo_ocean_ab_timestepping_mimetic,  ONLY: calculate_explicit_term_ab, fill_rhs4surface_eq_ab
   USE mo_ocean_output, ONLY: output_ocean
   USE mo_ocean_ab_timestepping,  ONLY: calc_vert_velocity, calc_normal_velocity_ab
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
@@ -917,10 +917,12 @@ CONTAINS
   !!  Calculation of right-hand side of elliptic surface equation.
   !!  This is used in semi implicit timelevel stepping.
   !!
-  SUBROUTINE fill_rhs4surface_eq_zstar( patch_3d, ocean_state, op_coeffs, stretch_e, eta)
+  SUBROUTINE fill_rhs4surface_eq_zstar( patch_3d, ocean_state, p_oce_sfc, &
+      & op_coeffs, stretch_e, eta)
     ! Patch on which computation is performed
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
+    TYPE(t_ocean_surface)                :: p_oce_sfc
     TYPE(t_operator_coeff), INTENT(IN) :: op_coeffs
     REAL(wp), INTENT(IN) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
     REAL(wp), INTENT(IN) :: eta(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! sfc ht 
@@ -982,6 +984,13 @@ CONTAINS
         IF (patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo) > 0) THEN
           ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo) = ( ( eta(jc,blockNo) &
             & - dtime * div_z_depth_int_c(jc)) * inv_gdt2)
+
+          IF (surface_flux_type .EQ. 15) THEN
+            ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo) = &
+              &   ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo)   & 
+              & + p_oce_sfc%FrshFlux_VolumeTotal(jc, blockNo)*dtime  &
+              & + p_oce_sfc%FrshFlux_TotalIce(jc, blockNo)*dtime  
+          END IF
 
         ENDIF
       END DO
@@ -1062,7 +1071,8 @@ CONTAINS
         & is_initial_timestep(timestep), operators_coefficients, p_as, stretch_c, eta_c, stretch_e)
       
       ! Calculate RHS of surface equation
-      CALL fill_rhs4surface_eq_zstar(patch_3d, ocean_state(1), operators_coefficients, stretch_e, eta_c)
+      CALL fill_rhs4surface_eq_zstar(patch_3d, ocean_state(1), p_oce_sfc, &
+        & operators_coefficients, stretch_e, eta_c)
 
       !! Update stretching co-efficient for LHS
       CALL lhs_zstar%update(stretch_e)
