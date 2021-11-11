@@ -988,8 +988,8 @@ CONTAINS
           IF (surface_flux_type .EQ. 15) THEN
             ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo) = &
               &   ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo)   & 
-              & + p_oce_sfc%FrshFlux_VolumeTotal(jc, blockNo)*dtime  &
-              & + p_oce_sfc%FrshFlux_TotalIce(jc, blockNo)*dtime  
+              & + ( p_oce_sfc%FrshFlux_VolumeTotal(jc, blockNo)*dtime  &
+              & + p_oce_sfc%FrshFlux_TotalIce(jc, blockNo)*dtime ) * inv_gdt2
           END IF
 
         ENDIF
