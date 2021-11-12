@@ -109,6 +109,8 @@ for builder in DWD_nec DWD_nec_yac2; do
   $addexp checksuite.rcnl.dwd.de/exp.run_ICON_08_R19B7-ID2_oper.run                  --builders ${builder} --list $listname
   $addexp checksuite.rcnl.dwd.de/exp.run_ICON_11_R3B08_lam_initmode7_restarttest.run --builders ${builder} --list $listname
   $addexp checksuite.rcnl.dwd.de/exp.run_ICON_14_R2B6N7_oper_IAU_and_restarttest.run --builders ${builder} --list $listname
+done
+for builder in DWD_nec DWD_nec_yac2 DWD_nec_hybrid; do
   # remove non-dwd tests
   ./rmexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest               --builders ${builder} --list $listname
   ./rmexp checksuite.ocean_internal/technical/exp.test_ocean_omip_technical      --builders ${builder} --list $listname
@@ -120,6 +122,8 @@ for builder in DWD_nec DWD_nec_yac2; do
 done
 # only DWD_nec
 $addexp checksuite.rcnl.dwd.de/exp.run_ICON_09_R2B6N7_oper_EPS.run               --builders DWD_nec --list $listname
+# DWD_nec_hybrid
+$addexp checksuite.rcnl.dwd.de/exp.run_ICON_11_R3B08_lam_initmode7_restarttest.run --builders DWD_nec_hybrid --list $listname
 
 #-----------------------------------------------------------
 # Ruby0 coupled tests, only with mpi

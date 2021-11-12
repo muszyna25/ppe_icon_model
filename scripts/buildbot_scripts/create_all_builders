@@ -58,6 +58,7 @@ machine=daint
 #DWD machines
 machine=dwd_nec
 ./addmachine $machine --list $list
-./addbuilder DWD_nec             --machine $machine  --build_script="./config/buildbot/dwd_nec"       --builderflags="Active"  --list $list
-./addbuilder DWD_nec_yac2        --machine $machine  --build_script="./config/buildbot/dwd_nec_yac2"  --builderflags="Active"  --list $list
+./addbuilder DWD_nec             --machine $machine  --build_script="./config/buildbot/dwd_nec"        --builderflags="Active"  --list $list
+./addbuilder DWD_nec_hybrid      --machine $machine  --build_script="./config/buildbot/dwd_nec_hybrid" --builderflags="Active"  --list $list
+./addbuilder DWD_nec_yac2        --machine $machine  --build_script="./config/buildbot/dwd_nec_yac2"   --builderflags="Active"  --list $list
 
