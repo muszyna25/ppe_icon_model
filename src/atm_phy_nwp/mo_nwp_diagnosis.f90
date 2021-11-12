@@ -57,15 +57,17 @@ MODULE mo_nwp_diagnosis
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_advection_config,   ONLY: advection_config
   USE mo_io_config,          ONLY: lflux_avg, uh_max_zmin, uh_max_zmax, &
-    &                              luh_max_out, uh_max_nlayer, var_in_output
+    &                              luh_max_out, uh_max_nlayer, var_in_output, &
+    &                              itype_dursun
   USE mo_sync,               ONLY: global_max, global_min
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_opt_nwp_diagnostics,ONLY: calsnowlmt, cal_cape_cin, maximize_field_lpi, compute_field_tcond_max, &
                                    compute_field_uh_max, compute_field_vorw_ctmax, compute_field_w_ctmax, &
-                                   compute_field_dbz3d_lin, maximize_field_dbzctmax, &
-                                   compute_field_echotop, compute_field_echotopinm, compute_field_dursun
+                                   compute_field_dbz3d_lin, maximize_field_dbzctmax,                      &
+                                   compute_field_echotop, compute_field_echotopinm, compute_field_dursun, &
+                                   compute_field_twater
   USE mo_nwp_ww,             ONLY: ww_diagnostics, ww_datetime
   USE mtime,                 ONLY: datetime, timeDelta, getTimeDeltaFromDateTime,  &
     &                              deallocateTimedelta, newTimeDelta, newDatetime, &
@@ -1813,24 +1815,59 @@ CONTAINS
   !! Developed by Daniel Rieger, DWD (2021-07-06)
   !!
   !!
-  SUBROUTINE nwp_opt_diagnostics_2(p_patch, prm_diag, cosmu0, dt_phy)
+  SUBROUTINE nwp_opt_diagnostics_2(p_patch, p_metrics, p_prog, p_prog_rcf, p_diag, &
+             &                     prm_diag, cosmu0, p_sim_time, dt_phy)
 
     TYPE(t_patch),         INTENT(IN)    :: p_patch         !< current patch
+    TYPE(t_nh_metrics),    INTENT(IN)    :: p_metrics       !< in
+    TYPE(t_nh_prog),       INTENT(IN)    :: p_prog          !< the dyn prog vars
+    TYPE(t_nh_prog),       INTENT(IN)    :: p_prog_rcf      !< the prognostic variables with
+                                                            !< red. calling frequency for tracers!
+    TYPE(t_nh_diag),       INTENT(IN)    :: p_diag          !< NH diagnostic state
     TYPE(t_nwp_phy_diag),  INTENT(INOUT) :: prm_diag        !< physics diagnostics
     REAL(wp),              INTENT(IN)    :: cosmu0(:,:)     !< Cosine of solar zenith angle
+    REAL(wp),              INTENT(IN)    :: p_sim_time      !< elapsed simulation time on this grid level
     REAL(wp),              INTENT(IN)    :: dt_phy          !< time interval for fast physics
 
-    INTEGER :: jg
+    ! Local variables
+    INTEGER                                     :: jg
+    LOGICAL                                     :: l_present_dursun_m, l_present_dursun_r
+    REAL(wp), DIMENSION(nproma,p_patch%nblks_c) :: twater
 
     IF (ltimer) CALL timer_start(timer_nh_diagnostics)
     
+    l_present_dursun_m = .FALSE.
+    l_present_dursun_r = .FALSE.
+    IF (ASSOCIATED(prm_diag%dursun_m)) l_present_dursun_m=.TRUE.
+    IF (ASSOCIATED(prm_diag%dursun_r)) l_present_dursun_r=.TRUE.
+
     jg = p_patch%id
 
-    IF (var_in_output(jg)%dursun) THEN
-      ! sunshine duration is an accumulative value like precipitation or runoff
-      CALL compute_field_dursun( p_patch, dt_phy,                                           &
-           &                     prm_diag%dursun, prm_diag%swflxsfc, prm_diag%swflx_up_sfc, &
-           &                     prm_diag%swflx_dn_sfc_diff, cosmu0 )
+    IF (var_in_output(jg)%dursun .AND. (p_sim_time > 0._wp) ) THEN
+      IF (l_present_dursun_m .AND. l_present_dursun_r) THEN
+        CALL compute_field_twater(p_patch, jg, p_metrics, p_prog, p_prog_rcf, twater)
+      ENDIF
+      IF (itype_dursun == 0) THEN
+        ! WMO sunshine duration is an accumulative value like precipitation or runoff
+        CALL compute_field_dursun(p_patch, dt_phy, prm_diag%dursun,         &
+             &                    prm_diag%swflxsfc, prm_diag%swflx_up_sfc, &
+             &                    prm_diag%swflx_dn_sfc_diff, cosmu0,       &
+             &                    120.0_wp, 0.01_wp,                        &
+             &                    prm_diag%dursun_m, prm_diag%dursun_r,     &
+             &                    prm_diag%flxdwswtoa(:,:),                 &
+             &                    p_diag%pres(:,p_patch%nlev,:), twater     )
+      ELSEIF (itype_dursun == 1) THEN
+        ! MeteoSwiss sunshine duration with a 200 W/m² threshold
+        CALL compute_field_dursun(p_patch, dt_phy, prm_diag%dursun,         &
+             &                    prm_diag%swflxsfc, prm_diag%swflx_up_sfc, &
+             &                    prm_diag%swflx_dn_sfc_diff, cosmu0,       &
+             &                    200.0_wp, 60.0_wp,                        &
+             &                    prm_diag%dursun_m, prm_diag%dursun_r,     &
+             &                    prm_diag%flxdwswtoa(:,:),                 &
+             &                    p_diag%pres(:,p_patch%nlev,:), twater     )
+      ELSE
+        CALL finish('nwp_opt_diagnostics_2', 'itype_dursun can only have the value 0 or 1.')
+      ENDIF
     ENDIF
 
     IF (ltimer) CALL timer_stop(timer_nh_diagnostics)

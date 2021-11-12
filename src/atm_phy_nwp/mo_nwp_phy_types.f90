@@ -216,6 +216,8 @@ MODULE mo_nwp_phy_types
       &  swflxclrsfc_a(:,:),   & !! Clear-sky surface net solar radiation [W/m2], accumulated or mean since model start
       &  lwflxtoa_a(:,:),      & !! TOA net thermal radiation [W/m2], accumulated or mean since model start
       &  swflxtoa_a(:,:),      & !! shortwave net flux at toa [W/m2], accumulated or mean since model start
+      &  dursun_m(:,:),        & !! maximum duration of sunshine [s]
+      &  dursun_r(:,:),        & !! relative duration of sunshine [s]
       &  dursun(:,:),          & !! duration of sunshine [s]
       &  asod_t    (:,:),      & !! Top down solar radiation  [W/m2], accumulated or mean since model start
       &  asou_t    (:,:),      & !! Top up solar radiation  [W/m2], accumulated or mean since model start

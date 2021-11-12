@@ -40,6 +40,7 @@ MODULE mo_io_nml
                                  & t_echotop_meta                                           , &
                                  & config_precip_interval         => precip_interval        , &
                                  & config_runoff_interval         => runoff_interval        , &
+                                 & config_itype_dursun            => itype_dursun           , &
                                  & config_sunshine_interval       => sunshine_interval      , &
                                  & config_maxt_interval           => maxt_interval          , &
                                  & config_dt_checkpoint           => dt_checkpoint          , &
@@ -110,7 +111,7 @@ CONTAINS
     TYPE(t_echotop_meta) :: echotop_meta(max_dom) ! meta data for echotops (ECHOTOP, ECHOTOPinM)
     CHARACTER(len=max_timedelta_str_len) :: precip_interval(max_dom)   ! time interval over which precipitation variables are accumulated
     CHARACTER(len=max_timedelta_str_len) :: runoff_interval(max_dom)   ! time interval over which runoff variables are accumulated
-    CHARACTER(len=max_timedelta_str_len) :: sunshine_interval(max_dom)   ! time interval over which sunshine duration is accumulated
+    CHARACTER(len=max_timedelta_str_len) :: sunshine_interval(max_dom) ! time interval over which sunshine duration is accumulated
     CHARACTER(len=max_timedelta_str_len) :: maxt_interval(max_dom)     ! time interval for tmax_2m and tmin_2m 
     REAL(wp):: dt_lpi                     ! calling frequency [seconds] of lpi diagnosis for hourly maximum calculation
     REAL(wp):: dt_celltracks              ! calling frequency [seconds] of celltrack diagnosis for hourly maximum calculation
@@ -121,6 +122,9 @@ CONTAINS
 
     INTEGER :: inextra_2d                 ! number of extra output fields for debugging
     INTEGER :: inextra_3d                 ! number of extra output fields for debugging
+    INTEGER :: itype_dursun               ! if 0 the sunshine duration is counted if >120W/m^2
+                                          ! if 1 the sunshine duration is counted only
+                                          !    if direct radiation > 200 W/m^2 and relative sunshine duration in % is computed
     LOGICAL :: lflux_avg                  ! if .FALSE. the output fluxes are accumulated
                                           !  from the beginning of the run
                                           ! if .TRUE. the output fluxex are average values
@@ -186,7 +190,7 @@ CONTAINS
       &              nrestart_streams, celltracks_interval, echotop_meta, &
       &              precip_interval, runoff_interval, maxt_interval,     &
       &              nrestart_streams, dt_lpi, dt_celltracks, dt_radar_dbz, &
-      &              bvf2_mode, parcelfreq2_mode, sunshine_interval
+      &              bvf2_mode, parcelfreq2_mode, sunshine_interval, itype_dursun
 
     !-----------------------
     ! 1. default settings
@@ -216,6 +220,7 @@ CONTAINS
     dt_radar_dbz            = 120._wp      ! 2 minutes
     inextra_2d              = 0     ! no extra output 2D fields
     inextra_3d              = 0     ! no extra output 3D fields
+    itype_dursun            = 0
     lflux_avg               = .TRUE.
     itype_pres_msl          = PRES_MSL_METHOD_GME
     itype_rh                = RH_METHOD_WMO       ! WMO: water only
@@ -290,6 +295,7 @@ CONTAINS
     config_echotop_meta(:)         = echotop_meta(:)
     config_precip_interval(:)      = precip_interval(:)
     config_runoff_interval(:)      = runoff_interval(:)
+    config_itype_dursun            = itype_dursun
     config_sunshine_interval(:)    = sunshine_interval(:)
     config_maxt_interval(:)        = maxt_interval(:)
     config_dt_checkpoint           = dt_checkpoint

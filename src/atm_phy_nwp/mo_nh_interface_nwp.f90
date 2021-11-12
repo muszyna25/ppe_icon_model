@@ -2153,8 +2153,12 @@ CONTAINS
 
 
     CALL nwp_opt_diagnostics_2(pt_patch,             & !in
+      &                        p_metrics,            & !in
+      &                        pt_prog, pt_prog_rcf, & !in
+      &                        pt_diag,              & !in
       &                        prm_diag,             & !inout
       &                        zcosmu0,              & !in
+      &                        p_sim_time,           & !in
       &                        dt_phy_jg(itfastphy))   !in
 
 

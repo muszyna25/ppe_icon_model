@@ -338,6 +338,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     shape3dechotop = (/nproma, echotop_meta(k_jg)%nechotop, kblks/)
     shape3d_uh_max = (/nproma, kblks,        uh_max_nlayer    /)
 
+    !------------------------------
+    ! Ensure that all pointers have a defined association status
+    !------------------------------
+    NULLIFY(diag%dursun_m, &
+      &     diag%dursun_r  )
+
+
     ! Register a field list and apply default settings
 
     CALL vlr_add(diag_list, TRIM(listname), patch_id=k_jg, lrestart=.TRUE.)
@@ -4171,6 +4178,29 @@ __acc_attach(diag%clct_avg)
     END IF
 
 
+    IF (var_in_output%dursun_m) THEN
+      ! &      diag%dursun_m(nproma,nblks_c)
+      cf_desc    = t_cf_var('maximum_duration_of_sunshine', 's', 'Possible astronomical maximum of sunshine', datatype_flt)
+      grib2_desc = grib2_var(0, 6, 205, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
+        &        + t_grib2_int_key("typeOfStatisticalProcessing", 11)
+      CALL add_var( diag_list, 'dursun_m', diag%dursun_m,                       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+        &           ldims=shape2d,                                              &
+        &           lrestart=.TRUE., isteptype=TSTEP_ACCUM ,                    &
+        &           initval=0._wp, resetval=0._wp,                              &
+        &           action_list=actions(new_action(ACTION_RESET,sunshine_interval(k_jg))) )
+    END IF
+    IF (var_in_output%dursun_r) THEN
+      ! &      diag%dursun_r(nproma,nblks_c)
+      cf_desc    = t_cf_var('relative_duration_of_sunshine', '%', 'relative duration of sunshine', datatype_flt)
+      grib2_desc = grib2_var(0, 6, 206, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'dursun_r', diag%dursun_r,                       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+        &           ldims=shape2d,                                              &
+        &           lrestart=.TRUE., isteptype=TSTEP_ACCUM ,                    &
+        &           initval=0._wp, resetval=0._wp,                              &
+        &           action_list=actions(new_action(ACTION_RESET,sunshine_interval(k_jg))) )
+    END IF
     IF (var_in_output%dursun) THEN
       ! &      diag%dursun(nproma,nblks_c)
       cf_desc    = t_cf_var('duration_of_sunshine', 's', 'sunshine duration', datatype_flt)

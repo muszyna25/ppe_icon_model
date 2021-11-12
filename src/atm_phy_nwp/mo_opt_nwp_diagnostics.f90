@@ -3783,30 +3783,61 @@ CONTAINS
   !! by the cosine of solar zenith angle to get the perpendicular solar irradiance.
   !! If the direct solar irradiance exeeds 120 Wm-2 the sunshine duration is extended by the fast physics timestep
   !!
+  !! settings for sunshine duration
+  !!
+  !! dursun_thresh is the threshold for solar direct irradiance in W/m2
+  !!       above which the sunshine duration is increased (default 120 W/m2)
+  !!
+  !! dursun_thresh_width is the smoothness / width of the threshold
+  !!       function (e.g. if equal to 60 W/m2 the sunshine duration will
+  !!       increase from zero at 170 W/m2 to dt at 230 W/m2)
+  !!
+  !! Note: MeteoSwiss uses 200 W/m2 instead of WMO value of 120 W/m2 and a width of 60 W/m2
+  !!
+  !! Note: use dursun_thresh=120.0_wp and dursun_thresh_width=0.01_wp to
+  !!       reproduce original behaviour, according to WMO
+  !!
   !! @par Revision History
   !! Initial revision by Burkhardt Rockel, Hereon (2021-06-17) 
+  !! More sunshine duration fields by Guy de Morsier, MeteoSwiss (2021-11-02)
   !!
-  SUBROUTINE compute_field_dursun( pt_patch,  dt_phy, dursun, &
-    &                              swflxsfc, swflx_up_sfc, swflx_dn_sfc_diff, cosmu0 )
+  SUBROUTINE compute_field_dursun( pt_patch, dt_phy, dursun,                    &
+    &                              swflxsfc, swflx_up_sfc, swflx_dn_sfc_diff,   &
+    &                              cosmu0, dursun_thresh, dursun_thresh_width,  &
+    &                              dursun_m, dursun_r, pi0, pres, twater)
 
-    TYPE(t_patch),      INTENT(IN)    :: pt_patch                 !< patch on which computation is performed
-
-    REAL(wp),           INTENT(IN)    :: dt_phy                   !< time interval for fast physics
-                                                                  !< packages on domain jg
-
-    REAL(wp),           INTENT(INOUT) :: dursun(:,:)              !< sunshine duration (s)
-    REAL(wp),           INTENT(IN)    :: swflxsfc(:,:)            !< shortwave net flux at surface [W/m2]
-    REAL(wp),           INTENT(IN)    :: swflx_up_sfc(:,:)        !< shortwave upward flux at the surface [W/m2]
-    REAL(wp),           INTENT(IN)    :: swflx_dn_sfc_diff(:,:)   !< shortwave diffuse downward radiative flux at the surface [W/m2]
-    REAL(wp),           INTENT(IN)    :: cosmu0(:,:)              !< cosine of solar zenith angle
+    TYPE(t_patch),      INTENT(IN)    :: pt_patch              !< patch on which computation is performed
+    REAL(wp),           INTENT(IN)    :: dt_phy                !< time interval for fast physics
+    REAL(wp), INTENT(INOUT)           :: dursun(:,:)           !< sunshine duration (s)
+    REAL(wp),           INTENT(IN)    :: swflxsfc(:,:)         !< shortwave net flux at surface [W/m2]
+    REAL(wp),           INTENT(IN)    :: swflx_up_sfc(:,:)     !< shortwave upward flux at the surface [W/m2]
+    REAL(wp),           INTENT(IN)    :: swflx_dn_sfc_diff(:,:)!< shortwave diffuse downward radiative flux at the surface [W/m2]
+    REAL(wp),           INTENT(IN)    :: cosmu0(:,:)           !< cosine of solar zenith angle
+    REAL(wp),           INTENT(IN)    :: dursun_thresh         !< threshold for solar direct irradiance in W/m2
+    REAL(wp),           INTENT(IN)    :: dursun_thresh_width   !< smoothness / width of the threshold
+    REAL(wp), INTENT(INOUT), OPTIONAL :: dursun_m(:,:)         !< maximum sunshine duration (s)
+    REAL(wp), INTENT(INOUT), OPTIONAL :: dursun_r(:,:)         !< relative sunshine duration (s)
+    REAL(wp), INTENT(IN), OPTIONAL    :: pi0(:,:)              !< local solar incoming flux at TOA [W/m2]
+    REAL(wp), INTENT(IN), OPTIONAL    :: pres(:,:)             !< pressure
+    REAL(wp), INTENT(IN), OPTIONAL    :: twater(:,:)           !< total column water
 
     ! Use a minimum value to avoid div0: The exact value does not make a difference
-    ! as the 120 W/m2 will not be hit for such small values anyway.
+    ! as the dursun_thresh [W/m2] will not be hit for such small values anyway.
     REAL(wp) :: cosmu0_dark = 1.e-9_wp
+
+    ! local variables
+    LOGICAL  :: l_present_dursun_m, l_present_dursun_r
+    REAL(wp) :: sun_el, swrad_dir, theta_sun, xval, &
+                zsct ! solar constant (at time of year)
     INTEGER  :: i_rlstart,  i_rlend
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: i_startidx, i_endidx
     INTEGER  :: jb, jc
+
+    l_present_dursun_m = .FALSE.
+    l_present_dursun_r = .FALSE.
+    IF (PRESENT(dursun_m)) l_present_dursun_m=.TRUE.
+    IF (PRESENT(dursun_r)) l_present_dursun_r=.TRUE.
 
     ! without halo or boundary  points:
     i_rlstart = grf_bdywidth_c + 1
@@ -3816,20 +3847,64 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_block  ( i_rlend   )
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,sun_el,swrad_dir,theta_sun,xval,zsct), ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( pt_patch, jb, i_startblk, i_endblk,     &
                           i_startidx, i_endidx, i_rlstart, i_rlend)
 
-        DO jc = i_startidx, i_endidx
-          IF(cosmu0(jc,jb)>cosmu0_dark) THEN
-            IF ( (swflxsfc(jc,jb) + swflx_up_sfc(jc,jb) - swflx_dn_sfc_diff(jc,jb))/cosmu0(jc,jb)  > 120._wp) THEN
-              dursun(jc,jb) = dursun(jc,jb) + dt_phy
-            END IF
-          ENDIF
-        END DO
+      DO jc = i_startidx, i_endidx
+        IF(cosmu0(jc,jb)>cosmu0_dark) THEN
 
+          ! compute sunshine duration
+          xval = (swflxsfc(jc,jb) + swflx_up_sfc(jc,jb) - swflx_dn_sfc_diff(jc,jb))/cosmu0(jc,jb)
+          xval = (xval - dursun_thresh)/(dursun_thresh_width/pi)
+          IF (xval > 0.5_wp*pi) THEN
+            dursun(jc,jb) = dursun(jc,jb) + dt_phy
+          ELSEIF (xval > -0.5_wp*pi) THEN
+            dursun(jc,jb) = dursun(jc,jb) + dt_phy* 0.5_wp*(SIN(xval) + 1.0_wp)
+          ENDIF
+        ENDIF
+
+        IF (l_present_dursun_m .AND. l_present_dursun_r) THEN
+          ! estimate direct solar radiation for cloud free conditions 
+          ! (after R. G. Allen et al. 2006, Agricultural and Forest Meteorology 
+          !  doi:10.1016/j.agrformet.2006.05.012                               )
+          ! The prefactor in eq. (17) is 0.94 instead of 0.98 in order to better
+          ! fit the COSMO clear sky radiation. The turbidity factor $K_t$ is set
+          ! to 0.8 (between 0.5 for extremely turbid air and 1.0 for clean air)
+
+          ! sun elevation angle
+          sun_el = ASIN(cosmu0(jc,jb))
+          ! sun elevation angle in radians
+          theta_sun = MAX(0.0_wp, sun_el)
+          ! from "calculate solar incoming flux at TOA" in mo_nh_interface_nwp.f90 line 1308
+          ! get solar constant 
+          zsct = pi0(jc,jb)/cosmu0(jc,jb)
+          IF ( swflxsfc(jc,jb) > 0.0001_wp ) THEN
+            swrad_dir = zsct * 0.94_wp * EXP(                                    &
+                 - 0.00146_wp * pres(jc,jb) / 1.0E3_wp / 0.8_wp / SIN(theta_sun) &
+                 - 0.075_wp * (twater(jc,jb)/SIN(theta_sun))**0.4_wp             )
+          ELSE
+            swrad_dir = 0.0_wp
+          ENDIF
+  
+          ! maximum possible sunshine duration (same formula as for SSD above)
+          xval = (swrad_dir-dursun_thresh)/(dursun_thresh_width/pi)
+          IF (xval > 0.5_wp*pi) THEN
+            dursun_m(jc,jb) = dursun_m(jc,jb) + dt_phy
+          ELSEIF (xval > -0.5_wp*pi) THEN
+            dursun_m(jc,jb) = dursun_m(jc,jb) + dt_phy* 0.5_wp*(SIN(xval) + 1.0_wp)
+          ENDIF
+  
+          ! relative sunshine duration (%)
+          IF (dursun_m(jc,jb) > 0.0_wp) THEN
+            dursun_r(jc,jb) = 100.0_wp*dursun(jc,jb)/dursun_m(jc,jb)
+          ENDIF
+          dursun_r(jc,jb) = MIN(100.0_wp, MAX(0.0_wp, dursun_r(jc,jb)))
+        ENDIF
+
+      END DO
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
