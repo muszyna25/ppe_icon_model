@@ -370,7 +370,7 @@ MODULE mo_initicon
 
     CHARACTER(LEN = :), ALLOCATABLE :: incrementsList(:)
 #else
-    CHARACTER(LEN = 9) :: incrementsList_IAU(10)
+    CHARACTER(LEN = 9) :: incrementsList_IAU(21)
     CHARACTER(LEN = 4) :: incrementsList_IAU_OLD(6)
     CHARACTER(LEN = 1) :: incrementsList_DEFAULT(1)
 #endif
@@ -463,9 +463,9 @@ MODULE mo_initicon
                 CASE(MODE_IAU)
                     incrementsList_IAU = (/'u        ', 'v        ', 'pres     ', 'temp     ', 'qv       ', &
                       &                    'qc       ', 'qi       ', 'qr       ', 'qs       ', 'qg       ', &
-                                           'qh       ', 'qnc      ', 'qni      ', 'qnr      ', 'qns      ', &
-                                           'qng      ', 'qnh      '                                        /)
-                      &                    'w_so     ', 'h_snow   ', 'freshsnow'/)
+                      &                    'qh       ', 'qnc      ', 'qni      ', 'qnr      ', 'qns      ', &
+                      &                    'qng      ', 'qnh      ', 'w_so     ', 'h_snow   ', 'freshsnow', &
+                      &                    't_2m' /)
                     CALL requestList%checkRuntypeAndUuids(incrementsList_IAU, gridUuids(p_patch), lIsFg = .FALSE., &
                       lHardCheckUuids = .NOT.check_uuid_gracefully)
             write(0,*) "incrementsList_IAU: ", incrementsList_IAU

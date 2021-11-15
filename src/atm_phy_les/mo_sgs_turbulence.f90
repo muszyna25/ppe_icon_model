@@ -27,7 +27,7 @@
 MODULE mo_sgs_turbulence
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message
+  USE mo_exception,           ONLY: message, finish
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_model_domain,        ONLY: t_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -35,7 +35,7 @@ MODULE mo_sgs_turbulence
   USE mo_intp,                ONLY: cells2verts_scalar, cells2edges_scalar
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: iqv, iqc, iqtke, msg_level
+  USE mo_run_config,          ONLY: iqv, iqc, iqtke, msg_level, ltestcase
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
   USE mo_impl_constants    ,  ONLY: min_rlcell, min_rledge_int, min_rlcell_int, min_rlvert_int,   &
                                     iprog, ismag
@@ -55,7 +55,9 @@ MODULE mo_sgs_turbulence
   USE mo_les_utilities,       ONLY: brunt_vaisala_freq, vert_intp_full2half_cell_3d
   USE mo_fortran_tools,       ONLY: init
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config  
-  USE mo_exception,           ONLY: finish
+  USE mo_grid_config,         ONLY: l_scm_mode
+  USE mo_scm_nml,             ONLY: scm_sfc_mom, scm_sfc_temp ,scm_sfc_qv
+  USE mo_nh_torus_exp,        ONLY: set_scm_bnd
 
   IMPLICIT NONE
 
@@ -179,6 +181,36 @@ MODULE mo_sgs_turbulence
     !Get rho at interfaces to be used later
     CALL vert_intp_full2half_cell_3d(p_patch, p_nh_metrics, p_nh_prog%rho, rho_ic, &
                                      2, min_rlcell_int-2)
+
+    IF( les_config(jg)%isrfc_type.EQ.10) THEN
+     IF ( ltestcase .AND. l_scm_mode .AND. &
+      &  ((scm_sfc_mom .GE. 2) .AND. (scm_sfc_temp .GE. 2) .AND. (scm_sfc_qv .GE. 2))) THEN
+     DO jb = i_startblk,i_endblk
+      CALL set_scm_bnd( nvec=nproma, ivstart=i_startidx, ivend=i_endidx,      &
+        & u_s          = p_nh_diag%u(:,nlev,jb),                              & !in
+        & v_s          = p_nh_diag%v(:,nlev,jb),                              & !in
+        & th_b         = p_nh_diag%temp(:,nlev,jb)/p_nh_prog%exner(:,nlev,jb),& !in
+        & qv_b         = p_nh_prog_rcf%tracer(:,nlev,jb,iqv),                 & !in
+        & pres_sfc     = p_nh_diag%pres_sfc(:,jb),                            & !in
+        & dz_bs=p_nh_metrics%z_mc(:,nlev,jb)-p_nh_metrics%z_ifc(:,nlevp1,jb) ,& !in
+        & z0m=prm_diag%gz0(:,jb)/grav,                                        & !in
+        !for noq z0m is assumed to be equal to z0h - GABLS1
+        & z0h=prm_diag%gz0(:,jb)/grav,                                        & !in
+        & prm_nwp_tend = prm_nwp_tend,                                        & !in 
+        & tvm          = prm_diag%tvm(:,jb),                                  & !inout
+        & tvh          = prm_diag%tvh(:,jb),                                  & !inout
+        & shfl_s       = prm_diag%shfl_s(:,jb),                               & !out
+        & qhfl_s       = prm_diag%qhfl_s(:,jb),                               & !out
+        & lhfl_s       = prm_diag%lhfl_s(:,jb),                               & !out
+        & umfl_s       = prm_diag%umfl_s(:,jb),                               & !out
+        & vmfl_s       = prm_diag%vmfl_s(:,jb),                               & !out
+        & qv_s         = p_diag_lnd%qv_s(:,jb),                               & !out
+        & t_g          = p_prog_lnd_now%t_g(:,jb) )                             !out
+     END DO
+    ELSE
+     CALL finish(TRIM(inmodule),'Surface conditions can not be setup in this combination for LEM')
+    ENDIF
+   ENDIF
 
     CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_prog_lnd_now, p_prog_lnd_new,     &
                             p_diag_lnd, prm_diag, theta, p_nh_prog%tracer(:,:,:,iqv), p_sim_time)

@@ -483,13 +483,13 @@ SUBROUTINE turbdiff ( &
 !
           iini, ltkeinp, lstfnct, l3dturb,                           &
 !
-                lrunsso, lruncnv, lrunscm, lsfluse,                  &
+          lrunsso, lruncnv, lrunscm, lsfluse,                        &
 !
           dt_var,dt_tke, nprv, ntur, ntim,                           &
 !
           nvec, ke, ke1, kcm, iblock, ivstart, ivend,                &
 !
-          l_hori, hhl,          dp0, trop_mask, innertrop_mask,      &
+          l_hori, hhl, dp0, trop_mask, innertrop_mask,               &
 !
           gz0, l_pat, c_big, c_sml, r_air,                           &
 !
@@ -506,11 +506,14 @@ SUBROUTINE turbdiff ( &
           u_tens, v_tens, t_tens,                                    &
           qv_tens, qc_tens,                                          &
           tketens, tketadv,                                          &
-                   ut_sso, vt_sso,                                   &
+          ut_sso, vt_sso,                                            &
 !
           shfl_s, qvfl_s,                                            &
 !
-          zvari                                                      &
+          zvari,                                                     &
+!
+          tet_flux, vap_flux, liq_flux,l_3d_turb_fluxes,             &
+          tket_therm, tket_mech, tket_shear                          &
 !
           err_args)
 
@@ -830,6 +833,16 @@ REAL (KIND=wp), DIMENSION(:,:),         OPTIONAL, INTENT(IN)    :: &
 REAL (KIND=wp), DIMENSION(:),   TARGET, OPTIONAL, INTENT(INOUT) :: &
   shfl_s,        & ! sensible heat flux at the surface             (W/m2)    (positive downward)
   qvfl_s           ! water vapor   flux at the surface             (kg/m2/s) (positive downward)
+
+REAL (KIND=wp), DIMENSION(:,:), OPTIONAL, INTENT(OUT)    :: &
+  tet_flux,      & ! vertical flux of theta (K/m2s)  (positive upward)   
+  vap_flux,      & ! vertical flux of qv    (kg/m2s) (positive upward)   
+  liq_flux,      & ! vertical flux of qc    (kg/m2s) (positive upward)   
+  tket_therm,    & ! tke tendency due to buoyancy (m2/s3)
+  tket_mech,     & ! tke tendency due to mechanical forcing (m2/s3)
+  tket_shear       ! tke tendency due to vertical shear (m2/s3)
+
+LOGICAL, OPTIONAL, INTENT(IN) :: l_3d_turb_fluxes
 
 
 !-------------------------------------------------------------------------------
@@ -2184,6 +2197,22 @@ my_thrd_id = omp_get_thread_num()
 
   ENDIF   ! IF (PRESENT(c_big) .AND. PRESENT(c_sml))
 
+  ! optional output of source terms
+  IF(PRESENT(tket_therm).AND.PRESENT(tket_mech).AND.PRESENT(tket_shear)) THEN
+     !$acc parallel if(lzacc)
+     DO k=2, ke1
+!DIR$ IVDEP
+        !$acc loop gang vector
+         DO i=ivstart, ivend !istartpar,iendpar
+           tket_therm(i,k) = frh(i,k) * tkvh(i,k)
+           tket_mech(i,k)  = frm(i,k) * tkvm(i,k)
+           tket_shear(i,k) = ftm(i,k) * tkvm(i,k)
+        END DO
+     END DO
+  !$acc end parallel
+  END IF
+
+
   ! Optionale vertikale Glaettung des mechanischen Antriebs:
   IF (lcalc_frcsmot) THEN
     CALL vert_smooth (i_st=ivstart, i_en=ivend, k_tp=1, k_sf=ke1, &
@@ -2534,6 +2563,24 @@ my_thrd_id = omp_get_thread_num()
     END IF
     !Note: "tkvh(ke1) > 0.0" is required!
 
+    !OPTIONAL: diagnostic output of fluxes
+    IF ( (PRESENT(tet_flux).AND.PRESENT(vap_flux).AND.PRESENT(liq_flux)) &
+        .AND. PRESENT(l_3d_turb_fluxes)                           )  THEN
+       IF (l_3d_turb_fluxes) THEN	 
+          !$acc parallel if(lzacc)
+!DIR$ IVDEP
+          DO k=2, ke1
+          !$acc loop gang vector
+             DO i=ivstart, ivend !    gradient     rho     coefficient
+  	          tet_flux(i,k) = zvari(i,k,tet)*rhon(i,k)*tkvh(i,k) 
+  	          vap_flux(i,k) = zvari(i,k,vap)*rhon(i,k)*tkvh(i,k)  
+  	          liq_flux(i,k) = zvari(i,k,liq)*rhon(i,k)*tkvh(i,k)  
+             END DO
+          END DO
+          !$acc end parallel
+       END IF !3d flux output?
+    END IF ! all variables present?
+    
 !------------------------------------------------------------------------------------
 ! 6)  Berechnung der zu TKE-Quellen gehoerigen Temperaturtendenzen
 !     (ausser der Divergenz des Zirkulationsflusses):

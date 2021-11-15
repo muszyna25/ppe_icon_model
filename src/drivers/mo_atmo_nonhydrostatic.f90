@@ -43,15 +43,15 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                ico2, io3,            &
   &                                number_of_grid_used
 USE mo_initicon_config,      ONLY: pinit_seed, pinit_amplitude
-USE mo_nh_testcases,         ONLY: init_nh_testcase
-USE mo_nh_testcases_nml,      ONLY: nh_test_name
+USE mo_nh_testcases,         ONLY: init_nh_testcase, init_nh_testcase_scm
+USE mo_nh_testcases_nml,     ONLY: nh_test_name
 USE mo_ls_forcing_nml,       ONLY: is_ls_forcing, is_nudging
 USE mo_ls_forcing,           ONLY: init_ls_forcing
 USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, &
-     &                             is_plane_torus, l_limited_area
+     &                             is_plane_torus, l_limited_area, l_scm_mode
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_intp_lonlat_types,    ONLY: lonlat_grids
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
@@ -382,12 +382,20 @@ CONTAINS
         !
         ! Initialize testcase analytically
         !
-        CALL init_nh_testcase(p_patch(1:)     ,&
-          &                   p_nh_state      ,&
-          &                   p_int_state(1:) ,&
-          &                   p_lnd_state(1:) ,&
-          &                   ext_data        ,&
-          &                   ntl=2           )
+        IF (l_scm_mode) THEN
+          CALL init_nh_testcase_scm(p_patch(1:)     ,&
+            &                       p_nh_state      ,&
+            &                       p_int_state(1:) ,&
+            &                       p_lnd_state(1:) ,&
+            &                       ext_data        )
+        ELSE
+          CALL init_nh_testcase    (p_patch(1:)     ,&
+            &                       p_nh_state      ,&
+            &                       p_int_state(1:) ,&
+            &                       p_lnd_state(1:) ,&
+            &                       ext_data        ,&
+            &                       ntl=2           )
+        ENDIF
         !
         IF(is_ls_forcing .OR. is_nudging) &
           CALL init_ls_forcing(p_nh_state(1)%metrics)

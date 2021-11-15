@@ -287,7 +287,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     INTEGER :: shape2d(2), shape3d(3), shape3dsubs(3), &
       &        shape3dsubsw(3), shape3d_synsat(3),     &
       &        shape2d_synsat(2), shape3d_aero(3), shape3dechotop(3)
-    INTEGER :: shape3dkp1(3), shape3dflux(3), shape3d_uh_max(3)
+    INTEGER :: shape3dkp1(3), shape3dflux(3), shape3d_uh_max(3), shape3dturb(3)
     INTEGER :: ibits,  kcloud
     INTEGER :: jsfc, ist
     CHARACTER(len=NF_MAX_NAME) :: long_name
@@ -2061,7 +2061,9 @@ __acc_attach(diag%clct_avg)
       & ldims=shape2d, lrestart=.FALSE. ) 
 
 
-    IF (irad_aero == 5) THEN ! Old Tanre aerosol climatology taken over from the COSMO model (to be used with now removed Ritter-Geleyn radiation)
+    IF (irad_aero == 5) THEN 
+      ! Old Tanre aerosol climatology taken over from the COSMO model 
+      ! (to be used with now removed Ritter-Geleyn radiation)
       ! &      diag%aersea(nproma,nblks_c)
       cf_desc    = t_cf_var('aersea', '', '', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -3590,6 +3592,40 @@ __acc_attach(diag%clct_avg)
 !!$      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,        &
 !!$      & ldims=shape3dkp1, lrestart=.FALSE. ) 
 
+! turbulent flux profiles
+    IF (atm_phy_nwp_config(k_jg)%l_3d_turb_fluxes) THEN
+       shape3Dturb = (/ nproma, klevp1, kblks /)
+
+       !      diag%tetfl_turb(nproma,nlevp1,nblks_c)
+       cf_desc    = t_cf_var('tetfl_turb', 'K m-2 s-1', 'vertical turbulent theta flux', &
+          &                datatype_flt)
+       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+       CALL add_var( diag_list, 'tetfl_turb', diag%tetfl_turb,                             &
+         & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,        &
+         & ldims=shape3dturb, lrestart=.FALSE. ,lopenacc = .TRUE.)
+       __acc_attach(diag%tetfl_turb)
+
+
+       !       diag%vapfl_turb(nproma,nlevp1,nblks_c)
+       cf_desc    = t_cf_var('vapfl_turb', 'kg m-2 s-1', 'vertical turbulent water vapour flux', &
+            &                datatype_flt)
+       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+       CALL add_var( diag_list, 'vapfl_turb', diag%vapfl_turb,                             &
+         & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,        &
+         & ldims=shape3dturb, lrestart=.FALSE.,lopenacc = .TRUE.)
+       __acc_attach(diag%vapfl_turb)
+
+
+        !      diag%liqfl_turb(nproma,nlevp1,nblks_c)
+       cf_desc    = t_cf_var('liqfl_turb', 'kg  m-2 s-1', 'vertical turbulent liquid water flux', &
+            &                datatype_flt)
+       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+       CALL add_var( diag_list, 'liqfl_turb', diag%liqfl_turb,                             &
+         & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,        &
+         & ldims=shape3dturb, lrestart=.FALSE. ,lopenacc = .TRUE.)
+       __acc_attach(diag%liqfl_turb)
+
+    END IF
 
     !------------------
     ! Optional computation of diagnostic fields
@@ -5002,6 +5038,20 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                     'allocation for phy_tend%ddt_qv_adv_ls failed')
       ENDIF
       phy_tend%ddt_qv_adv_ls = 0._wp
+
+      ALLOCATE(phy_tend%ddt_u_adv_ls(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%ddt_u_adv_ls failed')
+      ENDIF
+      phy_tend%ddt_u_adv_ls = 0._wp
+
+      ALLOCATE(phy_tend%ddt_v_adv_ls(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%ddt_v_adv_ls failed')
+      ENDIF
+      phy_tend%ddt_v_adv_ls = 0._wp
       
       ALLOCATE(phy_tend%ddt_temp_nud_ls(klev),STAT=ist)
       IF (ist/=SUCCESS)THEN
@@ -5023,6 +5073,41 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                     'allocation for phy_tend%wsub failed')
       ENDIF
       phy_tend%wsub = 0._wp
+
+      ALLOCATE(phy_tend%temp_nudge(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%temp_nudge failed')
+      ENDIF
+      phy_tend%temp_nudge = 0._wp
+
+      ALLOCATE(phy_tend%q_nudge(klev,3),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%q_nudge failed')
+      ENDIF
+      phy_tend%q_nudge = 0._wp
+
+      ALLOCATE(phy_tend%u_nudge(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%u_nudge failed')
+      ENDIF
+      phy_tend%u_nudge = 0._wp
+
+      ALLOCATE(phy_tend%v_nudge(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%v_nudge failed')
+      ENDIF
+      phy_tend%v_nudge = 0._wp
+
+      ALLOCATE(phy_tend%ddt_temp_sim_rad(nproma,klev,kblks),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%ddt_temp_sim_rad failed')
+      ENDIF
+      phy_tend%ddt_temp_sim_rad = 0._wp
 
     END IF
 

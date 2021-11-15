@@ -174,8 +174,11 @@ CONTAINS
     CASE (7,9,79,97)
       CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
     CASE(10)
-      !CALL message('mo_nwp_rg_interface:irad_o3=10', &  
+      !CALL message('mo_nwp_rg_interface:irad_o3=10', &
       !  &          'Ozone used for radiation is calculated by ART')
+    CASE(11)
+      !CALL message('mo_nwp_rg_interface:irad_o3=11', &
+      !  &          'Ozone used for radiation is read from SCM input file')
     END SELECT
 
     IF ( irad_aero == 6  .OR. irad_aero == 9) THEN

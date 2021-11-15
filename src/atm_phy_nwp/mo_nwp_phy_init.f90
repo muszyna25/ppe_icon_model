@@ -91,16 +91,14 @@ MODULE mo_nwp_phy_init
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_sea_lists, &
     &                               aggregate_tg_qvs, copy_lnd_prog_now2new
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, lsnowtile, ntiles_water, &
-    &                               lseaice, zml_soil, itype_canopy
-  USE sfc_terra_data,         ONLY: csalbw!, z0_lu
+    &                               lseaice, zml_soil, itype_canopy, nlev_soil, dzsoil_icon => dzsoil
+  USE sfc_terra_data,         ONLY: csalbw, cpwp, cfcap
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                               sat_pres_ice, &    !! saturation vapor pressure w.r.t. ice
     &                               spec_humi          !! Specific humidity
 
   USE data_gwd,               ONLY: sugwwms
 
-  USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case, th_cbl, sol_const
-  USE mo_ape_params,          ONLY: ape_sst
   USE mo_master_config,       ONLY: isRestart
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
@@ -121,6 +119,13 @@ MODULE mo_nwp_phy_init
   USE mo_upatmo_types,        ONLY: t_upatmo
   USE mo_upatmo_impl_const,   ONLY: iUpatmoPrcStat, iUpatmoStat
   USE mo_upatmo_phy_setup,    ONLY: init_upatmo_phy_nwp
+
+  USE mo_ape_params,          ONLY: ape_sst
+  USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case, th_cbl, sol_const
+  USE mo_grid_config,         ONLY: l_scm_mode
+  USE mo_scm_nml,             ONLY: i_scm_netcdf, lscm_read_tke, lscm_read_z0, &
+                                    scm_sfc_temp, scm_sfc_qv
+  USE mo_nh_torus_exp,        ONLY: read_soil_profile_nc,read_soil_profile_nc_uf
 
   USE mo_cover_koe,           ONLY: cover_koe_config
 
@@ -170,6 +175,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   REAL(wp)            :: scale_fac ! scale factor used only for RCE cases
   REAL(wp) :: zvariaux(nproma,p_patch%nlevp1,ndim)  !< to pass values from turbdiff to vertdiff
   REAL(wp) :: zrhon   (nproma,p_patch%nlevp1)       !< to pass values from turbdiff to vertdiff
+  REAL(wp)            :: w_so_profile(nlev_soil)    !soil moisture for SCM initialization
+  REAL(wp)            :: t_so_profile(nlev_soil+1)  !soil temperature for SCM initialization
+  REAL(wp)            :: t_g_in                     !T,g for SCM initialization
 
   INTEGER             :: icur_date    ! current date converted to integer
 
@@ -250,6 +258,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   ENDIF
 
   i_nchdom  = MAX(1,p_patch%n_childdom)
+
+  ierrstat=0
+  eroutine=''
+  errormsg=''
 
   ! number of vertical levels
   nlev   = p_patch%nlev
@@ -450,6 +462,82 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
             p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
           END DO
 
+        !initialize soil moisture and temperature and Tskin for SCM case
+        ELSEIF (l_scm_mode .AND. (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. &
+      &          (i_scm_netcdf == 1)) THEN 
+
+          !IF (i_scm_netcdf==2) THEN !unified format
+          ! CALL read_soil_profile_nc_uf(w_so_profile,t_so_profile,t_g_in) 
+          !ELSE
+           CALL read_soil_profile_nc(w_so_profile,t_so_profile,t_g_in) 
+          !ENDIF
+
+          DO jt = 1, ntiles_total
+            DO jc = i_startidx, i_endidx
+              DO jk = 1,nlev_soil+1 
+                p_prog_lnd_now%t_so_t(jc,jk,jb,jt) = t_so_profile(jk)
+                p_prog_lnd_new%t_so_t(jc,jk,jb,jt) = t_so_profile(jk)
+              END DO
+              DO jk = 1,nlev_soil
+                ! soil moisture from SCM input needs to be converted from kg/m2 to m
+                p_prog_lnd_now%w_so_t(jc,jk,jb,jt) = w_so_profile(jk)/1000._wp 
+                p_prog_lnd_new%w_so_t(jc,jk,jb,jt) = w_so_profile(jk)/1000._wp 
+              END DO
+            END DO
+          END DO
+
+          ! set T_G
+          DO jc = i_startidx, i_endidx
+            p_prog_lnd_now%t_g(jc,jb) = t_g_in
+          END DO
+
+          ! cold start when T_SO=0
+          IF ( MAXVAL(p_prog_lnd_now%t_so_t) == 0.0_wp ) THEN
+            WRITE(*,*) 'init_nwp_phy: perform cold start of T_SO and W_SO because they are 0.0 at input'
+            ! set soil temperature to T_G
+            DO jt = 1, ntiles_total
+              DO jk = 1,nlev_soil+1
+                DO jc = i_startidx, i_endidx
+                  p_prog_lnd_now%t_so_t(jc,jk,jb,jt) = p_prog_lnd_now%t_g(jc,jb)
+                  p_prog_lnd_new%t_so_t(jc,jk,jb,jt) = p_prog_lnd_now%t_g(jc,jb)
+                END DO
+              END DO
+            ! set soil water content to 0.5*(fcap+pwp), use soil type loam (5)
+              DO jk = 1,nlev_soil
+                DO jc = i_startidx, i_endidx
+                  p_prog_lnd_now%w_so_t(jc,jk,jb,jt) = 0.5_wp * (cfcap(5)+cpwp(5)) * dzsoil_icon(jk)
+                  p_prog_lnd_new%w_so_t(jc,jk,jb,jt) = 0.5_wp * (cfcap(5)+cpwp(5)) * dzsoil_icon(jk)
+                END DO
+              END DO
+            END DO
+            WRITE(*,*) "init_nwp_phy after cold start: w_so ", p_prog_lnd_now%w_so_t(i_startidx,:,jb,:)
+            WRITE(*,*) "init_nwp_phy after cold start: t_so ", p_prog_lnd_now%t_so_t(i_startidx,:,jb,:)
+          END IF
+
+          ! initialize T skin as top soil layer (as done in mo_initicon_utils.f90)
+          DO jt = 1, ntiles_total
+            DO jc = i_startidx, i_endidx
+              p_prog_lnd_now%t_sk_t(jc,jb,jt) =  p_prog_lnd_now%t_so_t(jc,1,jb,jt)
+              p_prog_lnd_new%t_sk_t(jc,jb,jt) =  p_prog_lnd_new%t_so_t(jc,1,jb,jt)
+            END DO
+          END DO
+
+        ELSEIF ( l_scm_mode .AND. (atm_phy_nwp_config(jg)%inwp_surface == 0) .AND. &
+      &          (scm_sfc_temp==1) .AND. (scm_sfc_qv==3) .AND. (i_scm_netcdf > 0) ) THEN 
+
+          CALL read_soil_profile_nc(t_g_in=t_g_in) 
+      
+      	  ! set T_G
+          DO jc = i_startidx, i_endidx
+            p_prog_lnd_now%t_g(jc,jb) = t_g_in
+            p_prog_lnd_new%t_g(jc,jb) = t_g_in
+            p_prog_lnd_now%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g  (jc,jb)
+            p_prog_lnd_new%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g  (jc,jb)
+
+            p_diag_lnd%qv_s(jc,jb) = spec_humi( sat_pres_water(t_g_in), p_diag%pres_sfc(jc,jb)) 
+            p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
+          END DO
+
         ELSE  ! any other testcase
 
           ! t_g  =  t(nlev)
@@ -467,7 +555,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
               & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
             p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
           END DO
-        ENDIF
+        ENDIF ! nh_test_name
 
         ! Copy t_g to t_seasfc for idealized cases with surface scheme (would be undefined otherwise)
         IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
@@ -1314,19 +1402,22 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 #ifndef __PGI
 !FIXME: PGI + OpenMP produce deadlock in this loop. Compiler bug suspected
 !$OMP PARALLEL DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt, &
-!$OMP            ltkeinp_loc,lgz0inp_loc,nlevcm,l_hori,nzprv,zvariaux,zrhon) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            ltkeinp_loc,lgz0inp_loc,nlevcm,l_hori,nzprv,zvariaux,zrhon, &
+!$OMP            ierrstat, errormsg, eroutine) ICON_OMP_DEFAULT_SCHEDULE
 #endif
+
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
 
-      IF (lturb_init) THEN
+      IF (.not. ltestcase) THEN
+       IF (lturb_init) THEN
 
         ltkeinp_loc = .FALSE.  ! initialize TKE field
         lgz0inp_loc = .FALSE.  ! initialize gz0 field (water points only)
 
-      ELSE
+       ELSE
         !
         ! TKE and gz0 are not re-initialized, but re-used from the first guess
         !
@@ -1344,6 +1435,30 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
             p_prog_now%tke(jc,jk,jb)= SQRT(2.0_wp*MAX(5.e-5_wp,p_prog_now%tke(jc,jk,jb)))
           ENDDO
         ENDDO
+       ENDIF
+      ELSE !ltestcase
+
+       IF (lscm_read_tke) THEN
+        ltkeinp_loc = .TRUE.   ! do NOT re-initialize TKE field (read from FG)
+        ! Note that TKE in turbtran/turbdiff is defined as the turbulence velocity scale
+        ! TVS=SQRT(2*TKE). The TKE is limited to 5.e-5 here because it may be zero on lateral
+        ! boundary points for the limited-area mode, which would cause a crash in the initialization
+        ! performed here but hs no impact on the results otherwise.
+        !
+        DO jk =1,nlevp1
+          DO jc = i_startidx, i_endidx
+            p_prog_now%tke(jc,jk,jb)= SQRT(2.0_wp*MAX(5.e-5_wp,p_prog_now%tke(jc,jk,jb)))
+          ENDDO
+        ENDDO
+       ELSE
+        ltkeinp_loc = .FALSE.  ! initialize TKE field
+       ENDIF
+       IF (lscm_read_z0) THEN
+        lgz0inp_loc = .TRUE.   ! do NOT re-initialize gz0 field (read from FG)
+       ELSE
+        lgz0inp_loc = .FALSE.  ! initialize gz0 field (water points only)
+       ENDIF
+
       ENDIF
 
       l_hori(i_startidx:i_endidx)=phy_params%mean_charlen

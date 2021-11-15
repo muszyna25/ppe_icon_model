@@ -75,8 +75,9 @@ MODULE mo_nh_testcases
   USE mo_random_util,          ONLY: add_random_noise_global
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
   USE mo_nh_rce_exp,           ONLY: init_nh_state_rce_glb
-  USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, init_nh_state_rico, &
-                                   & init_torus_with_sounding, init_warm_bubble, &
+  USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, init_nh_state_rico,       &
+                                   & init_torus_netcdf_sounding,                  &
+                                   & init_torus_ascii_sounding, init_warm_bubble, &
                                    & init_torus_rcemip_analytical_sounding
   USE mo_nh_tpe_exp,           ONLY: init_nh_state_prog_TPE
 
@@ -86,6 +87,7 @@ MODULE mo_nh_testcases
   USE mo_upatmo_config,        ONLY: upatmo_config
   USE mo_vertical_coord_table, ONLY: vct_a
   USE mo_hydro_adjust,         ONLY: hydro_adjust_const_thetav
+  USE mo_scm_nml,              ONLY: i_scm_netcdf, lscm_random_noise
 
   IMPLICIT NONE  
   
@@ -93,6 +95,7 @@ MODULE mo_nh_testcases
   
   PUBLIC :: init_nh_testtopo
   PUBLIC :: init_nh_testcase
+  PUBLIC :: init_nh_testcase_scm
 
   ! !DEFINED PARAMETERS for jablonowski williamson: 
   !  The rest of the needed parameters are define in mo_nh_jabw_exp
@@ -112,9 +115,8 @@ MODULE mo_nh_testcases
 !
 !
   !>
-  !! Initialize topography for nonhydrostatic artificial testcases.
-  !! 
   !! Initialize topography for nonhydrostatic artificial testcases
+  !! (not for single column model (SCM))
   !! 
   !! @par Revision History
   !! Initial release by Almut Gassmann, MPI-M (2009-03-19)
@@ -513,12 +515,12 @@ MODULE mo_nh_testcases
   END SUBROUTINE init_nh_testtopo
 
 
-
 !-------------------------------------------------------------------------
 !
 !
   !>
   !! Defines nonhydrostatic artificial initial conditions.
+  !! (not for single column model (SCM))
   !! 
   !! Initializes meteorological fields
   !! 
@@ -565,58 +567,53 @@ MODULE mo_nh_testcases
 
   CASE ('jabw', 'jabw_s', 'jabw_m', 'HS_jw') ! Jablonowski test
 
-  CALL message(TRIM(routine),'Jablonowski test')
-  IF ( iforcing == inwp ) THEN
-    CALL message(TRIM(routine),' iforcing == inwp')
-  ELSE
-    CALL message(TRIM(routine),'Attention: iforcing /= inwp')
-  ENDIF
+    CALL message(TRIM(routine),'Jablonowski test')
+    IF ( iforcing == inwp ) THEN
+      CALL message(TRIM(routine),' iforcing == inwp')
+    ELSE
+      CALL message(TRIM(routine),'Attention: iforcing /= inwp')
+    ENDIF
+  
+    IF (nh_test_name == "jabw_s" .OR. nh_test_name == "jabw_m") THEN
+      jw_up = 0.0_wp
+    END IF  
+      p_sfc_jabw = ps0
+  
+    DO jg = 1, n_dom
+  
+      CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                     & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
+                                     & p_int(jg),                                   &
+                                     & p_sfc_jabw,jw_up,jw_u0,jw_temp0 )
+    
+      IF ( ltransport .AND. iforcing /= inwp ) THEN   ! passive tracers
+  
+         CALL init_passive_tracers_nh_jabw (p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                           & rotate_axis_deg, tracer_inidist_list, p_sfc_jabw)
 
-  IF (nh_test_name == "jabw_s" .OR. nh_test_name == "jabw_m") THEN
-   jw_up = 0.0_wp
-  END IF  
-   p_sfc_jabw = ps0
+      END IF
+  
+      IF ( ltransport .AND. iforcing == inwp ) THEN 
+        IF ( atm_phy_nwp_config(jg)%inwp_gscp /= 0 .OR.&
+                     &                 atm_phy_nwp_config(jg)%inwp_convection /= 0  ) THEN   !
+    
+        CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                  & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
+                                  & rh_at_1000hpa, qv_max, l_rediag=.TRUE. )
 
-  DO jg = 1, n_dom
-
-    CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                                   & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                   & p_int(jg),                                   &
-                                   & p_sfc_jabw,jw_up,jw_u0,jw_temp0 )
-
-
-    IF ( ltransport .AND. iforcing /= inwp ) THEN   ! passive tracers
-
-       CALL init_passive_tracers_nh_jabw (p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                                         & rotate_axis_deg, tracer_inidist_list, p_sfc_jabw) 
-
-    END IF
-
-    IF ( ltransport .AND. iforcing == inwp ) THEN 
-     IF ( atm_phy_nwp_config(jg)%inwp_gscp /= 0 .OR.&
-                   &                 atm_phy_nwp_config(jg)%inwp_convection /= 0  ) THEN   !
-
-
-      CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                                & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                & rh_at_1000hpa, qv_max, l_rediag=.TRUE. )
-
-
-
-
-     ELSE
-
-        p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,:) = 0.0_wp   
-
-     END IF
-
-    END IF
-
-    CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
-
-  ENDDO !jg
-
-  CALL message(TRIM(routine),'End setup Jablonowski test')
+       ELSE
+  
+         p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,:) = 0.0_wp   
+  
+       END IF
+  
+      END IF
+  
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+  
+    ENDDO !jg
+  
+    CALL message(TRIM(routine),'End setup Jablonowski test')
 
 
   CASE ('dcmip_bw_11')
@@ -979,6 +976,7 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup non-hydrostatic APE test (APE_nwp, APE_echam, APE_nh, APEc_nh)')
 
+
   CASE ('TPEc', 'TPEo')  ! Terra-Planet Experiment
 
     jw_up = 1._wp
@@ -995,6 +993,7 @@ MODULE mo_nh_testcases
     ENDDO !jg
 
     CALL message(TRIM(routine),'End setup TPEc test')
+
 
   CASE ('wk82')
 
@@ -1236,6 +1235,7 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup CBL test')
 
+
   CASE ('CBL_flxconst')
 
     ! u,v,w are initialized to zero.  exner and rho are similar/identical to CBL
@@ -1256,6 +1256,7 @@ MODULE mo_nh_testcases
       CALL message(TRIM(routine),'End setup global CBL_flxconst test')
     END DO !jg
 
+
   CASE ('RCE_glb','RCE_Tconst')
 
     ! u,v,w are initialized to zero.  exner and rho are similar/identical to CBL
@@ -1275,6 +1276,7 @@ MODULE mo_nh_testcases
 !
       CALL message(TRIM(routine),'End setup global RCE test')
     END DO !jg
+
 
   CASE ('RICO')
 
@@ -1303,17 +1305,27 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup RICO test')
 
+
   CASE ('RCE','GATE') !to initialize with sounding
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
-        CALL finish(TRIM(routine),'To initizialize with sounding is only for torus!')
+        CALL finish(TRIM(routine),'GATE/RCE is only for torus!')
 
     DO jg = 1, n_dom
       nlev   = p_patch(jg)%nlev
 
-      CALL init_torus_with_sounding ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                 p_nh_state(jg)%ref, p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
- 
+      IF ( i_scm_netcdf > 0 ) THEN
+        CALL init_torus_netcdf_sounding ( p_patch(jg),                         &
+                      & p_nh_state(jg)%prog(nnow(jg)),                         &
+                      & p_nh_state(jg)%ref, p_nh_state(jg)%diag, p_int(jg),    &
+                      & p_nh_state(jg)%metrics, ext_data(jg) )
+      ELSE
+        CALL init_torus_ascii_sounding ( p_patch(jg),                          &
+                      & p_nh_state(jg)%prog(nnow(jg)),                         &
+                      & p_nh_state(jg)%ref, p_nh_state(jg)%diag, p_int(jg),    &
+                      & p_nh_state(jg)%metrics )
+      END IF
+
       CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
                       & in_var=p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),         &
                       & start_level=nlev-3,                                    &
@@ -1330,6 +1342,7 @@ MODULE mo_nh_testcases
     END DO !jg
 
     CALL message(TRIM(routine),'End init with sounding')
+
 
   CASE ('RCEMIP_analytical') !to initialize with analytical sounding
 
@@ -1357,6 +1370,7 @@ MODULE mo_nh_testcases
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
 
+
   CASE ('2D_BUBBLE', '3D_BUBBLE') !to initialize with sounding
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
@@ -1372,6 +1386,7 @@ MODULE mo_nh_testcases
     END DO !jg
 
     CALL message(TRIM(routine),'End initilization of 2D warm bubble')
+
 
   CASE ('lahade')
 
@@ -1399,6 +1414,7 @@ MODULE mo_nh_testcases
     CALL message(TRIM(routine),'End setup lahade testcase') 
 
   END SELECT
+
 
   ! Is current testcase subject to update during integration?
   SELECT CASE(TRIM(nh_test_name))
@@ -1440,6 +1456,136 @@ MODULE mo_nh_testcases
   ENDIF
 
   END SUBROUTINE init_nh_testcase
+
+
+!-------------------------------------------------------------------------
+!
+!
+  !>
+  !! Defines nonhydrostatic artificial initial conditions.
+  !! (for single column model (SCM))
+  !! 
+  !! Initializes meteorological fields
+  !! 
+  !! @par Revision History
+  !! Initial release by Martin Koehler, DWD (2021-10-13)
+  !! (modified version from init_nh_testcase for SCM)
+  !! 
+  SUBROUTINE init_nh_testcase_scm (p_patch, p_nh_state, p_int, p_lnd_state, ext_data)
+!
+! !INPUT VARIABLES:
+  TYPE(t_patch),TARGET,  INTENT(INOUT) :: p_patch(n_dom)
+  TYPE(t_int_state),     INTENT(   IN) :: p_int(n_dom)
+  TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(n_dom)
+  TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
+  TYPE(t_external_data), INTENT(INOUT) :: ext_data(n_dom)
+
+  INTEGER        :: jg
+  INTEGER        :: nlev               !< number of full and half levels
+                            
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
+                                   '(mo_nh_testcases) init_nh_testcase:' 
+
+!-----------------------------------------------------------------------
+
+
+  IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
+      CALL finish(TRIM(routine),'SCM is only for torus!')
+
+! initialize with sounding
+
+  DO jg = 1, n_dom
+    nlev   = p_patch(jg)%nlev
+
+    CALL init_torus_netcdf_sounding ( p_patch(jg),                           &
+                    & p_nh_state(jg)%prog(nnow(jg)),                         &
+                    & p_nh_state(jg)%ref, p_nh_state(jg)%diag, p_int(jg),    &
+                    & p_nh_state(jg)%metrics, ext_data(jg) )
+
+! add random noise
+
+    IF (lscm_random_noise) THEN !add random noise
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,          &
+                    & in_var=p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),         &
+                    & start_level=nlev-3,                                    &
+                    & end_level=nlev,                                        &
+                    & noise_scale=w_perturb )   
+
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,          &
+                    & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
+                    & start_level=nlev-3,                                    &
+                    & end_level=nlev,                                        &
+                    & noise_scale=th_perturb )   
+    ENDIF
+                  
+    CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+  END DO !jg
+
+  CALL message(TRIM(routine),'End init with sounding SCM')
+
+! Is current testcase subject to update during integration?
+
+  ltestcase_update = .FALSE.
+
+  IF ( ANY( (/icosmo,iedmf/)==atm_phy_nwp_config(1)%inwp_turb ) ) THEN
+    DO jg = 1, n_dom
+      p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g                    = th_cbl(1)
+    END DO !jg
+    IF (atm_phy_nwp_config(1)%inwp_surface > 0) THEN ! Fields are not allocated otherwise
+      DO jg = 1, n_dom
+        !Snow and sea ice initialization to avoid problems in EDMF
+        p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t                  = th_cbl(1)
+        p_lnd_state(jg)%prog_lnd(nnow(jg))%t_snow_t(:,:,:)        = th_cbl(1) !snow
+        p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t(:,:,isub_seaice) = th_cbl(1) !sea ice
+        p_lnd_state(jg)%prog_wtr(nnow(jg))%t_ice(:,:)             = th_cbl(1) !sea ice
+      END DO !jg
+    ENDIF
+  END IF
+
+! Terminator toy chemistry
+! possible add on for various test cases
+
+  IF (is_toy_chem) THEN
+    DO jg = 1, n_dom 
+      CALL init_nh_dcmip_terminator (p_patch(jg),              &
+        &                            p_nh_state(jg)%metrics,   &
+        &                            p_nh_state(jg)%prog(:),   &
+        &                            p_nh_state(jg)%diag       )
+    ENDDO
+    CALL message(TRIM(routine),'End setup terminator chemistry')
+  ENDIF
+
+  END SUBROUTINE init_nh_testcase_scm
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
   SUBROUTINE piecewise_polytropic_atm( p_patch,  p_nh_state,  &

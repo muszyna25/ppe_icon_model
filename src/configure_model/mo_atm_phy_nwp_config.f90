@@ -156,6 +156,9 @@ MODULE mo_atm_phy_nwp_config
 
     LOGICAL :: l_3d_rad_fluxes     ! logical to determine if 3d radiative flux variable are allocated
 
+    LOGICAL :: l_3d_turb_fluxes    ! logical to determine if 3d turbulent flux variable are allocated
+
+
     ! NWP events
     TYPE(t_phyProcGroup) :: phyProcs        !> physical processes event group
     TYPE(t_phyProcFast)  :: phyProc_satad   !> saturation adjustment
@@ -710,8 +713,14 @@ CONTAINS
         .OR. is_variable_in_output(var_name="swflx_dn_clr") &
         .OR. is_variable_in_output(var_name="lwflx_up_clr") &
         .OR. is_variable_in_output(var_name="swflx_up_clr")
-    ENDDO  ! jg
 
+      ! output of turbulent fluxes in column
+      atm_phy_nwp_config(jg)%l_3d_turb_fluxes  =                 &
+               is_variable_in_output( var_name="tetfl_turb")     &
+          .OR. is_variable_in_output( var_name="vapfl_turb")     &
+          .OR. is_variable_in_output( var_name="liqfl_turb")     
+
+    ENDDO  ! jg
 
   END SUBROUTINE configure_atm_phy_nwp
 

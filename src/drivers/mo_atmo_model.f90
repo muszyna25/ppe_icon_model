@@ -87,8 +87,8 @@ MODULE mo_atmo_model
   USE mo_alloc_patches,           ONLY: destruct_patches, destruct_comm_patterns
 
   ! horizontal grid, domain decomposition, memory
-  USE mo_grid_config,             ONLY: n_dom, n_dom_start,                 &
-    &                                   dynamics_parent_grid_id, n_phys_dom
+  USE mo_grid_config,             ONLY: n_dom, n_dom_start,                                   &
+    &                                   dynamics_parent_grid_id, n_phys_dom, l_scm_mode
   USE mo_model_domain,            ONLY: p_patch, p_patch_local_parent
   USE mo_build_decomposition,     ONLY: build_decomposition
   USE mo_complete_subdivision,    ONLY: setup_phys_patches
@@ -564,8 +564,9 @@ CONTAINS
     !---------------------------------------------------------------------
 
     CALL allocate_vct_atmo(p_patch(1)%nlevp1)
-    IF (iequations == inh_atmosphere .AND. ltestcase) THEN
+    IF (iequations == inh_atmosphere .AND. ltestcase .AND. (.NOT. l_scm_mode)) THEN
       CALL init_nh_testtopo(p_patch(1:), ext_data)   ! set analytic topography
+      ! for single column model (SCM) the topography is read in ext_data_init from SCM input file
     ENDIF
     CALL construct_vertical_grid(p_patch(1:), p_int_state(1:), ext_data, &
       &                          vct_a, vct_b, vct, nflatlev)

@@ -109,6 +109,7 @@ for builder in DWD_nec DWD_nec_yac2; do
   $addexp checksuite.rcnl.dwd.de/exp.run_ICON_08_R19B7-ID2_oper.run                  --builders ${builder} --list $listname
   $addexp checksuite.rcnl.dwd.de/exp.run_ICON_11_R3B08_lam_initmode7_restarttest.run --builders ${builder} --list $listname
   $addexp checksuite.rcnl.dwd.de/exp.run_ICON_14_R2B6N7_oper_IAU_and_restarttest.run --builders ${builder} --list $listname
+  $addexp checksuite.rcnl.dwd.de/exp.run_ICON-SCM_02_REAL.run                        --builders ${builder} --list $listname
 done
 for builder in DWD_nec DWD_nec_yac2 DWD_nec_hybrid; do
   # remove non-dwd tests

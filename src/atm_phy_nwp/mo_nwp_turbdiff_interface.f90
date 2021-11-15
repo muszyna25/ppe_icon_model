@@ -44,7 +44,7 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_nwp_lnd_types,          ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_parallel_config,        ONLY: nproma
   USE mo_run_config,             ONLY: msg_level, iqv, iqc, iqi, iqnc, iqni, iqtke, &
-    &                                  iqs, iqns, iqtvar, lart
+    &                                  iqs, iqns, iqtvar, lart, ltestcase
   USE mo_atm_phy_nwp_config,     ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config,  ONLY: kstart_moist, kstart_tracer
   USE turb_data,                 ONLY: get_turbdiff_param, lsflcnd, modvar, ndim
@@ -60,6 +60,9 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_edmf_param,             ONLY: ntiles_edmf
   USE mo_vdfouter,               ONLY: vdfouter
   USE mo_lnd_nwp_config,         ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water
+  USE mo_grid_config,            ONLY: l_scm_mode
+  USE mo_scm_nml,                ONLY: scm_sfc_mom, scm_sfc_temp ,scm_sfc_qv
+  USE mo_nh_torus_exp,           ONLY: set_scm_bnd
 
   IMPLICIT NONE
 
@@ -97,7 +100,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
   TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
   TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_now    !< prog vars for wtr
-  TYPE(t_lnd_prog),            INTENT(in)   :: lnd_prog_now    !< prog vars for sfc
+  TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
                                                                !< turbulence
@@ -169,6 +172,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
     &         vstr_s_t(nproma,ntiles_total+ntiles_water)
 
   REAL(wp) :: ut_sso(nproma, p_patch%nlev), vt_sso(nproma, p_patch%nlev)
+  REAL(wp),DIMENSION(nproma,p_patch%nlev+1) :: tet_flux, vap_flux, liq_flux
  
   INTEGER, SAVE :: nstep_turb = 0
 
@@ -372,6 +376,30 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
            &                          p_diag=p_diag, prm_diag=prm_diag,                &
            &                          jb=jb, idx_nturb_tracer=idx_nturb_tracer )
       ENDIF
+  
+      IF ( ltestcase .AND. l_scm_mode .AND. &
+        &  ((scm_sfc_mom .GE. 2) .OR. (scm_sfc_temp .GE. 2) .OR. (scm_sfc_qv .GE. 2)) ) THEN
+        CALL set_scm_bnd( nvec=nproma, ivstart=i_startidx, ivend=i_endidx, &
+          & u_s          = p_diag%u(:,nlev,jb),                            & !in
+          & v_s          = p_diag%v(:,nlev,jb),                            & !in
+          & th_b         = p_diag%temp(:,nlev,jb)/p_prog%exner(:,nlev,jb), & !in
+          & qv_b         = p_prog_rcf%tracer(:,nlev,jb,iqv),               & !in
+          & pres_sfc     = p_diag%pres_sfc(:,jb),                          & !in
+          & dz_bs=p_metrics%z_mc(:,nlev,jb)-p_metrics%z_ifc(:,nlevp1,jb),  & !in
+          & z0m=prm_diag%gz0(:,jb)/grav,                                   & !in
+          !for noq z0m is assumed to be equal to z0h - GABLS1
+          & z0h=prm_diag%gz0(:,jb)/grav,                                   & !in
+          & prm_nwp_tend = prm_nwp_tend,                                   & !in 
+          & tvm          = prm_diag%tvm(:,jb),                             & !inout
+          & tvh          = prm_diag%tvh(:,jb),                             & !inout
+          & shfl_s       = prm_diag%shfl_s(:,jb),                          & !out
+          & qhfl_s       = prm_diag%qhfl_s(:,jb),                          & !out
+          & lhfl_s       = prm_diag%lhfl_s(:,jb),                          & !out
+          & umfl_s       = prm_diag%umfl_s(:,jb),                          & !out
+          & vmfl_s       = prm_diag%vmfl_s(:,jb),                          & !out
+          & qv_s         = lnd_diag%qv_s(:,jb),                            & !out
+          & t_g          = lnd_prog_now%t_g(:,jb) )                          !out
+      ENDIF
 
       !should be dependent on location in future!
       !$ACC KERNELS DEFAULT(PRESENT)
@@ -385,9 +413,9 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       vt_sso(:,:)=REAL(prm_nwp_tend%ddt_v_sso(:,:,jb), wp)
       !$ACC END KERNELS
 
+
       ! turbdiff
       CALL turbdiff( &
-
         &  iini=0,                         & !atmosph. turbulence and vertical diffusion
         &  ltkeinp=.FALSE.,        & !
         &  lstfnct=.TRUE. ,        & !
@@ -449,7 +477,11 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  vt_sso=vt_sso(:,:),                                                        & !in
         &  shfl_s=prm_diag%shfl_s(:,jb),                                              & !in
         &  qvfl_s=prm_diag%qhfl_s(:,jb),                                              & !out
-        &  zvari=zvari(:,:,:))                                                          !out
+        &  zvari=zvari(:,:,:),                                                        & !out
+        &  tet_flux=tet_flux,                                      & !out 
+        &  vap_flux=vap_flux,                                      & !out
+        &  liq_flux=liq_flux,                                      & !out
+        &  l_3d_turb_fluxes=atm_phy_nwp_config(jg)%l_3d_turb_fluxes)                    !in
 
       ! vertdiff
       CALL vertdiff( &
@@ -531,6 +563,18 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         !$ACC END PARALLEL
       ENDIF
 
+      IF (atm_phy_nwp_config(jg)%l_3d_turb_fluxes) THEN
+        !$ACC PARALLEL DEFAULT(PRESENT)
+	!$ACC LOOP GANG VECTOR COLLAPSE(2)
+	DO jk = 1, nlevp1
+	  DO jc = i_startidx, i_endidx 
+              prm_diag%tetfl_turb(jc,jk,jb) = tet_flux(jc,jk)
+              prm_diag%vapfl_turb(jc,jk,jb) = vap_flux(jc,jk)
+              prm_diag%liqfl_turb(jc,jk,jb) = liq_flux(jc,jk)
+	  END DO
+	END DO
+        !$ACC END PARALLEL
+      ENDIF
 !DR If accumulated deposition fluxes are required ...
 !!$      DO jc = i_startidx, i_endidx
 !!$        p_diag%extra_2d(jc,jb,1) = p_diag%extra_2d(jc,jb,1) + tcall_turb_jg*prm_diag%qcfl_s(jc,jb)

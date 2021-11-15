@@ -2096,6 +2096,13 @@ The angular velocity in rad per sec. &
 %\tabularnewline
 
 %\hline
+\textbf{l\_scm\_mode} &
+L & .FALSE.& &
+Single Column Model (SCM) mode. Can be extended to equivalent LES and CRM setups
+by setting ldynamics=.TRUE. . & is\_plane\_torus=.TRUE.
+\tabularnewline
+
+%\hline
 \textbf{l\_limited\_area} &
 L & .FALSE.& & &
 \tabularnewline
@@ -4031,52 +4038,100 @@ Defined and used in: \verb+src/namelists/mo_lnd_nwp_nml.f90+
 %------------------------------------------------------------------------------
 % ls_forcing_nml:
 %------------------------------------------------------------------------------
-\subsection{ls\_forcing\_nml (parameters for large-scale forcing; valid for torus geometry)}
+\subsection{ls\_forcing\_nml (parameters for large-scale forcing; valid for torus geometry; is\_plane\_torus=.TRUE.)}
 
 \begin{longtab}
 
 %\hline
+is\_ls\_forcing & L & .TRUE. && 
+switch for enabling LS forcing &
+\tabularnewline
+
+%\hline
 is\_subsidence\_moment & L & .FALSE. &  &
 switch for enabling LS vertical advection due to subsidence for momentum equations&
-is\_plane\_torus=.TRUE.
 \tabularnewline
 
 %\hline
 is\_subsidence\_heat & L & .FALSE. &  &
 switch for enabling LS vertical advection due to subsidence for thermal equations &
-is\_plane\_torus=.TRUE.
 \tabularnewline
-
 
 %\hline
 is\_advection & L & .FALSE. &  &
-switch for enabling LS horizontal advection (currently only for thermal equations)&
-is\_plane\_torus=.TRUE.
+switch for enabling LS horizontal advection &
+\tabularnewline
+
+%\hline
+is\_advection\_uv & L & .TRUE. & &
+switch for enabling LS horizontal advection for u and v &
+is\_advection=.TRUE.
+\tabularnewline
+
+%\hline 
+is\_advection\_tq & L & .TRUE. &  &
+switch for enabling LS horizontal advection for temperature and moisture &
+is\_advection=.TRUE.
 \tabularnewline
 
 %\hline
 is\_nudging & L & .FALSE. &  &
-switch for enabling LS Newtonian relaxation (nudging) for horizontal winds, temperature and specific humidity&
-is\_plane\_torus=.TRUE.
+switch for enabling LS Newtonian relaxation (nudging) &
+\tabularnewline
+
+%\hline
+is\_nudging\_uv & L & .TRUE. &  &
+switch for enabling LS Newtonian relaxation (nudging) for horizontal winds
+only &
+is\_nudging=.TRUE.
+\tabularnewline
+
+%\hline
+is\_nudging\_tq & L & .TRUE. &  &
+switch for enabling LS Newtonian relaxation (nudging) for temperature and
+specific humidity only &
+is\_nudging=.TRUE.
+\tabularnewline
+
+%\hline
+nudge\_start\_height & R & 1000. & m &
+height where nudging starts &
+is\_nudging=.TRUE.
+\tabularnewline
+
+%\hline
+nudge\_full\_height & R & 2000. & m &
+height where nudging reaches full strength &
+is\_nudging=.TRUE.
+\tabularnewline
+
+% \hline
+dt\_relax & R & 3600. & s &
+relaxation time scale for the nudging &
+is\_nudging=.TRUE.
 \tabularnewline
 
 %\hline
 is\_geowind & L & .FALSE. &  &
 switch for enabling geostrophic wind &
-is\_plane\_torus=.TRUE.
 \tabularnewline
 
 %\hline
 is\_rad\_forcing & L & .FALSE. &  &
 switch for enabling radiative forcing &
-is\_plane\_torus=.TRUE. \\
 inwp\_rad=.FALSE.
 \tabularnewline
 
 %\hline
+is\_sim\_rad & L & .FALSE. &  &
+switch for enabling a simplified radiation scheme &
+inwp\_rad=.FALSE.
+\tabularnewline
+
+
+%\hline
 is\_theta & L & .FALSE. &  &
 switch to indicate that the prescribed radiative forcing is for potential temperature &
-is\_plane\_torus=.TRUE. \\
 is\_rad\_forcing=.TRUE.
 \tabularnewline
 
@@ -4325,7 +4380,6 @@ meteogram
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_mtgrm_nml.f90+
-
 
 %-----------------------------------------------------------------------------
 % nonhydrostatic_nml:
@@ -6612,7 +6666,19 @@ Choice of zenith angle formula for the radiative transfer computation.\par
 2: Zenith angle depends only on latitude. Local time of day fixed at 07:14:15 for radiative transfer computation (sin(time of day) = 1/pi\par
 3: Zenith angle changing with latitude and time of day\par
 4: Zenith angle and irradiance changing with season, latitude, and time of day (iforcing=inwp only)
+5: Zenith angel for radiative convective equilibrium test: perpetual equinox with 340 W/m2
+6: Zenith angle with prescribed cosine of solar zenith angle (see parameter cos\_zenith\_fixed)
 &
+\tabularnewline
+
+%\hline
+cos\_zenith\_fixed&
+R&
+0.5 &
+&
+Cosine of zenith angle for test cases including SCM
+&
+izenith=6
 \tabularnewline
 
 %\hline
@@ -6634,10 +6700,24 @@ I&
 &
 Type of surface albedo\\
 1: based on soil type specific tabulated values (dry soil)\\
-2: MODIS albedo
+2: MODIS albedo \\
+3: fixed albedo for SCM and other testcases
 &
 iforcing=inwp
 \tabularnewline
+
+
+%\hline
+\textbf{albedo\_fixed}&
+R&
+0.5&
+&
+Fixed albedo value for SCM and various testcases
+&
+iforcing=inwp\\
+albedo\_type=3
+\tabularnewline
+
 
 %\hline
 \textbf{direct\_albedo}&
@@ -6727,8 +6807,8 @@ irad\_h2o = 1: vapor, cloud water and cloud ice from tracer variables\par
 irad\_co2 = 1: CO\textsubscript{2} from tracer variable\par
 irad\_co2/ch4/n2o/o2/cfc11/cfc12 = 2: concentration given by vmr\_co2/ch4/n2o/o2/cfc11/cfc12\par
 irad\_ch4/n2o = 3: tanh-profile with surface concentration given by vmr\_ch4/n2o\par
-irad\_co2/cfc11/cfc12 = 4: time dependent concentration from greenhouse gas file
-irad\_ch4/n2o = 4: time dependent tanh-profile with surface concentration from greenhouse gas file
+irad\_co2/cfc11/cfc12 = 4: time dependent concentration from greenhouse gas file\par
+irad\_ch4/n2o = 4: time dependent tanh-profile with surface concentration from greenhouse gas file\par
 irad\_o3 = 2: ozone climatology from MPI \par
 irad\_o3 = 4: ozone clim for Aqua Planet Exp \par
 irad\_o3 = 6: ozone climatology with T5 geographical distribution and Fourier series for seasonal cycle {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
@@ -6737,7 +6817,8 @@ irad\_o3 = 8: ozone climatology for AMIP \par
 irad\_o3 = 9: MACC ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
 irad\_o3 = 79: Blending between GEMS and MACC ozone climatologies (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)}; MACC is used over Antarctica \par
 irad\_o3 = 97: As 79, but MACC is also used above 1 hPa with transition zone between 5 hPa and 1 hPa \par
-irad\_o3 = 10: Linearized ozone chemistry (ART extension necessary) {\color{red}for run\_nml/iforcing = 3 (NWP)}
+irad\_o3 = 10: Linearized ozone chemistry (ART extension necessary) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
+irad\_o3 = 11: Ozone from SCM input file
 &
 \tabularnewline
 %\hline
@@ -7067,6 +7148,51 @@ submodule \verb+./externals/emvorado/DOC/TEX/emvorado_userguide.pdf+.
 
 Defined and used in: \verb+src/namelists/mo_run_nml.f90+
 
+%-----------------------------------------------------------------------------
+% scm_nml:
+%-----------------------------------------------------------------------------
+\subsection{scm\_nml (relevant if l\_scm\_mode)}
+\begin{longtab}
+
+%\hline
+i\_scm\_netcdf & I & 1 & & reading SCM input data from \\ 0: ASCII file \\ 1: normal ICON netcdf file \\ 2: DEPHY unified netcdf file &
+\tabularnewline
+
+%\hline
+lscm\_icon\_ini & L & .FALSE. & & read initial conditions produced
+by ICON on the native grid& 
+\tabularnewline
+%\hline
+lscm\_random\_noise & L & .FALSE. & & initialize with random noise - for LEM runs
+by ICON on the native grid& 
+\tabularnewline
+
+%\hline
+lscm\_read\_tke & L & .FALSE. & & read init. tke from netcdf & 
+\tabularnewline
+
+%\hline
+lscm\_read\_z0 & L & .FALSE. & & read z0 from netcdf &
+\tabularnewline
+
+%\hline
+scm\_sfc\_mom & I & 0 & & prescribed surface boundary condition for
+momentum using \\ 0: TERRA \\ 2: friction velocity \\ 4: drag coefficient \\ 5: Louis surface layer scheme &
+\tabularnewline
+
+%\hline
+scm\_sfc\_qv & I & 0 & & prescribed surface boundary condition for
+moisture using \\ 0: TERRA \\ 1: surface moisture (qv\_s) \\ 2: latent heat flux \\ 3: saturation \\4: draf coefficient \\ 5: Louis surface layer scheme &
+\tabularnewline
+
+%\hline
+scm\_sfc\_temp & I & 0 & & prescribed surface boundary condition for
+temperature using \\ 0: TERRA \\ 1: surface temperature (t\_g) \\ 2: sensible heat flux (shfl\_s)   \\4: drag coefficient \\ 5: Louis surface layer scheme &
+\tabularnewline
+  
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_scm_nml.f90+
 
 
 %-----------------------------------------------------------------------------
@@ -8362,6 +8488,8 @@ comparison of numerical with analytical solution according to method of
 Laeuter, Handorf and Dethloff, J. Comp. Phys.(2005) (requires to set
 src/shared/mo\_physical\_constants: grav to a very small value, e.g. grav = 1.0E-30)&
 ldeepatmo = .TRUE. .AND. lcoriolis = .TRUE. .AND. lcentrifugal = .TRUE.
+\tabularnewline
+&&&&'\textbf{SCM}' Single Column Mode & is\_plane\_torus= .TRUE.
 \tabularnewline
 is\_toy\_chem & 
 L & .FALSE. &  &

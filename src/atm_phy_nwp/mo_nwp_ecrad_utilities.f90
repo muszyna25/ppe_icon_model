@@ -25,7 +25,7 @@
 MODULE mo_nwp_ecrad_utilities
 
   USE mo_kind,                   ONLY: wp
-  USE mo_math_constants,         ONLY: rad2deg
+  USE mo_math_constants,         ONLY: rad2deg, pi
   USE mo_exception,              ONLY: finish
   USE mo_math_types,             ONLY: t_geographical_coordinates
   USE mo_atm_phy_nwp_config,     ONLY: atm_phy_nwp_config
@@ -54,6 +54,9 @@ MODULE mo_nwp_ecrad_utilities
                                    &   weight_par_ecrad
 #endif
 
+  USE mo_exception,              ONLY: message
+  USE mo_grid_config,            ONLY: l_scm_mode
+  USE mo_scm_nml,                ONLY: lon_scm, lat_scm 
 
   IMPLICIT NONE
 
@@ -90,7 +93,7 @@ CONTAINS
       &  ecrad_single_level       !< ecRad single level information
     TYPE(datetime), INTENT(in) :: &
       &  current_datetime         !< Current date and time
-    TYPE(t_geographical_coordinates), INTENT(in) :: &
+    TYPE(t_geographical_coordinates), INTENT(in), TARGET :: &
       &  cell_center(:)           !< lon/lat information of cell centers
     REAL(wp), INTENT(in)     :: &
       &  cosmu0(:),             & !< Cosine of solar zenith angle
@@ -106,6 +109,22 @@ CONTAINS
     INTEGER                  :: &
       &  jc                       !< loop index
 
+    TYPE(t_geographical_coordinates), TARGET, ALLOCATABLE :: scm_center(:)
+    TYPE(t_geographical_coordinates), POINTER             :: ptr_center(:)
+
+
+    ! SCM: read lat/lon for horizontally uniform zenith angle
+    IF ( l_scm_mode ) THEN
+      ALLOCATE(scm_center(SIZE(cell_center)))
+      DO jc = i_startidx, i_endidx
+        scm_center(jc)%lat = lat_scm * pi/180.
+        scm_center(jc)%lon = lon_scm * pi/180.
+      ENDDO
+      ptr_center => scm_center
+    ELSE
+      ptr_center => cell_center
+    ENDIF
+
     DO jc = i_startidx, i_endidx
         ecrad_single_level%cos_sza(jc)            = cosmu0(jc)
         ecrad_single_level%skin_temperature(jc)   = tsfc(jc)
@@ -114,10 +133,13 @@ CONTAINS
         ecrad_single_level%sw_albedo_direct(jc,1) = albvisdir(jc)
         ecrad_single_level%sw_albedo_direct(jc,2) = albnirdir(jc)
         ecrad_single_level%lw_emissivity(jc,1)    = emis_rad(jc)
-        ecrad_single_level%iseed(jc)              = create_rdm_seed(cell_center(jc)%lon, &
-          &                                                         cell_center(jc)%lat, &
+        ecrad_single_level%iseed(jc)              = create_rdm_seed(ptr_center(jc)%lon, &
+          &                                                         ptr_center(jc)%lat, &
           &                                                         current_datetime)
     ENDDO !jc
+    IF ( l_scm_mode ) THEN
+      DEALLOCATE(scm_center)
+    ENDIF
 
   END SUBROUTINE ecrad_set_single_level
   !---------------------------------------------------------------------------------------
@@ -285,6 +307,7 @@ CONTAINS
   !!   2         : Set the concentration to a globally constant value taken from vmr_xyz
   !!   3         : Use vmr_xyz at the surface, tanh-decay with height
   !!   7/9/79/97 : Use climatologies (only implemented for ozone)
+  !!   11        : Read ozone from SCM input instead of here.
   !! The finish calls in case default should never trigger as the values for irad_xyz
   !! were already checked in mo_nml_crosscheck.
   !!
@@ -327,8 +350,11 @@ CONTAINS
         CALL ecrad_gas%put_well_mixed(ecRad_IO3,IVolumeMixingRatio, 0._wp,  istartcol=i_startidx,iendcol=i_endidx)
       CASE(7,9,79,97) ! Use values from GEMS/MACC (different profiles)
         CALL ecrad_gas%put(ecRad_IO3,  IMassMixingRatio, o3(:,:))
+      CASE(11) ! Ozone is read from SCM input file
+        CALL message('mo_nwp_ecrad_utilities: irad_o3=11', &
+          &          'Ozone used for radiation is read from SCM input file')
       CASE DEFAULT
-        CALL finish(routine, 'Current implementation only supports irad_o3 = 0, 7, 9, 79, 97')
+        CALL finish(routine, 'Current implementation only supports irad_o3 = 0, 7, 9, 79, 97, 11')
     END SELECT
 
     !CO2

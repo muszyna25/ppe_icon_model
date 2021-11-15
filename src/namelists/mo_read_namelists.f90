@@ -69,6 +69,7 @@ MODULE mo_read_namelists
 
   USE mo_initicon_nml        ,ONLY: read_initicon_namelist
   USE mo_nh_testcases_nml    ,ONLY: read_nh_testcase_namelist
+  USE mo_scm_nml             ,ONLY: read_scm_namelist
   USE mo_meteogram_nml       ,ONLY: read_meteogram_namelist
 
   USE mo_coupling_nml        ,ONLY: read_coupling_namelist
@@ -213,6 +214,7 @@ CONTAINS
     !
     CALL read_initicon_namelist       (atm_namelist_filename(1:tlen))
     CALL read_nh_testcase_namelist    (atm_namelist_filename(1:tlen))
+    CALL read_scm_namelist            (atm_namelist_filename(1:tlen))
 
     ! Boundary conditions
     !

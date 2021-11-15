@@ -78,6 +78,10 @@ $addexp checksuite.rcnl.dwd.de/exp.run_ICON_15_R19B7-ID2_ass.run                
 
 # ART experiments
 $addexp checksuite.rcnl.dwd.de/exp.run_ICON-ART_01_R3B08_lam_initmode7_pollen.run       --builders DWD_nec --list $listname
+# SCM experiments
+$addexp checksuite.rcnl.dwd.de/exp.run_ICON-SCM_01_BOMEX.run                             --builders DWD_nec --list $listname
+$addexp checksuite.rcnl.dwd.de/exp.run_ICON-SCM_02_REAL.run                              --builders DWD_nec --list $listname
+$addexp checksuite.rcnl.dwd.de/exp.run_ICON-SCM_03_LANFEX.run                            --builders DWD_nec --list $listname
 
 #lets see the list
 ./lslist $listname

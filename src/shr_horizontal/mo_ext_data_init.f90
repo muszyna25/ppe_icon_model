@@ -99,7 +99,9 @@ MODULE mo_ext_data_init
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
   USE mo_coupling_config,    ONLY: is_coupled_run
-
+  USE mo_grid_config,        ONLY: l_scm_mode
+  USE mo_scm_nml,            ONLY: i_scm_netcdf
+  USE mo_nh_torus_exp,       ONLY: read_ext_scm_nc
 
   IMPLICIT NONE
 
@@ -149,7 +151,20 @@ CONTAINS
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
 
-    INTEGER              :: jg, ist
+    ! external parameters for SCM run
+    INTEGER  :: soiltyp_scm                       ! soil type
+    REAL(wp) :: fr_land_scm                       ! land fraction
+    REAL(wp) :: plcov_mx_scm                      ! maximum plant cover
+    REAL(wp) :: lai_mx_scm                        ! maximum leaf area index
+    REAL(wp) :: rootdp_scm                        ! root depth
+    REAL(wp) :: rsmin_scm                         ! minimum stomata resistance
+    REAL(wp) :: z0_scm                            ! roughness length
+    REAL(wp) :: topo_scm                          ! topographic height
+    REAL(wp) :: emis_rad_scm                      ! emissivity
+    REAL(wp) :: lu_class_fr_scm(num_lcc)          ! lu_class_fraction
+    CHARACTER(len=max_char_length) :: lctype_scm  ! type of data source for land use
+    
+    INTEGER :: jg, ilcc
     INTEGER :: cdi_extpar_id(n_dom)  !< CDI stream ID (for each domain)
     INTEGER :: cdi_filetype(n_dom)   !< CDI filetype (for each domain)
     ! dictionary which maps internal variable names onto
@@ -197,6 +212,11 @@ CONTAINS
 
     ! top-level procedure for building data structures for
     ! external data.
+    
+    IF (i_scm_netcdf > 0) THEN
+      nclass_lu = num_lcc ! 3rd dim of lu_class_fraction, has to agree with num_lcc
+    ENDIF
+   
     CALL construct_ext_data(p_patch, ext_data)
 
     !-------------------------------------------------------------------------
@@ -214,26 +234,89 @@ CONTAINS
       ! initalize external data with meaningful data, in the case that they
       ! are not read in from file.
       IF ( iforcing == inwp ) THEN
+
+        ! SCM netcdf input or surface parameters
+        IF ( l_scm_mode .AND. (i_scm_netcdf==1) ) THEN
+
+          !read external parameters from netCDF file
+          ! TODO: read external parameters for unified SCM formal 'uf'
+          CALL read_ext_scm_nc(num_lcc,soiltyp_scm,fr_land_scm,plcov_mx_scm,lai_mx_scm,rootdp_scm, & 
+            &                  rsmin_scm,z0_scm,topo_scm,emis_rad_scm,lu_class_fr_scm,lctype_scm)
+          DO jg = 1, n_dom
+            !set external parameters
+            ext_data(jg)%atm%fr_land(:,:)     = fr_land_scm  ! land fraction
+            ext_data(jg)%atm%fr_land_smt(:,:) = fr_land_scm  ! land fraction (smoothed)
+            ext_data(jg)%atm%fr_glac_smt(:,:) = 0._wp        ! glacier fraction (smoothed)
+            IF (fr_land_scm >= 0.5_wp ) THEN
+              ext_data(jg)%atm%llsm_atm_c(:,:)= .TRUE.       ! land-sea mask
+            ELSE
+              ext_data(jg)%atm%llsm_atm_c(:,:)= .FALSE.
+            ENDIF
+            ext_data(jg)%atm%llake_c(:,:)     = .FALSE.      ! lake mask
+            ext_data(jg)%atm%plcov_mx(:,:)    = plcov_mx_scm ! plant cover
+            ext_data(jg)%atm%lai_mx(:,:)      = lai_mx_scm   ! max Leaf area index
+            ext_data(jg)%atm%rootdp(:,:)      = rootdp_scm   ! root depth
+            ext_data(jg)%atm%rsmin(:,:)       = rsmin_scm    ! minimal stomata resistence
+            ext_data(jg)%atm%soiltyp(:,:)     = soiltyp_scm  ! soil type
+            ext_data(jg)%atm%z0(:,:)          = z0_scm       ! roughness length
+            ext_data(jg)%atm%topography_c(:,:)= topo_scm     ! topographic height
+            ext_data(jg)%atm%emis_rad(:,:)    = emis_rad_scm ! emissivity
+            !
+            DO ilcc=1, num_lcc
+              ext_data(jg)%atm%lu_class_fraction(:,:,ilcc) = lu_class_fr_scm(ilcc) ! fraction of LU class
+            ENDDO
+            IF (TRIM(lctype_scm) .EQ. "GLC2000") THEN
+              i_lctype(jg) = GLC2000
+            ELSE IF (TRIM(lctype_scm) .EQ. "GLOBCOVER2009" ) THEN
+              i_lctype(jg) = GLOBCOVER2009
+            ELSE
+              CALL finish(routine,'Unknown landcover data source')
+            ENDIF
+            !ext_data(jg)%atm%i_lc_water        = 21
+  
+            !Special setup for EDMF
+            ext_data(jg)%atm%soiltyp_t(:,:,:) = soiltyp_scm ! soil type
+            ext_data(jg)%atm%frac_t(:,:,:)    = 0._wp       ! set all tiles to 0
+            ext_data(jg)%atm%frac_t(:,:,isub_water) = 1._wp ! set only ocean to 1
+            ext_data(jg)%atm%lc_class_t(:,:,:) = 1          ! land cover class
+            
+          END DO
+
+        ELSE
+          DO jg = 1, n_dom
+            ext_data(jg)%atm%fr_land(:,:)     = 0._wp       ! land fraction
+            ext_data(jg)%atm%fr_land_smt(:,:) = 0._wp       ! land fraction (smoothed)
+            ext_data(jg)%atm%fr_glac_smt(:,:) = 0._wp       ! glacier fraction (smoothed)
+            ext_data(jg)%atm%llsm_atm_c(:,:)  = .FALSE.     ! land-sea mask
+            ext_data(jg)%atm%llake_c(:,:)     = .FALSE.     ! lake mask
+            ext_data(jg)%atm%plcov_mx(:,:)    = 0.5_wp      ! plant cover
+            ext_data(jg)%atm%lai_mx(:,:)      = 3._wp       ! max Leaf area index
+            ext_data(jg)%atm%rootdp(:,:)      = 1._wp       ! root depth
+            ext_data(jg)%atm%skinc(:,:)       = 30._wp      ! skin conductivity
+            ext_data(jg)%atm%rsmin(:,:)       = 150._wp     ! minimal stomata resistence
+            ext_data(jg)%atm%soiltyp(:,:)     = 8           ! soil type
+            ext_data(jg)%atm%z0(:,:)          = 0.001_wp    ! roughness length
+            ext_data(jg)%atm%topography_c(:,:)= 0.0_wp      ! topographic height
+            i_lctype(jg) = GLOBCOVER2009
+  
+            !Special setup for EDMF
+            ext_data(jg)%atm%soiltyp_t(:,:,:) = 8           ! soil type
+            ext_data(jg)%atm%frac_t(:,:,:)    = 0._wp       ! set all tiles to 0
+            ext_data(jg)%atm%frac_t(:,:,isub_water) = 1._wp ! set only ocean to 1
+            ext_data(jg)%atm%lc_class_t(:,:,:) = 1          ! land cover class
+  
+          END DO
+
+        ENDIF
+     
+        IF (l_scm_mode) THEN
+          ! necessary call to initialize some extpar variables without reading the extpar file
+          CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
+            &                     extpar_varnames_dict)
+          CALL message(routine,'read_ext_data_atm completed' )
+        ENDIF
+
         DO jg = 1, n_dom
-          ext_data(jg)%atm%fr_land(:,:)     = 0._wp      ! land fraction
-          ext_data(jg)%atm%fr_land_smt(:,:) = 0._wp      ! land fraction (smoothed)
-          ext_data(jg)%atm%fr_glac_smt(:,:) = 0._wp      ! glacier fraction (smoothed)
-          ext_data(jg)%atm%llsm_atm_c(:,:)  = .FALSE.    ! land-sea mask
-          ext_data(jg)%atm%llake_c(:,:)     = .FALSE.    ! lake mask
-          ext_data(jg)%atm%plcov_mx(:,:)    = 0.5_wp     ! plant cover
-          ext_data(jg)%atm%lai_mx(:,:)      = 3._wp      ! max Leaf area index
-          ext_data(jg)%atm%rootdp(:,:)      = 1._wp      ! root depth
-          ext_data(jg)%atm%skinc(:,:)       = 30._wp     ! skin conductivity
-          ext_data(jg)%atm%rsmin(:,:)       = 150._wp    ! minimal stomata resistence
-          ext_data(jg)%atm%soiltyp(:,:)     = 8          ! soil type
-          ext_data(jg)%atm%z0(:,:)          = 0.001_wp   ! roughness length
-
-          !Special setup for EDMF
-          ext_data(jg)%atm%soiltyp_t(:,:,:) = 8           ! soil type
-          ext_data(jg)%atm%frac_t(:,:,:)    = 0._wp       ! set all tiles to 0
-          ext_data(jg)%atm%frac_t(:,:,isub_water) = 1._wp ! set only ocean to 1
-          ext_data(jg)%atm%lc_class_t(:,:,:) = 1          ! land cover class
-
           ext_data(jg)%atm%emis_rad(:,:)    = zemiss_def ! longwave surface emissivity
         END DO
 
@@ -245,6 +328,7 @@ CONTAINS
         END IF
 
       END IF
+
 
     CASE(1) ! itopo, read external data from file
 
@@ -434,7 +518,11 @@ CONTAINS
       lu_class_fraction_id = get_cdi_varID(cdi_extpar_id, "LU_CLASS_FRACTION")
       vlist_id             = streamInqVlist(cdi_extpar_id)
       zaxis_id             = vlistInqVarZaxis(vlist_id, lu_class_fraction_id)
-      nclass_lu(jg)        = zaxisInqSize(zaxis_id)
+      IF (l_scm_mode) THEN
+        nclass_lu(jg)      = num_lcc
+      ELSE
+        nclass_lu(jg)      = zaxisInqSize(zaxis_id)
+      ENDIF
 
       ! get time dimension from external data file
       nmonths_ext(jg)      = vlistNtsteps(vlist_id)
@@ -942,7 +1030,7 @@ CONTAINS
     ! Read data from ExtPar file                     !
     !------------------------------------------------!
 
-    IF (itopo == 1 .AND. iforcing == inwp) THEN
+    IF ( (itopo == 1 .OR. l_scm_mode) .AND. iforcing == inwp ) THEN
       DO jg = 1,n_dom
 
         ! Preset parameter fields with the correct table values
@@ -1019,6 +1107,11 @@ CONTAINS
           ENDIF
         ENDDO
 
+      ENDDO ! jg
+    END IF
+
+    IF (itopo == 1 .AND. iforcing == inwp) THEN
+      DO jg = 1,n_dom
         ! Start reading external parameter data
         ! The cdi-based read routines are used for GRIB2 input data only due to performance problems
         IF (read_netcdf_parallel) THEN

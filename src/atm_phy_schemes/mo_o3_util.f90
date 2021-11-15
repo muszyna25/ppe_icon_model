@@ -1325,10 +1325,11 @@ CONTAINS
       DO jk = 1,pt_patch%nlev
 !DIR$ IVDEP
         DO jc = i_startidx,i_endidx
+
           ext_data%atm%o3(jc,jk,jb)=(ZVIOZO(jc,jk)-ZVIOZO(jc,jk-1)) / p_diag%dpres_mc(jc,jk,jb)
 
-! Tuning to increase stratospheric ozone in order to reduce temperature biases;
-! the tuning factors are computed in atm_phy_nwp_config
+          ! Tuning to increase stratospheric ozone in order to reduce temperature biases;
+          ! the tuning factors are computed in atm_phy_nwp_config
           IF ( ltuning_ozone ) THEN
             zadd_o3 = MIN(atm_phy_nwp_config(pt_patch%id)%ozone_maxinc,                   &
               ext_data%atm%o3(jc,jk,jb) * atm_phy_nwp_config(pt_patch%id)%fac_ozone(jk) * &

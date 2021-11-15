@@ -65,6 +65,7 @@ MODULE mo_albedo
 
   PUBLIC  :: sfc_albedo
   PUBLIC  :: sfc_albedo_modis
+  PUBLIC  :: sfc_albedo_scm
 
 
 CONTAINS
@@ -1394,6 +1395,67 @@ CONTAINS
   END SUBROUTINE sfc_albedo_modis
 
 
+  !>
+  !! Surface albedo set to particular value (for single column model)
+  !!
+  !! We distinguish between
+  !! - shortwave broadband albedo  (diffuse, 0.3-5.0um): albdif
+  !! - UV visible broadband albedo (diffuse, 0.3-0.7um): albvisdif
+  !! - near IR broadband albedo    (diffuse, 0.7-5.0um): albnirdif
+  !! - UV visible broadband albedo (direct , 0.3-0.7um): albvisdir
+  !! - near IR broadband albedo    (direct , 0.7-5.0um): albnirdir
+  !!
+  !! albvisdif/albvisdir and albnirdif/albnirdir are exclusively used by the RRTM scheme
+  !! 
+  !! @par Revision History
+  !! Initial Revision by Sophia Schaefer, DWD (2020-09-21)
+  !!
+  SUBROUTINE sfc_albedo_scm(pt_patch, albedo_fixed, prm_diag)
+
+    TYPE(t_patch),          INTENT(   in):: pt_patch     !< grid/patch info.
+
+    REAL(wp),               INTENT(   in):: albedo_fixed ! surface albedo value that is used fpor albedo_type ==3
+                                                         ! (for single column model)
+
+    TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag
+
+    INTEGER :: jb                      !< loop indices
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startidx, i_endidx    !< slices
+    INTEGER :: i_nchdom                !< domain index
+
+    !-----------------------------------------------------------------------
+
+    i_nchdom  = MAX(1,pt_patch%n_childdom)
+
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx)      &
+!$OMP            ICON_OMP_DEFAULT_SCHEDULE
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+
+      prm_diag%albdif   (i_startidx:i_endidx,jb) = albedo_fixed
+      prm_diag%albvisdif(i_startidx:i_endidx,jb) = albedo_fixed
+      prm_diag%albnirdif(i_startidx:i_endidx,jb) = albedo_fixed
+      prm_diag%albvisdir(i_startidx:i_endidx,jb) = albedo_fixed
+      prm_diag%albnirdir(i_startidx:i_endidx,jb) = albedo_fixed
+
+    ENDDO
+
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE sfc_albedo_scm
 
 
   !>

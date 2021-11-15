@@ -120,7 +120,7 @@ MODULE mo_nh_stepping
     &                                    max_dom, min_rlcell, min_rlvert
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
-  USE mo_update_dyn,               ONLY: add_slowphys
+  USE mo_update_dyn_scm,           ONLY: add_slowphys_scm
   USE mo_advection_stepping,       ONLY: step_advection
   USE mo_advection_aerosols,       ONLY: aerosol_2D_advection, setup_aerosol_advection
   USE mo_aerosol_util,             ONLY: aerosol_2D_diffusion
@@ -1883,7 +1883,9 @@ MODULE mo_nh_stepping
             ENDIF
 
           ELSE IF (iforcing == inwp .OR. (iforcing == iecham .AND. echam_phy_config(jg)%ldcphycpl)) THEN
-            CALL add_slowphys(p_nh_state(jg), p_patch(jg), nnow(jg), nnew(jg), dt_loc)
+            ! dynamics for ldynamics off, option of coriolis force, typically used for SCM and similar test cases
+            CALL add_slowphys_scm(p_nh_state(jg), p_patch(jg), p_int_state(jg), &
+              &                   nnow(jg), nnew(jg), dt_loc)
           ENDIF
         ELSE
           CALL finish (routine, 'itype_comm /= 1 currently not implemented')
