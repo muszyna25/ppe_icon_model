@@ -37,11 +37,12 @@ CONTAINS
                            & psteplen,                             &! in
                            & pfrc, lsmask, alake,                  &! in
                            & pcfh_tile, pfac_sfc,                  &! in
-                           & pcptv_tile, pqsat_tile,               &! in
+                           & pcpt_tile, pqsat_tile,                &! in
                            & pca, pcs, bb_btm,                     &! in
-                           & plhflx_lnd, plhflx_lwtr, plhflx_lice, &! in for JSBACH land and lakes
-                           & pshflx_lnd, pshflx_lwtr, pshflx_lice, &! in for JSBACH land and lakes
-                           & pevap_lnd, pevap_lwtr, pevap_lice,    &! in for JSBACH land and lakes
+                           & plhflx_lnd, plhflx_lwtr, plhflx_lice, &! in (JSBACH land and lakes only),
+                           & pshflx_lnd, pshflx_lwtr, pshflx_lice, &! in (JSBACH land and lakes only),
+                           & pevap_lnd, pevap_lwtr, pevap_lice,    &! in (JSBACH land and lakes only),
+                                                                    ! not used for ocean and sea ice
                            & plhflx_gbm, pshflx_gbm,               &! out
                            & pevap_gbm,                            &! out
                            & plhflx_tile, pshflx_tile,             &! out
@@ -57,7 +58,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: alake(:)        ! (kbdim)
     REAL(wp),INTENT(IN) :: pcfh_tile(:,:)  ! (kbdim,ksfc_type)
     REAL(wp),INTENT(IN) :: pfac_sfc(:)     ! (kbdim)
-    REAL(wp),INTENT(IN) :: pcptv_tile(:,:) ! (kbdim,ksfc_type)
+    REAL(wp),INTENT(IN) :: pcpt_tile(:,:)  ! (kbdim,ksfc_type)
     REAL(wp),INTENT(IN) :: pqsat_tile(:,:) ! (kbdim,ksfc_type)
     REAL(wp),INTENT(IN) :: pca(:,:)        ! (kbdim,ksfc_type)
     REAL(wp),INTENT(IN) :: pcs(:,:)        ! (kbdim,ksfc_type)
@@ -79,9 +80,9 @@ CONTAINS
       &                         pevap_lnd, pevap_lwtr, pevap_lice
 
     INTEGER  :: jsfc, jk, jl
-    REAL(wp) :: zconst, zdqv, zdcptv
+    REAL(wp) :: zconst, zdqv, zdcpt
 
-    !$ACC DATA PRESENT( pfrc, lsmask, alake, pcfh_tile, pfac_sfc, pcptv_tile,  &
+    !$ACC DATA PRESENT( pfrc, lsmask, alake, pcfh_tile, pfac_sfc, pcpt_tile,  &
     !$ACC               pqsat_tile, pca, pcs, bb_btm, plhflx_gbm, plhflx_lice, &
     !$ACC               plhflx_tile, pshflx_gbm, pshflx_lnd, pshflx_lwtr,      &
     !$ACC               pshflx_lice, pevap_gbm, pevap_lnd, pevap_lwtr,         &
@@ -255,7 +256,7 @@ CONTAINS
     !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
-      !$ACC LOOP GANG VECTOR PRIVATE( zdcptv )
+      !$ACC LOOP GANG VECTOR PRIVATE( zdcpt )
       DO jl = jcs, kproma
 
         ! Vertical gradient of dry static energy.
@@ -264,8 +265,7 @@ CONTAINS
         ! bb was replaced by bb_btm (according to E. Roeckner), now not blended
         ! quantity used.
 
-        zdcptv = bb_btm(jl,jsfc,ih) - tpfac2 * pcptv_tile(jl,jsfc)
-
+        zdcpt = bb_btm(jl,jsfc,ih) - tpfac2 * pcpt_tile(jl,jsfc)
         ! Flux of dry static energy
 
         IF (jsfc == idx_lnd) THEN
@@ -277,14 +277,14 @@ CONTAINS
           IF (alake(jl) > 0._wp) THEN
             pshflx_tile(jl,jsfc) = pshflx_lwtr(jl)
           ELSE
-            pshflx_tile(jl,jsfc) = zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) * zdcptv
+            pshflx_tile(jl,jsfc) = zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) * zdcpt
           END IF
         END IF
         IF (jsfc == idx_ice) THEN
           IF (alake(jl) > 0._wp) THEN
             pshflx_tile(jl,jsfc) = pshflx_lice(jl)
           ELSE
-            pshflx_tile(jl,jsfc) = zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) * zdcptv
+            pshflx_tile(jl,jsfc) = zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) * zdcpt
           END IF
         END IF
 
@@ -564,7 +564,7 @@ CONTAINS
        zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
        zred   = (zcbn + zmerge) / pbh_tile(jl,jsfc)
        zh2m(jl)   = pcpt_tile(jl,jsfc) + zred * (pcptgz(jl) - pcpt_tile(jl,jsfc))
-       ptas_tile(jl,jsfc) = (zh2m(jl) - zhtq*grav ) / (cpd * (1._wp + vtmpc2 * pqm1(jl)))
+       ptas_tile(jl,jsfc) = (zh2m(jl) - zhtq*grav ) / cpd
      ENDDO
      !$ACC END PARALLEL
      !$ACC END DATA

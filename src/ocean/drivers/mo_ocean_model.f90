@@ -39,6 +39,8 @@ MODULE mo_ocean_model
   !
   USE mo_run_config,          ONLY: &
     & test_mode,              &
+    & ldynamics,              &
+    & ltransport,             &
     & ltimer,                 & !    :
     & num_lev,                &
     & nshift,                 &
@@ -407,7 +409,7 @@ MODULE mo_ocean_model
     CALL setup_phys_patches
 
     ! we need the nnow info
-    CALL configure_dynamics ( n_dom )
+    CALL configure_dynamics ( n_dom, ldynamics, ltransport )
 
     CALL construct_ocean_var_lists(ocean_patch_3d%p_patch_2d(1))
     

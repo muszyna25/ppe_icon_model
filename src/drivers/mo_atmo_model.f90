@@ -59,6 +59,7 @@ MODULE mo_atmo_model
   USE mo_dynamics_config,         ONLY: configure_dynamics, iequations
   USE mo_run_config,              ONLY: configure_run,                                        &
     &                                   ltimer, ltestcase,                                    &
+    &                                   ldynamics, ltransport,                                &
     &                                   nshift,                                               &
     &                                   num_lev,                                              &
     &                                   msg_level,                                            &
@@ -502,7 +503,7 @@ CONTAINS
     ! Prepare dynamics and land
     !---------------------------------------------------------------------
 
-    CALL configure_dynamics ( n_dom )
+    CALL configure_dynamics ( n_dom, ldynamics, ltransport )
 
     IF (iforcing == inwp) THEN ! set dimensions of tile-based variables
       CALL configure_lnd_nwp()

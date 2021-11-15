@@ -118,7 +118,7 @@ CONTAINS
     ! go over the all restart variables in the associated array
     DO iv = 1, SIZE(me%varData)
       ci => me%varData(iv)%p%info
-      IF (.NOT.has_valid_time_level(ci, desc%id, desc%nnew, desc%nnew_rcf)) CYCLE
+      IF (.NOT.has_valid_time_level(ci, desc%id, desc%nnow, desc%nnow_rcf)) CYCLE
       nd = ci%ndims
       nlevs = MERGE(1, ci%used_dimensions(2), nd .EQ.2)
       ct(1) = desc%n_patch_elem_g(desc%hmap(ci%hgrid))
