@@ -81,7 +81,8 @@ MODULE mo_ser_manually
         CALL ser_component(o, "mass_flx_me", prep_adv(domain)%mass_flx_me)
         CALL ser_component(o, "mass_flx_ic", prep_adv(domain)%mass_flx_ic)
         CALL ser_component(o, "vn_traj",     prep_adv(domain)%vn_traj)
-        CALL ser_component(o, "topflx_tra",  prep_adv(domain)%topflx_tra)
+        CALL ser_component(o, "q_int",       prep_adv(domain)%q_int)
+        CALL ser_component(o, "q_ubc",       prep_adv(domain)%q_ubc)
       ENDIF
     ENDIF
 

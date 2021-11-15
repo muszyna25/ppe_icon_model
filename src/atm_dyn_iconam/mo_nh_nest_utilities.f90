@@ -40,6 +40,7 @@ MODULE mo_nh_nest_utilities
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydro_state,      ONLY: p_nh_state
   USE mo_nwp_phy_state,       ONLY: prm_diag
+  USE mo_prepadv_types,       ONLY: t_prepare_adv
   USE mo_nonhydrostatic_config,ONLY: ndyn_substeps_var
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
   USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlcell, min_rledge
@@ -688,7 +689,7 @@ CONTAINS
   !! Developed  by Guenther Zaengl, DWD, 2008-07-10
   !!
   SUBROUTINE boundary_interpolation (jg,jgc,ntp_dyn,ntc_dyn,ntp_tr,ntc_tr, &
-    mass_flx_p,mass_flx_c)
+    p_patch, p_nh_state, prep_adv, p_grf_state)
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':boundary_interpolation'
@@ -698,8 +699,10 @@ CONTAINS
     ! Parent and child time levels for dynamical variables and tracers
     INTEGER,  INTENT(IN)    :: ntp_dyn, ntc_dyn, ntp_tr, ntc_tr
 
-    ! Mass fluxes at parent and child level
-    REAL(wp), INTENT(INOUT) :: mass_flx_p(:,:,:), mass_flx_c(:,:,:)
+    TYPE(t_patch)        , INTENT(   IN), TARGET :: p_patch(:)
+    TYPE(t_nh_state)     , INTENT(INOUT), TARGET :: p_nh_state(:)
+    TYPE(t_prepare_adv)  , INTENT(INOUT), TARGET :: prep_adv(:)
+    TYPE(t_gridref_state), INTENT(   IN), TARGET :: p_grf_state(:)
 
     ! local variables
 
@@ -713,7 +716,8 @@ CONTAINS
     TYPE(t_patch), POINTER             :: p_pc => NULL()
     TYPE(t_gridref_state), POINTER     :: p_grf => NULL()
     TYPE(t_grid_cells), POINTER        :: p_gcp => NULL()
-
+    TYPE(t_prepare_adv), POINTER       :: prep_advp => NULL()
+    TYPE(t_prepare_adv), POINTER       :: prep_advc => NULL()
 
     INTEGER :: i_startblk              ! start block
     INTEGER :: i_endblk                ! end index
@@ -759,6 +763,8 @@ CONTAINS
     p_pc          => p_patch(jgc)
     p_gcp         => p_patch(jg)%cells
 
+    prep_advp     => prep_adv(jg)
+    prep_advc     => prep_adv(jgc)
 
     i_chidx = p_patch(jgc)%parent_child_index
 
@@ -818,7 +824,7 @@ CONTAINS
           ENDDO
           DO jt = 1, ntracer
             DO jc = i_startidx, i_endidx
-              aux3dp(jc,8+jt,jb) = p_diagp%q_int(jc,jb,jt)
+              aux3dp(jc,8+jt,jb) = prep_advp%q_int(jc,jt,jb)
             ENDDO
           ENDDO
         ENDDO
@@ -844,7 +850,7 @@ CONTAINS
           ENDDO
           DO jt = 1, ntracer
             DO jc = i_startidx, i_endidx
-              p_diagc%q_ubc(jc,jb,jt) = aux3dc(jc,jt+8,jb)
+              prep_advc%q_ubc(jc,jt,jb) = aux3dc(jc,jt+8,jb)
             ENDDO
           ENDDO
         ENDDO
@@ -1008,8 +1014,8 @@ CONTAINS
 
     ELSE IF (grf_intmethod_e == 5 .OR. grf_intmethod_e == 6) THEN
 
-      CALL interpol2_vec_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 3,        &
-        p_diagp%grf_tend_vn, p_diagc%grf_tend_vn, mass_flx_p, mass_flx_c, &
+      CALL interpol2_vec_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 3,                              &
+        p_diagp%grf_tend_vn, p_diagc%grf_tend_vn, prep_advp%mass_flx_me, prep_advc%mass_flx_me, &
         p_diagp%grf_tend_mflx, p_diagc%grf_tend_mflx )
 
     ENDIF

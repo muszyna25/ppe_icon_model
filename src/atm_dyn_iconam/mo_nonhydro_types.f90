@@ -132,8 +132,6 @@ MODULE mo_nonhydro_types
     &  mflx_ic_int(:,:,:),      & ! Storage field for vertical nesting: mass flux at parent interface level
     &  mflx_ic_ubc(:,:,:),      & ! Storage field for vertical nesting: 
                                   ! average mass flux plus time tendency at child upper boundary
-    &  q_int(:,:,:),            & ! Storage field for vertical nesting: q at parent interface level
-    &  q_ubc(:,:,:),            & ! Storage field for vertical nesting: q at child upper boundary
 
     !
     ! c) variables derived from analysis increments
@@ -232,8 +230,6 @@ MODULE mo_nonhydro_types
       &  hfl_trc_ptr    (:),   &  !< pointer array: one pointer for each tracer
       &  vfl_trc_ptr    (:),   &  !< pointer array: one pointer for each tracer
       &  ddt_trc_adv_ptr(:),   &  !< pointer array: one pointer for each tracer
-      &  q_int_ptr      (:),   &  
-      &  q_ubc_ptr      (:),   &
       &  tracer_vi_ptr  (:),   &  !< pointer array: one pointer for each tracer
       &  tracer_vi_avg_ptr(:), &  !< pointer array: one pointer for each tracer
       &  extra_2d_ptr   (:),   &

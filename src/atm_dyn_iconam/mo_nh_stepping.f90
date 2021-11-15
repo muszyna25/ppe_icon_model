@@ -1794,8 +1794,7 @@ MODULE mo_nh_stepping
           &         advection_config(jg)%lfull_comp,                      &! in
           &         p_nh_state(jg)%diag,                                  &! inout
           &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
-          &         prep_adv(jg)%mass_flx_ic,                             &! inout
-          &         prep_adv(jg)%topflx_tra                               )! out
+          &         prep_adv(jg)%mass_flx_ic                              )! inout
 
         ! airmass_now
         CALL compute_airmass(p_patch   = p_patch(jg),                       & !in
@@ -1826,8 +1825,8 @@ MODULE mo_nh_stepping
           &       p_mflx_tracer_h   = p_nh_state(jg)%diag%hfl_tracer,        & !out
           &       p_mflx_tracer_v   = p_nh_state(jg)%diag%vfl_tracer,        & !out
           &       rho_incr          = p_nh_state(jg)%diag%rho_incr,          & !in
-          &       opt_topflx_tra    = prep_adv(jg)%topflx_tra,               & !optin
-          &       opt_q_int         = p_nh_state(jg)%diag%q_int,             & !optout
+          &       q_ubc             = prep_adv(jg)%q_ubc,                    & !in
+          &       q_int             = prep_adv(jg)%q_int,                    & !out
           &       opt_ddt_tracer_adv= p_nh_state(jg)%diag%ddt_tracer_adv,    & !optout
           &       opt_deepatmo_t1mc = p_nh_state(jg)%metrics%deepatmo_t1mc,  & !optin
           &       opt_deepatmo_t2mc = p_nh_state(jg)%metrics%deepatmo_t2mc   ) !optin
@@ -1952,8 +1951,8 @@ MODULE mo_nh_stepping
             &       p_mflx_tracer_h   = p_nh_state(jg)%diag%hfl_tracer,       & !out
             &       p_mflx_tracer_v   = p_nh_state(jg)%diag%vfl_tracer,       & !out
             &       rho_incr          = p_nh_state(jg)%diag%rho_incr,         & !in
-            &       opt_topflx_tra    = prep_adv(jg)%topflx_tra,              & !in
-            &       opt_q_int         = p_nh_state(jg)%diag%q_int,            & !out
+            &       q_ubc             = prep_adv(jg)%q_ubc,                   & !in
+            &       q_int             = prep_adv(jg)%q_int,                   & !out
             &       opt_ddt_tracer_adv= p_nh_state(jg)%diag%ddt_tracer_adv,   & !out
             &       opt_deepatmo_t1mc = p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
             &       opt_deepatmo_t2mc = p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
@@ -2369,7 +2368,7 @@ MODULE mo_nh_stepping
           IF (p_patch(jgc)%ldom_active) THEN
             CALL boundary_interpolation(jg, jgc,                   &
               &  n_now_grf,nnow(jgc),n_now_rcf,nnow_rcf(jgc),      &
-              &  prep_adv(jg)%mass_flx_me,prep_adv(jgc)%mass_flx_me)
+              &  p_patch(1:),p_nh_state(:),prep_adv(:),p_grf_state(1:))
           ENDIF
 
         ENDDO
@@ -2731,7 +2730,7 @@ MODULE mo_nh_stepping
 
       ENDIF
 
-      IF (llast .OR. advection_config(jg)%lfull_comp) &
+      IF (advection_config(jg)%lfull_comp) &
 
         CALL prepare_tracer( p_patch, p_nh_state%prog(nnow(jg)),        &! in
           &                  p_nh_state%prog(nnew(jg)),                 &! in
@@ -2740,8 +2739,8 @@ MODULE mo_nh_stepping
           &                  advection_config(jg)%lfull_comp,           &! in
           &                  p_nh_state%diag,                           &! inout
           &                  prep_adv%vn_traj, prep_adv%mass_flx_me,    &! inout
-          &                  prep_adv%mass_flx_ic,                      &! inout
-          &                  prep_adv%topflx_tra                        )! out
+          &                  prep_adv%mass_flx_ic                       )! inout
+
 
       ! Finally, switch between time levels now and new for next iteration
       !

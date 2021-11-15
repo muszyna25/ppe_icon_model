@@ -33,14 +33,12 @@ MODULE mo_nh_dtp_interface
   USE mo_kind,               ONLY: wp
   USE mo_dynamics_config,    ONLY: idiv_method
   USE mo_parallel_config,    ONLY: nproma, p_test_run
-  USE mo_run_config,         ONLY: lvert_nest, ntracer
   USE mo_model_domain,       ONLY: t_patch
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants,     ONLY: min_rledge_int, min_rlcell_int, min_rlcell
-  USE mo_sync,               ONLY: SYNC_C, sync_patch_array, sync_patch_array_mult
-  USE mo_advection_config,   ONLY: advection_config, t_trList
+  USE mo_advection_config,   ONLY: advection_config
   USE mo_timer,              ONLY: timers_level, timer_start, timer_stop, timer_prep_tracer
   USE mo_fortran_tools,      ONLY: init
 #ifdef _OPENACC
@@ -73,7 +71,7 @@ CONTAINS
   !! for the tracer transport scheme, under the assumption that
   !! a two time level time stepping scheme is used by the
   !! dynamical core.
-  !! Note that boundary fluxes (when using horizontal/vertical nesting)
+  !! Note that upper boundary fluxes (when using horizontal/vertical nesting)
   !! are set in mo_nh_nest_utilities/boundary_interpolation.
   !!
   !! @par Revision History
@@ -91,8 +89,7 @@ CONTAINS
     &                        lfull_comp,                                      &!in
     &                        p_nh_diag,                                       &!inout
     &                        p_vn_traj, p_mass_flx_me,                        &!inout
-    &                        p_mass_flx_ic,                                   &!inout
-    &                        p_topflx_tra                                     )!out
+    &                        p_mass_flx_ic                                    )!inout
 
     TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
 
@@ -113,24 +110,21 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: p_vn_traj(:,:,:)      ! (nproma,  nlev,p_patch%nblks_e)
     REAL(wp),INTENT(INOUT) :: p_mass_flx_me(:,:,:)  ! (nproma,  nlev,p_patch%nblks_e)
     REAL(wp),INTENT(INOUT) :: p_mass_flx_ic(:,:,:)  ! (nproma,nlevp1,p_patch%nblks_c)
-    REAL(wp),INTENT(OUT)   :: p_topflx_tra(:,:,:)   ! (nproma,p_patch%nblks_c,ntracer)
 
     ! local variables
     REAL(wp) :: r_ndyn_substeps           !< reciprocal of ndyn_substeps
     REAL(wp) :: z_mass_flx_me(nproma,p_patch%nlev, p_patch%nblks_e)
-    REAL(wp) :: z_topflx_tra (nproma,ntracer, p_patch%nblks_c)
     REAL(wp) :: w_tavg               !< contravariant vertical velocity at n+\alpha
 
     ! Pointers to quad edge indices
     INTEGER,  POINTER :: iqidx(:,:,:), iqblk(:,:,:)
 
-    INTEGER  :: je, jc, jk, jb, jg, jt, nt    !< loop indices and domain ID
+    INTEGER  :: je, jc, jk, jb, jg       !< loop indices and domain ID
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart_e, i_rlend_e, i_rlstart_c, i_rlend_c, i_nchdom
+    INTEGER  :: i_rlstart_e, i_rlend_e, i_rlstart_c, i_rlend_c
     INTEGER  :: nlev, nlevp1       !< number of full and half levels
 
-    TYPE(t_trList), POINTER :: trAdvect      !< Pointer to tracer sublist
-  !--------------------------------------------------------------------------
+   !--------------------------------------------------------------------------
 
     IF (timers_level > 5) CALL timer_start(timer_prep_tracer)
 
@@ -142,37 +136,30 @@ CONTAINS
     i_rlstart_c = 1
     i_rlend_c   = min_rlcell_int
 
-    ! number of child domains
-    i_nchdom = MAX(1,p_patch%n_childdom)
-
     ! domain ID
     jg = p_patch%id
 
-    ! tracer fields which are advected
-    trAdvect => advection_config(jg)%trAdvect
 
     ! Set pointers to quad edges
     iqidx => p_patch%edges%quad_idx
     iqblk => p_patch%edges%quad_blk
 
-!$ACC DATA PRESENT( p_vn_traj, p_mass_flx_me, p_mass_flx_ic, p_topflx_tra, iqidx, iqblk )           &
-!$ACC      COPYIN( trAdvect, trAdvect%list ) CREATE( z_mass_flx_me, z_topflx_tra )                  &
+!$ACC DATA PRESENT( p_vn_traj, p_mass_flx_me, p_mass_flx_ic, iqidx, iqblk )                         &
+!$ACC      CREATE( z_mass_flx_me )                                                                  &
 !$ACC      IF ( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_vn_traj, p_mass_flx_me, p_mass_flx_ic )                                      &
 !$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !!$    ! The full set of setup computations is NOT executed in prepare_tracer 
 !!$    ! when the tracer advection is running together with the dynmical core 
-!!$    ! (solve_nh) and only standard namelist settings are chosen (i.e. flux limiter,
-!!$    ! first-order backward trajectory computation, CFL-safe vertical advection, idiv_method = 1)
+!!$    ! (solve_nh) and only standard namelist settings are chosen (i.e.
+!!$    ! first-order backward trajectory computation, idiv_method = 1)
 !!$    !
 !!$    ! lfull_comp is only used by the nonhydrostatic core.
 !!$    lfull_computations = lfull_comp
-!!$    IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 )     .OR. &
-!!$      &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 )     .OR. &
-!!$      &  advection_config(jg)%iord_backtraj == 2                      .OR. &
-!!$      &  idiv_method  == 2                                            .OR. &
-!!$      &  itime_scheme == TRACER_ONLY                                       ) THEN
+!!$    IF ( advection_config(jg)%iord_backtraj == 2            .OR. &
+!!$      &  idiv_method  == 2                                  .OR. &
+!!$      &  itime_scheme == TRACER_ONLY                             ) THEN
 !!$      lfull_computations = .TRUE.
 !!$    ENDIF
 
@@ -180,15 +167,13 @@ CONTAINS
 !$OMP PARALLEL PRIVATE(i_rlstart_e,i_rlend_e,i_startblk,i_endblk)
 
     i_rlstart_e = 1
-    IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 ) .OR. &
-      &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 ) .OR. &
-      &  advection_config(jg)%iord_backtraj == 2 .OR. idiv_method == 2) THEN
+    IF ( advection_config(jg)%iord_backtraj == 2 .OR. idiv_method == 2 ) THEN
       i_rlend_e   = min_rledge_int - 3
     ELSE
       i_rlend_e   = min_rledge_int - 2
     ENDIF
-    i_startblk  = p_patch%edges%start_blk(i_rlstart_e,1)
-    i_endblk    = p_patch%edges%end_blk(i_rlend_e,i_nchdom)
+    i_startblk  = p_patch%edges%start_block(i_rlstart_e)
+    i_endblk    = p_patch%edges%end_block(i_rlend_e)
 
     !
     ! contravariant normal velocites at n+1/2
@@ -246,8 +231,8 @@ CONTAINS
     ENDIF
 
 
-    i_startblk   = p_patch%cells%start_blk(i_rlstart_c,1)
-    i_endblk     = p_patch%cells%end_blk(i_rlend_c,i_nchdom)
+    i_startblk   = p_patch%cells%start_block(i_rlstart_c)
+    i_endblk     = p_patch%cells%end_block(i_rlend_c)
 
     !
     ! Time averaged contravariant vertical velocity
@@ -306,15 +291,13 @@ CONTAINS
       r_ndyn_substeps = 1._wp/REAL(ndyn_substeps,wp)
 
       i_rlstart_e  = 2
-      IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1) .OR. &
-        &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2) .OR. &
-        &  advection_config(jg)%iord_backtraj == 2) THEN
+      IF ( advection_config(jg)%iord_backtraj == 2 ) THEN
         i_rlend_e   = min_rledge_int - 3
       ELSE
         i_rlend_e   = min_rledge_int - 2
       ENDIF
-      i_startblk   = p_patch%edges%start_blk(i_rlstart_e,1)
-      i_endblk     = p_patch%edges%end_blk(i_rlend_e,i_nchdom)
+      i_startblk   = p_patch%edges%start_block(i_rlstart_e)
+      i_endblk     = p_patch%edges%end_block(i_rlend_e)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -363,8 +346,8 @@ CONTAINS
 !$OMP END DO NOWAIT
 
 
-      i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
-      i_endblk   = p_patch%cells%end_blk(i_rlend_c,i_nchdom)
+      i_startblk = p_patch%cells%start_block(i_rlstart_c)
+      i_endblk   = p_patch%cells%end_block(i_rlend_c)
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -384,14 +367,14 @@ CONTAINS
       ENDDO
 !$OMP END DO
 
-    ELSE IF ( lstep_advphy .AND. ndyn_substeps == 1 .AND. idiv_method == 2 ) THEN
+    ELSE IF ( lfull_comp .AND. lstep_advphy .AND. ndyn_substeps == 1 .AND. idiv_method == 2 ) THEN
       ! Compute only averaged mass flux
 
 
       i_rlstart_e = 2
       i_rlend_e   = min_rledge_int - 2
-      i_startblk  = p_patch%edges%start_blk(i_rlstart_e,1)
-      i_endblk    = p_patch%edges%end_blk(i_rlend_e,i_nchdom)
+      i_startblk  = p_patch%edges%start_block(i_rlstart_e)
+      i_endblk    = p_patch%edges%end_block(i_rlend_e)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -427,71 +410,8 @@ CONTAINS
 
 !$OMP END PARALLEL
 
-    !
-    ! diagnose vertical tracer fluxes at top margin, i.e. multiply horizontally
-    ! interpolated face value q_ubc with time averaged mass flux at nested
-    ! domain top. Since we make direct use of the dycore mass flux, this procedure
-    ! ensures tracer and air mass consistency.
-    !
-    IF (lstep_advphy .AND. lvert_nest .AND. p_patch%nshift > 0) THEN ! vertical nesting
 
-      IF (p_test_run) z_topflx_tra(:,:,:) = 0._wp
-
-      i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
-      i_endblk   = p_patch%cells%end_blk(i_rlend_c,i_nchdom)
-
-!$OMP PARALLEL DO PRIVATE(jb,jt,jc,nt,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
-          &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
-
-!$ACC PARALLEL DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
-        DO nt = 1, trAdvect%len ! Tracer loop
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-            jt = trAdvect%list(nt)
-            z_topflx_tra(jc,jt,jb) = p_nh_diag%q_ubc(jc,jb,jt)           &
-              &                    * p_mass_flx_ic(jc,1,jb)
-          ENDDO
-        ENDDO
-!$ACC END PARALLEL
-      ENDDO
-!$OMP END PARALLEL DO
-
-      CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_mass_flx_ic,z_topflx_tra,&
-                                 opt_varname = 'prepare_tracer: p_mass_flx_ic and z_topflx_tra')
-
-      i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
-      i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
-
-!$OMP PARALLEL DO PRIVATE(jb,jt,jc,nt,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
-          &                 i_startidx, i_endidx, i_rlstart_c, min_rlcell)
-
-!$ACC PARALLEL DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
-        DO nt = 1, trAdvect%len ! Tracer loop
-          DO jc = i_startidx, i_endidx
-            jt = trAdvect%list(nt)
-            p_topflx_tra(jc,jb,jt) = z_topflx_tra(jc,jt,jb)
-          ENDDO
-        ENDDO
-!$ACC END PARALLEL
-      ENDDO
-!$OMP END PARALLEL DO
-
-    ELSE IF (lstep_advphy) THEN               ! no vertical nesting
-
-!$ACC KERNELS DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
-      p_topflx_tra(:,:,:) = 0._wp
-!$ACC END KERNELS
-      CALL sync_patch_array(SYNC_C,p_patch,p_mass_flx_ic, opt_varname='prepare_tracer: p_mass_flux_ic')
-
-    ENDIF
-
-!$ACC UPDATE HOST( p_vn_traj, p_mass_flx_me, p_mass_flx_ic, p_topflx_tra ) &
+!$ACC UPDATE HOST( p_vn_traj, p_mass_flx_me, p_mass_flx_ic ) &
 !$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$ACC END DATA
