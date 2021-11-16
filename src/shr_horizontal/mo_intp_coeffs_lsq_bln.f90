@@ -496,9 +496,10 @@ REAL(wp), DIMENSION(lsq_dim_c,2) ::  &      ! geographical coordinates of all ce
 REAL(wp), DIMENSION(ptr_patch%geometry_info%cell_type,2)   ::  &  ! geogr. coordinates of vertices of the
   & xytemp_v                                ! control volume
 
-REAL(wp), ALLOCATABLE,DIMENSION(:,:,:,:) ::  &
-  & z_dist_g                                ! distance vectors to neighbouring cell
-                                            ! centers stored for each cell
+REAL(wp), DIMENSION(nproma,ptr_patch%nblks_c,lsq_dim_c,2) ::  &
+  & z_dist_g                                ! for each cell:
+                                            ! distance vectors from control volume cell center 
+                                            ! to cell centers of all cells in the stencil
 
 REAL(wp), DIMENSION(ptr_patch%geometry_info%cell_type,2)   ::  &  ! lat/lon distance vector edge midpoint -> cvertex
   & distxy_v
@@ -593,15 +594,6 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
   ! The start block depends on the width of the stencil
   i_startblk = ptr_patch%cells%start_blk(i_rcstartlev,1)
-
-  ! allocate array in which the distance vectors between the
-  ! cell center of the control volume and the cell centers of the
-  ! neighboring control volumes are stored.
-  ALLOCATE (z_dist_g(nproma,nblks_c,lsq_dim_c,2), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:lsq_compute_coeff_cell_sphere',   &
-      &             'allocation for z_dist_g failed')
-  ENDIF
 
 
 !!$OMP PARALLEL
@@ -846,9 +838,6 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
             !DR    &       + distxy_v(jec,2)**3 * distxy_v(jecp,2)     &
             !DR    &       + distxy_v(jec,2)**4
 
-          ENDIF ! lsq_dim_unk > 5
-
-          IF ( lsq_dim_unk > 7 ) THEN
 
             ! VIII. x^2y^1
             fxxy(jec) = 4._wp*distxy_v(jecp,1)**3 *distxy_v(jecp,2)                    &
@@ -871,7 +860,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
               &   + 3._wp*distxy_v(jec,1)*distxy_v(jecp,1)*distxy_v(jec,2)**2               &
               &   + 6._wp*distxy_v(jec,1)**2 * distxy_v(jec,2)**2
 
-          ENDIF ! lsq_dim_unk > 7
+          ENDIF ! lsq_dim_unk > 5
 
 
         ENDDO ! loop over nverts
@@ -897,18 +886,12 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
             & DOT_PRODUCT(fxxx(1:nverts),dely(1:nverts))
           ptr_int_lsq%lsq_moments(jc,jb,7) = -z_rcarea/20._wp * &
             & DOT_PRODUCT(fyyy(1:nverts),delx(1:nverts))
-
-        END IF  ! lsq_dim_unk > 5
-
-
-        IF ( lsq_dim_unk > 7 ) THEN
-
           ptr_int_lsq%lsq_moments(jc,jb,8) = z_rcarea/60._wp * &
             & DOT_PRODUCT(fxxy(1:nverts),dely(1:nverts))
           ptr_int_lsq%lsq_moments(jc,jb,9) = z_rcarea/60._wp * &
             & DOT_PRODUCT(fxyy(1:nverts),dely(1:nverts))
 
-        END IF  ! lsq_dim_unk > 7
+        END IF  ! lsq_dim_unk > 5
 
       END IF  ! llsq_rec_consv
 
@@ -1009,9 +992,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
             &    + 3._wp*ptr_int_lsq%lsq_moments(ilc_s(js),ibc_s(js),2)                       &
             &    * z_dist_g(jc,jb,js,2)**2                                                    &
             &    + z_dist_g(jc,jb,js,2)**3
-        ENDIF
 
-        IF ( lsq_dim_unk > 7 ) THEN
           ptr_int_lsq%lsq_moments_hat(jc,jb,js,8) =                                           &
             &      ptr_int_lsq%lsq_moments(ilc_s(js),ibc_s(js),8)                             &
             &    + ptr_int_lsq%lsq_moments(ilc_s(js),ibc_s(js),3)* z_dist_g(jc,jb,js,2)       &
@@ -1213,13 +1194,6 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_lsq%lsq_rmat_rdiag_c(:,ju,:))
   ENDDO
 
-  DEALLOCATE (z_dist_g, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:lsq_compute_coeff_cell_sphere',   &
-      &             'deallocation for z_dist_g failed')
-  ENDIF
-
-
 END SUBROUTINE lsq_compute_coeff_cell_sphere
 
 
@@ -1258,9 +1232,10 @@ INTEGER, INTENT(IN)  ::  &  ! least squares weighting exponent
 !CC of points in the stencil
 TYPE(t_cartesian_coordinates) :: cc_cv, cc_cell(lsq_dim_c), cc_vert(ptr_patch%geometry_info%cell_type)
 
-REAL(wp), ALLOCATABLE,DIMENSION(:,:,:,:) ::  &
-  & z_dist_g                                ! distance vectors to neighbouring cell
-                                            ! centers stored for each cell
+REAL(wp), DIMENSION(nproma,ptr_patch%nblks_c,lsq_dim_c,2) ::  &
+  & z_dist_g                                ! for each cell:
+                                            ! distance vectors from control volume cell center 
+                                            ! to cell centers of all cells in the stencil
 
 REAL(wp), DIMENSION(ptr_patch%geometry_info%cell_type,2)   ::  &  ! lat/lon distance vector edge midpoint -> cvertex
   & distxy_v
@@ -1352,15 +1327,6 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
   ! The start block depends on the width of the stencil
   i_startblk = ptr_patch%cells%start_blk(i_rcstartlev,1)
-
-  ! allocate array in which the distance vectors between the
-  ! cell center of the control volume and the cell centers of the
-  ! neighboring control volumes are stored.
-  ALLOCATE (z_dist_g(nproma,nblks_c,lsq_dim_c,2), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:lsq_compute_coeff_cell_torus',   &
-      &             'allocation for z_dist_g failed')
-  ENDIF
 
 
 !!$OMP PARALLEL
@@ -1602,9 +1568,6 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
             !DR    &       + distxy_v(jec,2)**3 * distxy_v(jecp,2)     &
             !DR    &       + distxy_v(jec,2)**4
 
-          ENDIF ! lsq_dim_unk > 5
-
-          IF ( lsq_dim_unk > 7 ) THEN
 
             ! VIII. x^2y^1
             fxxy(jec) = 4._wp*distxy_v(jecp,1)**3 *distxy_v(jecp,2)                    &
@@ -1627,7 +1590,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
               &   + 3._wp*distxy_v(jec,1)*distxy_v(jecp,1)*distxy_v(jec,2)**2               &
               &   + 6._wp*distxy_v(jec,1)**2 * distxy_v(jec,2)**2
 
-          ENDIF ! lsq_dim_unk > 7
+          ENDIF ! lsq_dim_unk > 5
 
 
         ENDDO ! loop over nverts
@@ -1653,18 +1616,12 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
             & DOT_PRODUCT(fxxx(1:nverts),dely(1:nverts))
           ptr_int_lsq%lsq_moments(jc,jb,7) = -z_rcarea/20._wp * &
             & DOT_PRODUCT(fyyy(1:nverts),delx(1:nverts))
-
-        END IF  ! lsq_dim_unk > 5
-
-
-        IF ( lsq_dim_unk > 7 ) THEN
-
           ptr_int_lsq%lsq_moments(jc,jb,8) = z_rcarea/60._wp * &
             & DOT_PRODUCT(fxxy(1:nverts),dely(1:nverts))
           ptr_int_lsq%lsq_moments(jc,jb,9) = z_rcarea/60._wp * &
             & DOT_PRODUCT(fxyy(1:nverts),dely(1:nverts))
 
-        END IF  ! lsq_dim_unk > 7
+        END IF  ! lsq_dim_unk > 5
 
       END IF  ! llsq_rec_consv
 
@@ -1765,9 +1722,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
             &    + 3._wp*ptr_int_lsq%lsq_moments(ilc_s(js),ibc_s(js),2)                       &
             &    * z_dist_g(jc,jb,js,2)**2                                                    &
             &    + z_dist_g(jc,jb,js,2)**3
-        ENDIF
 
-        IF ( lsq_dim_unk > 7 ) THEN
           ptr_int_lsq%lsq_moments_hat(jc,jb,js,8) =                                           &
             &      ptr_int_lsq%lsq_moments(ilc_s(js),ibc_s(js),8)                             &
             &    + ptr_int_lsq%lsq_moments(ilc_s(js),ibc_s(js),3)* z_dist_g(jc,jb,js,2)       &
@@ -1968,13 +1923,6 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
   DO ju = 1,lsq_dim_unk
     CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_lsq%lsq_rmat_rdiag_c(:,ju,:))
   ENDDO
-
-  DEALLOCATE (z_dist_g, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:lsq_compute_coeff_cell_torus',   &
-      &             'deallocation for z_dist_g failed')
-  ENDIF
-
 
 END SUBROUTINE lsq_compute_coeff_cell_torus
 

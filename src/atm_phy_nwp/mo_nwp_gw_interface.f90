@@ -43,6 +43,7 @@ MODULE mo_nwp_gw_interface
   USE mo_sso_ifs,              ONLY: gwdrag
   USE mo_gwd_wms,              ONLY: gwdrag_wms
   USE mo_vertical_coord_table, ONLY: vct_a
+  USE mo_exception,            ONLY : finish, message
 
   IMPLICIT NONE
 
@@ -63,9 +64,10 @@ CONTAINS
                          &   p_patch,p_metrics,         & !>input
                          &   ext_data,                  & !>input
                          &   p_diag ,                   & !>inout
-                         &   prm_diag,prm_nwp_tend      ) !>inout
+                         &   prm_diag,prm_nwp_tend,     & !>inout
+                         &   lacc                    ) !>in 
 
-
+    LOGICAL, OPTIONAL,  INTENT(IN)  :: lacc           !< initialization flag
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch         !<grid/patch info.
     TYPE(t_external_data),       INTENT(inout):: ext_data        !< external data, inout only for accomodating ext_data%atm%sso_gamma
@@ -96,7 +98,14 @@ CONTAINS
     REAL(vp) :: ssolim(p_patch%nlev), zf
 
     INTEGER :: jk,jc,jb,jg,jks             !<block indeces
+    LOGICAL :: lzacc                       ! OpenACC flag
 
+    ! openACC flag (initialization run is left on)
+    IF(PRESENT(lacc)) THEN
+      lzacc = lacc
+    ELSE
+      lzacc = .FALSE.
+    ENDIF
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
@@ -115,6 +124,9 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
     ! Set height-dependent limits for SSO momentum tendencies
+    
+    !$ACC PARALLEL IF(lzacc)
+    !$ACC LOOP GANG VECTOR
     DO jk = 1, nlev
       jks = jk + p_patch%nshift_total
       zf = 0.5_wp*(vct_a(jks)+vct_a(jks+1))
@@ -124,6 +136,7 @@ CONTAINS
         ssolim(jk) = 0.05_vp*EXP(-1.e-4_vp*(zf-20000._vp))
       ENDIF
     ENDDO
+    !$ACC END PARALLEL
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ztot_prec_rate,z_fluxu,z_fluxv) ICON_OMP_GUIDED_SCHEDULE
@@ -169,7 +182,9 @@ CONTAINS
           & pdu_sso   =prm_nwp_tend%ddt_u_sso   (:,:,jb),  & !< out: u-tendency due to SSO
           & pdv_sso   =prm_nwp_tend%ddt_v_sso   (:,:,jb),  & !< out: v-tendency due to SSO
           & pustr_sso =prm_diag%str_u_sso       (:,jb),    & !< out: u surface stress due to SSO
-          & pvstr_sso =prm_diag%str_v_sso       (:,jb)     ) !< out: v surface stress due to SSO
+          & pvstr_sso =prm_diag%str_v_sso       (:,jb),    & !< out: v surface stress due to SSO
+          & use_acc   =lzacc                               ) ! in, optional
+
  ! GZ: The computation of the frictional heating rate is now done in interface_nwp for
  ! SSO, GWD and Rayleigh friction together
  !         & pdt_sso   =prm_nwp_tend%ddt_temp_sso(:,:,jb)   ) !< out: temperature tendency
@@ -178,14 +193,19 @@ CONTAINS
         ! Reduce tendencies in uppermost layer by a factor of 8 because they tend to larger than the tendencies
         ! in the second layer by about this factor. This is also true at vertical nest interfaces
 !DIR$ IVDEP
+        !$ACC PARALLEL IF(lzacc)
+        !$ACC LOOP GANG VECTOR
         DO jc = i_startidx, i_endidx
           prm_nwp_tend%ddt_u_sso(jc,1,jb) = 0.125_vp*prm_nwp_tend%ddt_u_sso(jc,1,jb)
           prm_nwp_tend%ddt_v_sso(jc,1,jb) = 0.125_vp*prm_nwp_tend%ddt_v_sso(jc,1,jb)
         ENDDO
+        !$ACC END PARALLEL
 
         ! Limit SSO wind tendencies. They can become numerically unstable in the upper stratosphere and mesosphere.
         ! Moreover, they tend to be much too strong in northern hemispheric winter, leading to a huge warm
         ! bias in the north polar middle stratosphere
+        
+        !$ACC PARALLEL LOOP GANG VECTOR COLLAPSE(2) IF(lzacc)
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -195,9 +215,9 @@ CONTAINS
               SIGN(MIN(ssolim(jk),ABS(prm_nwp_tend%ddt_v_sso(jc,jk,jb))),prm_nwp_tend%ddt_v_sso(jc,jk,jb))
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
 
       ELSE IF (lcall_sso_jg .AND. atm_phy_nwp_config(jg)%inwp_sso == 2) THEN
-
         ! SSO from IFS code 41r2
  
         CALL gwdrag(                                       &

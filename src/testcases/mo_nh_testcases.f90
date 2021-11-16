@@ -87,7 +87,6 @@ MODULE mo_nh_testcases
   USE mo_upatmo_config,        ONLY: upatmo_config
   USE mo_vertical_coord_table, ONLY: vct_a
   USE mo_hydro_adjust,         ONLY: hydro_adjust_const_thetav
-  USE mo_les_config,           ONLY: les_config
 
   IMPLICIT NONE  
   
@@ -1127,9 +1126,12 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'setup dcmip_gw_31 (gravity waves on small planet) test')
 
+    l_hydro_adjust = .TRUE.
+
     DO jg = 1, n_dom
-      CALL init_nh_dcmip_gw( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-        &                    p_nh_state(jg)%diag, p_nh_state(jg)%metrics )
+      CALL init_nh_dcmip_gw( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),  &
+        &                    p_nh_state(jg)%diag, p_nh_state(jg)%metrics, & 
+        &                    l_hydro_adjust)
     ENDDO
 
     CALL message(TRIM(routine),'End setup dcmip_gw_31 test')

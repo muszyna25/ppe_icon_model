@@ -996,9 +996,9 @@ CONTAINS
 
     ! Indices
     INTEGER :: jb, jc, jk, js, je, jv, i_nchdom, i_chidx,  &
-      i_startblk, i_endblk, i_startidx, i_endidx, ic, &
+      i_startblk, i_endblk, i_startidx, i_endidx, &
       i_rlend_c, i_rlend_e, i_nchdom_p
-    INTEGER :: jt, nt             ! tracer loop indices
+     INTEGER :: jt, nt             ! tracer loop indices
 
     INTEGER :: nlev_c            ! number of full levels (child dom)
     INTEGER :: nlev_p            ! number of full levels (parent dom)
@@ -1024,6 +1024,8 @@ CONTAINS
 
     REAL(vp) :: &
       rho_parent_sv(nproma,p_patch(jgp)%nlev)    !< stores rho at n+1 with feedback tendency excluded
+    REAL(wp) :: &
+      thetav_parent_sv                           !< stores thetav at n+1 with feedback tendency excluded
 
 #ifdef __LOOP_EXCHANGE
     REAL(vp) :: rot_diff_vn(p_patch(jg)%nlev,nproma,p_patch(jgp)%nblks_v)
@@ -1036,7 +1038,7 @@ CONTAINS
 
     REAL(wp) :: z_fbk_rho(nproma,4,p_patch(jg)%nlev)
 
-    REAL(wp) :: rd_o_cvd, rd_o_p0ref, relfac, dcoef_vec
+    REAL(wp) :: rd_o_cvd, relfac, dcoef_vec
 
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: iccidx, iccblk, iceidx, iceblk, iveidx, iveblk, &
@@ -1049,8 +1051,9 @@ CONTAINS
 
     ! for collecting all tracer fields which undergo feedback and thus
     ! require synchronization
-    TYPE(t_ptr_3d) :: tracer_ptr(advection_config(jg)%trFeedback%len)
+    TYPE(t_ptr_3d) :: tracer_ptr(advection_config(jg)%trFeedback%len + MIN(1,iprog_aero))
 
+    LOGICAL :: lprog_aero        !< prognostic aerosol scheme 
     LOGICAL :: use_acc
     !-----------------------------------------------------------------------
 
@@ -1074,11 +1077,14 @@ CONTAINS
     p_pc             => p_patch(jg)
     p_int            => p_int_state(jgp)
 
-    IF (PRESENT(prm_diag)) THEN
-      prm_diagp        => prm_diag(jgp)
-      prm_diagc        => prm_diag(jg)
-    END IF
-
+    IF (iprog_aero >= 1 .AND. PRESENT(prm_diag)) THEN
+      lprog_aero = .TRUE.
+      prm_diagp  => prm_diag(jgp)
+      prm_diagc  => prm_diag(jg)
+    ELSE
+      lprog_aero = .FALSE.
+    ENDIF
+    
     p_grf  => p_grf_state_local_parent(jg)
     p_grfp => p_grf_state(jgp)
     p_gcp  => p_patch_local_parent(jg)%cells
@@ -1115,9 +1121,6 @@ CONTAINS
     ! R/c_v (not present in physical constants)
     rd_o_cvd = 1._wp / cvd_o_rd
 
-    ! R / p0ref
-    rd_o_p0ref = rd / p0ref
-
     relfac = MIN(0.075_wp, dt_fbk/fbk_relax_timescale) ! default for relaxation time scale is 3 hours
     dcoef_vec  = 1._wp/12._wp
 
@@ -1135,7 +1138,7 @@ CONTAINS
     IF(ltransport) &
       ALLOCATE(feedback_rhoqx(nproma, nlev_c, i_startblk:i_endblk, trFeedback%len))
 
-    IF(ltransport .AND. iprog_aero >= 1 .AND. PRESENT(prm_diag)) &
+    IF(ltransport .AND. lprog_aero) &
       ALLOCATE(feedback_aero(nproma, nclass_aero, i_startblk:i_endblk))
 
     i_startblk = 1
@@ -1171,7 +1174,7 @@ CONTAINS
 !$ACC      IF ( use_acc )
 
 !$ACC DATA CREATE(feedback_aero, parent_aero) PRESENT(prm_diagc%aerosol, prm_diagp%aerosol) , &
-!$ACC         IF ( use_acc .AND. iprog_aero >= 1 )
+!$ACC         IF ( use_acc .AND. lprog_aero )
 
     ! 1. Feedback of child-domain variables to the parent grid
 #ifndef __PGI
@@ -1300,7 +1303,7 @@ CONTAINS
         ENDDO
       ENDIF
 
-      IF (PRESENT(prm_diag) .AND. ltransport .AND. iprog_aero >= 1) THEN
+      IF ( ltransport .AND. lprog_aero ) THEN
 
 !$ACC PARALLEL IF( use_acc )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
@@ -1372,7 +1375,7 @@ CONTAINS
     CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_e_fbk, 0, 0, 1, nlev_c, &
       RECV1_SP=parent_vn, SEND1_SP=feedback_vn )
 
-    IF (ltransport .AND. iprog_aero >= 1 .AND. PRESENT(prm_diag)) THEN
+    IF (ltransport .AND. lprog_aero) THEN
 
       CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_c_fbk, 0, 0, trFeedback%len+1, trFeedback%len*nlev_c+nclass_aero, &
         RECV1_SP=parent_aero,     SEND1_SP=feedback_aero,                    &
@@ -1391,7 +1394,7 @@ CONTAINS
     CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_e_fbk, 1, nlev_c, &
       RECV1=parent_vn, SEND1=feedback_vn )
 
-    IF (ltransport .AND. iprog_aero >= 1 .AND. PRESENT(prm_diag)) THEN
+    IF (ltransport .AND. lprog_aero) THEN
 
       CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, trFeedback%len+1, trFeedback%len*nlev_c+nclass_aero, &
         RECV1=parent_aero,     SEND1=feedback_aero,                    &
@@ -1645,7 +1648,8 @@ CONTAINS
     i_startblk = p_patch(jgp)%cells%start_blk(1,1)
     i_endblk   = p_patch(jgp)%cells%end_blk(i_rlend_c,i_nchdom_p)
 #ifndef __PGI
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,nt,diff_rho,diff_thv,diff_w,rho_parent_sv) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,nt,diff_rho,diff_thv,diff_w, &
+!$OMP            rho_parent_sv,thetav_parent_sv) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO jb = i_startblk, i_endblk
 
@@ -1696,15 +1700,17 @@ CONTAINS
 !DIR$ IVDEP
           DO jk = nshift+nst_fbk,nlev_p
 #else
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
+!$ACC LOOP GANG VECTOR COLLAPSE(2), PRIVATE(thetav_parent_sv)
       DO jk = nshift+nst_fbk,nlev_p
         DO jc = i_startidx,i_endidx
           IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
 #endif
 
-            ! store current density field (without feedback tendency)
+            ! store current density and theta_v fields (without feedback tendency)
             ! for later use.
             rho_parent_sv(jc,jk) = p_parent_prog%rho(jc,jk,jb)
+            !
+            thetav_parent_sv     = p_parent_prog%theta_v(jc,jk,jb)
 
             ! density
             p_parent_prog%rho(jc,jk,jb) = p_parent_prog%rho(jc,jk,jb) + relfac*diff_rho(jc,jk-js)
@@ -1715,9 +1721,17 @@ CONTAINS
             ! w
             p_parent_prog%w(jc,jk,jb) = p_parent_prog%w(jc,jk,jb) + relfac*diff_w(jc,jk-js)
 
-            ! exner is diagnosed from rho*theta_v
-            p_parent_prog%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
-              p_parent_prog%theta_v(jc,jk,jb)*p_parent_prog%rho(jc,jk,jb)))
+            ! exner is re-diagnosed from the linearized equation of state
+            !
+            ! using the linearized equation of state at this point is consistent with the dynamical core. 
+            ! I.e. in the limit of vanishing feedback increments, the model state on the parent domain 
+            ! remains unchanged.
+            p_parent_prog%exner(jc,jk,jb) = p_parent_prog%exner(jc,jk,jb)                                    &
+              &                           * (1._wp + rd_o_cvd                                                &
+              &                              *( p_parent_prog%rho(jc,jk,jb)*p_parent_prog%theta_v(jc,jk,jb)  &
+              &                               /(rho_parent_sv(jc,jk)*thetav_parent_sv) - 1._wp)              &
+              &                             )
+
 
 #ifdef __LOOP_EXCHANGE
           ENDDO
@@ -1768,7 +1782,7 @@ CONTAINS
 #endif
         ENDDO
 
-        IF (PRESENT(prm_diag) .AND. iprog_aero >= 1) THEN
+        IF ( lprog_aero ) THEN
 
 !$ACC PARALLEL IF( use_acc )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
@@ -1782,7 +1796,7 @@ CONTAINS
           ENDDO
 !$ACC END PARALLEL
 
-        ENDIF  ! iprog_aero
+        ENDIF  ! lprog_aero
       ENDIF  ! ltransport
 
     ENDDO
@@ -1792,69 +1806,40 @@ CONTAINS
 #endif
     CALL sync_patch_array(SYNC_E,p_patch(jgp),p_parent_prog%vn)
 
-    IF (ltransport .AND. iprog_aero >= 1 .AND. PRESENT(prm_diag)) THEN
+
+    IF (ltransport) THEN
 
       DO nt = 1, trFeedback%len
         jt = trFeedback%list(nt)
         tracer_ptr(nt)%p => p_parent_prog_rcf%tracer(:,:,:,jt)
       ENDDO
+      !
+      IF (lprog_aero) THEN
+        nt = trFeedback%len + 1
+        tracer_ptr(nt)%p => prm_diagp%aerosol(:,:,:)
+      ENDIF
+      !
       CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), 4+SIZE(tracer_ptr), &
         &                        f3din1=p_parent_prog%rho,                 &
         &                        f3din2=p_parent_prog%theta_v,             &
-        &                        f3din3=p_parent_prog%w,                   &
-        &                        f3din4=prm_diagp%aerosol,                 &
+        &                        f3din3=p_parent_prog%exner,               &
+        &                        f3din4=p_parent_prog%w,                   &
         &                        f3din_arr=tracer_ptr)
 
-    ELSE IF (ltransport) THEN
-
-      DO nt = 1, trFeedback%len
-        jt = trFeedback%list(nt)
-        tracer_ptr(nt)%p => p_parent_prog_rcf%tracer(:,:,:,jt)
-      ENDDO
-      CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), 3+SIZE(tracer_ptr), &
-        &                        f3din1=p_parent_prog%rho,                 &
-        &                        f3din2=p_parent_prog%theta_v,             &
-        &                        f3din3=p_parent_prog%w,                   &
-        &                        f3din_arr=tracer_ptr)
-
-    ELSE
-      CALL sync_patch_array_mult(SYNC_C,p_patch(jgp),3,        &
+    ELSE  ! no transport
+      CALL sync_patch_array_mult(SYNC_C,p_patch(jgp), 4,       &
         &                        f3din1=p_parent_prog%rho,     &
         &                        f3din2=p_parent_prog%theta_v, &
-        &                        f3din3=p_parent_prog%w)
+        &                        f3din3=p_parent_prog%exner,   &
+        &                        f3din4=p_parent_prog%w)
     ENDIF
-
-    ! Recomputation of exner on halo points (saves communication of one field)
-!$ACC PARALLEL IF( use_acc )
-#ifdef __LOOP_EXCHANGE
-!$ACC LOOP GANG
-    DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)
-      jc = p_nh_state(jgp)%metrics%ovlp_halo_c_idx(ic,i_chidx)
-      jb = p_nh_state(jgp)%metrics%ovlp_halo_c_blk(ic,i_chidx)
-!DIR$ IVDEP
-      DO jk = nshift+nst_fbk, nlev_p
-#else
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
-    DO jk = nshift+nst_fbk, nlev_p
-!CDIR NODEP,VOVERTAKE,VOB
-      DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)
-        jc = p_nh_state(jgp)%metrics%ovlp_halo_c_idx(ic,i_chidx)
-        jb = p_nh_state(jgp)%metrics%ovlp_halo_c_blk(ic,i_chidx)
-#endif
-
-        p_parent_prog%exner(jc,jk,jb) =   &
-          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_parent_prog%theta_v(jc,jk,jb)*p_parent_prog%rho(jc,jk,jb)))
-
-      ENDDO
-    ENDDO
-!$ACC END PARALLEL
 
 !$ACC END DATA
 !$ACC END DATA
 
     DEALLOCATE(feedback_thv,feedback_rho,feedback_w,feedback_vn)
     IF (ltransport) DEALLOCATE(feedback_rhoqx)
-    IF (ltransport .AND. iprog_aero >= 1 .AND. PRESENT(prm_diag)) DEALLOCATE(feedback_aero)
+    IF (ltransport .AND. lprog_aero) DEALLOCATE(feedback_aero)
 
   END SUBROUTINE relax_feedback
 

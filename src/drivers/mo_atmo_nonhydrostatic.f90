@@ -71,6 +71,7 @@ USE mo_nwp_ww,               ONLY: configure_ww
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
   &                                construct_nh_state, destruct_nh_state,      &
   &                                duplicate_prog_state
+USE mo_prepadv_state,        ONLY: construct_prepadv_state, destruct_prepadv_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag,      &
   &                                compute_lonlat_area_weights
 USE mo_nwp_phy_state,        ONLY: prm_diag, prm_nwp_tend,                     &
@@ -257,6 +258,9 @@ CONTAINS
 
     ! Add optional diagnostic variable lists (might remain empty)
     CALL construct_opt_diag(p_patch(1:), .TRUE.)
+
+    ! construct prep_adv state, which is required for tracer transport
+    CALL construct_prepadv_state (p_patch(1:))
 
     IF (iforcing == inwp) THEN
       CALL construct_nwp_phy_state( p_patch(1:), var_in_output)
@@ -708,6 +712,8 @@ CONTAINS
     DEALLOCATE (p_nh_state, p_nh_state_lists, STAT=ist)
     IF (ist /= SUCCESS) CALL finish(routine,'deallocation for state failed')
 
+
+    CALL destruct_prepadv_state()
 
     ! close LES diag files
     DO jg = 1 , n_dom

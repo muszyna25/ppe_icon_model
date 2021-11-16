@@ -118,7 +118,8 @@ for builder in DWD_nec DWD_nec_yac2; do
   ./rmexp checksuite.icon-dev/check.atm_sma                                      --builders ${builder} --list $listname
   ./rmexp checksuite.icon-dev/check.atm_2mom_bubble_rceTorus                     --builders ${builder} --list $listname
 done
-
+# only DWD_nec
+$addexp checksuite.rcnl.dwd.de/exp.run_ICON_09_R2B6N7_oper_EPS.run               --builders DWD_nec --list $listname
 
 #-----------------------------------------------------------
 # Ruby0 coupled tests, only with mpi

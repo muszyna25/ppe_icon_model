@@ -234,7 +234,7 @@ MODULE mo_async_latbc
   USE mtime,                        ONLY: datetime, OPERATOR(+)
   USE mo_cdi,                       ONLY: vlistInqVarZaxis, streamInqVlist, &
        &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
-       &                                  streamInqFiletype, FILETYPE_GRB2,                  &
+       &                                  streamInqFiletype,                                 &
        &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_NC,           &
        &                                  cdi_max_name
   USE mo_io_util,                   ONLY: read_netcdf_int_1d, t_netcdf_att_int
@@ -675,7 +675,7 @@ CONTAINS
     ! open and read file containing information of prefetch variables
     ALLOCATE(StrLowCasegrp(MAX_NUM_GRPVARS))
     IF (is_work) THEN
-      CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict, p_patch(1))
+      CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict, p_patch(1:))
     ELSE IF (is_pref) THEN
       CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict)
     ENDIF
@@ -701,7 +701,7 @@ CONTAINS
 
     ! allocate input data for lateral boundary nudging
     IF (is_work) THEN
-      CALL read_init_latbc_data(latbc, p_patch(1), p_int_state(1), p_nh_state(1), &
+      CALL read_init_latbc_data(latbc, p_patch(1:), p_int_state(1), p_nh_state(1), &
         &                       latbc%new_latbc_tlev, latbc_varnames_dict)
     ELSE IF (is_pref) THEN
       CALL async_init_latbc_data(latbc)
@@ -720,7 +720,7 @@ CONTAINS
     TYPE (t_latbc_data),        INTENT(INOUT) :: latbc
     CHARACTER(LEN=vname_len), INTENT(INOUT) :: StrLowCasegrp(:) !< grp name in lower case letter
     TYPE (t_dictionary),        INTENT(IN)    :: latbc_varnames_dict
-    TYPE(t_patch), OPTIONAL,    INTENT(IN)    :: p_patch
+    TYPE(t_patch), OPTIONAL,    INTENT(IN)    :: p_patch(:)
 
 #ifndef NOMPI
     CHARACTER(*), PARAMETER                   :: routine = modname//"::read_init_file"
@@ -879,7 +879,7 @@ CONTAINS
         ENDIF
       END IF
       CALL p_bcast(nlev_in, 0, p_comm_work)
-      CALL allocate_pref_latbc_data(latbc, nlev_in, p_nh_state(1), ext_data(1), p_patch)
+      CALL allocate_pref_latbc_data(latbc, nlev_in, p_nh_state(1), ext_data(1), p_patch(1:))
     END IF
 
     ! clean up
@@ -956,7 +956,7 @@ CONTAINS
        ! Check if vertical velocity (or OMEGA) is provided as input
        buffer%lread_w = (test_cdi_varID(fileID_latbc, 'W', latbc_dict) /= -1)
 
-       ! Check if surface pressure (VN) is provided as input
+       ! Check if normal velocity (VN) field or U/V are provided as input
        lhave_vn = (test_cdi_varID(fileID_latbc, 'VN', latbc_dict) /= -1)
        lhave_u  = (test_cdi_varID(fileID_latbc, 'U', latbc_dict)  /= -1)
        lhave_v  = (test_cdi_varID(fileID_latbc, 'V', latbc_dict)  /= -1)
@@ -1036,10 +1036,6 @@ CONTAINS
            CALL finish(routine, "No VN or U&V available in LATBC data set!")
          END IF
        END IF
-
-       ! Consistency checks
-       IF (latbc_config%init_latbc_from_fg .AND. .NOT. buffer%lread_hhl) &
-         & CALL finish(routine, "Init LATBC from first guess requires BCs from non-hydrostatic model!")
 
        ! Write some status output:
        IF (buffer%lread_theta_rho) &

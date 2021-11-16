@@ -724,6 +724,7 @@ EOF
   cat >>$output_script <<EOF
 export UCX_MEMTYPE_CACHE=n
 export UCX_TLS=tcp,sm
+export ECCODES_DEFINITION_PATH=${icon_data_rootFolder}/mch/eccodes_definitions
 EOF
 }
 
@@ -834,6 +835,7 @@ export UCX_TLS=tcp,sm
 export OMPI_MCA_osc="^rdma"
 export OMPI_MCA_pml="ucx"
 export OMPI_MCA_btl="^uct"
+export ECCODES_DEFINITION_PATH=${icon_data_rootFolder}/mch/eccodes_definitions
 fi
 EOF
 }
@@ -937,6 +939,10 @@ set_run_target_daint_cpu()
 EOF
 
   start_header
+
+  cat >> $output_script << EOF
+export ECCODES_DEFINITION_PATH=${icon_data_rootFolder}/mch/eccodes_definitions
+EOF
 }
 
 #=============================================================================
@@ -946,7 +952,7 @@ set_run_target_daint_gpu()
     rootFolder_prefix=/users/icontest
     icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
-    set_default use_nproma 8000
+    set_default use_nproma -1
     set_default use_prefetch_procs 0
     set_default use_account_no "$(id -gn)"
     if [[ "x$BB_SYSTEM" != "x" ]]
@@ -1036,6 +1042,7 @@ EOF
 export CRAY_CUDA_MPS=1
 export MPICH_RDMA_ENABLED_CUDA=1
 #export PGI_ACC_SYNCHRONOUS=1
+export ECCODES_DEFINITION_PATH=${icon_data_rootFolder}/mch/eccodes_definitions
 EOF
 }
 

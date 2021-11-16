@@ -2,7 +2,7 @@ MODULE mo_ser_debug
 
   USE mo_kind,               ONLY: vp, wp
   USE mo_exception,          ONLY: warning
-  USE mo_ser_common,         ONLY: init
+  !$ser verbatim USE mo_ser_common,         ONLY: init
   USE mtime,                 ONLY: datetimeToString, MAX_DATETIME_STR_LEN
   USE mo_time_config,        ONLY: time_config
   USE mo_ser_nml,            ONLY: ser_debug

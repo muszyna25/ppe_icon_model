@@ -195,7 +195,7 @@ CONTAINS
     !------------------------------------------------------------
     !  check the consistency of the parameters
     !------------------------------------------------------------
-    IF (nproma<=0) CALL finish(TRIM(method_name),'"nproma" must be positive')
+    IF (nproma<=0) CALL message(TRIM(method_name),'"nproma" is negative. Use nblocks to nproma conversion instead!')
 #if !defined (__SX__) && !defined (__NEC_VH__)
     ! migration helper: catch nproma's that were obviously intended
     !                   for a vector machine.

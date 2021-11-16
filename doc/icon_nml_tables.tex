@@ -2701,10 +2701,9 @@ conservative (T) or non-conservative (F) least-squares reconstruction for high o
 %\hline
 lsq\_high\_ord&
 I& 3& &
-polynomial order for high order reconstruction& \tabularnewline
-& & & & 1: linear & ihadv\_tracer=4 \tabularnewline
+polynomial order of high order least-squares reconstruction for tracer transport& ihadv\_tracer > 2 \tabularnewline
+& & & & 1: linear & \tabularnewline
 & & & & 2: quadratic & \tabularnewline
-& & & & 30: cubic (no $3^{rd}$ order cross deriv.) & \tabularnewline
 & & & & 3: cubic & \tabularnewline
 
 %\hline
@@ -2955,6 +2954,13 @@ iforcing=3
 runoff\_interval&
 C(n\_dom)& "P01Y" & &
 Interval over which surface and soil water runoff are accumulated &
+iforcing=3
+\tabularnewline
+
+%\hline
+sunshine\_interval&
+C(n\_dom)& "P01Y" & &
+Interval over which sunshine duration is accumulated &
 iforcing=3
 \tabularnewline
 
@@ -4168,12 +4174,11 @@ Stride of MPI ranks.&
 \begin{longtab}
 
 %\hline
-\textbf{calendar} & I & 1 & &
+\textbf{calendar} & C & ``proleptic gregorian'' & &
 Selects the calendar type to use:   \\
-0 = calendar is not defined yet     \\
-1 = proleptic Gregorian calendar    \\
-2 = 365 day year without leap years \\
-3 = 360 day year with 30 day months &
+``proleptic gregorian'' = proleptic Gregorian calendar    \\
+``365 day year'' = 365 day year without leap years \\
+``360 day year'' = 360 day year with 30 day months &
 \tabularnewline
 %\hline
 
@@ -4365,7 +4370,7 @@ Height above which moist physics and advection of cloud and precipitation variab
 %\hline
 hbot\_qvsubstep&
 R& 22500.0& m&
-Height above which QV is advected with substepping scheme (must be at least as large as htop\_moist\_proc)&
+Height above which QV is advected with substepping scheme&
 ihadv\_tracer=22, 32, 42 or 52
 \tabularnewline
 
@@ -4572,16 +4577,21 @@ in limarea\_nml.
 
 %\hline
 nudge\_type&
-I &
-0 &
-  &
+I(n\_dom) &
+0        &
+         &
 Nudging type: \\
 {\textasteriskcentered} 0: none \\
 {\textasteriskcentered} 1: upper boundary nudging \\
 {\textasteriskcentered} 2: global nudging \\
 Please note: \\
 {\textbullet} nudge\_type = 1 requires l\_limited\_area = .TRUE. \\
-{\textbullet} nudging is applied in primary domain only \\
+%
+{\textbullet} nudge\_type = 1 is also applicable to nested domains. Nudging is performed against the same forcing data set for all domains. 
+If nudging is enabled for one or more nested domains, it needs to be enabled for the base domain, as well.\\
+%
+{\textbullet} nudge\_type = 2 (global nudging) is applied in primary domain only \\
+%
 {\textbullet} for global nudging the following settings in limarea\_nml 
 are mandatory: \\
 - itype\_latbc = 1 (time-dependent driving data)\\
@@ -4757,7 +4767,6 @@ I &
 Set of variables used to compute the thermodynamic nudging increments: \\
 {\textasteriskcentered} 1: hydrostatic set (pressure and temperature)\\
 {\textasteriskcentered} 2: non-hydrostatic set (density and virtual potential temperature)\\
-(For global nudging only.) \\
 &
 nudge\_type = 2 \\
 nudge\_var = "{all}" { or} "...,thermdyn,..."
@@ -5031,7 +5040,7 @@ I (max\_ dom)&
 radiation\\
 0: none\\
 1: RRTM radiation\\
-2: Ritter-Geleyn radiation\\
+2: (removed)\\
 3: (removed) \\
 4: ecRad radiation
 &run\_nml:iforcing = inwp
@@ -5907,10 +5916,10 @@ See namelist parameter \texttt{pe\_placement\_ml} for further details.
  with name \texttt{ready\_file}.
  Different \texttt{output\_nml}'s may be joined together to form a single ready file event.
  The setting of \texttt{ready\_file = "default"} does not create a ready file.
- The ready file name may contain string tokens \texttt{<path>}, \texttt{<datetime>}, \texttt{<ddhhmmss>},
- \texttt{<dddhhmmss>} which are substituted as described for the namelist parameter \texttt{filename\_format}.
-&
-\tabularnewline
+ The ready file name may contain string tokens \texttt{<path>},
+ \texttt{<datetime>}, \texttt{<ddhhmmss>}, \texttt{<datetime2>} which
+ are substituted as described for the namelist parameter
+ \texttt{filename\_format}.  & \tabularnewline
 
 %\hline
  reg\_def\_mode &
@@ -6184,7 +6193,7 @@ variable rather than the name of the corresponding tile container (i.e.\ in the 
 %\hline
 \textbf{nproma} &
 I & 1& &
-chunk length&
+chunk length. nproma can also be set to a negative value. In that case, the negative number is interpreted as the number of chunks. &
 \tabularnewline
 
 %\hline
@@ -6817,6 +6826,17 @@ I&
 Optical properties for ice cloud scattering. \\
 0: Fu et al. (1996) \\
 1: Baran et al. (2016)
+& inwp\_radiation=4 (ecRad)
+\tabularnewline
+
+%\hline
+nproma\_rad &
+I&
+-1&
+&
+Chunk size of subblocks used for the ecRad calls, which is needed by the GPU
+port to reduce the memory footprint of ecrad. \\
+If nproma\_rad $\le0$ the number of subblocks is set to -nproma\_rad instead. 
 & inwp\_radiation=4 (ecRad)
 \tabularnewline
 
