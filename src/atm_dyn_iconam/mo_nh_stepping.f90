@@ -1133,7 +1133,7 @@ MODULE mo_nh_stepping
 
 #ifdef HAVE_RADARFWO    
     IF (.NOT.my_process_is_mpi_test() .AND. iforcing == inwp .AND. ANY(luse_radarfwo(1:n_dom)) .AND. &
-         ( jstep >= 0 .AND. (.NOT.iterate_iau .OR. iau_iter == 2) ) ) THEN
+         ( jstep >= 0 .AND. (.NOT.iterate_iau .OR. iau_iter == 2 .OR. isRestart() ) ) ) THEN
       CALL emvorado_radarfwo (mtime_current, nnow(1:n_dom), nnow_rcf(1:n_dom), n_dom, &
                               luse_radarfwo(1:n_dom), jstep, nsteps+jstep0)
     END IF
