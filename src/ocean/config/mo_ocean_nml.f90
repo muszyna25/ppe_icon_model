@@ -51,7 +51,11 @@ MODULE mo_ocean_nml
   !      - contains all default values to minimize ocean namelist (SLO, 2012/03)
   ! ------------------------------------------------------------------------
 
-  INTEGER  :: vert_cor_type = 0  ! Vertical co-ordinate type 0: z  1: z* 
+  INTEGER  :: vert_cor_type   = 0  ! Vertical co-ordinate type 0: z  1: z* 
+  
+  INTEGER  :: press_grad_type = 0  ! Only affects zstar. If we use 1, we will get
+                                   ! chain rule correction for pressure gradient
+                                   ! that removes uniform height gradient errors
 
   INTEGER  :: n_zlev        ! number of ocean levels
   INTEGER, PARAMETER :: max_allocated_levels = 1024
@@ -351,6 +355,7 @@ MODULE mo_ocean_nml
     &                 l_partial_cells              , &
     &                 lviscous                     , &
     &                 vert_cor_type                , &
+    &                 press_grad_type              , &
     &                 n_zlev                       , &
     &                 select_solver                , &
     &                 use_absolute_solver_tolerance, &

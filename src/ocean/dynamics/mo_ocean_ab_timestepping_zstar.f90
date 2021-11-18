@@ -41,7 +41,7 @@ MODULE mo_ocean_ab_timestepping_zstar
     & PPscheme_type, PPscheme_ICON_Edge_vnPredict_type, &
     & solver_FirstGuess, MassMatrix_solver_tolerance,     &
     & createSolverMatrix, l_solver_compare, solver_comp_nsteps, &
-    & surface_flux_type
+    & surface_flux_type, press_grad_type
   USE mo_run_config,                ONLY: dtime, debug_check_level, nsteps, output_mode
   USE mo_timer, ONLY: timer_start, timer_stop, timers_level, timer_extra1, &
     & timer_extra2, timer_extra3, timer_extra4, timer_ab_expl, timer_ab_rhs4sfc, timer_total
@@ -56,7 +56,8 @@ MODULE mo_ocean_ab_timestepping_zstar
   USE mo_exception,                 ONLY: message, finish, warning, message_text
   USE mo_util_dbg_prnt,             ONLY: dbg_print, debug_print_MaxMinMean
   USE mo_ocean_boundcond,           ONLY: VelocityBottomBoundaryCondition_onBlock, top_bound_cond_horz_veloc
-  USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press_grad_zstar
+  USE mo_ocean_thermodyn,           ONLY: calculate_density, &
+    & calc_internal_press_grad_zstar, calc_internal_press_grad_zstar_chain
   USE mo_ocean_physics_types,       ONLY: t_ho_params
   USE mo_ocean_pp_scheme,           ONLY: ICON_PP_Edge_vnPredict_scheme
   USE mo_ocean_surface_types,       ONLY: t_ocean_surface, t_atmos_for_ocean
@@ -632,6 +633,7 @@ CONTAINS
      & ocean_state%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
      & ocean_state%p_diag%rho(:,:,:) )
 
+   IF ( press_grad_type .EQ. 0 ) THEN
     CALL calc_internal_press_grad_zstar( patch_3d,&
        &                          ocean_state%p_diag%rho,&
        &                          ocean_state%p_diag%press_hyd,& 
@@ -639,6 +641,15 @@ CONTAINS
        &                          op_coeffs%grad_coeff,  &
        &                          stretch_c,             &
        &                          ocean_state%p_diag%press_grad)     
+   ELSE IF ( press_grad_type .EQ. 1 ) THEN
+    CALL calc_internal_press_grad_zstar_chain( patch_3d,&
+       &                          ocean_state%p_diag%rho,&
+       &                          ocean_state%p_diag%press_hyd,& 
+       &                          ocean_state%p_aux%bc_total_top_potential, &
+       &                          op_coeffs%grad_coeff,  &
+       &                          stretch_c,             &
+       &                          ocean_state%p_diag%press_grad)     
+   END IF
     ! calculate vertical velocity advection
     !! All derivatives are calculated from level = 2
     !! Level=1 derivatives seem to be assumed to be 0
