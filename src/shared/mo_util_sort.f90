@@ -152,13 +152,6 @@ CONTAINS
      ! Transfer the bit pattern of the real array to an i8 array
      iarray = TRANSFER(array, bitmaskr2i, n)
 
-     ! initialize the permutation state to the unity permutation
-     IF (PRESENT(perm)) THEN
-       DO i = 1, n
-          perm(i) = i
-       END DO
-     ENDIF
-
      ! Loop over the bits
      DO i = 0, STORAGE_SIZE(tmp)-2, 2
         idx00 = 0
@@ -400,13 +393,6 @@ CONTAINS
      INTEGER :: tmp
 
      n = SIZE(array)
-
-     ! initialize the permutation state to the unity permutation
-     IF (PRESENT(perm)) THEN
-       DO i = 1, n
-          perm(i) = i
-       END DO
-     ENDIF
 
      ! Loop over the bits
      DO i = 0, STORAGE_SIZE(tmp)-1, 2
