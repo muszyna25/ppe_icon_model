@@ -54,20 +54,29 @@ MODULE mo_nh_nest_utilities
   USE mo_communication,       ONLY: exchange_data, exchange_data_mult
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
     global_sum_array3, sync_patch_array_mult
-  USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref, vtmpc1, cpd
+  USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref, vtmpc1, rd_o_cpd
   USE mo_limarea_config,      ONLY: latbc_config
   USE mo_initicon_types,      ONLY: t_pi_atm
+  USE mo_async_latbc_types,   ONLY: t_latbc_state
   USE mo_advection_config,    ONLY: advection_config
   USE mo_nudging_config,      ONLY: nudging_config, indg_type, ithermdyn_type
+  USE mtime,                  ONLY: datetimeToString, MAX_DATETIME_STR_LEN
 
   IMPLICIT NONE
 
   PRIVATE
 
 
-  PUBLIC :: compute_tendencies, boundary_interpolation, complete_nesting_setup, &
-    prep_bdy_nudging, nest_boundary_nudging, save_progvars,                     &
-    prep_rho_bdy_nudging, density_boundary_nudging, limarea_bdy_nudging
+  PUBLIC :: compute_tendencies
+  PUBLIC :: boundary_interpolation
+  PUBLIC :: complete_nesting_setup
+  PUBLIC :: save_progvars
+  PUBLIC :: prep_bdy_nudging
+  PUBLIC :: nest_boundary_nudging
+  PUBLIC :: prep_rho_bdy_nudging
+  PUBLIC :: density_boundary_nudging
+  PUBLIC :: limarea_nudging_bdy, limarea_nudging_latbdy, limarea_nudging_upbdy
+  PUBLIC :: intp_nestubc_nudging
 
   CHARACTER(len=*), PARAMETER :: modname = 'mo_nh_nest_utilities'
 CONTAINS
@@ -385,6 +394,8 @@ CONTAINS
     INTEGER :: nproma_bdyintp, nblks_bdyintp, npromz_bdyintp, nlen, ntracer_bdyintp, nsubs
 
     REAL(wp) :: rnsubs        ! inverse: 1/nsubs
+    REAL(wp) :: rdt_ubc       ! reciprocal time step for the computation of UBC time tendencies
+
     ! Switch to control if the child domain is vertically nested and therefore
     ! needs interpolation of upper boundary conditions
     LOGICAL :: l_child_vertnest
@@ -401,6 +412,12 @@ CONTAINS
 
     nsubs  = ndyn_substeps_var(jg)
     rnsubs = 1._wp/REAL(nsubs,wp)
+
+    ! dt_ubc = dt * (nsubs-1)/nsubs
+    ! i.e. we assume that the data for each substep are centered in time
+    ! here we compute the reciprocal
+    rdt_ubc = rdt*REAL(nsubs,wp)/REAL(MAX(1,nsubs-1),wp)
+
 
     p_grf          => p_grf_state(jg)
     p_nh           => p_nh_state(jg)
@@ -455,6 +472,7 @@ CONTAINS
           p_nh%diag%mflx_ic_int    (jc,jb,nsubs+1) = 0._wp
         ENDDO
         !
+        ! compute time averages over the nsubs dynamics substeps and store them at index nsubs+1
         DO js = 1, nsubs
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -477,8 +495,25 @@ CONTAINS
           p_nh%diag%rho_ic_int(jc,jb,nsubs+1)        = p_nh%diag%rho_ic_int(jc,jb,nsubs+1)     * rnsubs
           p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)       = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1)    * rnsubs
         ENDDO
+
+        ! Compute time tendencies to obtain second order in time accuracy for child nest UBC, 
+        ! and store them at index nsubs+2.
+        DO jc = i_startidx, i_endidx
+          p_nh%diag%w_int(jc,jb,nsubs+2)         = rdt_ubc                               &
+            &   * (p_nh%diag%w_int(jc,jb,nsubs) - p_nh%diag%w_int(jc,jb,1))
+          !
+          p_nh%diag%theta_v_ic_int(jc,jb,nsubs+2)= rdt_ubc                               &
+            &   * (p_nh%diag%theta_v_ic_int(jc,jb,nsubs) - p_nh%diag%theta_v_ic_int(jc,jb,1))
+          !
+          p_nh%diag%rho_ic_int(jc,jb,nsubs+2)    = rdt_ubc                               &
+            &   * (p_nh%diag%rho_ic_int(jc,jb,nsubs) - p_nh%diag%rho_ic_int(jc,jb,1))
+          !
+          p_nh%diag%mflx_ic_int(jc,jb,nsubs+2)   = rdt_ubc                               &
+            &   * (p_nh%diag%mflx_ic_int(jc,jb,nsubs) - p_nh%diag%mflx_ic_int(jc,jb,1))
+        ENDDO
       ENDDO
 !$OMP END DO
+
 
       ! edge-based variables
       i_startblk = p_patch(jg)%edges%start_block(grf_bdywidth_e+1)
@@ -501,8 +536,10 @@ CONTAINS
 
     ENDIF ! l_child_vertnest
 
-    ! Computation of tendencies for lateral boundary interpolation
 
+    !
+    ! Computation of tendencies for lateral boundary interpolation
+    !
     ! cell-based variables
 
     ! parameters for dynamic nproma blocking
@@ -644,8 +681,8 @@ CONTAINS
   !>
   !! Interpolates time tendencies of prognostic variables to the lateral boundary
   !! of a refined mesh.
-  !! In addition, performs interpolations to upper nest boundaries needed for 
-  !! vertical nesting.
+  !! In addition, interpolates prognostic variables to child upper boundary  
+  !! for vertical nesting.
   !!
   !! @par Revision History
   !! Developed  by Guenther Zaengl, DWD, 2008-07-10
@@ -656,14 +693,13 @@ CONTAINS
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':boundary_interpolation'
 
-
-    INTEGER, INTENT(IN)     :: jg, jgc      ! domain ID of parent and child grid
+    INTEGER,  INTENT(IN)    :: jg, jgc      ! domain ID of parent and child grid
 
     ! Parent and child time levels for dynamical variables and tracers
-    INTEGER, INTENT(IN)     :: ntp_dyn, ntc_dyn, ntp_tr, ntc_tr
+    INTEGER,  INTENT(IN)    :: ntp_dyn, ntc_dyn, ntp_tr, ntc_tr
 
     ! Mass fluxes at parent and child level
-    REAL(wp), DIMENSION(:,:,:), INTENT(INOUT) :: mass_flx_p, mass_flx_c
+    REAL(wp), INTENT(INOUT) :: mass_flx_p(:,:,:), mass_flx_c(:,:,:)
 
     ! local variables
 
@@ -691,8 +727,8 @@ CONTAINS
     INTEGER :: i_chidx, i_sbc, i_ebc
     INTEGER :: ntracer_bdyintp, nsubs
 
-    REAL(wp) :: aux3dp(nproma,ntracer+4,p_patch(jg)%nblks_c), &
-      aux3dc(nproma,ntracer+4,p_patch(jgc)%nblks_c), &
+    REAL(wp) :: aux3dp(nproma,ntracer+8,p_patch(jg)%nblks_c), &
+      aux3dc(nproma,ntracer+8,p_patch(jgc)%nblks_c), &
       theta_prc(nproma,p_patch(jgc)%nlev,p_patch(jgc)%nblks_c), &
       rho_prc(nproma,p_patch(jgc)%nlev,p_patch(jgc)%nblks_c)
 
@@ -775,14 +811,14 @@ CONTAINS
             0, min_rlcell_int)
 !$NEC ivdep
           DO jc = i_startidx, i_endidx
-            aux3dp(jc,1,jb) = p_diagp%w_int(jc,jb,nsubs+1)
-            aux3dp(jc,2,jb) = p_diagp%theta_v_ic_int(jc,jb,nsubs+1)
-            aux3dp(jc,3,jb) = p_diagp%rho_ic_int(jc,jb,nsubs+1)
-            aux3dp(jc,4,jb) = p_diagp%mflx_ic_int(jc,jb,nsubs+1)
+            aux3dp(jc,1:2,jb) = p_diagp%w_int         (jc,jb,nsubs+1:nsubs+2)
+            aux3dp(jc,3:4,jb) = p_diagp%theta_v_ic_int(jc,jb,nsubs+1:nsubs+2)
+            aux3dp(jc,5:6,jb) = p_diagp%rho_ic_int    (jc,jb,nsubs+1:nsubs+2)
+            aux3dp(jc,7:8,jb) = p_diagp%mflx_ic_int   (jc,jb,nsubs+1:nsubs+2)
           ENDDO
           DO jt = 1, ntracer
             DO jc = i_startidx, i_endidx
-              aux3dp(jc,4+jt,jb) = p_diagp%q_int(jc,jb,jt)
+              aux3dp(jc,8+jt,jb) = p_diagp%q_int(jc,jb,jt)
             ENDDO
           ENDDO
         ENDDO
@@ -791,7 +827,7 @@ CONTAINS
         CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
 
         CALL interpol_scal_ubc (p_pc, p_grf%p_dom(i_chidx),  &
-          ntracer+4, aux3dp, aux3dc)
+          ntracer+8, aux3dp, aux3dc)
 
 !$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc,jt) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_sbc, i_ebc
@@ -801,14 +837,14 @@ CONTAINS
 
 !$NEC ivdep
           DO jc = i_startidx, i_endidx
-            p_diagc%w_ubc(jc,jb)          = aux3dc(jc,1,jb)
-            p_diagc%theta_v_ic_ubc(jc,jb) = aux3dc(jc,2,jb)
-            p_diagc%rho_ic_ubc(jc,jb)     = aux3dc(jc,3,jb)
-            p_diagc%mflx_ic_ubc(jc,jb)    = aux3dc(jc,4,jb)
+            p_diagc%w_ubc(jc,jb,1:2)          = aux3dc(jc,1:2,jb)
+            p_diagc%theta_v_ic_ubc(jc,jb,1:2) = aux3dc(jc,3:4,jb)
+            p_diagc%rho_ic_ubc(jc,jb,1:2)     = aux3dc(jc,5:6,jb)
+            p_diagc%mflx_ic_ubc(jc,jb,1:2)    = aux3dc(jc,7:8,jb)
           ENDDO
           DO jt = 1, ntracer
             DO jc = i_startidx, i_endidx
-              p_diagc%q_ubc(jc,jb,jt) = aux3dc(jc,jt+4,jb)
+              p_diagc%q_ubc(jc,jb,jt) = aux3dc(jc,jt+8,jb)
             ENDDO
           ENDDO
         ENDDO
@@ -823,17 +859,17 @@ CONTAINS
             0, min_rlcell_int)
 !$NEC ivdep
           DO jc = i_startidx, i_endidx
-            aux3dp(jc,1,jb) = p_diagp%w_int(jc,jb,nsubs+1)
-            aux3dp(jc,2,jb) = p_diagp%theta_v_ic_int(jc,jb,nsubs+1)
-            aux3dp(jc,3,jb) = p_diagp%rho_ic_int(jc,jb,nsubs+1)
-            aux3dp(jc,4,jb) = p_diagp%mflx_ic_int(jc,jb,nsubs+1)
+            aux3dp(jc,1:2,jb) = p_diagp%w_int         (jc,jb,nsubs+1:nsubs+2)
+            aux3dp(jc,3:4,jb) = p_diagp%theta_v_ic_int(jc,jb,nsubs+1:nsubs+2)
+            aux3dp(jc,5:6,jb) = p_diagp%rho_ic_int    (jc,jb,nsubs+1:nsubs+2)
+            aux3dp(jc,7:8,jb) = p_diagp%mflx_ic_int   (jc,jb,nsubs+1:nsubs+2)
           ENDDO
         ENDDO
 !$OMP END PARALLEL DO
 
         CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
 
-        CALL interpol_scal_ubc(p_pc, p_grf%p_dom(i_chidx), 4, aux3dp, aux3dc)
+        CALL interpol_scal_ubc(p_pc, p_grf%p_dom(i_chidx), 8, aux3dp, aux3dc)
 
 !$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_sbc, i_ebc
@@ -843,20 +879,20 @@ CONTAINS
 
 !$NEC ivdep
           DO jc = i_startidx, i_endidx
-            p_diagc%w_ubc(jc,jb)          = aux3dc(jc,1,jb)
-            p_diagc%theta_v_ic_ubc(jc,jb) = aux3dc(jc,2,jb)
-            p_diagc%rho_ic_ubc(jc,jb)     = aux3dc(jc,3,jb)
-            p_diagc%mflx_ic_ubc(jc,jb)    = aux3dc(jc,4,jb)
+            p_diagc%w_ubc(jc,jb,1:2)          = aux3dc(jc,1:2,jb)
+            p_diagc%theta_v_ic_ubc(jc,jb,1:2) = aux3dc(jc,3:4,jb)
+            p_diagc%rho_ic_ubc(jc,jb,1:2)     = aux3dc(jc,5:6,jb)
+            p_diagc%mflx_ic_ubc(jc,jb,1:2)    = aux3dc(jc,7:8,jb)
           ENDDO
         ENDDO
 !$OMP END PARALLEL DO
 
       ENDIF
+    ENDIF  ! l_child_vertnest
 
-    ENDIF
-
+    !
     ! Lateral boundary interpolation of cell-based dynamical variables
-
+    !
     IF (grf_intmethod_c == 1) THEN ! tendency copying for all cell-based variables
 
       CALL exchange_data(p_pc%comm_pat_interpolation_c, &
@@ -1449,71 +1485,100 @@ CONTAINS
 
 
   !>
-  !! This routine executes boundary nudging for the limited-area mode.
+  !! Wrapper routine which executes LATERAL and UPPER boundary nudging 
+  !! for the limited-area mode.
   !!
   !! @par Revision History
   !! Developed  by Guenther Zaengl, DWD, 2013-21-10
-  SUBROUTINE limarea_bdy_nudging (p_patch, p_prog, ptr_tracer, p_metrics, p_diag, &
+  !!
+  SUBROUTINE limarea_nudging_bdy (p_patch, p_prog, ptr_tracer, p_metrics, p_diag, &
                                   p_int, tsrat, p_latbc_const, p_latbc_old, p_latbc_new)
 
-    TYPE(t_patch),   INTENT(IN)    :: p_patch
-    TYPE(t_nh_prog), INTENT(IN)    :: p_prog
-    REAL(wp), CONTIGUOUS_ARGUMENT(inout) ::  ptr_tracer(:,:,:,:)
-    TYPE(t_nh_metrics), INTENT(IN) :: p_metrics
-    TYPE(t_nh_diag), INTENT(INOUT) :: p_diag
-    TYPE(t_int_state), INTENT(IN)  :: p_int
+    TYPE(t_patch),      INTENT(IN)    :: p_patch
+    TYPE(t_nh_prog),    INTENT(IN)    :: p_prog
+    REAL(wp), CONTIGUOUS_ARGUMENT(inout) :: ptr_tracer(:,:,:,:)
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_diag),    INTENT(INOUT) :: p_diag
+    TYPE(t_int_state),  INTENT(IN)    :: p_int
 
-    REAL(wp), INTENT(IN) :: tsrat ! Ratio between advective and dynamical time step
+    REAL(wp),           INTENT(IN)    :: tsrat ! Ratio between advective and dynamical time step
 
     ! alternative input data, either for constant or time-dependent lateral boundary conditions
-    TYPE(t_nh_prog), INTENT(IN), OPTIONAL :: p_latbc_const
-    TYPE(t_pi_atm),  INTENT(IN), OPTIONAL :: p_latbc_old, p_latbc_new
+    TYPE(t_nh_prog),    INTENT(IN), OPTIONAL :: p_latbc_const
+    TYPE(t_pi_atm),     INTENT(IN), OPTIONAL :: p_latbc_old, p_latbc_new
+
+
+    ! lateral boundary nudging
+    !
+    CALL limarea_nudging_latbdy (p_patch, p_prog, ptr_tracer, p_metrics, p_diag, &
+                                  p_int, tsrat, p_latbc_const, p_latbc_old, p_latbc_new)
+
+    IF (nudging_config(p_patch%id)%ltype(indg_type%ubn)) THEN
+      ! upper boundary nudging
+      !
+      CALL limarea_nudging_upbdy (p_patch, p_prog, ptr_tracer, p_metrics, p_diag, &
+                                   p_int, tsrat, p_latbc_const, p_latbc_old, p_latbc_new)
+    ENDIF
+
+  END SUBROUTINE limarea_nudging_bdy
+
+
+
+  !>
+  !! This routine executes LATERAL boundary nudging for the limited-area mode.
+  !!
+  !! @par Revision History
+  !! Developed by Guenther Zaengl, DWD, 2013-21-10
+  !!
+  SUBROUTINE limarea_nudging_latbdy (p_patch, p_prog, ptr_tracer, p_metrics, p_diag, &
+                                  p_int, tsrat, p_latbc_const, p_latbc_old, p_latbc_new)
+
+    TYPE(t_patch),      INTENT(IN)    :: p_patch
+    TYPE(t_nh_prog),    INTENT(IN)    :: p_prog
+    REAL(wp), CONTIGUOUS_ARGUMENT(inout) :: ptr_tracer(:,:,:,:)
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_diag),    INTENT(INOUT) :: p_diag
+    TYPE(t_int_state),  INTENT(IN)    :: p_int
+
+    REAL(wp),           INTENT(IN)    :: tsrat ! Ratio between advective and dynamical time step
+
+    ! alternative input data, either for constant or time-dependent lateral boundary conditions
+    TYPE(t_nh_prog),    INTENT(IN), OPTIONAL :: p_latbc_const
+    TYPE(t_pi_atm),     INTENT(IN), OPTIONAL :: p_latbc_old, p_latbc_new
 
     ! local variables
-    INTEGER :: jb, jc, jk, je, ic, nlev
-    INTEGER :: nshift, i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER  :: jb, jc, jk, je, ic, nlev
+    INTEGER  :: jg, nshift
     REAL(wp) :: wfac_old, wfac_new, pres, temp, qv, tempv_inc, pres_inc
     REAL(wp) :: rho_tend, thv_tend, vn_tend, qv_tend
-    REAL(wp) :: rd_o_cvd, rd_o_cpd, rd_o_p0ref, nudgecoeff
-    REAL(wp) :: max_nudge_coeff_vn, max_nudge_coeff_thermdyn
-    LOGICAL  :: bdymask(nproma)
-    LOGICAL  :: lupper_bdy_nudging, lnudge_hydro_pres_ubn
+    REAL(wp) :: rd_o_cvd, rd_o_p0ref
+    !
+    CHARACTER(len=*), PARAMETER :: routine = 'limarea_nudging_latbdy'
 
+
+    ! domain id
+    jg = p_patch%id
 
     ! number of full levels of child domain
-    nlev   = p_patch%nlev
+    nlev = p_patch%nlev
 
     ! R/c_v (not present in physical constants)
     rd_o_cvd = 1._wp / cvd_o_rd
 
-    ! R/c_p
-    rd_o_cpd = rd / cpd
-
     ! R / p0ref
     rd_o_p0ref = rd / p0ref
 
-    IF (nudging_config%ltype(indg_type%ubn)) THEN
+
+    IF (nudging_config(jg)%ltype(indg_type%ubn)) THEN
       ! Upper boundary nudging is switched on
-      lupper_bdy_nudging = .TRUE.
-      nshift = nudging_config%ilev_end
-      !
-      ! Check if hydrostatic or nonhydrostatic thermodynamic variables shall be used for computing nudging increments 
-      lnudge_hydro_pres_ubn = nudging_config%thermdyn_type == ithermdyn_type%hydrostatic .AND. ltransport
-      !
-      ! Max. nudging coefficients (qv is not nudged in upper boundary zone)
-      max_nudge_coeff_vn       = nudging_config%max_nudge_coeff_vn
-      max_nudge_coeff_thermdyn = nudging_config%max_nudge_coeff_thermdyn
+      nshift = nudging_config(jg)%ilev_end
     ELSE
-      nshift                   = 0
-      lupper_bdy_nudging       = .FALSE.
-      lnudge_hydro_pres_ubn    = .FALSE.
-      max_nudge_coeff_vn       = 0._wp
-      max_nudge_coeff_thermdyn = 0._wp
+      nshift = 0
     ENDIF
 
     IF (PRESENT(p_latbc_const) .AND. (PRESENT(p_latbc_old) .OR. PRESENT(p_latbc_new))) THEN
 
-      CALL finish('prep_limarea_bdy_nudging','conflicting arguments')
+      CALL finish(TRIM(routine),'conflicting arguments')
 
     ELSE IF (PRESENT(p_latbc_const)) THEN ! Mode for constant lateral boundary data
 
@@ -1575,7 +1640,7 @@ CONTAINS
       wfac_old = latbc_config%lc1
       wfac_new = latbc_config%lc2
 
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+!$OMP PARALLEL
 
       IF (latbc_config%nudge_hydro_pres .AND. ltransport) THEN
 !$OMP DO PRIVATE(jk,jc,jb,ic,pres,temp,qv,tempv_inc,pres_inc,rho_tend,thv_tend) ICON_OMP_DEFAULT_SCHEDULE
@@ -1693,91 +1758,170 @@ CONTAINS
         ENDDO
       ENDDO
 !$OMP END DO
+!$OMP END PARALLEL
+
+    ELSE
+      CALL finish(TRIM(routine), 'missing arguments')
+    ENDIF
+
+  END SUBROUTINE limarea_nudging_latbdy
 
 
-    IF (lupper_bdy_nudging) THEN
 
-    i_startblk = p_patch%cells%start_block(grf_bdywidth_c+1)
-    i_endblk   = p_patch%cells%end_block(min_rlcell)
+
+  !>
+  !! This routine executes UPPER boundary nudging for the limited-area mode.
+  !!
+  !! @par Revision History
+  !! Developed  by Guenther Zaengl, DWD, 2013-21-10
+  !!
+  SUBROUTINE limarea_nudging_upbdy (p_patch, p_prog, ptr_tracer, p_metrics, p_diag, &
+                                  p_int, tsrat, p_latbc_const, p_latbc_old, p_latbc_new)
+
+    TYPE(t_patch),      INTENT(IN)    :: p_patch
+    TYPE(t_nh_prog),    INTENT(IN)    :: p_prog
+    REAL(wp), CONTIGUOUS_ARGUMENT(inout) :: ptr_tracer(:,:,:,:)
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_diag),    INTENT(INOUT) :: p_diag
+    TYPE(t_int_state),  INTENT(IN)    :: p_int
+
+    REAL(wp),           INTENT(IN)    :: tsrat ! Ratio between advective and dynamical time step
+
+    ! alternative input data, either for constant or time-dependent lateral boundary conditions
+    TYPE(t_nh_prog),    INTENT(IN), OPTIONAL :: p_latbc_const
+    TYPE(t_pi_atm),     INTENT(IN), OPTIONAL :: p_latbc_old, p_latbc_new
+
+    ! local variables
+    INTEGER  :: jg
+    INTEGER  :: jb, jc, jk, je
+    INTEGER  :: ke_nudge, i_startblk, i_endblk, i_startidx, i_endidx
+    REAL(wp) :: wfac_old, wfac_new, pres, temp, qv, tempv_inc, pres_inc
+    REAL(wp) :: rho_tend, thv_tend, vn_tend
+    REAL(wp) :: rd_o_cvd, rd_o_p0ref, nudgecoeff
+    REAL(wp) :: max_nudge_coeff_vn, max_nudge_coeff_thermdyn
+    LOGICAL  :: bdymask(nproma)
+    LOGICAL  :: lnudge_hydro_pres_ubn
+    !
+    CHARACTER(len=*), PARAMETER :: routine = 'limarea_nudging_upbdy'
+
+    jg = p_patch%id
+
+    ! R/c_v (not present in physical constants)
+    rd_o_cvd = 1._wp / cvd_o_rd
+
+    ! R / p0ref
+    rd_o_p0ref = rd / p0ref
+
+    ke_nudge = nudging_config(jg)%ilev_end
+
+    !
+    ! Check if hydrostatic or nonhydrostatic thermodynamic variables shall be used for computing nudging increments 
+    lnudge_hydro_pres_ubn = nudging_config(jg)%thermdyn_type == ithermdyn_type%hydrostatic .AND. ltransport
+    !
+    ! Max. nudging coefficients (qv is not nudged in upper boundary zone)
+    max_nudge_coeff_vn       = nudging_config(jg)%max_nudge_coeff_vn
+    max_nudge_coeff_thermdyn = nudging_config(jg)%max_nudge_coeff_thermdyn
+
+
+    IF (PRESENT(p_latbc_const) .AND. (PRESENT(p_latbc_old) .OR. PRESENT(p_latbc_new))) THEN
+
+      CALL finish(TRIM(routine), 'conflicting arguments')
+
+
+    ELSE IF (PRESENT(p_latbc_const)) THEN ! Mode for constant lateral boundary data
+
+      CALL finish(TRIM(routine), 'upper boundary nudging not implemented for constant forcing data')
+
+
+    ELSE IF (PRESENT(p_latbc_old) .AND. PRESENT(p_latbc_new)) THEN ! Mode for time-dependent lateral boundary data
+
+
+      wfac_old = latbc_config%lc1
+      wfac_new = latbc_config%lc2
+
+ 
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+      i_startblk = p_patch%cells%start_block(grf_bdywidth_c+1)
+      i_endblk   = p_patch%cells%end_block(min_rlcell)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,pres,temp,qv,tempv_inc,pres_inc,rho_tend,thv_tend,&
 !$OMP            nudgecoeff,bdymask) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
+      DO jb = i_startblk, i_endblk
 
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell)
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+          i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell)
 
-      ! Exclude halo points of boundary interpolation zone (causes sync error otherwise)
-      DO jc = i_startidx, i_endidx
-        bdymask(jc) = p_patch%cells%refin_ctrl(jc,jb)>=1 .AND. p_patch%cells%refin_ctrl(jc,jb)<=grf_bdywidth_c
-      ENDDO
-
-      IF (lnudge_hydro_pres_ubn) THEN
-        DO jk = 1, nshift
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-
-            nudgecoeff = MERGE(0._wp, tsrat*MAX(p_int%nudgecoeff_c(jc,jb), &
-              &          max_nudge_coeff_thermdyn*p_metrics%nudgecoeff_vert(jk)), bdymask(jc))
-
-            pres = wfac_old*p_latbc_old%pres(jc,jk,jb) + wfac_new*p_latbc_new%pres(jc,jk,jb)
-            temp = wfac_old*p_latbc_old%temp(jc,jk,jb) + wfac_new*p_latbc_new%temp(jc,jk,jb)
-            qv   = wfac_old*p_latbc_old%qv(jc,jk,jb)   + wfac_new*p_latbc_new%qv(jc,jk,jb)
-
-            tempv_inc = (temp-p_diag%temp(jc,jk,jb))*(1._wp+vtmpc1*qv) + &
-               (qv-ptr_tracer(jc,jk,jb,iqv))*vtmpc1*temp
-            pres_inc  = pres-p_diag%pres(jc,jk,jb)
-
-            thv_tend = tempv_inc/p_prog%exner(jc,jk,jb) - rd_o_cpd*p_prog%theta_v(jc,jk,jb)/pres*pres_inc
-            rho_tend = ( pres_inc/p_diag%tempv(jc,jk,jb) -                 &
-              tempv_inc*p_diag%pres(jc,jk,jb)/p_diag%tempv(jc,jk,jb)**2 )/rd
-
-            p_prog%rho(jc,jk,jb)     = p_prog%rho(jc,jk,jb)     + nudgecoeff*rho_tend
-            p_prog%theta_v(jc,jk,jb) = p_prog%theta_v(jc,jk,jb) + nudgecoeff*thv_tend
-            p_prog%exner(jc,jk,jb)   = MERGE(p_prog%exner(jc,jk,jb), &
-              EXP(rd_o_cvd*LOG(rd_o_p0ref*p_prog%rho(jc,jk,jb)*p_prog%theta_v(jc,jk,jb))),bdymask(jc))
-
+        ! Exclude halo points of boundary interpolation zone (causes sync error otherwise)
+        DO jc = i_startidx, i_endidx
+          bdymask(jc) = p_patch%cells%refin_ctrl(jc,jb)>=1 .AND. p_patch%cells%refin_ctrl(jc,jb)<=grf_bdywidth_c
         ENDDO
-      ENDDO
-      ELSE
-        DO jk = 1, nshift
+
+        IF (lnudge_hydro_pres_ubn) THEN
+          DO jk = 1, ke_nudge
 !DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
+            DO jc = i_startidx, i_endidx
 
-            nudgecoeff = MERGE(0._wp, tsrat*MAX(p_int%nudgecoeff_c(jc,jb), &
-              &          max_nudge_coeff_thermdyn*p_metrics%nudgecoeff_vert(jk)), bdymask(jc))
+              nudgecoeff = MERGE(0._wp, tsrat*MAX(MERGE(p_int%nudgecoeff_c(jc,jb),0._wp,jg==1), &
+                &          max_nudge_coeff_thermdyn*p_metrics%nudgecoeff_vert(jk)), bdymask(jc))
 
-            thv_tend = wfac_old*p_latbc_old%theta_v(jc,jk,jb) + wfac_new*p_latbc_new%theta_v(jc,jk,jb) - p_prog%theta_v(jc,jk,jb)
-            rho_tend = wfac_old*p_latbc_old%rho(jc,jk,jb) + wfac_new*p_latbc_new%rho(jc,jk,jb)- p_prog%rho(jc,jk,jb)
+              pres = wfac_old*p_latbc_old%pres(jc,jk,jb) + wfac_new*p_latbc_new%pres(jc,jk,jb)
+              temp = wfac_old*p_latbc_old%temp(jc,jk,jb) + wfac_new*p_latbc_new%temp(jc,jk,jb)
+              qv   = wfac_old*p_latbc_old%qv(jc,jk,jb)   + wfac_new*p_latbc_new%qv(jc,jk,jb)
 
-            p_prog%rho(jc,jk,jb)     = p_prog%rho(jc,jk,jb)     + nudgecoeff*rho_tend
-            p_prog%theta_v(jc,jk,jb) = p_prog%theta_v(jc,jk,jb) + nudgecoeff*thv_tend
-            p_prog%exner(jc,jk,jb)   = MERGE(p_prog%exner(jc,jk,jb), &
-              EXP(rd_o_cvd*LOG(rd_o_p0ref*p_prog%rho(jc,jk,jb)*p_prog%theta_v(jc,jk,jb))),bdymask(jc))
+              tempv_inc = (temp-p_diag%temp(jc,jk,jb))*(1._wp+vtmpc1*qv) + &
+                 (qv-ptr_tracer(jc,jk,jb,iqv))*vtmpc1*temp
+              pres_inc  = pres-p_diag%pres(jc,jk,jb)
 
-        ENDDO
+              thv_tend = tempv_inc/p_prog%exner(jc,jk,jb) - rd_o_cpd*p_prog%theta_v(jc,jk,jb)/pres*pres_inc
+              rho_tend = ( pres_inc/p_diag%tempv(jc,jk,jb) -                 &
+                tempv_inc*p_diag%pres(jc,jk,jb)/p_diag%tempv(jc,jk,jb)**2 )/rd
+
+              p_prog%rho(jc,jk,jb)     = p_prog%rho(jc,jk,jb)     + nudgecoeff*rho_tend
+              p_prog%theta_v(jc,jk,jb) = p_prog%theta_v(jc,jk,jb) + nudgecoeff*thv_tend
+              p_prog%exner(jc,jk,jb)   = MERGE(p_prog%exner(jc,jk,jb), &
+                EXP(rd_o_cvd*LOG(rd_o_p0ref*p_prog%rho(jc,jk,jb)*p_prog%theta_v(jc,jk,jb))),bdymask(jc))
+
+            ENDDO
+          ENDDO
+        ELSE
+          DO jk = 1, ke_nudge
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+
+              nudgecoeff = MERGE(0._wp, tsrat*MAX(p_int%nudgecoeff_c(jc,jb), &
+                &          max_nudge_coeff_thermdyn*p_metrics%nudgecoeff_vert(jk)), bdymask(jc))
+
+              thv_tend = wfac_old*p_latbc_old%theta_v(jc,jk,jb) + wfac_new*p_latbc_new%theta_v(jc,jk,jb) - p_prog%theta_v(jc,jk,jb)
+              rho_tend = wfac_old*p_latbc_old%rho(jc,jk,jb) + wfac_new*p_latbc_new%rho(jc,jk,jb)- p_prog%rho(jc,jk,jb)
+
+              p_prog%rho(jc,jk,jb)     = p_prog%rho(jc,jk,jb)     + nudgecoeff*rho_tend
+              p_prog%theta_v(jc,jk,jb) = p_prog%theta_v(jc,jk,jb) + nudgecoeff*thv_tend
+              p_prog%exner(jc,jk,jb)   = MERGE(p_prog%exner(jc,jk,jb), &
+                EXP(rd_o_cvd*LOG(rd_o_p0ref*p_prog%rho(jc,jk,jb)*p_prog%theta_v(jc,jk,jb))),bdymask(jc))
+            ENDDO
+          ENDDO
+        ENDIF
       ENDDO
-      ENDIF
-    ENDDO
 !$OMP END DO
 
-    i_startblk = p_patch%edges%start_block(grf_bdywidth_e+1)
-    i_endblk   = p_patch%edges%end_block(min_rledge)
+      i_startblk = p_patch%edges%start_block(grf_bdywidth_e+1)
+      i_endblk   = p_patch%edges%end_block(min_rledge)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk,vn_tend,nudgecoeff,bdymask) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
+      DO jb = i_startblk, i_endblk
 
-      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-        i_startidx, i_endidx, grf_bdywidth_e+1, min_rledge)
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+          i_startidx, i_endidx, grf_bdywidth_e+1, min_rledge)
 
-      ! Exclude halo points of boundary interpolation zone (causes sync error otherwise)
-      DO je = i_startidx, i_endidx
-        bdymask(je) = p_patch%edges%refin_ctrl(je,jb)>=1 .AND. p_patch%edges%refin_ctrl(je,jb)<=grf_bdywidth_e
-      ENDDO
-
-      DO jk = 1, nshift
-!DIR$ IVDEP
+        ! Exclude halo points of boundary interpolation zone (causes sync error otherwise)
         DO je = i_startidx, i_endidx
+          bdymask(je) = p_patch%edges%refin_ctrl(je,jb)>=1 .AND. p_patch%edges%refin_ctrl(je,jb)<=grf_bdywidth_e
+        ENDDO
+
+        DO jk = 1, ke_nudge
+!DIR$ IVDEP
+          DO je = i_startidx, i_endidx
 
             nudgecoeff = MERGE(0._wp, tsrat*MAX(0.5_wp*p_int%nudgecoeff_e(je,jb), &
               &          max_nudge_coeff_vn*p_metrics%nudgecoeff_vert(jk)), bdymask(je))
@@ -1785,20 +1929,127 @@ CONTAINS
             vn_tend = wfac_old*p_latbc_old%vn(je,jk,jb) + wfac_new*p_latbc_new%vn(je,jk,jb) - p_prog%vn(je,jk,jb)
 
             p_prog%vn(je,jk,jb) = p_prog%vn(je,jk,jb) + nudgecoeff*vn_tend
+          ENDDO
         ENDDO
       ENDDO
-    ENDDO
 !$OMP END DO NOWAIT
-
-    ENDIF
 
 !$OMP END PARALLEL
 
     ELSE
-      CALL finish('limarea_bdy_nudging','missing arguments')
+      CALL finish(TRIM(routine), 'missing arguments')
     ENDIF
 
-  END SUBROUTINE limarea_bdy_nudging
+  END SUBROUTINE limarea_nudging_upbdy
+
+
+  !>
+  !! This routine interpolates lateral boundary data (or more generally forcing data) 
+  !! from the base domain to a specific child domain (jg), and all childs contained therein.
+  !!
+  !! @par Revision History
+  !! Developed  by Guenther Zaengl, DWD, 2021-07-10
+  !!
+  RECURSIVE SUBROUTINE intp_nestubc_nudging (p_patch, latbc_data, jg)
+
+    TYPE(t_patch),       INTENT(INOUT) :: p_patch(:)
+    TYPE(t_latbc_state), INTENT(INOUT) :: latbc_data        ! source data (for base domain)
+
+    INTEGER, INTENT(IN) :: jg      ! domain ID of the target (child) domain. 
+                                   ! i.e. the domain to which the data are interpolated
+
+    INTEGER :: nlev, i_chidx, jn
+
+    TYPE(t_patch),         POINTER  :: p_plp => NULL()
+    TYPE(t_gridref_state), POINTER  :: p_grf => NULL()
+    TYPE(t_int_state),     POINTER  :: p_int => NULL()
+
+    REAL(wp), ALLOCATABLE :: pres_lp(:,:,:), temp_lp(:,:,:), qv_lp(:,:,:), vn_lp(:,:,:)
+
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: vDateTime_str_cur
+    !
+    CHARACTER(len=*), PARAMETER :: routine = 'intp_nestubc_nudging'
+
+
+    ! only interpolate, if upper boundary nudging is activated for domain jg
+    !
+    IF (nudging_config(jg)%nudge_type==indg_type%ubn) THEN
+
+      IF (msg_level >= 12) THEN
+        CALL datetimeToString(latbc_data%vDateTime, vDateTime_str_cur)
+        WRITE(message_text,'(a,i2,a,a)') 'latbc data interpolation to DOM', jg, &
+          &                               ' at ', TRIM(vDateTime_str_cur) 
+        CALL message(routine, message_text)
+      ENDIF
+
+      p_plp => p_patch_local_parent(jg)
+      p_grf => p_grf_state_local_parent(jg)
+      p_int => p_int_state_local_parent(jg)
+
+      nlev = p_plp%nlev
+
+      ! domain index of domain jg as seen from the parent domain
+      i_chidx = p_patch(jg)%parent_child_index
+
+
+      ! temporary local_parent arrays
+      ALLOCATE(pres_lp(nproma, nlev, p_plp%nblks_c),  &
+        &      temp_lp(nproma, nlev, p_plp%nblks_c),  & 
+        &      qv_lp  (nproma, nlev, p_plp%nblks_c),  &
+        &      vn_lp  (nproma, nlev, p_plp%nblks_e)   )
+
+
+      CALL exchange_data_mult(p_plp%comm_pat_glb_to_loc_c, 3, 3*nlev,     &
+        &                     RECV1=pres_lp, SEND1=latbc_data%atm%pres,   &
+        &                     RECV2=temp_lp, SEND2=latbc_data%atm%temp,   &
+        &                     RECV3=qv_lp,   SEND3=latbc_data%atm%qv )
+
+      CALL exchange_data(p_plp%comm_pat_glb_to_loc_e, &
+        &                RECV=vn_lp, SEND=latbc_data%atm%vn)
+
+
+      ! parent to child interpolation
+      !
+      ! pres, temp, qv
+      !
+      CALL exchange_data_mult(p_plp%comm_pat_c, 3, 3*nlev,             &
+        &                     recv1=pres_lp, recv2=temp_lp, recv3=qv_lp)
+      !
+      CALL interpol_scal_nudging (p_plp, p_int, p_grf%p_dom(i_chidx), 0, 3, 1,           &
+        &                         f3din1=pres_lp, f3dout1=latbc_data%atm_child(jg)%pres, &
+        &                         f3din2=temp_lp, f3dout2=latbc_data%atm_child(jg)%temp, &
+        &                         f3din3=qv_lp,   f3dout3=latbc_data%atm_child(jg)%qv    )
+      !
+      CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 3,        &
+        &                        latbc_data%atm_child(jg)%pres, &
+        &                        latbc_data%atm_child(jg)%temp, &
+        &                        latbc_data%atm_child(jg)%qv)
+
+      ! vn
+      !
+      CALL exchange_data(p_plp%comm_pat_e, vn_lp)
+      !
+      CALL interpol_vec_nudging (p_plp, p_patch(jg), p_int, p_grf%p_dom(i_chidx), &
+        &                        0, 1, vn_lp, latbc_data%atm_child(jg)%vn )
+      !
+      CALL sync_patch_array(SYNC_E, p_patch(jg), latbc_data%atm_child(jg)%vn)
+
+      DEALLOCATE(pres_lp, temp_lp, qv_lp, vn_lp)
+
+    ENDIF
+
+
+    ! in case that child domains exist for the current domain jg, repeat the interpolation 
+    ! for each child domain.
+    DO jn = 1, p_patch(jg)%n_childdom
+
+       CALL intp_nestubc_nudging (p_patch    = p_patch(:),    &
+        &                        latbc_data  = latbc_data,    &
+        &                        jg          = p_patch(jg)%child_id(jn))
+    ENDDO
+
+
+  END SUBROUTINE intp_nestubc_nudging
 
 
 

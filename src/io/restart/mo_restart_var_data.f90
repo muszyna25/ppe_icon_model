@@ -178,30 +178,45 @@ CONTAINS
   END SUBROUTINE get_var_3d_ptr_int
 
   ! Returns true, if the time level of the given field is valid, else false.
-  LOGICAL FUNCTION has_valid_time_level(p_info, patch_id, nnew, nnew_rcf) RESULT(has_vtl)
+  LOGICAL FUNCTION has_valid_time_level(p_info, patch_id, nnow, nnow_rcf) RESULT(has_vtl)
     TYPE(t_var_metadata), INTENT(IN) :: p_info
-    INTEGER, INTENT(in) :: patch_id, nnew, nnew_rcf
+    INTEGER, INTENT(in) :: patch_id, nnow, nnow_rcf
     INTEGER :: time_level
     LOGICAL :: lskip_timelev, lskip_extra_timelevs
     CHARACTER(*), PARAMETER :: routine = modname//':has_valid_time_level'
 
     has_vtl = .FALSE.
+
+    ! check if this variable potentially needs to be written to the restart file
     IF (.NOT. p_info%lrestart) RETURN
+
 #ifndef __NO_ICON_ATMO__
     lskip_timelev = .FALSE.
     lskip_extra_timelevs = iequations == INH_ATMOSPHERE .AND. &
       &                    .NOT. (l_limited_area .AND. patch_id == 1)
-    ! get time index of the given field
+
+    ! get time level index of the given field, if defined by a variable name suffix for time levels
+    ! - if defined     : time_level =  1, 2, ...
+    ! - if not defined : time_level = -1
     time_level = get_var_timelevel(p_info%name)
-    !TODO: I found the `time_level >= 0` condition IN the async restart code ONLY. Check whether it should be removed OR NOT.
-    IF(time_level >= 0) THEN
-      ! get information about time level to be skipped for current field
+
+    IF(time_level >= 0) THEN ! check which time levels must be skipped for restart files
+      !
       IF (p_info%tlev_source == TLEV_NNOW) THEN
-        IF (time_level == nnew) lskip_timelev = .TRUE.
+        ! variables defined with tlev_source = TLEV_NNOW can be written to restart files
+        !
+        ! among these variables, skip those which are not at the current time level nnow
+        IF (time_level /= nnow) lskip_timelev = .TRUE.
+        !
         ! this is needed to skip the extra time levels allocated for nesting
         IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
+        !
       ELSE IF (p_info%tlev_source == TLEV_NNOW_RCF) THEN
-        IF (time_level == nnew_rcf) lskip_timelev = .TRUE.
+        ! also variables defined with tlev_source = TLEV_NNOW_RCF can be written to restart files
+        !
+        ! among these variables, skip those which are not at the current time level nnow_rcf
+        IF (time_level /= nnow_rcf) lskip_timelev = .TRUE.
+        !
       ENDIF
     ENDIF
     !

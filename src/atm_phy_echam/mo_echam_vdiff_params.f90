@@ -45,7 +45,7 @@ MODULE mo_echam_vdiff_params
   REAL(wp),PARAMETER :: cb      = 5._wp        !< stability parameter near neutrality.
   REAL(wp),PARAMETER :: cc      = 5._wp        !< stability parameter for unstable cases.
 
-  REAL(wp),PARAMETER :: lmix_max  = 1.e3_wp    !< maximum mixing length in neutral and stable conditions
+  REAL(wp),PARAMETER :: lmix_max  = 150._wp    !< maximum mixing length in neutral and stable conditions
   REAL(wp),PARAMETER :: eps_shear = 1.e-5_wp   !< zepshr in sbr. vdiff of ECHAM6
   REAL(wp),PARAMETER :: eps_corio = 5.e-5_wp   !< zepcor in sbr. vdiff of ECHAM6
   REAL(wp),PARAMETER :: totte_min = 1.e-10_wp  !< minimum total turbulent energy 

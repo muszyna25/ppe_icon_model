@@ -10,31 +10,31 @@ MODULES='PrgEnv-pgi/20.4 cuda netcdf netcdf-fortran'
 # Requirements
 if [ -z "${XML2_ROOT+x}" ]; then
     echo "Warning : XML2_ROOT is not set"
-    #TODO remove:
-    XML2_ROOT=/project/g110/install/tsa/libxml2
 fi
 if [ -z "${SERIALBOX2_ROOT+x}" ]; then
     echo "Warning : SERIALBOX2_ROOT is not set, please use spack or set manually, if you intend to use serialization"
-    #TODO remove:
-    SERIALBOX2_ROOT=/project/g110/spack-install/tsa/serialbox/2.6.0/gcc/64gamapk5fhsyyv6h6ktjzeeq6oodhe3
+fi
+if [ -z "${ECCODES_ROOT+x}" ]; then
+    echo "Warning: ECCODES_ROOT is not set, please use spack or set manually if you intend to use ECCODES"
 fi
 if [ -z "${CLAW+x}" ]; then
     echo "Warning: CLAW is not set, please use spack or set manually if you intend to use CLAW"
-    #TODO remove:
-    CLAW=/project/g110/spack-install/tsa/claw/2.0.1/pgi/nbjs3thtbh5wxrxu6usftgibac6laxyc/bin/clawfc
 fi
-
+if [ -z "${CSCS_APPS_PATH+x}" ]; then
+    echo "Warning: CSCS_APPS_PATH is not set, please use spack or set it manually"
+fi
 # LIBS
 XML2_LIBS='-lxml2'
 BLAS_LAPACK_LIBS='-llapack -lblas'
 SERIALBOX2_LIBS='-lSerialboxFortran'
 NETCDF_LIBS='-lnetcdf -lnetcdff'
+ECCODES_LIBS='-leccodes'
 # The rest of libraries required by CUDA will be provided by PGI compiler:
 STDCPP_LIBS='-lstdc++'
 
 ################################################################################
 
-BUILD_ENV=". \"${SCRIPT_DIR}/module_switcher\"; module use /apps/arolla/UES/jenkins/RH7.7/MCH-PE20.08/generic/easybuild/modules/all/; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${XML2_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
+BUILD_ENV=". \"${SCRIPT_DIR}/module_switcher\"; module use ${CSCS_APPS_PATH}/generic/easybuild/modules/all/; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${XML2_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
 
 # We need some of the environment variables set by the modules now:
 eval "$BUILD_ENV"
@@ -44,9 +44,10 @@ CFLAGS='-g -O2'
 CPPFLAGS="-I${XML2_ROOT}/include/libxml2 -I${EBROOTNETCDF}/include"
 
 FC='mpif90'
-FCFLAGS="-g -traceback -O -Mrecursive -Mallocatable=03 -Mbackslash -acc=verystrict -ta=nvidia:cc70 -ta=tesla:lineinfo -Minfo=accel,inline -I${SERIALBOX2_ROOT}/include -I${EBROOTNETCDFMINFORTRAN}/include -D__SWAPDIM -D__USE_G2G"
+FCFLAGS="-g -traceback -O -Mrecursive -Mallocatable=03 -Mbackslash -acc=verystrict -ta=nvidia:cc70 -ta=tesla:lineinfo -Minfo=accel,inline -I${SERIALBOX2_ROOT}/include -I${ECCODES_ROOT}/include -I${EBROOTNETCDFMINFORTRAN}/include -D__SWAPDIM -D__USE_G2G"
+ICON_ECRAD_FCFLAGS="-D__ECRAD_LITTLE_ENDIAN"
 
-LDFLAGS="-L${SERIALBOX2_ROOT}/lib -L${XML2_ROOT}/lib -L${EBROOTNETCDF}/lib64 -L${EBROOTNETCDFMINFORTRAN}/lib"
+LDFLAGS="-L${SERIALBOX2_ROOT}/lib -L${ECCODES_ROOT}/lib64 -L${XML2_ROOT}/lib -L${EBROOTNETCDF}/lib64 -L${EBROOTNETCDFMINFORTRAN}/lib"
 
 # ICON executable will be linked to /opt/cray/pe/lib64/libmpichf90_pgi.so.3,
 # which depends on libomptarget.so but doesn't have an RPATH to it. For this
@@ -54,7 +55,7 @@ LDFLAGS="-L${SERIALBOX2_ROOT}/lib -L${XML2_ROOT}/lib -L${EBROOTNETCDF}/lib64 -L$
 # LD_LIBRARY_PATH in advance (e.g. by loading an environment module). To solve
 # this issue, we overlink to libomptarget.so so that it can be found through
 # RPATH entries of the executable, which are injected by the compiler.
-LIBS="-L${CUDA_HOME}/lib64 -lcudart -Wl,--as-needed ${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${SERIALBOX2_LIBS} ${STDCPP_LIBS} ${NETCDF_LIBS}"
+LIBS="-L${CUDA_HOME}/lib64 -lcudart -Wl,--as-needed ${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${SERIALBOX2_LIBS} ${ECCODES_LIBS} ${STDCPP_LIBS} ${NETCDF_LIBS}"
 
 # We have to tell CLAW where to look for netcdf.inc:
 CLAWFLAGS="-I${EBROOTNETCDFMINFORTRAN}/include"
@@ -62,12 +63,12 @@ CLAWFLAGS="-I${EBROOTNETCDFMINFORTRAN}/include"
 NVCC='nvcc'
 NVCFLAGS='--std=c++11 -arch=sm_70 -g -O3 -lineinfo -G'
 
-SB2PP="python2 /project/g110/spack-install/tsa/serialbox/2.6.0/pgi/za4eti6fu7ghq5cqs6qhj5wi5v5lyffb/python/pp_ser/pp_ser.py" \
+SB2PP="python2 ${SERIALBOX2_ROOT}/python/pp_ser/pp_ser.py" \
 
 #MPI_LAUNCH='/apps/daint/UES/xalt/production/bin/srun -p debug -C gpu'
 MPI_LAUNCH=false
 
-EXTRA_CONFIG_ARGS='--disable-loop-exchange --disable-ocean --disable-claw --enable-gpu --enable-rte-rrtmgp'
+EXTRA_CONFIG_ARGS='--disable-loop-exchange --enable-gpu --enable-claw --enable-rte-rrtmgp --enable-ecrad'
 
 # Speed up the configuration by disabling MPI checks:
 EXTRA_CONFIG_ARGS+=' --disable-mpi-checks --disable-coupling'
@@ -82,12 +83,13 @@ CLAWFLAGS="$CLAWFLAGS" \
 CPPFLAGS="$CPPFLAGS" \
 FC="$FC" \
 FCFLAGS="$FCFLAGS" \
+ICON_ECRAD_FCFLAGS="$ICON_ECRAD_FCFLAGS" \
 LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
 MPI_LAUNCH="$MPI_LAUNCH" \
 NVCC="$NVCC" \
 NVCFLAGS="$NVCFLAGS" \
-SB2PP="python2 /project/g110/spack-install/tsa/serialbox/2.6.0/pgi/za4eti6fu7ghq5cqs6qhj5wi5v5lyffb/python/pp_ser/pp_ser.py" \
+SB2PP="$SB2PP" \
 ${EXTRA_CONFIG_ARGS} \
 "$@"
 

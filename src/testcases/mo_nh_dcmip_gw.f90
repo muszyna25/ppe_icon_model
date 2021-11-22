@@ -30,7 +30,7 @@ MODULE mo_nh_dcmip_gw
 
    USE mo_kind,                 ONLY: wp
    USE mo_physical_constants,   ONLY: rd, grav, p0ref, cpd, cvd_o_rd
-   USE mo_hydro_adjust,         ONLY: hydro_adjust
+   USE mo_hydro_adjust,         ONLY: hydro_adjust, hydro_adjust_iterative
    USE mo_math_constants,       ONLY: pi, deg2rad
    USE mo_impl_constants,       ONLY: min_rlcell, min_rledge, min_rlvert, MAX_CHAR_LENGTH
    USE mo_parallel_config,      ONLY: nproma
@@ -84,7 +84,7 @@ CONTAINS
   !! @par Revision History
   !! - initial revision by Daniel Reinert, DWD (2012-05-25)
   !!
-  SUBROUTINE init_nh_dcmip_gw( p_patch, p_nh_prog, p_nh_diag, p_metrics)
+  SUBROUTINE init_nh_dcmip_gw( p_patch, p_nh_prog, p_nh_diag, p_metrics, l_hydro_adjust)
 
     TYPE(t_patch),        INTENT(INOUT) :: &  !< patch on which computation is performed
       &  p_patch
@@ -97,6 +97,10 @@ CONTAINS
 
     TYPE(t_nh_metrics),   INTENT(IN)    :: &  !< NH metrics state
       &  p_metrics
+
+    LOGICAL,              INTENT(IN)    :: &  !< TRUE: compute hydrostatically balanced state 
+      & l_hydro_adjust                        !  by integrating the discretized third equation 
+                                              !  of motion.
 
     REAL(wp) :: z_lon, z_lat          !< geographical coordinates
 
@@ -112,14 +116,18 @@ CONTAINS
     REAL(wp) :: theta_pert            !< theta_perturbation               [K]
     REAL(wp) :: zsin, zcos
     INTEGER  :: jc, je, jk, jb        !< loop indices
+    INTEGER  :: ist                   !< error status
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom  
+    INTEGER  :: i_rlstart, i_rlend  
     INTEGER  :: nlev, nlevp1          !< number of full and half levels
 
     REAL(wp) :: brunt2                !< Brunt-Vaisala frequency squared  [s^-1]
     REAL(wp) :: big_g                 !< auxiliary constant
     REAL(wp) :: phic                  !< Lat of perturbation center       [rad]
 
+    REAL(wp), ALLOCATABLE :: zrelhum(:,:,:) !< dummy relative humidity field
+    REAL(wp), ALLOCATABLE :: zqv    (:,:,:) !< dummy specific moisture field 
+                                            !  both needed in case of hydrostatic adjustment. 
     ! test case parameters
     !
     REAL(wp), PARAMETER :: peq = 100000._wp !< reference surface pressure
@@ -135,7 +143,9 @@ CONTAINS
     REAL(wp), PARAMETER :: delta_theta = 1.0_wp  !< Max amplitude of perturbation [K]
 
     REAL(wp), PARAMETER :: lz = 20000._wp   !< vert. wavelength of perturbation [m]
-     
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_dcmip_gw:init_nh_dcmip_gw' 
 !--------------------------------------------------------------------
 !
 
@@ -153,15 +163,11 @@ CONTAINS
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
 
-    ! number of child domains
-    i_nchdom = MAX(1,p_patch%n_childdom)
-
 
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!    I: Init background state     !!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 
 
     !
@@ -172,8 +178,8 @@ CONTAINS
     i_rlstart = 1
     i_rlend   = min_rledge
 
-    i_startblk = p_patch%edges%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+    i_startblk = p_patch%edges%start_block(i_rlstart)
+    i_endblk   = p_patch%edges%end_block(i_rlend)
 
 !$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,z_lat,zu,zv)
     DO jb = i_startblk, i_endblk
@@ -211,8 +217,8 @@ CONTAINS
     i_rlstart = 1
     i_rlend   = min_rlcell
 
-    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+    i_startblk = p_patch%cells%start_block(i_rlstart)
+    i_endblk   = p_patch%cells%end_block(i_rlend)
 
     !
     ! Init prognostic variables exner, theta_v and rho
@@ -305,7 +311,38 @@ CONTAINS
 
     ENDDO !jb
 !$OMP END DO
+!$OMP END PARALLEL
 
+
+    IF (l_hydro_adjust) THEN
+      !
+      ALLOCATE(zrelhum(SIZE(p_nh_diag%temp,1),SIZE(p_nh_diag%temp,2),SIZE(p_nh_diag%temp,3)), &
+        &      zqv    (SIZE(p_nh_diag%temp,1),SIZE(p_nh_diag%temp,2),SIZE(p_nh_diag%temp,3)), &
+        &      STAT=ist)
+      IF (ist /= 0) CALL finish(TRIM(routine),'Allocation of zrelhum and zqv failed')
+      !
+      ! as this testcase is dry, we set relhum to zero
+      zrelhum(:,:,:) = 0._wp
+      zqv    (:,:,:) = 0._wp
+
+      !
+      ! remark: calling hydro_adjust would be equally fine here
+      ! 
+      CALL hydro_adjust_iterative ( p_patch       = p_patch,                      & !in
+        &                           p_nh_metrics  = p_metrics,                    & !in
+        &                           temp_ini      = p_nh_diag%temp,               & !in
+        &                           rh_ini        = zrelhum,                      & !in
+        &                           exner         = p_nh_prog%exner,              & !inout
+        &                           theta_v       = p_nh_prog%theta_v,            & !inout
+        &                           rho           = p_nh_prog%rho,                & !inout
+        &                           qv            = zqv,                          & !inout
+        &                           luse_exner_fg = .TRUE.,                       & !in
+        &                           opt_exner_lbc = p_nh_prog%exner(:,nlev,:)     ) !in
+
+      ! cleanup
+      DEALLOCATE(zrelhum, zqv, STAT=ist)
+      IF (ist /= 0) CALL finish(TRIM(routine),'Deallocation of zrelhum and zqv failed')
+    END IF   
 
 
 
@@ -313,6 +350,13 @@ CONTAINS
     !!!    II. Add potential temperature perturbation  !!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+    i_rlstart = 1
+    i_rlend   = min_rlcell
+
+    i_startblk = p_patch%cells%start_block(i_rlstart)
+    i_endblk   = p_patch%cells%end_block(i_rlend)
+
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,z_lat,z_lon,zsin,zcos,dist, &
 !$OMP            shape_func,theta_pert)
     DO jb = i_startblk, i_endblk

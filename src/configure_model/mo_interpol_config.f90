@@ -37,7 +37,6 @@ MODULE mo_interpol_config
   PUBLIC :: configure_interpolation                                             !< subroutine
 
   PUBLIC :: t_lsq_set
-  PUBLIC :: sick_a, sick_o
 
 
   TYPE t_lsq_set
@@ -154,13 +153,6 @@ MODULE mo_interpol_config
   !!
   !TYPE(t_interpol_config) :: interpol_config(max_dom)
 
-
-    REAL(wp) :: sick_a, sick_o      ! if i_cori_method >= 2: To avoid the SICK instability
-                                    ! (Symmetric Instability of Computational Kind or
-                                    !  Hollingsworth instability), an average of the kinetic
-                                    ! energy and thus of the mass flux must be defined.
-                                    ! sick_a is to be given in the namelist as the weight of
-                                    ! the fully averaged kinetic energy, sick_o=1-sick_a.
 
 CONTAINS
   !>
@@ -358,6 +350,7 @@ CONTAINS
       ENDIF
     ENDDO
 
+
     !-----------------------------------------------------------------------
     ! set the number of unknowns in the least squares reconstruction, and the
     ! stencil size, depending on the chosen polynomial order (lsq_high_ord).
@@ -365,85 +358,42 @@ CONTAINS
     ! choice. The possibilities are:
     !  lsq_high_ord=1 : linear polynomial           : 2 unknowns with a 3-point stencil
     !  lsq_high_ord=2 : quadratic polynomial        : 5 unknowns with a 9-point stencil
-    !  lsq_high_ord=30: poor man's cubic polynomial : 7 unknowns with a 9-point stencil
-    !  lsq_high_ord=3 : full cubic polynomial       : 9 unknowns with a 9-point stencil
+    !  lsq_high_ord=3 : cubic polynomial            : 9 unknowns with a 9-point stencil
     !-----------------------------------------------------------------------
-    IF (geometry_info(1)%cell_type == triangular_cell) THEN
 
-      ! Settings for linear lsq reconstruction
+    ! Settings for linear lsq reconstruction
 
-      lsq_lin_set%l_consv = llsq_lin_consv
-      lsq_lin_set%dim_c   = 3
-      lsq_lin_set%dim_unk = 2
-      IF ( lsq_lin_set%l_consv ) THEN
-        lsq_lin_set%wgt_exp = 0
-      ELSE
-        lsq_lin_set%wgt_exp = 2
-      ENDIF
-
-      ! Settings for high order lsq reconstruction
-
-      lsq_high_set%l_consv = llsq_high_consv
-
-      IF (lsq_high_ord == 1) THEN
-        lsq_high_set%dim_c   = 3
-        lsq_high_set%dim_unk = 2
-        IF ( lsq_high_set%l_consv ) THEN
-          lsq_high_set%wgt_exp = 0
-        ELSE
-          lsq_high_set%wgt_exp = 2
-        ENDIF      
-      ELSE IF (lsq_high_ord == 2) THEN
-        lsq_high_set%dim_c   = 9
-        lsq_high_set%dim_unk = 5
-        lsq_high_set%wgt_exp = 3
-      ELSE IF (lsq_high_ord == 30) THEN
-        lsq_high_set%dim_c   = 9
-        lsq_high_set%dim_unk = 7
-        lsq_high_set%wgt_exp = 2
-      ELSE IF (lsq_high_ord == 3) THEN
-        lsq_high_set%dim_c   = 9
-        lsq_high_set%dim_unk = 9
-        lsq_high_set%wgt_exp = 0
-      ELSE
-        CALL finish( TRIM(routine),'wrong value of lsq_high_ord, must be 1,2,30 or 3')
-      ENDIF
-
-      ! triangular grid: just avoid that thickness is averaged at edges as it is
-      ! needed in the hexagonal grid
-      i_cori_method=1
-
+    lsq_lin_set%l_consv = llsq_lin_consv
+    lsq_lin_set%dim_c   = 3
+    lsq_lin_set%dim_unk = 2
+    IF ( lsq_lin_set%l_consv ) THEN
+      lsq_lin_set%wgt_exp = 0
     ELSE
-
-      CALL finish(TRIM(routine),"geometry_info%cell_type /= triangular_cell")
-
+      lsq_lin_set%wgt_exp = 2
     ENDIF
 
-    ! In case of a hexagonal model, we perform a quadratic reconstruction, and check
-    ! for i_cori_method
-    IF (geometry_info(1)%cell_type == hexagonal_cell) THEN
+    ! Settings for high order lsq reconstruction
 
-      ! ... quadratic reconstruction
-      lsq_high_set%dim_c   = 6
+    lsq_high_set%l_consv = llsq_high_consv
+
+    IF (lsq_high_ord == 1) THEN
+      lsq_high_set%dim_c   = 3
+      lsq_high_set%dim_unk = 2
+      IF ( lsq_high_set%l_consv ) THEN
+        lsq_high_set%wgt_exp = 0
+      ELSE
+        lsq_high_set%wgt_exp = 2
+      ENDIF      
+    ELSE IF (lsq_high_ord == 2) THEN
+      lsq_high_set%dim_c   = 9
       lsq_high_set%dim_unk = 5
-      lsq_high_set%wgt_exp = 2
-
-      ! ... linear reconstruction is not used in the hexagonal model.
-      ! However, if we do not initialize these variables, they will get 
-      ! value zero, and cause problem in the dump/restore functionality.
-      lsq_lin_set%l_consv = .FALSE.
-      lsq_lin_set%dim_c   = 3
-      lsq_lin_set%dim_unk = 2
-      
-      sick_a=0.0_wp
-      SELECT CASE (i_cori_method)
-      CASE (2) 
-        sick_a=0.375_wp
-      CASE (3)
-        sick_a=0.75_wp
-      END SELECT
-      sick_o = 1.0_wp-sick_a
-      
+      lsq_high_set%wgt_exp = 3
+    ELSE IF (lsq_high_ord == 3) THEN
+      lsq_high_set%dim_c   = 9
+      lsq_high_set%dim_unk = 9
+      lsq_high_set%wgt_exp = 0
+    ELSE
+      CALL finish( TRIM(routine),'wrong value of lsq_high_ord, must be 1,2, or 3')
     ENDIF
 
   END SUBROUTINE configure_interpolation

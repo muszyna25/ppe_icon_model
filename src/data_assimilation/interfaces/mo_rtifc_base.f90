@@ -41,7 +41,12 @@ MODULE mo_rtifc_base
   !-------------
   
   use iso_fortran_env,    only: stdout => output_unit, &!
+                                stderr => error_unit,  &!
                                 iostat_end              !
+
+#if defined(__DACE__) || defined(__ICON__)
+  use mo_exception,       only: finish
+#endif
 
 #if (_RTTOV_VERSION > 0)
   use rttov_const,        only: version,               &!
@@ -339,6 +344,19 @@ contains
 
   end function errmsg
 
+#if ! (defined(__DACE__) || defined(__ICON__))
+  subroutine finish(proc, msg)
+    character(len=*), intent(in) :: proc
+    character(len=*), intent(in) :: msg
+
+    write(stderr,'(/,80("*"),/)')
+    write(stderr,'(2x,A,": ",A)') trim(proc),trim(msg)
+    write(stderr,'(/,80("*"),/)')
+    STOP 13
+
+  end subroutine finish
+#endif
+
 
 #if (_RTTOV_VERSION > 0)
 
@@ -537,10 +555,9 @@ contains
 
     call MPI_Bcast(buffer,1, MPI_INTEGER, source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_integer@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_integer
 
 
@@ -557,10 +574,9 @@ contains
 
     call MPI_Bcast(buffer,size(buffer), MPI_INTEGER, source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_integer_1d@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_integer_1d
 
 
@@ -577,10 +593,9 @@ contains
 
     call MPI_Bcast(buffer,size(buffer), MPI_INTEGER, source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_integer_2d@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_integer_2d
 
 
@@ -597,10 +612,9 @@ contains
 
     call MPI_Bcast(buffer,size(buffer), MPI_INTEGER, source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_integer_3d@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_integer_3d
 
 
@@ -617,10 +631,9 @@ contains
 
     call MPI_Bcast(buffer,size(buffer), MPI_INTEGER, source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_integer_4d@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_integer_4d
 
 
@@ -637,10 +650,9 @@ contains
 
     call MPI_Bcast(buffer,size(buffer), MPI_DOUBLE_PRECISION, source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_real_1d@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_real_1d
 
 
@@ -657,10 +669,9 @@ contains
 
     call MPI_Bcast(buffer,size(buffer), MPI_DOUBLE_PRECISION, source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_real_2d@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_real_2d
 
 
@@ -677,10 +688,9 @@ contains
 
     call MPI_Bcast(buffer,size(buffer), MPI_DOUBLE_PRECISION, source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_real_3d@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_real_3d
 
 
@@ -697,10 +707,9 @@ contains
 
     call MPI_Bcast(buffer,size(buffer), MPI_DOUBLE_PRECISION, source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_real_4d@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_real_4d
 
 
@@ -717,10 +726,9 @@ contains
 
     call MPI_Bcast(buffer,1, MPI_LOGICAL, source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_bool@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_bool
 
 
@@ -737,10 +745,9 @@ contains
 
     call MPI_Bcast(buffer,size(buffer), MPI_CHARACTER, source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_char_1d@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_char_1d
 
 #endif /* _RTIFC_USE_MPIF */
@@ -760,10 +767,9 @@ contains
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
         source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_sinteger_4d@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_sinteger_4d
 
 
@@ -781,10 +787,9 @@ contains
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
         source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_sinteger_3d@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_sinteger_3d
 
 
@@ -802,10 +807,9 @@ contains
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
         source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_sinteger_2d@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_sinteger_2d
 
 
@@ -822,10 +826,9 @@ contains
     
     call MPI_Bcast(buffer,size(buffer), MPI_DOUBLE_COMPLEX, source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_complex_1d@mo_rtifc_base', 'MPI ERROR in MPI_Bcast')
+
   end subroutine p_bcast_rttov_complex_1d
 #endif
 

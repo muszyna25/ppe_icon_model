@@ -78,11 +78,10 @@ MODULE mo_advection_hflux
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_math_gradients,      ONLY: grad_green_gauss_cell, grad_fe_cell
-  USE mo_math_divrot,         ONLY: recon_lsq_cell_l, recon_lsq_cell_q,         &
-    &                               recon_lsq_cell_cpoor, recon_lsq_cell_c,     &
-    &                               recon_lsq_cell_l_svd, recon_lsq_cell_q_svd, &
-    &                               recon_lsq_cell_cpoor_svd,                   &
-    &                               recon_lsq_cell_c_svd, recon_lsq_cell_l_consv_svd
+  USE mo_math_divrot,         ONLY: recon_lsq_cell_l, recon_lsq_cell_l_svd,     &
+    &                               recon_lsq_cell_q, recon_lsq_cell_q_svd,     &
+    &                               recon_lsq_cell_c, recon_lsq_cell_c_svd,     &
+    &                               recon_lsq_cell_l_consv_svd
   USE mo_interpol_config,     ONLY: llsq_lin_consv, llsq_high_consv, lsq_high_ord, &
     &                               lsq_high_set
   USE mo_intp_data_strc,      ONLY: t_int_state, t_lsq
@@ -101,8 +100,7 @@ MODULE mo_advection_hflux
     &                               prep_gauss_quadrature_q,                    &
     &                               prep_gauss_quadrature_q_list,               &
     &                               prep_gauss_quadrature_c,                    &
-    &                               prep_gauss_quadrature_c_list,               &
-    &                               prep_gauss_quadrature_cpoor
+    &                               prep_gauss_quadrature_c_list
   USE mo_advection_traj,      ONLY: btraj_dreg, t_back_traj,                    &
     &                               btraj_compute_o1, btraj_compute_o2
   USE mo_advection_geometry,  ONLY: divide_flux_area, divide_flux_area_list
@@ -1041,7 +1039,8 @@ CONTAINS
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
     INTEGER  :: ilc0, ibc0         !< line and block index for local cell center
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i, i_rlstart, i_rlend, i_nchdom, i_rlend_c
+    INTEGER  :: i_rlstart, i_rlend, i_nchdom, i_rlend_c
+    INTEGER  :: i
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
     LOGICAL  :: use_zlsq           !< true if z_lsq_coeff is used to store the gradients
     TYPE(t_lsq), POINTER :: lsq_lin  !< pointer to p_int_state%lsq_lin
@@ -2106,17 +2105,9 @@ CONTAINS
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
           &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
-      ELSE IF (lsq_high_ord == 30) THEN
-        ! Gauss-Legendre quadrature with 4 quadrature points for integrating
-        ! a cubic 2D polynomial without cross derivatives
-        CALL prep_gauss_quadrature_cpoor( p_patch, z_coords_dreg_v,       &! in
-          &                      z_quad_vector_sum, z_dreg_area,          &! out
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
-
       ELSE IF (lsq_high_ord == 3) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
-        ! a full cubic 2D polynomial
+        ! a cubic 2D polynomial
         CALL prep_gauss_quadrature_c( p_patch, z_coords_dreg_v,           &! in
           &                      z_quad_vector_sum, z_dreg_area,          &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
@@ -2142,20 +2133,8 @@ CONTAINS
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ENDIF
-    ELSE IF (lsq_high_ord == 30) THEN
-      ! cubic reconstruction without cross derivatives
-      ! (computation of 8 coefficients -> z_lsq_coeff )
-      IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_cpoor_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,&
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=2 )
-      ELSE
-      CALL recon_lsq_cell_cpoor( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=2 )
-      ENDIF
     ELSE IF (lsq_high_ord == 3) THEN
-      ! cubic reconstruction with cross derivatives
+      ! cubic reconstruction
       ! (computation of 10 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
       CALL recon_lsq_cell_c_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
@@ -2244,23 +2223,7 @@ CONTAINS
         ENDDO
 !$ACC END PARALLEL
 
-        CASE( 30 )  ! cubic reconstruction without third order cross derivatives
-
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG VECTOR COLLAPSE(2)
-        DO jk = slev, elev
-          DO je = i_startidx, i_endidx
-
-!$NEC unroll(8)
-            p_out_e(je,jk,jb) =                                                       &
-              &  DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
-              &  z_quad_vector_sum(je,1:8,jk,jb) ) / z_dreg_area(je,jk,jb)
-
-          ENDDO
-        ENDDO
-!$ACC END PARALLEL
-
-        CASE( 3 )  ! cubic reconstruction with third order cross derivatives
+        CASE( 3 )  ! cubic reconstruction
 
 !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
@@ -2305,24 +2268,7 @@ CONTAINS
         ENDDO
 !$ACC END PARALLEL
 
-        CASE( 30 )  ! cubic reconstruction without third order cross derivatives
-
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG VECTOR COLLAPSE(2)
-        DO jk = slev, elev
-          DO je = i_startidx, i_endidx
-
-!$NEC unroll(8)
-            p_out_e(je,jk,jb) =                                                       &
-              &  DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
-              &  z_quad_vector_sum(je,1:8,jk,jb) ) / z_dreg_area(je,jk,jb)            &
-              &  * p_mass_flx_e(je,jk,jb)
-
-          ENDDO
-        ENDDO
-!$ACC END PARALLEL
-
-        CASE( 3 )  ! cubic reconstruction with third order cross derivatives
+        CASE( 3 )  ! cubic reconstruction
 
 !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
@@ -2704,27 +2650,9 @@ CONTAINS
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
           &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
-      ELSE IF (lsq_high_ord == 30) THEN
-        ! Gauss-Legendre quadrature with 4 quadrature points for integrating
-        ! a cubic 2D polynomial without cross derivatives
-        CALL prep_gauss_quadrature_cpoor( p_patch, dreg_patch0,           &! in
-          &                      z_quad_vector_sum0, z_dreg_area0,        &! out
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
-
-        CALL prep_gauss_quadrature_cpoor( p_patch, dreg_patch1,           &! in
-          &                      z_quad_vector_sum1, z_dreg_area1,        &! out
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
-
-        CALL prep_gauss_quadrature_cpoor( p_patch, dreg_patch2,           &! in
-          &                      z_quad_vector_sum2, z_dreg_area2,        &! out
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
-
       ELSE IF (lsq_high_ord == 3) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
-        ! a full cubic 2D polynomial
+        ! a cubic 2D polynomial
         CALL prep_gauss_quadrature_c( p_patch, dreg_patch0,               &! in
           &                      z_quad_vector_sum0, z_dreg_area0,        &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
@@ -2774,20 +2702,8 @@ CONTAINS
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ENDIF
-    ELSE IF (lsq_high_ord == 30) THEN
-      ! cubic reconstruction without cross derivatives
-      ! (computation of 8 coefficients -> z_lsq_coeff )
-      IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_cpoor_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,&
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=2 )
-      ELSE
-      CALL recon_lsq_cell_cpoor( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=2 )
-      ENDIF
     ELSE IF (lsq_high_ord == 3) THEN
-      ! cubic reconstruction with cross derivatives
+      ! cubic reconstruction
       ! (computation of 10 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
       CALL recon_lsq_cell_c_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
@@ -2876,25 +2792,6 @@ CONTAINS
             &     z_quad_vector_sum1(je,1:6,jk,jb) )                                     &
             &   + DOT_PRODUCT(z_lsq_coeff(1:6,ptr_ilc2(je,jk,jb),jk,ptr_ibc2(je,jk,jb)), &
             &     z_quad_vector_sum2(je,1:6,jk,jb) ) )                                   &
-            &   / (z_dreg_area0(je,jk,jb)+z_dreg_area1(je,jk,jb)+z_dreg_area2(je,jk,jb) )&
-            &   * p_mass_flx_e(je,jk,jb)
-
-        ENDDO
-      ENDDO
-
-      CASE( 30 )  ! cubic reconstruction without third order cross derivatives
-
-      DO jk = slev, elev
-        DO je = i_startidx, i_endidx
-
-!$NEC unroll(8)
-          p_out_e(je,jk,jb) =                                                            &
-            &   ( DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc0(je,jk,jb),jk,ptr_ibc0(je,jk,jb)), &
-            &     z_quad_vector_sum0(je,1:8,jk,jb) )                                     &
-            &   + DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc1(je,jk,jb),jk,ptr_ibc1(je,jk,jb)), &
-            &     z_quad_vector_sum1(je,1:8,jk,jb) )                                     &
-            &   + DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc2(je,jk,jb),jk,ptr_ibc2(je,jk,jb)), &
-            &     z_quad_vector_sum2(je,1:8,jk,jb) ) )                                   &
             &   / (z_dreg_area0(je,jk,jb)+z_dreg_area1(je,jk,jb)+z_dreg_area2(je,jk,jb) )&
             &   * p_mass_flx_e(je,jk,jb)
 
@@ -3289,7 +3186,7 @@ CONTAINS
 
       ELSE IF (lsq_high_ord == 3) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
-        ! a full cubic 2D polynomial
+        ! a cubic 2D polynomial
         CALL prep_gauss_quadrature_c( p_patch, dreg_patch0,               &! in
           &                      z_quad_vector_sum0, z_dreg_area,         &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
@@ -3340,7 +3237,7 @@ CONTAINS
         &                    opt_rlstart=2 )
       ENDIF
     ELSE IF (lsq_high_ord == 3) THEN
-      ! cubic reconstruction with cross derivatives
+      ! cubic reconstruction
       ! (computation of 10 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
       CALL recon_lsq_cell_c_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
@@ -3441,7 +3338,7 @@ CONTAINS
       ENDDO  ! ie
 
 
-      CASE( 3 )  ! cubic reconstruction with third order cross derivatives
+      CASE( 3 )  ! cubic reconstruction
 
       DO jk = slev, elev
 !NEC$ ivdep

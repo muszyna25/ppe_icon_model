@@ -67,6 +67,7 @@ MODULE mo_util_phys
   PUBLIC :: compute_field_rel_hum_ifs
   PUBLIC :: iau_update_tracer
   PUBLIC :: tracer_add_phytend
+  PUBLIC :: calc_ustar
   PUBLIC :: exner_from_pres
   PUBLIC :: theta_from_temp_and_exner
 
@@ -103,13 +104,33 @@ CONTAINS
 
     ff10m = SQRT( u_10m**2 + v_10m**2)
     uadd_sso = MAX(0._wp, SQRT(u_env**2 + v_env**2) - SQRT(u1**2 + v1**2))
-    ustar = SQRT( MAX( tcm, 5.e-4_wp) * ( u1**2 + v1**2) )
+    ustar = calc_ustar(tcm, u1, v1)
     gust_add = MAX(0._wp,MIN(2._wp,0.2_wp*(ff10m-10._wp)))*(1._wp+mtnmask)
     vgust_dyn = ff10m + mtnmask*uadd_sso + (tune_gust_factor+gust_add+2._wp*mtnmask)*ustar
 
   END FUNCTION nwp_dyn_gust
 
+  !-------------------------------------------------------------------------
+  !!
+  !! Calculate friction velocity ustar = SQRT(tcm)*ff1.
+  !! Taken from the original implementation by H. Frank from function 
+  !! nwp_dyn_gust to be also usable for other purposes.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Rieger, DWD (2019-08-05)
+  !!
+  ELEMENTAL FUNCTION calc_ustar(tcm, u1, v1) RESULT (ustar)
 
+    REAL(wp), INTENT(in)  :: &
+      &  tcm,                & !< Transfer coefficient for momentum at surface
+      &  u1, v1                !< Horizontal wind components at lowest model layer (m/s)
+    REAL(wp)              :: &
+      &  ustar                 !< Friction velocity
+    !$acc routine seq
+
+    ustar = SQRT( MAX( tcm, 5.e-4_wp) * ( u1**2 + v1**2) )
+
+  END FUNCTION calc_ustar
 
   !-------------------------------------------------------------------------
   !!

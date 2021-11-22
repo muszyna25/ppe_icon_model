@@ -55,7 +55,7 @@ MODULE mo_sync_restart_patch_data
 
   USE mo_communication,             ONLY: t_comm_gather_pattern, exchange_data
   USE mo_exception,                 ONLY: finish, message
-  USE mo_dynamics_config,           ONLY: nnew, nnew_rcf 
+  USE mo_dynamics_config,           ONLY: nnow, nnow_rcf
   USE mo_impl_constants,            ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
   USE mo_kind,                      ONLY: dp, sp
   USE mo_mpi,                       ONLY: my_process_is_mpi_workroot, my_process_is_mpi_test
@@ -121,7 +121,7 @@ CONTAINS
     domain = me%description%id
     DO i = 1, SIZE(me%varData)
       info => me%varData(i)%p%info
-      IF(.NOT.has_valid_time_level(info, domain, nnew(domain), nnew_rcf(domain))) CYCLE
+      IF(.NOT.has_valid_time_level(info, domain, nnow(domain), nnow_rcf(domain))) CYCLE
 #ifdef DEBUG
       IF(is_mpi_workroot) write (0,*)' ... write '//TRIM(info%name)
 #endif

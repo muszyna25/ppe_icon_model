@@ -95,6 +95,8 @@ MODULE mo_read_interface
   PUBLIC :: read_2D_extdim_int
   PUBLIC :: read_3D_extdim
 
+  PUBLIC :: nf  ! temporary hack, wich allows to USE nf via this module. Currently required for ART.
+
   PUBLIC :: on_cells, on_vertices, on_edges
 
   !--------------------------------------------------------

@@ -264,9 +264,9 @@ CONTAINS
     ENDIF
 
     SELECT CASE(lsq_high_ord)
-    CASE(1,2,30,3)  ! OK
+    CASE(1,2,3)  ! OK
     CASE DEFAULT
-      CALL finish( TRIM(routine),'wrong value of lsq_high_ord, must be 1,2,30 or 3')
+      CALL finish( TRIM(routine),'wrong value of lsq_high_ord, must be 1,2, or 3')
     END SELECT
 
     IF (.NOT. l_intp_c2l) THEN

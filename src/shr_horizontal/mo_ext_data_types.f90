@@ -336,11 +336,11 @@ MODULE mo_ext_data_types
     INTEGER :: i_lc_snow_ice   !< Land-cover classification index for snow and ice
     INTEGER :: i_lc_water      !< Land-cover classification index for water
     INTEGER :: i_lc_urban      !< Land-cover classification index for urban / artificial surface
-    INTEGER :: i_lc_shrub_eg   !< Shrub cover Grassland/Forest // Evergreen. Currently used by ART only
-    INTEGER :: i_lc_shrub      !< Closed to open Shrubland (deciduous). Currently used by ART only
-    INTEGER :: i_lc_grass      !< Grassland//herbaceous. Currently used by ART only
-    INTEGER :: i_lc_bare_soil  !< Land-cover classification index for bare soil. Currently used by ART only
-    INTEGER :: i_lc_sparse     !< Land-cover classification index for sparse vergetation. Currently used by ART only
+    INTEGER :: i_lc_shrub_eg   !< Shrub cover Grassland/Forest // Evergreen.
+    INTEGER :: i_lc_shrub      !< Closed to open Shrubland (deciduous).
+    INTEGER :: i_lc_grass      !< Grassland//herbaceous.
+    INTEGER :: i_lc_bare_soil  !< Land-cover classification index for bare soil.
+    INTEGER :: i_lc_sparse     !< Land-cover classification index for sparse vergetation.
 
     ! for output purposes.
     TYPE(t_ptr_i2d3d), ALLOCATABLE :: lc_class_t_ptr(:)

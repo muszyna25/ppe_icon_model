@@ -21,19 +21,27 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_aerosol_util
 
-  USE mo_impl_constants,       ONLY: min_rlcell, iss, iorg, ibc, iso4, idu, nclass_aero
-  USE mo_math_constants,       ONLY: rad2deg
-  USE mo_kind,                 ONLY: wp
-  USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_lrtm_par,             ONLY: jpband => nbndlw
-  USE mo_model_domain,         ONLY: t_patch
-  USE mo_radiation_rg_par,     ONLY: jpspec
-  USE mo_srtm_config,          ONLY: jpsw
-  USE mo_lnd_nwp_config,       ONLY: ntiles_lnd, dzsoil
-  USE sfc_terra_data,          ONLY: cadp, cfcap
-  USE mo_nwp_tuning_config,    ONLY: tune_dust_abs
+  USE mo_impl_constants,         ONLY: min_rlcell, min_rlcell_int, &
+                                   &   iss, iorg, ibc, iso4, idu, nclass_aero
+  USE mo_impl_constants_grf,     ONLY: grf_bdywidth_c
+  USE mo_math_constants,         ONLY: rad2deg
+  USE mo_kind,                   ONLY: wp
+  USE mo_loopindices,            ONLY: get_indices_c
+  USE mo_lrtm_par,               ONLY: jpband => nbndlw
+  USE mo_model_domain,           ONLY: t_patch
+  USE mo_intp_data_strc,         ONLY: t_int_state
+  USE mo_srtm_config,            ONLY: jpsw
+  USE mo_lnd_nwp_config,         ONLY: ntiles_lnd, dzsoil
+  USE mo_nwp_tuning_config,      ONLY: tune_dust_abs
+  USE mo_aerosol_sources_types,  ONLY: p_dust_source_const
+  USE mo_aerosol_sources,        ONLY: aerosol_dust_aod_source
+  USE mo_math_laplace,           ONLY: nabla2_scalar
 
   IMPLICIT NONE
 
@@ -49,21 +57,116 @@ MODULE mo_aerosol_util
   zaes_rrtm(jpsw+jpband,5), &  ! analog for the optical thickness of scattering 
   zaeg_rrtm(jpsw+jpband,5)!, zaef_rrtm(jpsw+jpband,5)
 
-  !RG
-  REAL  (wp)              ::           &
-  zaea_rg(jpspec,5), &  ! ratio of optical thickness for the absorption in spectral
-                     ! interval jpspec  and total optical thickness at 0.55m*1.E-06 
-                     ! for an aerosoltyp specified by second array index
-  zaes_rg(jpspec,5), &  ! analog for the optical thickness of scattering 
-  zaeg_rg(jpspec,5), zaef_rg(jpspec,5)
+  PUBLIC :: zaea_rrtm, zaes_rrtm, zaeg_rrtm, &
+    &       aerdis, init_aerosol_dstrb_tanre, init_aerosol_props_tanre_rrtm, &
+    &       init_aerosol_props_tegen_rrtm, tune_dust
+  PUBLIC :: prog_aerosol_2D, aerosol_2D_diffusion
 
-
-  PUBLIC :: zaea_rrtm, zaes_rrtm, zaeg_rrtm, zaea_rg, zaes_rg, zaeg_rg, zaef_rg, &
-    &       init_aerosol_dstrb_tanre,init_aerosol_props_tanre_rrtm, &
-    &       init_aerosol_props_tanre_rg, &
-    &       init_aerosol_props_tegen_rrtm, init_aerosol_props_tegen_rg, prog_aerosol_2D, tune_dust
-  
 CONTAINS
+
+  !!  Subroutine aerdis is simplified version from COSMO model (version 4.16).
+  !!
+  !! @par Revision History
+  !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-02-28)
+  !! Transferred to mo_aerosol_util Sophia Schaefer, DWD (2021-06-21)
+   
+  SUBROUTINE aerdis ( klevp1, kbdim, jcs, jce, petah,  pvdaes, pvdael, pvdaeu, pvdaed )
+    
+    !------------------------------------------------------------------------------
+    !
+    ! Description:
+    !
+    ! The module procedure aerdis provides parameters for the vertical distribution
+    ! of aerosols (based on the original code of J.F. Geleyn (ECMWF, 4.11.82).
+    !
+    ! The routine computes the values PVDAE* (* = s, l, u or d for sea, land
+    ! urban or desert) of a surfach-normalised vertical distribution of aerosols'
+    ! optical depth from the argument petah (vertical coordinate) at klevp1 levels.
+    ! It also sets values for non-geograpically weighted total optical depths (at
+    ! 55 micrometer wavelength) paeopn for the same four types and similar optical
+    ! depths diveded by pressure for bachground well-mixed aerosols of three types
+    ! p**bga (** = tr, vo or st for tropospheric, volcanic (stratosperic ashes) or
+    ! stratosperic (sulfuric type)). It finally sets values for the power to be
+    ! applied to a temperature ratio smaller than two in order to obtain an index
+    ! one in the stratosphere and zero in the troposphere with a relatively smooth
+    ! transistion (ptrpt), as well as for adsorption coefficients fo water to the
+    ! three type of troposperic aerosols (paeadk) with a minimum value ( in the 
+    ! whole atmosphere) for the sum of the products paeadk by the optical depths
+    ! divided by pressure thickness: paeadm. 
+    !
+    ! Method:
+    !
+    ! Straightforward, equivalent heights are given in meters (8434 for the
+    ! atmosphere) and tropospheric and stratospheric pressure boundary values
+    ! are set at 101325 and 19330 Pascal. 
+    !
+    !------------------------------------------------------------------------------
+    
+    ! Subroutine arguments:
+    ! --------------------
+    
+    ! Input data
+    ! ----------
+    INTEGER, INTENT (IN) ::  &
+      & klevp1,         &           ! number of model layer interfaces
+      & kbdim,          &
+      & jcs,            &
+      & jce
+
+    REAL    (wp), INTENT (IN) ::  &
+      petah(kbdim,klevp1)    ! normalized vertical coordinate at half levels
+
+    ! Output data
+    ! -----------
+    REAL    (wp), INTENT (OUT) ::  &
+      pvdaes(kbdim,klevp1), & ! normalized vertical distribution (sea)
+      pvdael(kbdim,klevp1), & ! normalized vertical distribution (land)
+      pvdaeu(kbdim,klevp1), & ! normalized vertical distribution (urban)
+      pvdaed(kbdim,klevp1)    ! normalized vertical distrubution (desert)
+
+    ! Local parameters:
+    ! -------------
+    REAL (wp), PARAMETER  ::  &
+      zhss = 8434.0_wp/1000.0_wp ,  & !
+      zhsl = 8434.0_wp/1000.0_wp ,  & !
+      zhsu = 8434.0_wp/1000.0_wp ,  & !
+      zhsd = 8434.0_wp/3000.0_wp      !
+
+    INTEGER :: jc,jk
+    REAL(wp) :: log_eta
+
+    !- End of header
+    !==============================================================================
+
+    !------------------------------------------------------------------------------
+    ! Begin Subroutine aerdis              
+    !------------------------------------------------------------------------------
+
+    DO jc=jcs,jce
+      pvdaes(jc,1) = 0.0_wp
+      pvdael(jc,1) = 0.0_wp
+      pvdaeu(jc,1) = 0.0_wp
+      pvdaed(jc,1) = 0.0_wp
+    ENDDO
+
+!!$  IF(petah(1).NE.0._wp) THEN
+!!$     pvdaes(1) = petah(1)**zhss
+!!$     pvdael(1) = petah(1)**zhsl
+!!$     pvdaeu(1) = petah(1)**zhsu
+!!$     pvdaed(1) = petah(1)**zhsd
+!!$  END IF
+
+    DO jk=2,klevp1
+      DO jc=jcs,jce
+        log_eta       = LOG(petah(jc,jk))
+        pvdaes(jc,jk) = EXP(zhss*log_eta) ! petah(jc,jk)**zhss
+        pvdael(jc,jk) = pvdaes(jc,jk)     ! petah(jc,jk)**zhsl; zhsl is the same as zhss
+        pvdaeu(jc,jk) = pvdaes(jc,jk)     ! petah(jc,jk)**zhsu; zhsu is the same as zhss
+        pvdaed(jc,jk) = EXP(zhsd*log_eta) ! petah(jc,jk)**zhsd
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE aerdis
 
   !>
   !! Initializes aerosol (climatologically).
@@ -525,95 +628,6 @@ CONTAINS
      &0.6941_wp,0.7286_wp,0.7358_wp,0.7177_wp,0.6955_wp,0.0616_wp/),(/jpsw+jpband,5/))      ! SB
 
   END SUBROUTINE init_aerosol_props_tanre_rrtm
-
-  SUBROUTINE init_aerosol_props_tanre_rg
-
-   ! the following aerosol types (second array index) are considered:
-   ! 1 : continental
-   ! 2 : maritime
-   ! 3 : urban
-   ! 4 : vulcano ashes
-   ! 5 : stratospheric background aerosol (SB)
-
-    !absorption
-    zaea_rg=RESHAPE((/0.0477_wp, 0.0875_wp,  0.1198_wp, 0.0458_wp, &
-      0.0387_wp, 0.0439_wp,  0.0599_wp, 0.0396_wp, &
-      0.0381_wp, 0.0129_wp,  0.0130_wp, 0.1304_wp, &
-      0.1757_wp, 0.0949_wp,  0.0653_wp, 0.0795_wp, &
-      0.0962_wp, 0.2046_wp,  0.4116_wp, 0.0169_wp, &
-      0.0204_wp, 0.0263_wp,  0.0348_wp, 0.0361_wp, &
-      0.0030_wp, 0.0271_wp,  0.0613_wp, 0.0118_wp, &
-      0.0160_wp, 0.0231_wp,  0.0287_wp, 0.0127_wp, &
-      0.0103_wp, 0.000016_wp,0.0000_wp, 0.0087_wp, &
-      0.0238_wp, 0.0511_wp,  0.0734_wp, 0.0809_wp/),(/jpspec,5/))
-
-    !scattering
-    zaes_rg=RESHAPE((/0.1407_wp, 0.4256_wp,  1.0066_wp, 0.0279_wp, &
-      0.0391_wp, 0.0445_wp,  0.0485_wp, 0.0362_wp, &
-      0.6746_wp, 0.8761_wp,  1.0139_wp, 0.0443_wp, &
-      0.0624_wp, 0.0921_wp,  0.1491_wp, 0.2327_wp, &
-      0.0605_wp, 0.2761_wp,  0.7449_wp, 0.0023_wp, &
-      0.0034_wp, 0.0051_wp,  0.0065_wp, 0.0045_wp, &
-      0.0284_wp, 0.5524_wp,  0.9683_wp, 0.0001_wp, &
-      0.0004_wp, 0.0024_wp,  0.0049_wp, 0.0030_wp, &
-      0.0467_wp, 0.3854_wp,  1.1008_wp, 0.0000_wp, &
-      0.00005_wp,0.0004_wp,  0.0006_wp, 0.0006_wp/),(/jpspec,5/))
-
-   !asymmetry factor   
-    zaeg_rg=RESHAPE((/0.6989_wp, 0.6329_wp,  0.6418_wp, 0.6243_wp, &
-      0.7299_wp, 0.7430_wp,  0.7086_wp, 0.8569_wp, &
-      0.7833_wp, 0.7575_wp,  0.7456_wp, 0.4997_wp, &
-      0.6130_wp, 0.7440_wp,  0.7426_wp, 0.7590_wp, &
-      0.5753_wp, 0.5867_wp,  0.5957_wp, 0.6027_wp, &
-      0.6766_wp, 0.6117_wp,  0.5439_wp, 0.6905_wp, &
-      0.5170_wp, 0.6674_wp,  0.7004_wp, 0.0340_wp, &
-      0.0570_wp, 0.1289_wp,  0.1597_wp, 0.1906_wp, &
-      0.3751_wp, 0.6353_wp,  0.7259_wp, 0.0037_wp, &
-      0.0083_wp, 0.0177_wp,  0.0201_wp, 0.0332_wp/),(/jpspec,5/))
-    
-  END SUBROUTINE init_aerosol_props_tanre_rg
-
-  SUBROUTINE init_aerosol_props_tegen_rg
-
-  ! the following aerosol types (second array index) are considered:
-  ! 1. continental, 2. maritime, 3. desert, 4. urban, 5. stratospheric background
-
-    zaea_rg=RESHAPE((/0.0345_wp,0.0511_wp,0.0847_wp,0.0336_wp,&
-      0.0499_wp,0.0364_wp,0.0382_wp,0.0260_wp,&
-      0.0457_wp,0.0018_wp,0.0015_wp,0.1361_wp,&
-      0.2346_wp,0.1177_wp,0.0684_wp,0.0808_wp,&
-      0.0707_wp,0.0689_wp,0.1557_wp,0.1258_wp,&
-      0.1588_wp,0.1973_wp,0.2766_wp,0.1134_wp,&
-      0.0597_wp,0.1077_wp,0.2095_wp,0.0299_wp,&
-      0.0456_wp,0.0358_wp,0.0377_wp,0.0304_wp,&
-      0.0103_wp, 0.000016_wp,0.0000_wp, 0.0087_wp, &
-      0.0238_wp, 0.0511_wp,  0.0734_wp, 0.0809_wp/),(/jpspec,5/))
-
-     
-    zaes_rg=RESHAPE((/0.1030_wp,0.3977_wp,1.0680_wp,0.0084_wp,&
-      0.0142_wp,0.0191_wp,0.0234_wp,0.0140_wp,&
-      0.7894_wp,0.9734_wp,1.0110_wp,0.0307_wp,&
-      0.0531_wp,0.0546_wp,0.0839_wp,0.2142_wp,&
-      0.7157_wp,0.8698_wp,0.8604_wp,0.0645_wp,&
-      0.0781_wp,0.1256_wp,0.2317_wp,0.1409_wp,&
-      0.0859_wp,0.3442_wp,0.9496_wp,0.0067_wp,&
-      0.0113_wp,0.0153_wp,0.0187_wp,0.0113_wp,&
-      0.0467_wp, 0.3854_wp,  1.1008_wp, 0.0000_wp, &
-      0.00005_wp,0.0004_wp,  0.0006_wp, 0.0006_wp/),(/jpspec,5/))
-     
-     
-    zaeg_rg=RESHAPE((/0.6562_wp,0.6614_wp,0.7109_wp,0.5043_wp,&
-      0.6486_wp,0.6814_wp,0.6489_wp,0.7799_wp,&
-      0.8105_wp,0.7906_wp,0.7947_wp,0.4374_wp,&
-      0.5203_wp,0.7076_wp,0.7246_wp,0.7535_wp,&
-      0.6932_wp,0.6962_wp,0.7402_wp,0.4029_wp,&
-      0.5587_wp,0.5618_wp,0.4520_wp,0.7120_wp,&
-      0.6462_wp,0.6510_wp,0.6955_wp,0.5041_wp,&
-      0.6482_wp,0.6805_wp,0.6477_wp,0.7753_wp,&
-      0.3751_wp, 0.6353_wp,  0.7259_wp, 0.0037_wp, &
-      0.0083_wp, 0.0177_wp,  0.0201_wp, 0.0332_wp/),(/jpspec,5/))
-    
-  END SUBROUTINE init_aerosol_props_tegen_rg
   
   SUBROUTINE init_aerosol_props_tegen_rrtm
 
@@ -693,53 +707,64 @@ CONTAINS
 
   ! Very simple parameterization of source and sink terms for prognostic 2D aerosol fields
   !
-  SUBROUTINE prog_aerosol_2D (nproma,jcs,jce,dtime,iprog_aero,aerosol,aercl_ss,aercl_or,aercl_bc,aercl_su,aercl_du,       &
-                              rr_gsp,sr_gsp,rr_con,sr_con,gust_dyn,gust_con,soiltype,plcov_t,frac_t,w_so_t,t_so_t,h_snow_t)
-                              
-    
-    INTEGER,  INTENT(in)    :: nproma, jcs, jce, iprog_aero
-    REAL(wp), INTENT(in)    :: dtime
+  SUBROUTINE prog_aerosol_2D (jcs, jce, jg, dtime, iprog_aero, aerosol,               &
+    &                         aercl_ss,aercl_or,aercl_bc,aercl_su,aercl_du,           &
+    &                         rr_gsp,sr_gsp,rr_con,sr_con,                            &
+    &                         soiltype,plcov_t,frac_t,w_so_t, w_so_ice_t, h_snow_t,   &
+    &                         lc_class_t, rho, tcm_t, u, v, idx_lst_t, gp_count_t )
+    REAL(wp), INTENT(in)            :: &
+      &  dtime,                        & !< Time step (s)
+      &  aercl_ss(:), aercl_or(:),     & !< AOD climatology (sea salt, organic)
+      &  aercl_bc(:), aercl_su(:),     & !< AOD climatology (black carbon, sulfate)
+      &  aercl_du(:),                  & !< AOD climatology (dust)
+      &  rr_gsp(:),sr_gsp(:),          & !< Grid-scale rain & snow rate
+      &  rr_con(:),sr_con(:),          & !< Convective rain & snow rate
+      &  plcov_t(:,:),                 & !< Plant cover (tiled)
+      &  frac_t(:,:),                  & !< Tile fraction
+      &  w_so_t(:,:), w_so_ice_t(:,:), & !< Soil water & ice (tiled)
+      &  h_snow_t(:,:),                & !< Snow height (tiled)
+      &  rho(:),                       & !< Air density
+      &  tcm_t(:,:),                   & !< Transfer coefficient for momentum
+      &  u(:), v(:)                      !< Wind vector components
+    INTEGER,  INTENT(in) :: &
+      &  jcs, jce,          & !< Start and end index of nproma loop
+      &  jg,                & !< Domain index
+      &  iprog_aero,        & !< Prognostic aerosol mode: 1 only dust, 2 all
+      &  soiltype(:),       & !< Soil type index (dim: nproma)
+      &  lc_class_t(:,:),   & !< Land use class index (dim: nproma, ntiles)
+      &  idx_lst_t(:,:),    & !< Tiled index list to loop over land points (dim: nproma,ntiles)
+      &  gp_count_t(:)        !< Returns number of local grid points per tile (dim: ntiles)
+    REAL(wp), INTENT(inout) :: &
+      &  aerosol(:,:)         !< Aerosol Optical Depth (AOD)
+    ! Local variables
+    REAL(wp) ::                 &
+      &  relax_scale(2),        & !< Target values for relaxation
+      &  relax_fac(2),          & !< Relaxation time scales
+      &  od_clim(nclass_aero),  & !< AOD offsets for climatology-based source terms
+      &  minfrac,               & !< minimum allowed fraction of climatological AOD
+      &  ts_saltsrc, ts_orgsrc, & !< Time scales for sources
+      &  ts_bcsrc, ts_susrc,    & !< Time scales for sources
+      &  washout, washout_scale,& !< Washout and washout scale for dust
+      &  dust_flux, aod_flux      !< 
+    INTEGER ::              &
+      &  jc, jt, jcl,       & !< Loop indices
+      &  i_count_lnd          !< Number of land grid points in current block
 
-    REAL(wp), INTENT(inout) :: aerosol(:,:)
-    REAL(wp), INTENT(in)    :: aercl_ss(:),aercl_or(:),aercl_bc(:),aercl_su(:),aercl_du(:),  &
-                               rr_gsp(:),sr_gsp(:),rr_con(:),sr_con(:),                      &
-                               gust_dyn(:),gust_con(:),plcov_t(:,:),frac_t(:,:),w_so_t(:,:), &
-                               t_so_t(:,:),h_snow_t(:,:)
-    INTEGER,  INTENT(in)    :: soiltype(:)
-
-    INTEGER :: jc, js, jt
-
-    REAL(wp) :: relax_scale(2), relax_fac(2), od_clim(nclass_aero), vfac, wsofac, tsofac, minfrac, &
-                plcfac, snwfac, dustsrc(ntiles_lnd), ts_dustsrc, ts_saltsrc, ts_orgsrc, ts_bcsrc, ts_susrc, &
-                washout, washout_scale
-
-    ! Fractions of climatology used as target values for relaxation 
-    ! (tuned to approximately balance the source terms for non-dust aerosol classes)
-    relax_scale(1)  = 0.7_wp
-    relax_scale(2)  = 0.4_wp
-
-    ! Relaxation time scales
-    relax_fac(1) = 1._wp/(3._wp*86400._wp)  ! 3 days for aerosols with shallow vertical extent
-    relax_fac(2) = 1._wp/(10._wp*86400._wp) ! 10 days for aerosols with deep vertical extent (dust)
-
-    ! Time scales for sources
-    ts_dustsrc = 1._wp/(12.5_wp*86400._wp) ! 12.5 days for dust source terms
-    ts_saltsrc = 1._wp/(2.5_wp*86400._wp)  ! 2.5  days for sea salt
-    ts_orgsrc  = 1._wp/(2.5_wp*86400._wp)  ! 2.5  days for organic aerosol
-    ts_bcsrc   = 1._wp/(2.5_wp*86400._wp)  ! 2.5  days for black carbon
-    ts_susrc   = 1._wp/(2.5_wp*86400._wp)  ! 2.5  days for sulfate aerosol
-
-    ! Washout scale for dust
-    washout_scale = 1._wp/7.5_wp  ! e-folding scale 7.5 mm WE precipitation
-
-    minfrac = 0.025_wp ! minimum allowed fraction of climatological aerosol optical depth
-
-    ! optical depth offsets for climatology-based source terms
-    od_clim(iss)  = 0.005_wp
-    od_clim(iorg) = 0.015_wp
-    od_clim(ibc)  = 0.002_wp
-    od_clim(iso4) = 0.015_wp
-    od_clim(idu)  = 0.075_wp
+    relax_scale(1) = 0.7_wp ! tuned to approximately balance 
+                            ! the source terms for non-dust aerosol classes
+    relax_scale(2) = 1._wp
+    relax_fac(1)   = 1._wp/(3._wp*86400._wp)  ! 3 days for aerosols with shallow vertical extent
+    relax_fac(2)   = 1._wp/(8._wp*86400._wp)  ! 8 days for aerosols with deep vertical extent (dust)
+    ts_saltsrc     = 1._wp/(2.5_wp*86400._wp) ! 2.5  days for sea salt
+    ts_orgsrc      = 1._wp/(2.5_wp*86400._wp) ! 2.5  days for organic aerosol
+    ts_bcsrc       = 1._wp/(2.5_wp*86400._wp) ! 2.5  days for black carbon
+    ts_susrc       = 1._wp/(2.5_wp*86400._wp) ! 2.5  days for sulfate aerosol
+    washout_scale  = 1._wp/7.5_wp             ! e-folding scale 7.5 mm WE precipitation
+    minfrac        = 0.025_wp
+    od_clim(iss)   = 0.005_wp
+    od_clim(iorg)  = 0.015_wp
+    od_clim(ibc)   = 0.002_wp
+    od_clim(iso4)  = 0.015_wp
 
     ! Prediction of mineral dust; other aerosol classes are treated prognostically only if iprog_aero=2
 
@@ -748,28 +773,26 @@ CONTAINS
       aerosol(jc,idu)  = aerosol(jc,idu)  + dtime*relax_fac(2)*(relax_scale(2)*aercl_du(jc)-aerosol(jc,idu))
     ENDDO
 
-    ! Sources and sinks for mineral dust, including weak climatology-based source term
-    DO jc = jcs, jce
-      IF (soiltype(jc) >= 3 .AND. soiltype(jc) <= 8) THEN ! land excluding glaciers and rock
-        js = soiltype(jc)
-        DO jt = 1, ntiles_lnd ! snow tiles are excluded a priori; the snow depth criterion is relevant without snow tiles only
-          wsofac = MAX(0._wp,w_so_t(jc,jt)/dzsoil(1)-1.5_wp*cadp(js)) / (cfcap(js)-1.5_wp*cadp(js)) ! soil moisture < field cap.
-          plcfac = MAX(0._wp, (0.75_wp-plcov_t(jc,jt))/0.75_wp)             ! plant cover < 75%
-          snwfac = MAX(0._wp, (0.05_wp-h_snow_t(jc,jt))*20._wp)             ! snow depth < 5 cm
-          tsofac = MAX(0._wp, MIN(1._wp,0.4_wp*(t_so_t(jc,jt)-270.65_wp)))  ! top soil layer warmer than -2.5 deg C
-          vfac   = MAX(0._wp, gust_dyn(jc)+gust_con(jc) - (7.5_wp+17.5_wp*wsofac)) ! gusts > soil-moisture dependent threshold
-          dustsrc(jt) = dtime*ts_dustsrc*( vfac*plcfac*snwfac*tsofac +        &
-                   MAX(0._wp,aercl_du(jc)-MAX(od_clim(idu),aerosol(jc,idu)) ) )
-        ENDDO
-        ! washout of mineral dust by precipitation: convective precip is counted only by 50% because it
-        ! is assumed not to cover the whole grid box
-        washout = dtime*washout_scale*(rr_gsp(jc)+sr_gsp(jc)+0.5_wp*(rr_con(jc)+sr_con(jc)))*aerosol(jc,idu)
-        aerosol(jc,idu)  = aerosol(jc,idu) - washout + SUM(dustsrc(1:ntiles_lnd)*frac_t(jc,1:ntiles_lnd))
-      ENDIF
-    ENDDO
+    DO jt = 1, ntiles_lnd
+      i_count_lnd = gp_count_t(jt)
+      IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
+!$NEC ivdep
+      DO jcl = 1, i_count_lnd
+        jc = idx_lst_t(jcl,jt)
+        ! dust_flux is not used here, but could be used for more sophisticated aerosol modules
+        CALL aerosol_dust_aod_source (p_dust_source_const(jg), dzsoil(1), w_so_t(jc,jt), h_snow_t(jc,jt), &
+          &                           w_so_ice_t(jc,jt), soiltype(jc), plcov_t(jc,jt), lc_class_t(jc,jt), &
+          &                           rho(jc), tcm_t(jc,jt), u(jc), v(jc), aod_flux, dust_flux)
+        ! Update AOD field with tendency from aod_flux
+        aerosol(jc,idu) = aerosol(jc,idu) + aod_flux * frac_t(jc,jt) * dtime
+      ENDDO ! jcl
+    ENDDO !jt
 
-    ! Ensure that the aerosol optical depth does not fall below 2.5% of the climatological value
     DO jc = jcs, jce
+      ! Calculate washout everywhere (not only above land)
+      washout = dtime*washout_scale*(rr_gsp(jc)+sr_gsp(jc)+0.5_wp*(rr_con(jc)+sr_con(jc)))*aerosol(jc,idu)
+      aerosol(jc,idu)  = aerosol(jc,idu) - washout
+      ! Ensure that the aerosol optical depth does not fall below 2.5% of the climatological value
       aerosol(jc,idu)  = MAX(aerosol(jc,idu),  minfrac*aercl_du(jc))
     ENDDO
 
@@ -830,6 +853,58 @@ CONTAINS
 
 
   END SUBROUTINE tune_dust
+
+
+  SUBROUTINE aerosol_2D_diffusion( p_patch, p_int_state, nproma, aerosol )
+    TYPE(t_patch), INTENT(in)     :: &
+      &  p_patch                       !< Current patch
+    TYPE(t_int_state), INTENT(in) :: &
+      &  p_int_state                   !< interpolation state
+    INTEGER,  INTENT(in)          :: &
+      &  nproma
+    REAL(wp), INTENT(inout)       :: &
+      &  aerosol(:,:,:)                !< Aerosol container
+    ! Local variables
+    REAL(wp), ALLOCATABLE         :: &
+      &  nabla2_aero(:,:,:)            !< Laplacian of aerosol(:,:,:)
+    REAL(wp)                      :: &
+      &  diff_coeff                    !< Diffusion coefficient
+    INTEGER                       :: &
+      &  jb, jc,                     &
+      &  i_rlstart, i_rlend,         &
+      &  i_startblk, i_endblk,       & 
+      &  i_startidx, i_endidx
+
+    diff_coeff = 0.125_wp
+
+    ALLOCATE(nabla2_aero(nproma,nclass_aero,p_patch%nblks_c))
+
+    CALL nabla2_scalar(aerosol(:,:,:),          &
+      &                p_patch, p_int_state,    &
+      &                nabla2_aero(:,:,:),      &
+      &                idu, idu, grf_bdywidth_c+1, min_rlcell_int)
+
+    i_rlstart  = grf_bdywidth_c+1
+    i_rlend    = min_rlcell_int
+    i_startblk = p_patch%cells%start_block(i_rlstart)
+    i_endblk   = p_patch%cells%end_block(i_rlend)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, i_rlstart, i_rlend)
+      DO jc = i_startidx, i_endidx
+        aerosol(jc,idu,jb) = MAX(0.0_wp, aerosol(jc,idu,jb) + diff_coeff *           &
+                                 p_patch%cells%area(jc,jb) * nabla2_aero(jc,idu,jb))
+      ENDDO !jc
+    ENDDO !jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    DEALLOCATE(nabla2_aero)
+
+  END SUBROUTINE aerosol_2D_diffusion
 
 END MODULE mo_aerosol_util
 

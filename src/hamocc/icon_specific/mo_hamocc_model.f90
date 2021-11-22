@@ -40,6 +40,8 @@ MODULE mo_hamocc_model
   !
   USE mo_run_config,          ONLY: &
     & test_mode,              &
+    & ldynamics,              &
+    & ltransport,             &
     & dtime,                  & !    :
     & ltimer,                 & !    :
     & num_lev,                &
@@ -442,7 +444,7 @@ MODULE mo_hamocc_model
     CALL setup_phys_patches
 
     ! we need the nnow info
-    CALL configure_dynamics ( n_dom )
+    CALL configure_dynamics ( n_dom, ldynamics, ltransport )
 
     !------------------------------------------------------------------
     CALL construct_ocean_var_lists(patch_3d%p_patch_2d(1))

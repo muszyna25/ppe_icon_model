@@ -71,6 +71,7 @@ USE mo_nwp_ww,               ONLY: configure_ww
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
   &                                construct_nh_state, destruct_nh_state,      &
   &                                duplicate_prog_state
+USE mo_prepadv_state,        ONLY: construct_prepadv_state, destruct_prepadv_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag,      &
   &                                compute_lonlat_area_weights
 USE mo_nwp_phy_state,        ONLY: prm_diag, prm_nwp_tend,                     &
@@ -257,6 +258,9 @@ CONTAINS
 
     ! Add optional diagnostic variable lists (might remain empty)
     CALL construct_opt_diag(p_patch(1:), .TRUE.)
+
+    ! construct prep_adv state, which is required for tracer transport
+    CALL construct_prepadv_state (p_patch(1:))
 
     IF (iforcing == inwp) THEN
       CALL construct_nwp_phy_state( p_patch(1:), var_in_output)
@@ -449,7 +453,7 @@ CONTAINS
       ENDIF
 
       !
-      ! Initialize tracers fields jt=iqt to jt=ntracer, which are not available in the analysis file,
+      ! Initialize tracers which are not available in the analysis file,
       ! but may be used with ECHAM physics, for real cases or test cases.
       !
       IF (iforcing == iecham ) THEN
@@ -508,40 +512,6 @@ CONTAINS
       END DO
       !
     END IF
-
-
-    ! Copy prognostic variables, for which no tendencies are computed,
-    ! from time level "now" to time level "new", so that they are correctly set
-    ! at odd and even time steps.
-    !
-    IF (.NOT.ldynamics)  THEN ! copy prognostic variables of the dynamics
-      DO jg = 1,n_dom
-         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-         n_now = nnow(jg)
-         n_new = nnew(jg)
-!$OMP PARALLEL
-         CALL copy(p_nh_state(jg)%prog(n_now)%vn     , p_nh_state(jg)%prog(n_new)%vn     )
-         CALL copy(p_nh_state(jg)%prog(n_now)%w      , p_nh_state(jg)%prog(n_new)%w      )
-         CALL copy(p_nh_state(jg)%prog(n_now)%theta_v, p_nh_state(jg)%prog(n_new)%theta_v)
-         CALL copy(p_nh_state(jg)%prog(n_now)%exner  , p_nh_state(jg)%prog(n_new)%exner  )
-         CALL copy(p_nh_state(jg)%prog(n_now)%rho    , p_nh_state(jg)%prog(n_new)%rho    )
-!$OMP END PARALLEL
-      END DO
-    END IF
-
-    IF (.NOT.ltransport) THEN ! copy prognostic variables of the transport
-      DO jg = 1,n_dom
-         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-         n_now_rcf = nnow_rcf(jg)
-         n_new_rcf = nnew_rcf(jg)
-         DO jt = 1,ntracer
-!$OMP PARALLEL
-            CALL copy(p_nh_state(jg)%prog(n_now_rcf)%tracer(:,:,:,jt), p_nh_state(jg)%prog(n_new_rcf)%tracer(:,:,:,jt) )
-!$OMP END PARALLEL
-         END DO
-      END DO
-    END IF
-
 
     !------------------------------------------------------------------
     ! Asynchronous pre-fetching
@@ -742,6 +712,8 @@ CONTAINS
     DEALLOCATE (p_nh_state, p_nh_state_lists, STAT=ist)
     IF (ist /= SUCCESS) CALL finish(routine,'deallocation for state failed')
 
+
+    CALL destruct_prepadv_state()
 
     ! close LES diag files
     DO jg = 1 , n_dom

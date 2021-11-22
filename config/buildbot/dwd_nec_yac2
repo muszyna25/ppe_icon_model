@@ -47,7 +47,9 @@ cd build/vector
 PATCH='patch --forward --no-backup-if-mismatch --strip=1 --reject-file=-'
 $PATCH -d "${ICON_DIR}/externals/yaxt" -i "${MY_DIR}/dwd_nec_patches/yaxt_mpi_abort_test.patch" || test $? -eq 1 || exit 2
 
-${ICON_DIR}/config/dwd/rcl.VE.nfort-3.3.1_oper --enable-openmp --prefix=${ICON_DIR}/vector MPI_LAUNCH='/opt/nec/ve/bin/mpirun' acx_cv_prog_mpirun='/opt/nec/ve/bin/mpirun' acx_cv_fc_c_compatible_mpi=yes
+
+${ICON_DIR}/config/dwd/rcl.VE.nfort-3.2.0_oper --disable-openmp --prefix=${ICON_DIR}/vector MPI_LAUNCH='/opt/nec/ve/bin/mpirun' acx_cv_prog_mpirun='/opt/nec/ve/bin/mpirun' acx_cv_fc_c_compatible_mpi=yes
+
 
 if test 0 -ne "$?" && test ! -z "${BB_SLAVE}"; then
   echo " ***** Configuration logs from '$(pwd)' ***** "

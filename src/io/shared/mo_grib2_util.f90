@@ -154,11 +154,28 @@ CONTAINS
     CALL vlistDefVarIntKey(vlistID, varID, "grib2LocalSectionPresent", 1)
 
 
-    ! SECTION 2: DWD specific settings (local use)
+    ! SECTION 2: specific settings (local use) for DWD and COSMO Partners
+    ! similar modifications are done in subroutine set_GRIB2_timedep_local_keys below
     !
-    ! DWD :: center    = 78
+    ! list of centers:
+    !   Moscow:     4   (rums Moscow)
+    !               5   Moscow (WMC)
+    !              76   Moscow (RSMC/RAFC)
+    !   DWD:       78   Offenbach (RSMC)
+    !   Italy:     80   Rome (RSMC)
+    !   Athens:    96
+    !   MCH:      215   Zuerich
+    !   Poland:   220   Poland  
+    !   Romania:  242   Romania
+    !             250   cosmo COnsortium for Small scale MOdelling (COSMO)
+
     !        subcenter = 255
-    IF ((grib_conf%generatingCenter == 78) .AND. (grib_conf%generatingSubcenter == 255)) THEN
+    !US we do not need to check the subcenter here
+    !US IF ((grib_conf%generatingCenter == 78) .AND. (grib_conf%generatingSubcenter == 255)) THEN
+
+    ! Add more centers, if required
+    SELECT CASE (grib_conf%generatingCenter)
+    CASE (78, 80, 215)
 
       CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  ,         &
         &                    grib_conf%localDefinitionNumber)
@@ -185,7 +202,7 @@ CONTAINS
           &                          grib_conf%localTypeOfEnsembleForecast)
 
       END IF ! localDefinitionNumber
-    END IF
+    END SELECT
 
   END SUBROUTINE set_GRIB2_local_keys
 
@@ -606,37 +623,43 @@ CONTAINS
     ! It is obtained via streamInqVlist(streamID)
     vlistID = streamInqVlist(streamID)
 
-    ! SECTION 2: DWD specific settings (local use)
-    !
-    ! DWD :: center    = 78
-    !        subcenter = 255
-    IF ((grib_conf%generatingCenter == 78) .AND. (grib_conf%generatingSubcenter == 255)) THEN
+    ! SECTION 2: specific settings (local use) for DWD and COSMO Partners
+    !  for list of centers see subroutine set_GRIB2_local_keys above
 
-      IF (grib_conf%ldate_grib_act) THEN
-        ! get date and time
-        ! ydate : ccyymmdd, ytime : hhmmss.sss
-        CALL date_and_time(ydate,ytime)
-        READ(ydate,'(4i2)') cent, year, month, day
-        READ(ytime,'(3i2)') hour, minute, second
-      ELSE ! set date to "01010101" (for better comparability of GRIB files)
-        cent  = 1
-        year  = 1
-        month = 1
-        hour  = 1
-        minute= 1
-        second= 1
-      ENDIF
+    ! Only set local time information for localDefinitionNumber 253, 254
+    ! COSMO local section 250 does not include time information
+
+    SELECT CASE (grib_conf%localDefinitionNumber)
+    CASE (253, 254)
+      SELECT CASE (grib_conf%generatingCenter)
+      CASE (78, 80, 215)
+
+        IF (grib_conf%ldate_grib_act) THEN
+          ! get date and time
+          ! ydate : ccyymmdd, ytime : hhmmss.sss
+          CALL date_and_time(ydate,ytime)
+          READ(ydate,'(4i2)') cent, year, month, day
+          READ(ytime,'(3i2)') hour, minute, second
+        ELSE ! set date to "01010101" (for better comparability of GRIB files)
+          cent  = 1
+          year  = 1
+          month = 1
+          hour  = 1
+          minute= 1
+          second= 1
+        ENDIF
 
 
-      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear"  , 100*cent+year)
-      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMonth" , month)
-      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
-      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
-      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
-      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateSecond", second)
-      ! CALL vlistDefVarIntKey(vlistID, varID, "localValidityDateYear"  , 2013)
+        CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear"  , 100*cent+year)
+        CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMonth" , month)
+        CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
+        CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
+        CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
+        CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateSecond", second)
+        ! CALL vlistDefVarIntKey(vlistID, varID, "localValidityDateYear"  , 2013)
 
-    END IF
+      END SELECT    ! generatingCenter
+    END SELECT      ! localDefinitionNumber
 
   END SUBROUTINE set_GRIB2_timedep_local_keys
 

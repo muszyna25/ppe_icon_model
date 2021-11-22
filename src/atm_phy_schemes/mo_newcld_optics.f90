@@ -183,15 +183,17 @@ CONTAINS
       &  zt(kbdim,klev),           & !< temperature
       &  zlwp(kbdim,klev),         & !< liquid water path
       &  ziwp(kbdim,klev),         & !< ice water path
-      &  zcdnc(kbdim,klev),        & !< cloud drop number concentration
       &  zlwc(kbdim,klev),         & !< liquid water content [g/m3]
-      &  ziwc(kbdim,klev),         & !< ice water content    [g/m3]
-      &  zglac(kbdim),             & !< fraction of land covered by glaciers
-      &  zland(kbdim)                !< land-sea mask. (1. = land, 0. = sea/lakes)
+      &  ziwc(kbdim,klev)            !< ice water content    [g/m3]
 
-    REAL (wp), POINTER, INTENT (IN)  ::     &
-      &  zreff_liq(:,:),           & !< effective radius of the liquid phase
-      &  zreff_frz(:,:)              !< effective radius of the frozen phase
+    REAL (wp), POINTER, INTENT (IN) ::     &
+      &  zglac(:),                 & !< fraction of land covered by glaciers
+      &  zland(:)                  !< land-sea mask. (1. = land, 0. = sea/lakes)
+    REAL (wp), INTENT (IN)  ::     &
+      &  zcdnc(kbdim,klev),               & !< cloud drop number concentration
+      &  zreff_liq(kbdim,klev),           & !< effective radius of the liquid phase
+      &  zreff_frz(kbdim,klev)              !< effective radius of the frozen phase
+
 
     REAL (wp), INTENT (OUT) ::     &
       &  tau_lw(kbdim,klev,nb_lw), & !< LW optical depth
@@ -249,10 +251,11 @@ CONTAINS
       END DO
     END IF
 
-    DO jl=1,jce
-      zkap(jl) = zkap_cont*(zland(jl)-zglac(jl)) + zkap_mrtm*(1.0_wp-zland(jl)+zglac(jl))
-    ENDDO
-
+    IF ( icpl_reff==0 ) THEN ! Coupling of reff with radiation
+      DO jl=1,jce
+        zkap(jl) = zkap_cont*(zland(jl)-zglac(jl)) + zkap_mrtm*(1.0_wp-zland(jl)+zglac(jl))
+      ENDDO
+    END IF
 
     !
     ! 2.0 Cloud Optical Properties by interpolating tables in effective radius
@@ -265,7 +268,7 @@ CONTAINS
             re_crystals(jl) = MAX(reimin,MIN(reimax,1.0e6_wp* zreff_frz(jl,jk)))
             re_droplets(jl) = MAX(relmin,MIN(relmax,1.0e6_wp* zreff_liq(jl,jk)))
         ENDDO
-      ELSE
+      ELSE IF ( icpl_reff==0 ) THEN
         DO jl=1,jce
           IF (icldlyr(jl,jk)==1 .AND. (zlwp(jl,jk)+ziwp(jl,jk))>ccwmin) THEN
             ! see ECHAM5 documentation (Roeckner et al, MPI report 349)            
@@ -275,6 +278,8 @@ CONTAINS
                                        & /zcdnc(jl,jk))**(1.0_wp/3.0_wp)))
           ENDIF
         ENDDO
+      ELSE
+        CALL finish('Invalid option for icpl_reff in newcld_optics')
       ENDIF
 
 !$NEC ivdep 

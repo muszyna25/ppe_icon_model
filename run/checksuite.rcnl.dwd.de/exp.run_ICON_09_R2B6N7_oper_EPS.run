@@ -1,7 +1,7 @@
 #!/bin/bash
 # ----------------------------------------------------------------------------
 #PBS -q sx_norm
-#PBS -v NE=4,CPE=8,NMPI_ROOT=/opt/nec/ve/mpi/2.3.1
+#PBS -v NE=2,CPE=8,NMPI_ROOT=/opt/nec/ve/mpi/2.3.1
 #PBS -v NMPI_MALLOC_HEAP_EXPANSION_SIZE=512
 #PBS -v NMPI_MALLOC_MMAP_THRESHOLD=512
 #PBS -v MPI_IB_VBUF_TOTAL_SIZE=131072
@@ -173,11 +173,11 @@ done
 
 cat > ${atmo_namelist} << EOF
 &parallel_nml
- nproma          =  760
+ nproma          =  504
  p_test_run      = .false.
  l_test_openmp   = .true.
  l_log_checks    = .true.
- num_io_procs    =  4
+ num_io_procs    =  2
  num_restart_procs = 0
  itype_comm      =  1
  iorder_sendrecv =  3
@@ -448,13 +448,12 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  filename_format      = '<output_filename><ddhhmmss><levtype>v01'
  stream_partitions_ml = 1
  pe_placement_ml      = 1
- ml_varlist           = 'U',         'V',         'T',         'W',         'TKE',
-                        'QV',        'QC',        'QI',        'QR',        'QS',
+ ml_varlist           = 'U',         'V',         'T',         'W',
                         'T_G',       'H_ICE',     'FR_ICE',    'RELHUM_2M',
                         'T_SNOW',    'H_SNOW',    'FRESHSNW',  'PS',
                         'T_SO',      'W_SO'
  stream_partitions_pl = 1
- pe_placement_pl      = 2
+ pe_placement_pl      = 0
  pl_varlist           = 'FI', 'T', 'U', 'V', 'RELHUM'
  p_levels             =    100,   200,            500,           1000,           3000,
                           5000,  7000,  10000,  20000,  25000,  30000,  50000,  70000,
@@ -504,7 +503,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  output_filename      = 'igfff'                      ! file name base
  filename_format      = '<output_filename><ddhhmmss><levtype>V01'
  stream_partitions_pl = 1
- pe_placement_pl      = 2
+ pe_placement_pl      = 1
  pl_varlist           = 'FI',   'T',
  p_levels             =   50000, 85000
  output_grid          = .false.
@@ -525,9 +524,9 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  output_filename      = 'igfrf'                      ! file name base
  filename_format      = '<output_filename><ddhhmmss><levtype>'
  stream_partitions_ml = 1
- pe_placement_ml      = 3
+ pe_placement_ml      = 0
  stream_partitions_pl = 1
- pe_placement_pl      = 2
+ pe_placement_pl      = 0
  ml_varlist           = 'ALB_RAD', 'ALHFL_S', 'APAB_S', 'ASHFL_S', 'ASOB_S',
                         'ASOB_T', 'ASWDIFD_S', 'ASWDIFU_S', 'ASWDIR_S', 'ATHB_S',
                         'ATHB_T', 'AUMFL_S', 'AVMFL_S', 'CAPE_ML', 'CIN_ML',
@@ -610,7 +609,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  output_filename      = 'iefff'                      ! file name base
  filename_format      = '<output_filename><ddhhmmss><levtype>'
  stream_partitions_ml = 1
- pe_placement_ml      = 2
+ pe_placement_ml      = 1
  ml_varlist           = 'QV',        'QC',        'QI',        'QR',        'QS',
                         'U',         'V',         'T',         'P',
                         'W',
@@ -661,7 +660,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  output_filename      = 'iefff'                      ! file name base
  filename_format      = '<output_filename><ddhhmmss><levtype>v00'
  stream_partitions_ml = 1
- pe_placement_ml      = 2
+ pe_placement_ml      = 0
  ml_varlist           = 'TKE',
                         'CLCT', 'CLCH', 'CLCM', 'CLCL',
                         'PMSL', 'PS',
@@ -671,7 +670,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
                         'TMIN_2M',   'TMAX_2M',
 !!                      'H_ICE',     'FR_ICE',  'H_SNOW', 'W_SNOW', 'FRESHSNW',
  stream_partitions_pl = 1
- pe_placement_pl      = 2
+ pe_placement_pl      = 1
  pl_varlist           = 'T',         'U',         'V',
  p_levels             =  50000, 85000
  output_grid          = .false.
@@ -693,7 +692,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  output_filename      = 'iefff'                      ! file name base
  filename_format      = '<output_filename><ddhhmmss><levtype>v01'
  stream_partitions_ml = 1
- pe_placement_ml      = 2
+ pe_placement_ml      = 1
  ml_varlist           = 'W_SO',         'T',
                         'ASWDIFD_S','ASWDIR_S', 'CLCT', 'CLCH', 'CLCM', 'CLCL',
                         'PMSL', 'PS',
@@ -704,7 +703,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
                         'TMIN_2M',   'TMAX_2M', 'T_G', 'ATHB_S',  'ATHB_T',
                         'ASOB_S',  'ASOB_T',  'ASWDIFD_S', 'ASWDIFU_S', 'ASWDIR_S'
  stream_partitions_pl = 1
- pe_placement_pl      = 2
+ pe_placement_pl      = 1
  pl_varlist           = 'T',         'U',         'V',
  p_levels             =  50000, 85000
  output_grid          = .false.
@@ -728,7 +727,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  output_filename      = 'iefff'                      ! file name base
  filename_format      = '<output_filename><ddhhmmss>v03'
  stream_partitions_ml = 1
- pe_placement_ml      = 2
+ pe_placement_ml      = 1
  ml_varlist           = 'T_2M',      'TD_2M',
  output_grid          = .false.
 /
@@ -751,6 +750,29 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  stream_partitions_ml = 1
  pe_placement_ml      = 0
  ml_varlist           = 'VMAX_10M',
+ output_grid          = .false.
+/
+&output_nml
+ ! -------------------------------------------------------------- !
+ ! ---      !!! NON-OPERATIONAL - JUST FOR BUILDBOT !!!       --- !
+ ! ---  ICON-EU: ensemble forecast - native grid (00+12 UTC)  --- !
+ ! ---       test computation of optional diagnostics         --- !
+ ! ---                  lpi_con & lfd_con                     --- !
+ ! -------------------------------------------------------------- !
+ filetype             = 2         ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                  = 2                         ! write global domains
+ remap                = 0                         ! icon grid
+ output_time_unit     = 1                         ! 1: seconds
+ output_bounds        = 21600., 432000., 21600.   ! vv=6h,120h,6h
+ steps_per_file       = 1
+ taxis_tunit          = 2
+ mode                 = 1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last         = .true.
+ output_filename      = 'iefff'                      ! file name base
+ filename_format      = '<output_filename><ddhhmmss><levtype>lpi_lfd_con'
+ stream_partitions_ml = 1
+ pe_placement_ml      = 0
+ ml_varlist           = 'LPI_CON_MAX', 'LFD_CON'
  output_grid          = .false.
 /
 EOF
@@ -845,6 +867,7 @@ export VE_TRACEBACK=VERBOSE
 export NMPI_SEPSELECT=3
 export GMON_OUT_PREFIX=scal_prof
 export VE_FPE_ENABLE=DIV,FOF,INV
+export NMPI_COLLORDER=ON
 
 
 export GFORTRAN_UNBUFFERED_PRECONNECTED=y
@@ -853,7 +876,7 @@ export NMPI_EXPORT="GFORTRAN_UNBUFFERED_PRECONNECTED"
 
 /opt/nec/ve/bin/mpirun -v    -vh     -node 0        -np 1      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} : \
            -x -venode -node 0-${NE1} -np ${PPN} -env OMP_NUM_THREADS 1 ${MODEL} : \
-              -vh     -node 0        -np 4      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} 
+              -vh     -node 0        -np 2      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} 
 
 
 
