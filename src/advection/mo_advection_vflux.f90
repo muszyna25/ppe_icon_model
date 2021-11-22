@@ -1459,11 +1459,11 @@ CONTAINS
     ENDIF
 
     IF ( PRESENT(opt_q_ubc) ) THEN
-!$ACC KERNELS PRESENT( opt_q_ubc, zq_ubc ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS PRESENT( opt_q_ubc, zq_ubc ), IF ( i_am_accel_node .AND. acc_on ) ASYNC(1)
       zq_ubc(:,:) = opt_q_ubc(:,:)
 !$ACC END KERNELS
     ELSE
-!$ACC KERNELS PRESENT( zq_ubc ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS PRESENT( zq_ubc ), IF ( i_am_accel_node .AND. acc_on ) ASYNC(1)
       zq_ubc(:,:) = 0._wp
 !$ACC END KERNELS
     ENDIF
