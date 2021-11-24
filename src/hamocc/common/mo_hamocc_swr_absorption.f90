@@ -1,12 +1,13 @@
-#include "hamocc_omp_definitions.inc"
+ 
 
 MODULE mo_hamocc_swr_absorption
 
-  USE mo_memory_bgc, ONLY : bgctra, swr_frac, meanswr, strahl
   USE mo_param1_bgc, ONLY : iphy, icya
   USE mo_hamocc_nml, ONLY : l_cyadyn
   USE mo_kind,    ONLY: wp                                               
   USE mo_control_bgc, ONLY: bgc_zlevs, bgc_nproma
+  USE mo_bgc_memory_types, ONLY  : t_bgc_memory
+
 
   IMPLICIT NONE
 
@@ -17,8 +18,9 @@ MODULE mo_hamocc_swr_absorption
 
 CONTAINS
 
-SUBROUTINE swr_absorption(start_idx,end_idx, klevs, pfswr, psicomo, dzw)
+SUBROUTINE swr_absorption(local_bgc_mem, start_idx,end_idx, klevs, pfswr, psicomo, dzw)
 
+    TYPE(t_bgc_memory), POINTER :: local_bgc_mem
     INTEGER, INTENT(in):: start_idx
     INTEGER, INTENT(IN):: end_idx
     INTEGER :: klevs(bgc_nproma)
@@ -50,13 +52,12 @@ SUBROUTINE swr_absorption(start_idx,end_idx, klevs, pfswr, psicomo, dzw)
     ! use them in absorption (rcyano=1)
     rcyano=merge(1._wp,0._wp,l_cyadyn)
 
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(j,kpke,k,swr_r,swr_b) HAMOCC_OMP_DEFAULT_SCHEDULE
+ 
     DO j = start_idx, end_idx
 
-      strahl(j) = pfswr(j) * (1._wp - psicomo(j))
+      local_bgc_mem%strahl(j) = pfswr(j) * (1._wp - psicomo(j))
 
-      swr_frac(j,1) = 1.0_wp
+      local_bgc_mem%swr_frac(j,1) = 1.0_wp
       
       
       kpke = klevs(j)
@@ -70,19 +71,19 @@ SUBROUTINE swr_absorption(start_idx,end_idx, klevs, pfswr, psicomo, dzw)
  
            swr_r = swr_r * EXP(-dzw(j,k-1) *  atten_r)
            swr_b = swr_b * EXP(-dzw(j,k-1) * (atten_w +&
-        &    atten_c*pho_to_chl*MAX(0.0_wp,(bgctra(j,k-1,iphy)+rcyano*bgctra(j,k-1,icya)))))
-           swr_frac(j,k) = swr_r + swr_b
+        &    atten_c*pho_to_chl*MAX(0.0_wp,(local_bgc_mem%bgctra(j,k-1,iphy)+rcyano*local_bgc_mem%bgctra(j,k-1,icya)))))
+           local_bgc_mem%swr_frac(j,k) = swr_r + swr_b
 
       END DO
       DO k=1,kpke-1
-           meanswr(j,k) = (swr_frac(j,k) + swr_frac(j,k+1))/2._wp
+           local_bgc_mem%meanswr(j,k) = (local_bgc_mem%swr_frac(j,k) + local_bgc_mem%swr_frac(j,k+1))/2._wp
       END DO
-      meanswr(j,kpke) = swr_frac(j,k) 
+      local_bgc_mem%meanswr(j,kpke) = local_bgc_mem%swr_frac(j,k) 
 
       ENDIF
    ENDDO
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+ 
+ 
 
 END SUBROUTINE swr_absorption
 END MODULE

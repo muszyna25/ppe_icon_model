@@ -29,7 +29,7 @@ MODULE mo_ocean_tracer_transport_vert
   USE mo_parallel_config,           ONLY: nproma
   USE mo_run_config,                ONLY: dtime, ltimer
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_vert, timer_ppm_slim, &
-    & timer_adpo_vert, timers_level  !, timer_dif_vert,
+    & timer_adpo_vert, timers_level
   USE mo_ocean_types,                 ONLY: t_verticalAdvection_ppm_coefficients, &
     & t_operator_coeff
   USE mo_model_domain,              ONLY: t_patch,t_patch_3d, t_patch_vert

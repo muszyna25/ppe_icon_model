@@ -149,7 +149,7 @@ MODULE mo_timer
   PUBLIC :: timer_model_init, timer_init_latbc
   PUBLIC :: timer_init_nwp_phy
   PUBLIC :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
-  PUBLIC :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc
+  PUBLIC :: timer_solve_ab, timer_tracer_ab, timer_bgc_tracer_ab, timer_vert_veloc, timer_normal_veloc
   PUBLIC :: timer_upd_phys, timer_upd_flx, timer_calc_moc
   PUBLIC :: timer_ab_expl, timer_ab_rhs4sfc
   PUBLIC :: timer_dif_horz, timer_hflx_lim
@@ -362,7 +362,7 @@ MODULE mo_timer
   INTEGER :: timer_model_init, timer_init_latbc
   INTEGER :: timer_init_nwp_phy
   INTEGER :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
-  INTEGER :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc
+  INTEGER :: timer_solve_ab, timer_tracer_ab, timer_bgc_tracer_ab, timer_vert_veloc, timer_normal_veloc
   INTEGER :: timer_upd_phys, timer_upd_flx, timer_calc_moc
   INTEGER :: timer_ab_expl, timer_ab_rhs4sfc
   INTEGER :: timer_dif_horz, timer_hflx_lim
@@ -753,6 +753,7 @@ CONTAINS
     timer_ab_expl       = new_timer("ab_expl")
     timer_ab_rhs4sfc    = new_timer("ab_rhs4sfc")
     timer_tracer_ab     = new_timer("tracer_ab")
+    timer_bgc_tracer_ab     = new_timer("bgc_tracer_ab")
     timer_dif_horz      = new_timer("dif_horiz")
     timer_hflx_lim      = new_timer("hflx_lim")
     timer_dif_vert      = new_timer("dif_vert")
