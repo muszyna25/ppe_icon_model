@@ -54,7 +54,7 @@ MODULE mo_ocean_GM_Redi
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_sync,                      ONLY: sync_patch_array_mult, sync_c, sync_e, sync_patch_array
-  USE mo_timer,                     ONLY: timer_start, timer_stop, timer_dif_vert
+  USE mo_timer,                     ONLY: timer_start, timer_stop
   USE mo_statistics,                ONLY: global_minmaxmean
   USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
  

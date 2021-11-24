@@ -5,6 +5,7 @@ MODULE mo_bgc_surface
 
   USE mo_kind, ONLY           : wp
   USE mo_control_bgc, ONLY    : dtbgc, bgc_nproma, bgc_zlevs
+  USE mo_bgc_memory_types, ONLY  : t_bgc_memory
 
   IMPLICIT NONE
 
@@ -16,14 +17,14 @@ MODULE mo_bgc_surface
 
 contains
 
-SUBROUTINE update_linage ( klev,start_idx,end_idx, pddpo)
+SUBROUTINE update_linage (local_bgc_mem, klev,start_idx,end_idx, pddpo)
 
 ! update linear age tracer
-  USE mo_memory_bgc, ONLY     : bgctra
   USE mo_param1_bgc, ONLY     : iagesc
   USE mo_control_bgc, ONLY    : dtbgc
 
   ! Arguments
+  TYPE(t_bgc_memory), POINTER    :: local_bgc_mem
  
   INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
   INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
@@ -40,24 +41,25 @@ SUBROUTINE update_linage ( klev,start_idx,end_idx, pddpo)
      kpke=klev(jc)
      DO k = 2, kpke
       if(pddpo(jc,k) > 0.5_wp) then
-         bgctra(jc,k,iagesc) = bgctra(jc,k,iagesc) + fac001
+         local_bgc_mem%bgctra(jc,k,iagesc) = local_bgc_mem%bgctra(jc,k,iagesc) + fac001
       endif
      ENDDO
-     if(pddpo(jc,1) > 0.5_wp) bgctra(jc,1,iagesc) = 0._wp
+     if(pddpo(jc,1) > 0.5_wp) local_bgc_mem%bgctra(jc,1,iagesc) = 0._wp
   ENDDO
 
 
 END SUBROUTINE update_linage 
 
-SUBROUTINE update_weathering ( start_idx,end_idx, pddpo, za)
+SUBROUTINE update_weathering (local_bgc_mem, start_idx,end_idx, pddpo, za)
 ! apply weathering rates
 
-  USE mo_memory_bgc, ONLY     : bgctra, calcinp, orginp, silinp, bgcflux
+  USE mo_memory_bgc, ONLY : calcinp, orginp, silinp
   USE mo_param1_bgc, ONLY     : isco212, ialkali, idoc, isilica,  &
  &                              korginp, ksilinp, kcalinp
 
   ! Arguments
- 
+  TYPE(t_bgc_memory), POINTER    :: local_bgc_mem
+  
   INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
   INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
 
@@ -72,14 +74,14 @@ SUBROUTINE update_weathering ( start_idx,end_idx, pddpo, za)
 
   if(pddpo(jc,1) > 0.5_wp) then
 
-    bgctra(jc,1,idoc) = bgctra(jc,1,idoc) + orginp / (pddpo(jc,1) + za(jc))
-    bgctra(jc,1,isco212) = bgctra(jc,1,isco212) + calcinp / (pddpo(jc,1) + za(jc))
-    bgctra(jc,1,ialkali) = bgctra(jc,1,ialkali) + 2._wp * calcinp / (pddpo(jc,1) + za(jc))
-    bgctra(jc,1,isilica) = bgctra(jc,1,isilica) + silinp / (pddpo(jc,1) + za(jc))
+    local_bgc_mem%bgctra(jc,1,idoc) = local_bgc_mem%bgctra(jc,1,idoc) + orginp / (pddpo(jc,1) + za(jc))
+    local_bgc_mem%bgctra(jc,1,isco212) = local_bgc_mem%bgctra(jc,1,isco212) + calcinp / (pddpo(jc,1) + za(jc))
+    local_bgc_mem%bgctra(jc,1,ialkali) = local_bgc_mem%bgctra(jc,1,ialkali) + 2._wp * calcinp / (pddpo(jc,1) + za(jc))
+    local_bgc_mem%bgctra(jc,1,isilica) = local_bgc_mem%bgctra(jc,1,isilica) + silinp / (pddpo(jc,1) + za(jc))
   
-    bgcflux(jc,korginp) = orginp / (pddpo(jc,1) + za(jc))
-    bgcflux(jc,ksilinp) = silinp / (pddpo(jc,1) + za(jc))
-    bgcflux(jc,kcalinp) = calcinp / (pddpo(jc,1) + za(jc))
+    local_bgc_mem%bgcflux(jc,korginp) = orginp / (pddpo(jc,1) + za(jc))
+    local_bgc_mem%bgcflux(jc,ksilinp) = silinp / (pddpo(jc,1) + za(jc))
+    local_bgc_mem%bgcflux(jc,kcalinp) = calcinp / (pddpo(jc,1) + za(jc))
 
   endif
 
@@ -87,15 +89,14 @@ SUBROUTINE update_weathering ( start_idx,end_idx, pddpo, za)
 
 END SUBROUTINE
 
-SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinput)
+SUBROUTINE nitrogen_deposition (local_bgc_mem, start_idx,end_idx, pddpo,za,nitinput)
 ! apply nitrogen deposition
-  USE mo_memory_bgc, ONLY     : bgctra, bgctend,bgcflux
   USE mo_param1_bgc, ONLY     : iano3, ialkali, kn2b,knitinp
   USE mo_bgc_constants, ONLY  : rmnit
 
-
   !Arguments
-
+  TYPE(t_bgc_memory), POINTER    :: local_bgc_mem
+  
   INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
   INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
 
@@ -115,10 +116,10 @@ SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinput)
       ! ndepo : CCMI wet+dry dep of NHx and NOy in kg (N) m-2 s-1
        ninp = nitinput(jc) / rmnit* dtbgc/(pddpo(jc,1)+za(jc)) ! kmol N m-3 time_step-1
 
-       bgctra(jc,1,iano3) = bgctra(jc,1,iano3) + ninp
-       bgctra(jc,1,ialkali) = bgctra(jc,1,ialkali) - ninp
-       bgctend(jc,1,kn2b)   = bgctend(jc,1,kn2b) - ninp * (pddpo(jc,1) + za(jc)) 
-       bgcflux(jc,knitinp) = ninp
+       local_bgc_mem%bgctra(jc,1,iano3) = local_bgc_mem%bgctra(jc,1,iano3) + ninp
+       local_bgc_mem%bgctra(jc,1,ialkali) = local_bgc_mem%bgctra(jc,1,ialkali) - ninp
+       local_bgc_mem%bgctend(jc,1,kn2b)   = local_bgc_mem%bgctend(jc,1,kn2b) - ninp * (pddpo(jc,1) + za(jc)) 
+       local_bgc_mem%bgcflux(jc,knitinp) = ninp
 
   endif
 
@@ -126,14 +127,15 @@ SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinput)
 
 
 END SUBROUTINE
-SUBROUTINE dust_deposition ( start_idx,end_idx, pddpo,za,dustinp)
+SUBROUTINE dust_deposition (local_bgc_mem, start_idx,end_idx, pddpo,za,dustinp)
 ! apply dust deposition
-  USE mo_memory_bgc, ONLY      : bgctra,perc_diron 
+  USE mo_memory_bgc, ONLY      : perc_diron 
   USE mo_param1_bgc, ONLY     : iiron, idust
   USE mo_control_bgc, ONLY    : dtb
-
   
   !Arguments
+  TYPE(t_bgc_memory), POINTER    :: local_bgc_mem
+ 
 
   INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
   INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
@@ -151,9 +153,9 @@ SUBROUTINE dust_deposition ( start_idx,end_idx, pddpo,za,dustinp)
 
   if(pddpo(jc,1) > 0.5_wp) then
 
-   bgctra(jc,1,iiron) = bgctra(jc,1,iiron) + dustinp(jc)*dtb/365._wp/(pddpo(jc,1)+za(jc)) *perc_diron 
+   local_bgc_mem%bgctra(jc,1,iiron) = local_bgc_mem%bgctra(jc,1,iiron) + dustinp(jc)*dtb/365._wp/(pddpo(jc,1)+za(jc)) *perc_diron 
 
-   bgctra(jc,1,idust) = bgctra(jc,1,idust) + dustinp(jc)*dtb/365._wp/(pddpo(jc,1)+za(jc))  
+   local_bgc_mem%bgctra(jc,1,idust) = local_bgc_mem%bgctra(jc,1,idust) + dustinp(jc)*dtb/365._wp/(pddpo(jc,1)+za(jc))  
 
   endif
 
@@ -162,7 +164,7 @@ SUBROUTINE dust_deposition ( start_idx,end_idx, pddpo,za,dustinp)
 END SUBROUTINE
 
 
-SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, ptho, psao,  &
+SUBROUTINE gasex (local_bgc_mem, start_idx,end_idx, pddpo, za, ptho, psao,  &
      &              pfu10, psicomo )
 !! @brief Computes sea-air gass exchange
 !!         for oxygen, O2, N2, N2O, DMS, and CO2.
@@ -175,11 +177,7 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, ptho, psao,  &
        &                        kn2oflux, idms, kdmsflux,kpco2, &
        &                        iammo, knh3flux
 
-  USE mo_memory_bgc, ONLY         : hi, &
-       &                        solco2,satoxy,satn2,aksurf,    &
-       &                        satn2o,            &
-       &                        bgctra, atm, bgcflux, &
-       &                        kg_denom
+  USE mo_memory_bgc, ONLY         : kg_denom
 
   USE mo_hamocc_nml, ONLY     : l_cpl_co2, atm_co2, atm_o2, atm_n2, &
        &                        l_N_cycle
@@ -191,7 +189,8 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, ptho, psao,  &
   IMPLICIT NONE
 
   !! Arguments
-
+  TYPE(t_bgc_memory), POINTER    :: local_bgc_mem
+ 
   INTEGER, INTENT(in)  :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
   INTEGER, INTENT(in)  :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
 
@@ -220,7 +219,6 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, ptho, psao,  &
   !
   !---------------------------------------------------------------------
   !
-
 
   k = 1      ! surface layer
 
@@ -268,7 +266,7 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, ptho, psao,  &
                 &           * (660._wp / scn2o)**0.5_wp
 
            if(l_cpl_co2)then 
-            atco2 = atm(j,iatmco2)
+            atco2 = local_bgc_mem%atm(j,iatmco2)
            else
             atco2 = atm_co2
            endif
@@ -284,37 +282,37 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, ptho, psao,  &
            ! Surface flux of oxygen
            ! (Meiner-Reimer et. al, 2005, Eq. 74)
 
-           oxflux = kwo2 * dtbgc * (bgctra(j,1,ioxygen)                &
-                &  -satoxy(j,1) * (ato2 / 196800._wp)) ! *ppao(i,j)/101300. ! sea level pressure normalization
+           oxflux = kwo2 * dtbgc * (local_bgc_mem%bgctra(j,1,ioxygen)                &
+                &  -local_bgc_mem%satoxy(j,1) * (ato2 / 196800._wp)) ! *ppao(i,j)/101300. ! sea level pressure normalization
 
 
-           bgcflux(j,koflux) = oxflux/dtbgc
+           local_bgc_mem%bgcflux(j,koflux) = oxflux/dtbgc
 
-           bgctra(j,1,ioxygen) = bgctra(j,1,ioxygen)                 &
+           local_bgc_mem%bgctra(j,1,ioxygen) = local_bgc_mem%bgctra(j,1,ioxygen)                 &
                 &                - oxflux/(pddpo(j,1)+za(j))
 
          
            ! Surface flux of gaseous nitrogen (same piston velocity as for O2)
            ! (Meiner-Reimer et. al, 2005, Eq. 75)
 
-           niflux = kwo2 * dtbgc * (bgctra(j,1,igasnit)                &
-                & -satn2(j)*(atn2/802000._wp)) ! *ppao(i,j)/101300.
+           niflux = kwo2 * dtbgc * (local_bgc_mem%bgctra(j,1,igasnit)                &
+                & -local_bgc_mem%satn2(j)*(atn2/802000._wp)) ! *ppao(i,j)/101300.
 
-           bgcflux(j,knflux) = niflux/dtbgc
+           local_bgc_mem%bgcflux(j,knflux) = niflux/dtbgc
 
-           bgctra(j,1,igasnit) = bgctra(j,1,igasnit)                   &
+           local_bgc_mem%bgctra(j,1,igasnit) = local_bgc_mem%bgctra(j,1,igasnit)                   &
                 &                - niflux/(pddpo(j,1)+za(j))
 
           
            ! Surface flux of laughing gas (same piston velocity as for O2 and N2)
            ! (Meiner-Reimer et. al, 2005, Eq. 76)
 
-           nlaughflux = kwn2o * dtbgc * (bgctra(j,1,ian2o)              &
-                &     - satn2o(j))  
+           nlaughflux = kwn2o * dtbgc * (local_bgc_mem%bgctra(j,1,ian2o)              &
+                &     - local_bgc_mem%satn2o(j))  
 
-           bgctra(j,1,ian2o) = bgctra(j,1,ian2o)                     &
+           local_bgc_mem%bgctra(j,1,ian2o) = local_bgc_mem%bgctra(j,1,ian2o)                     &
                 &              - nlaughflux/(pddpo(j,1)+za(j))
-           bgcflux(j,kn2oflux) = nlaughflux/dtbgc
+           local_bgc_mem%bgcflux(j,kn2oflux) = nlaughflux/dtbgc
 
 
 
@@ -322,11 +320,11 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, ptho, psao,  &
 
            ! (Meiner-Reimer et. al, 2005, Eq. 77)
 
-           dmsflux = kwdms*dtbgc*bgctra(j,1,idms)
+           dmsflux = kwdms*dtbgc*local_bgc_mem%bgctra(j,1,idms)
 
-           bgctra(j,1,idms) = bgctra(j,1,idms) - dmsflux/pddpo(j,1)
+           local_bgc_mem%bgctra(j,1,idms) = local_bgc_mem%bgctra(j,1,idms) - dmsflux/pddpo(j,1)
 
-           bgcflux(j,kdmsflux) = dmsflux/dtbgc
+           local_bgc_mem%bgcflux(j,kdmsflux) = dmsflux/dtbgc
 
         !*********************************************************************
         !     
@@ -334,28 +332,29 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, ptho, psao,  &
         !
         !*********************************************************************
 
-         ! Update hi
+         ! Update local_bgc_mem%hi
 
-           hi(j,k) = update_hi(hi(j,k), bgctra(j,k,isco212), aksurf(j,1) , &
-    &          aksurf(j,2),  aksurf(j,4), aksurf(j,7), aksurf(j,6), aksurf(j,5),&
-    &          aksurf(j,8), aksurf(j,9),aksurf(j,10), psao(j,k) , aksurf(j,3), &
-    &          bgctra(j,k,isilica), bgctra(j,k,iphosph),bgctra(j,k,ialkali) )
+           local_bgc_mem%hi(j,k) = update_hi(local_bgc_mem%hi(j,k), local_bgc_mem%bgctra(j,k,isco212), local_bgc_mem%aksurf(j,1) , &
+    &          local_bgc_mem%aksurf(j,2),  local_bgc_mem%aksurf(j,4), local_bgc_mem%aksurf(j,7), local_bgc_mem%aksurf(j,6), local_bgc_mem%aksurf(j,5),&
+    &          local_bgc_mem%aksurf(j,8), local_bgc_mem%aksurf(j,9),local_bgc_mem%aksurf(j,10), psao(j,k) , local_bgc_mem%aksurf(j,3), &
+    &          local_bgc_mem%bgctra(j,k,isilica), local_bgc_mem%bgctra(j,k,iphosph),local_bgc_mem%bgctra(j,k,ialkali) )
 
 
          !
          ! Calculate pCO2 [ppmv] from total dissolved inorganic carbon (DIC: SCO212)
          ! the calculation also includes solubility
          !
-           pco2=  bgctra(j,k,isco212)  /((1._wp + aksurf(j,1) * (1._wp + aksurf(j,2)/hi(j,k))/hi(j,k)) * solco2(j))
+           pco2=  local_bgc_mem%bgctra(j,k,isco212)  /((1._wp + local_bgc_mem%aksurf(j,1) * (1._wp + &
+             & local_bgc_mem%aksurf(j,2)/local_bgc_mem%hi(j,k))/local_bgc_mem%hi(j,k)) * local_bgc_mem%solco2(j))
 
-           fluxd=atco2*kwco2*dtbgc*solco2(j) ! 
-           fluxu=pco2 *kwco2*dtbgc*solco2(j) ! 
+           fluxd=atco2*kwco2*dtbgc*local_bgc_mem%solco2(j) ! 
+           fluxu=pco2 *kwco2*dtbgc*local_bgc_mem%solco2(j) ! 
 
 !         ! new concentrations ocean (kmol/m3 -->ppm)
            thickness = pddpo(j,1) + za(j)                             
-           bgctra(j,1,isco212) = bgctra(j,1,isco212)+(fluxd-fluxu)/thickness
-           bgcflux(j,kcflux) = (fluxu-fluxd)/dtbgc
-           bgcflux(j,kpco2) = pco2
+           local_bgc_mem%bgctra(j,1,isco212) = local_bgc_mem%bgctra(j,1,isco212)+(fluxd-fluxu)/thickness
+           local_bgc_mem%bgcflux(j,kcflux) = (fluxu-fluxd)/dtbgc
+           local_bgc_mem%bgcflux(j,kpco2) = pco2
 
 
 
@@ -378,10 +377,10 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, ptho, psao,  &
               ka_nh3 = 10._wp**(-pka_nh3)
          
               ! NH3 in seawater
-              nh3sw = bgctra(j,1,iammo)*ka_nh3/(ka_nh3+hi(j,1))
+              nh3sw = local_bgc_mem%bgctra(j,1,iammo)*ka_nh3/(ka_nh3+local_bgc_mem%hi(j,1))
  
               ammoflux = max(0._wp, dtbgc*kgammo*kh_nh3*nh3sw)
-              bgctra(j,1,iammo) = bgctra(j,1,iammo) - ammoflux/thickness
+              local_bgc_mem%bgctra(j,1,iammo) = local_bgc_mem%bgctra(j,1,iammo) - ammoflux/thickness
        
               ! LR: from mpiom, do not know what this is for ?!
               ! atm(i,j,iatmn2) = atm(i,j,iatmn2) + ammoflux*contppm/2._wp   !closing mass balance
@@ -389,7 +388,7 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, ptho, psao,  &
               ! LR: from mpiom, don't think this is needed
               ! nh3flux(j) = nh3flux(i,j) + ammoflux  ! LR: from mpiom
 
-              bgcflux(j,knh3flux) = ammoflux/dtbgc
+              local_bgc_mem%bgcflux(j,knh3flux) = ammoflux/dtbgc
            endif
 
 

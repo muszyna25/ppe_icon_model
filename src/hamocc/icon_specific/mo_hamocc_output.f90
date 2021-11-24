@@ -61,8 +61,6 @@
       USE mo_sedmnt,          ONLY: ks
   
       USE mo_bgc_constants,    ONLY: kilo, s2year, n2tgn, c2gtc
-
-      USE mo_ocean_types,      ONLY: t_hydro_ocean_state,t_hydro_ocean_prog
      
       USE mo_ocean_tracer_transport_types, ONLY: t_ocean_tracer
 

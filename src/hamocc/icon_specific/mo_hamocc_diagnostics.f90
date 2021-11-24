@@ -1,7 +1,7 @@
 ! calculates HAMOCC diagnostics:
 ! monitoring variables, global inventories
 !--------------------------------------
-#include "hamocc_omp_definitions.inc"
+ 
 !--------------------------------------
 MODULE mo_hamocc_diagnostics
 !

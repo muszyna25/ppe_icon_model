@@ -14,7 +14,7 @@
 !!
 
 !----------------------------
-#include "hamocc_omp_definitions.inc"
+ 
 !----------------------------
 
 MODULE mo_bgc_bcond
