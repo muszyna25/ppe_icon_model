@@ -1,15 +1,15 @@
 #!/bin/bash
 # ----------------------------------------------------------------------------
 #PBS -q sx_norm
-#PBS -v NE=2,CPE=8,NMPI_ROOT=/opt/nec/ve/mpi/2.3.1
+#PBS -v NE=1,CPE=8,NMPI_ROOT=/opt/nec/ve/mpi/2.3.1
 #PBS -v NMPI_MALLOC_HEAP_EXPANSION_SIZE=512
 #PBS -v NMPI_MALLOC_MMAP_THRESHOLD=512
 #PBS -v MPI_IB_VBUF_TOTAL_SIZE=131072
 #PBS -v NMPI_DAEMON_PATH=${NMPI_ROOT}/libexec/mpid
 #PBS -l elapstim_req=00:40:00
 #PBS --venode=${NE}
-#PBS --venum-lhost=2     # Number of VE per logical host
-#PBS -l cpunum_job=2
+#PBS --venum-lhost=1     # Number of VE per logical host
+#PBS -l cpunum_job=1
 #PBS -l coresz_prc=0
 #PBS -T necmpi
 #PBS --use-hca=2             # Number of HCA per logical host
@@ -55,7 +55,8 @@ GRIDDIR=/hpc/rwork0/routfor/test/icon/Checksuite_data/${EXPNAME}
 INITDIR=${GRIDDIR}
 MODEL=${ICONDIR}/vector/bin/icon
 MODEL_SCAL=${ICONDIR}/host/bin/icon
-
+#MODEL=${ICONDIR}/build/VE/bin/icon
+#MODEL_SCAL=${ICONDIR}/build/VH/bin/icon
 
 EXPDIR=${TMPDIR}/${EXPNAME}
 REFDIR=${INITDIR}
@@ -477,9 +478,7 @@ EOF
 
 tic=$(date)
 
-/opt/nec/ve/bin/mpirun -v    -vh     -node 0        -np 1      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} : \
-                             -x      -venode        -np ${PPN} -env OMP_NUM_THREADS 1 ${MODEL} : \
-                             -vh     -node 0        -np 4      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} 
+/opt/nec/ve/bin/mpirun -v     -x      -venode        -np ${PPN} -env OMP_NUM_THREADS 1 ${MODEL} 
 
 toc=$(date)
 echo 'tic: ' $tic

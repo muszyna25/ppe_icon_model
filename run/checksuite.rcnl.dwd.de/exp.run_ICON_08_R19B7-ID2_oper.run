@@ -8,8 +8,8 @@
 #PBS -v NMPI_DAEMON_PATH=${NMPI_ROOT}/libexec/mpid
 #PBS -l elapstim_req=00:40:00
 #PBS --venode=${NE}
-#PBS --venum-lhost=2     # Number of VE per logical host
-#PBS -l cpunum_job=2
+#PBS --venum-lhost=4     # Number of VE per logical host
+#PBS -l cpunum_job=8
 #PBS -l coresz_prc=0
 #PBS -T necmpi
 #PBS --use-hca=2             # Number of HCA per logical host

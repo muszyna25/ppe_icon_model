@@ -10,7 +10,7 @@
 #PBS -v LH=1,ELH=5,CVE=8
 #PBS -b ${LH}
 #PBS --venum-lhost=${ELH}
-#PBS --cpunum-lhost=${ELH}
+#PBS --cpunum-lhost=6
 #PBS -l memsz_job=18gb
 #PBS -l elapstim_req=43300
 #PBS -o LOG.exp.run_ICON-ART_01_R3B08_lam_initmode7_pollen.run.run.o
