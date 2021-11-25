@@ -80,6 +80,7 @@ MODULE mo_initicon_utils
   USE mo_time_config,         ONLY: time_config
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
+  USE mo_aerosol_sources_types,  ONLY: p_dust_source_const
   USE mo_upatmo_config,       ONLY: upatmo_config
   USE mo_2mom_mcrph_driver,   ONLY: set_qnc, set_qnr, set_qni,   &
     &                               set_qns, set_qng, set_qnh
@@ -245,7 +246,18 @@ MODULE mo_initicon_utils
           COUNT(.NOT.aerosol_fg_present(jg,1:5)),' of 5 types'
         CALL message('init_aerosol', TRIM(message_text))
       ENDIF
+
+      CALL p_dust_source_const(jg)%init(ext_data(jg)%atm%i_lc_shrub_eg,  &
+        &                               ext_data(jg)%atm%i_lc_shrub,     &
+        &                               ext_data(jg)%atm%i_lc_grass,     &
+        &                               ext_data(jg)%atm%i_lc_bare_soil, &
+        &                               ext_data(jg)%atm%i_lc_sparse,    &
+        &                               i_st_sand=3, i_st_sandyloam=4,   &
+        &                               i_st_loam=5, i_st_clayloam=6,    &
+        &                               i_st_clay=7, nlu_classes=23,     &
+        &                               soiltype_sidx=0, soiltype_eidx=9)
 !$OMP END MASTER
+
     ENDDO
 !$OMP END PARALLEL
 

@@ -11,30 +11,33 @@ MODULE mo_ser_nml
   IMPLICIT NONE
   PUBLIC
 
-  INTEGER ::  ser_output_diag(3)
-  INTEGER ::  ser_latbc_data(3)
-  INTEGER ::  ser_dynamics(3)
-  INTEGER ::  ser_diffusion(3)
-  INTEGER ::  ser_step_advection(3)
-  INTEGER ::  ser_physics(3)
-  INTEGER ::  ser_lhn(3)
-  INTEGER ::  ser_nudging(3)
-  INTEGER ::  ser_surface(3)
-  INTEGER ::  ser_microphysics(3)
-  INTEGER ::  ser_convection(3)
-  INTEGER ::  ser_cover(3)
-  INTEGER ::  ser_radiation(3)
-  INTEGER ::  ser_radheat(3)
-  INTEGER ::  ser_gwdrag(3)
-  INTEGER ::  ser_all_debug(3)                   !! serialize statements using ser_all anywhere for debug purposes
+  INTEGER, TARGET ::  ser_initialization(3)
+  INTEGER, TARGET ::  ser_output_diag(3)
+  INTEGER, TARGET ::  ser_latbc_data(3)
+  INTEGER, TARGET ::  ser_dynamics(3)
+  INTEGER, TARGET ::  ser_diffusion(3)
+  INTEGER, TARGET ::  ser_step_advection(3)
+  INTEGER, TARGET ::  ser_physics(3)
+  INTEGER, TARGET ::  ser_lhn(3)
+  INTEGER, TARGET ::  ser_nudging(3)
+  INTEGER, TARGET ::  ser_surface(3)
+  INTEGER, TARGET ::  ser_microphysics(3)
+  INTEGER, TARGET ::  ser_turbdiff(3)
+  INTEGER, TARGET ::  ser_turbtrans(3)
+  INTEGER, TARGET ::  ser_convection(3)
+  INTEGER, TARGET ::  ser_cover(3)
+  INTEGER, TARGET ::  ser_radiation(3)
+  INTEGER, TARGET ::  ser_radheat(3)
+  INTEGER, TARGET ::  ser_gwdrag(3)
+  INTEGER, TARGET ::  ser_all_debug(3)                   !! serialize statements using ser_all anywhere for debug purposes
   REAL(wp) ::  ser_nfail
   INTEGER ::  ser_nreport
   LOGICAL ::  ser_debug                          !! serialize the debug calls from mo_ser_debug
 
-  NAMELIST /ser_nml/ ser_output_diag, ser_latbc_data, ser_dynamics, ser_debug, &
+  NAMELIST /ser_nml/ ser_initialization, ser_output_diag, ser_latbc_data, ser_dynamics, ser_debug, &
   &                  ser_diffusion, ser_step_advection, ser_physics, ser_lhn, ser_nudging, ser_all_debug, ser_surface, &
   &                  ser_microphysics, ser_convection, ser_cover, ser_radiation, ser_radheat, &
-  &                  ser_gwdrag, ser_nfail, ser_nreport
+  &                  ser_turbtrans, ser_turbdiff, ser_gwdrag, ser_nfail, ser_nreport
 
   CONTAINS
 
@@ -48,6 +51,7 @@ MODULE mo_ser_nml
    ! turn serialization off by default
    !             # of times to serialize, relative threshold, absolute threshold
    param_def = (/0,                       12,                 12/)
+   ser_initialization = param_def
    ser_output_diag = param_def
    ser_latbc_data = param_def
    ser_dynamics = param_def
@@ -58,6 +62,8 @@ MODULE mo_ser_nml
    ser_nudging = param_def
    ser_surface = param_def
    ser_microphysics = param_def
+   ser_turbtrans = param_def
+   ser_turbdiff = param_def
    ser_convection = param_def
    ser_cover = param_def
    ser_radiation = param_def

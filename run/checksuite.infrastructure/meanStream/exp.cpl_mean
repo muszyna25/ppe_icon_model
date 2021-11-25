@@ -442,7 +442,7 @@ add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib
 # read -2to2 cell_sea_land_mask for HD-model (lsf>0:=land)
 datadir=$grids_folder
 add_link_file $datadir/slm-2to2_forHDmodel.pre04_158km_editSLOHH2017_G.nc ./hd_mask.nc
-add_link_file $datadir/runoff_a2o.pre04.yac_p15.nc                        ./runoff_a2o.weights.nc
+add_link_file $datadir/runoff_a2o.pre04.yac_201.nc                        ./runoff_a2o.weights.nc
 
 # II.2.6 Restart files
 # --------------------
@@ -1091,12 +1091,10 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation allow_extrapolation="true" extend_source_patch="1" gauss_order="7" method="patch_recovery" polynomial_order="3"/>
+            <interpolation_requirements>
+               <interpolation method="bernstein_bezier"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="2">
@@ -1109,12 +1107,10 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation allow_extrapolation="true" extend_source_patch="1" gauss_order="7" method="patch_recovery" polynomial_order="3"/>
+            <interpolation_requirements>
+               <interpolation method="bernstein_bezier"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="3">
@@ -1127,12 +1123,10 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="4">
@@ -1145,12 +1139,10 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="5">
@@ -1163,12 +1155,10 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="6">
@@ -1181,12 +1171,10 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="7">
@@ -1199,12 +1187,10 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="8">
@@ -1217,12 +1203,10 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="9">
@@ -1235,12 +1219,10 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="11">
@@ -1253,11 +1235,9 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+            <interpolation_requirements>
                <interpolation method="user_file" filename="runoff_a2o.weights.nc"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
          <transient_couple transient_id="10">
@@ -1270,28 +1250,25 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <interpolation_requirements use_source_mask="false" use_target_mask="true">
-               <interpolation allow_extrapolation="true" extend_source_patch="1" gauss_order="7" method="patch_recovery" polynomial_order="1"/>
+            <interpolation_requirements>
+               <interpolation method="bernstein_bezier"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
-            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
-            <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
       </couple>
    </couples>
-   <created date="19-04-2016 15:39" tool="YAC-CouplingGUI v.1.2.0"/>
+   <created date="26-02-2021 16:00" tool="YAC-CouplingGUI v.2.0.0"/>
 </coupling>
 EOF
 
 # Mapping parameter:
 #  <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
-#  <interpolation allow_extrapolation="true" extend_source_patch="1" gauss_order="7" method="patch_recovery" polynomial_order="1"/>
+#  <interpolation method="bernstein_bezier"/>
 #  <interpolation method="source_to_target_map"/>
 #  <interpolation method="fixed_value" user_value="99.0"/>
 #  <interpolation method="user_file" filename="runoff_a2o.weights.nc"/>
 #  <enforce_write_weight_file filename="runoff_a2o.pre04.write.nc">true</enforce_write_weight_file>
-#  <enforce_write_restart>false</enforce_write_restart>
 
 # IV.4 xsd and xml files for yac
 # ------------------------------

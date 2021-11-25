@@ -39,6 +39,8 @@ MODULE mo_ocean_model
   !
   USE mo_run_config,          ONLY: &
     & test_mode,              &
+    & ldynamics,              &
+    & ltransport,             &
     & ltimer,                 & !    :
     & num_lev,                &
     & nshift,                 &
@@ -109,7 +111,8 @@ MODULE mo_ocean_model
   USE mo_icon_output_tools,    ONLY: init_io_processes, prepare_output
   !-------------------------------------------------------------
   ! For the coupling
-  USE mo_ocean_coupling,      ONLY: construct_ocean_coupling, destruct_ocean_coupling
+  USE mo_ocean_coupling_frame, ONLY: construct_ocean_coupling, destruct_ocean_coupling
+  USE mo_coupling_config,      ONLY: is_coupled_run
   !-------------------------------------------------------------
  
   USE mo_ocean_hamocc_interface, ONLY: ocean_to_hamocc_construct, ocean_to_hamocc_init, ocean_to_hamocc_end
@@ -334,6 +337,8 @@ MODULE mo_ocean_model
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:construct_ocean_model"
     INTEGER :: ist, error_status, dedicatedRestartProcs
     INTEGER :: comp_id
+    INTEGER :: num_io_procs_radar, num_dio_procs
+    LOGICAL :: radar_flag_doms_model(1)
     !-------------------------------------------------------------------
 
     !---------------------------------------------------------------------
@@ -368,15 +373,15 @@ MODULE mo_ocean_model
 !    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
 !      &                             dedicatedRestartProcs, num_test_pe, pio_type)
 !orig
-!pa
 !pa    
-!pa    write(0,*)'construct_ocean_model:pio_type=',pio_type
-!pa    write(0,*)'construct_ocean_model:restartProcs=',dedicatedRestartProcs
-    comp_id = get_my_process_type()  ! ocean_process
+    num_io_procs_radar = 0
+    num_dio_procs      = 0
+    radar_flag_doms_model(1) = .FALSE.
+
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
          &                          num_io_procs, dedicatedRestartProcs, &
-         &                          comp_id,num_prefetch_proc, num_test_pe,      &
-         &                          pio_type)
+         &                          get_my_process_type(),num_prefetch_proc, num_test_pe,      &
+         &                pio_type, num_io_procs_radar,radar_flag_doms_model, num_dio_procs)
 !pa
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
@@ -404,7 +409,7 @@ MODULE mo_ocean_model
     CALL setup_phys_patches
 
     ! we need the nnow info
-    CALL configure_dynamics ( n_dom )
+    CALL configure_dynamics ( n_dom, ldynamics, ltransport )
 
     CALL construct_ocean_var_lists(ocean_patch_3d%p_patch_2d(1))
     

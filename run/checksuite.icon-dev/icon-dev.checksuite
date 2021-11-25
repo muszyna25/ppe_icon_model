@@ -792,7 +792,13 @@ if string_in_list $MD $CMODES; then
 
         N_NPROMA=`grep "nproma=" ${RUN_SCRIPT}`
         N_NPROMA=${N_NPROMA#nproma=}
-        ((N_NPROMA_NEW=N_NPROMA + 1))
+        # When using a negative nproma as no. blocks, decrease this value by one instead of increasing it
+        # This is mainly so nproma=-1 doesn't get changed to nproma=0
+        if [ ${N_NPROMA} -lt 0 ]; then
+            ((N_NPROMA_NEW=N_NPROMA - 1))
+        else
+            ((N_NPROMA_NEW=N_NPROMA + 1))
+        fi
         sed s/nproma=$N_NPROMA/nproma=$N_NPROMA_NEW/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
         mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
 

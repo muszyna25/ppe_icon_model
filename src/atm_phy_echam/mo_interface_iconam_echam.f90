@@ -96,7 +96,7 @@ MODULE mo_interface_iconam_echam
     &                                 t_echam_phy_tend , prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
-  USE mo_interface_echam_ocean ,ONLY: interface_echam_ocean
+  USE mo_echam_coupling        ,ONLY: interface_echam_ocean
   
 #ifndef __NO_JSBACH__
   USE mo_jsb_interface         ,ONLY: jsbach_start_timestep, jsbach_finish_timestep
@@ -1065,6 +1065,7 @@ IF (lart) jt_end = advection_config(jg)%nname
           field% mairvi(jc,jb) = 0.0_wp
           field% mdryvi(jc,jb) = 0.0_wp
           field% mrefvi(jc,jb) = 0.0_wp
+          field% cptgzvi(jc,jb) = 0.0_wp
         END DO
         !$ACC END PARALLEL
         !
@@ -1122,6 +1123,10 @@ IF (lart) jt_end = advection_config(jg)%nname
             ! reference air path
             field% mrefvi(jc,   jb) = field% mrefvi(jc,   jb) &
               &                      +field% mref  (jc,jk,jb)
+            !
+            ! reference air path
+            field% cptgzvi(jc,  jb) = field% cptgzvi(jc,   jb) &
+              &                      +(field%cptgz(jc,jk,jb)*field%rho(jc,jk,jb)*field%dz(jc,jk,jb))
             !
           END DO
         END DO

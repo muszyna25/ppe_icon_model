@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 #
+# @author: ralf mueller, ralf.mueller@dkrz.de
+#
 # Plot angle distribution of an icon grid file
 #
 # Usage:

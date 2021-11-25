@@ -886,13 +886,15 @@ enddo
                vtyp_tkv => vtyp(ivtype)%tkv
                dvar_sv  => dvar(n)%sv
 !DIR$ IVDEP
-               !$acc parallel loop gang vector
+               !$acc parallel async 
+               !$acc loop gang vector
                DO i=ivstart, ivend
                   zvari(i,ke1,m)=dvar_sv(i)/(rhon(i,ke1)*vtyp_tkv(i,ke1))
                END DO
+               !$acc end parallel
                IF (n.EQ.tem) THEN !flux density is that of sensible heat
 !DIR$ IVDEP
-                  !$acc parallel 
+                  !$acc parallel async 
                   DO i=ivstart, ivend
                      zvari(i,ke1,m)=zvari(i,ke1,m)/(cp_d*eprs(i,ke1))
                   END DO
@@ -914,7 +916,7 @@ enddo
             cur_prof => hlp
             dvar_av => dvar(n)%av    ! OpenACC issue with derived type
 
-            !$acc parallel present(cur_prof,dvar_av)
+            !$acc parallel async present(cur_prof,dvar_av)
             DO k=kstart_vdiff,ke
 !DIR$ IVDEP
               !$acc loop gang vector
@@ -927,28 +929,34 @@ enddo
             IF (ASSOCIATED(dvar(n)%sv)) THEN !surface variable is present
               dvar_sv=>dvar(n)%sv !XL_CHANGE: OpenACC issue with derived type
 !DIR$ IVDEP
-              !$acc parallel loop gang vector present(cur_prof,dvar_sv)
+              !$acc parallel async present(cur_prof,dvar_sv)
+              !$acc loop gang vector 
                DO i=ivstart, ivend
                   cur_prof(i,ke1)=dvar_sv(i)
                END DO
+               !$acc end parallel
             ELSEIF (n.LE.nvel .OR. ilow_def_cond.EQ.2) THEN
                !No-slip-condition for momentum or zero-concentr.-condition as a default:
 !DIR$ IVDEP
-              !$acc parallel loop gang vector present(cur_prof)
+              !$acc parallel async present(cur_prof)
+              !$acc loop gang vector 
                DO i=ivstart, ivend
                   cur_prof(i,ke1)=z0
                END DO
+               !$acc end parallel
             ELSE !enforce a zero flux condition as a default
 !DIR$ IVDEP
-              !$acc parallel loop gang vector present(cur_prof)
+              !$acc parallel async present(cur_prof)
+              !$acc loop gang vector 
                DO i=ivstart, ivend
                   cur_prof(i,ke1)=cur_prof(i,ke)
                END DO
+               !$acc end parallel
             END IF
 
             IF (itndcon.GT.0) THEN !explicit tendencies have to be considered
               dvar_at => dvar(n)%at
-              !$acc parallel present(dvar_at)
+              !$acc parallel async present(dvar_at)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
                  !$acc loop gang vector
@@ -960,7 +968,7 @@ enddo
             END IF
 
             IF (n.EQ.tem) THEN !temperature needs to be transformed
-              !$acc parallel present(cur_prof)
+              !$acc parallel async present(cur_prof)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
 !$NEC ivdep
@@ -972,12 +980,14 @@ enddo
                !$acc end parallel
 !DIR$ IVDEP
 !$NEC ivdep
-               !$acc parallel loop gang vector present(cur_prof)
+               !$acc parallel async present(cur_prof)
+               !$acc loop gang vector 
                DO i=ivstart, ivend
                   cur_prof(i,ke1)=cur_prof(i,ke1)/eprs(i,ke1)
                END DO
+               !$acc end parallel
                IF (itndcon.GT.0) THEN !explicit tendencies to be considered
-                 !$acc parallel
+                 !$acc parallel async
                   DO k=kstart_vdiff,ke
 !DIR$ IVDEP
                     !$acc loop gang vector
@@ -1006,6 +1016,8 @@ enddo
 !           Berechnung der vertikalen Diffusionstendenzen:
 !XL_COMMENTS : this print seems to occurs for any debug level, on purpose ?
 !            print*, ivtype, associated(vtyp(ivtype)%tkv)
+
+            !$acc wait
 
             CALL vert_grad_diff( kcm, kgc=kstart_vdiff-1+kgc,         &
 !
@@ -1043,7 +1055,7 @@ enddo
 
             IF (n.EQ.tem) THEN
               dvar_at => dvar(n)%at
-              !$acc parallel present(dvar_at)
+              !$acc parallel async present(dvar_at)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
 !$NEC ivdep
@@ -1055,7 +1067,7 @@ enddo
                !$acc end parallel
             ELSE
               dvar_at => dvar(n)%at
-              !$acc parallel present(dvar_at)
+              !$acc parallel async present(dvar_at)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
 !$NEC ivdep
@@ -1069,7 +1081,7 @@ enddo
 
             IF (n.EQ.vap .AND. PRESENT(qv_conv)) THEN
                !qv-flux-convergence (always a tendency) needs to be adapted:
-              !$acc parallel
+              !$acc parallel async
                DO k=kstart_vdiff,ke
                   IF (lqvcrst) THEN 
                      !by initializing 'qv_conv' with vertical qv-diffusion:
@@ -1106,17 +1118,21 @@ enddo
 
             IF (PRESENT(shfl_s) .OR. lrunscm) THEN
 !DIR$ IVDEP
-              !$acc parallel loop gang vector
+              !$acc parallel async 
+              !$acc loop gang vector
                DO i=ivstart, ivend
                   shfl_s(i)=eprs(i,ke1)*cp_d*zvari(i,ke1,tet)
                END DO
+               !$acc end parallel
             END IF
             IF (PRESENT(qvfl_s) .OR. lrunscm) THEN
 !DIR$ IVDEP
-              !$acc parallel loop gang vector
+              !$acc parallel async 
+              !$acc loop gang vector
                DO i=ivstart, ivend
                   qvfl_s(i)=zvari(i,ke1,vap)
                END DO
+               !$acc end parallel
             END IF
 
 !---------------------------------------------------------------------------------------
@@ -1145,17 +1161,21 @@ enddo
 
          IF (lum_dif .AND. PRESENT(umfl_s)) THEN
 !DIR$ IVDEP
-           !$acc parallel loop gang vector
+           !$acc parallel async 
+           !$acc loop gang vector
             DO i=ivstart, ivend
                umfl_s(i)=zvari(i,ke1,u_m)
             END DO
+            !$acc end parallel
          END IF
          IF (lvm_dif .AND. PRESENT(vmfl_s)) THEN
 !DIR$ IVDEP
-           !$acc parallel loop gang vector
+           !$acc parallel async 
+           !$acc loop gang vector
             DO i=ivstart, ivend
                vmfl_s(i)=zvari(i,ke1,v_m)
             END DO
+            !$acc end parallel
          END IF
 
          !Note:
@@ -1199,6 +1219,7 @@ enddo
   END IF !Vertikaldiffusion wird hier berechnet
 !--------------------------------------------------
 
+  !$acc wait
   !$acc exit data delete(tinc)
   !$acc end data
 

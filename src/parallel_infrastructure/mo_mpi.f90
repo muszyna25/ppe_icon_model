@@ -158,7 +158,7 @@
 !!   generating radar reflectivity composites for model verification and visualization,
 !!   or the "warm bubble generator" for triggering missing convective cells.
 !!   From this set of PEs, EMVORADO creates different communicators internally on its own,
-!!   triggered by a "CALL init_emvorado_mpi()" below. These communicators
+!!   triggered by a "CALL init_emvorado_mpi()". These communicators
 !!   are only used in EMVORADO and its interface (src/data_assimilation/interfaces/) and consist of:
 !!
 !!     - a clone of p_comm_work                    : icomm_cart_fwo
@@ -222,8 +222,6 @@ MODULE mo_mpi
 #ifdef HAVE_CDI_PIO
   USE mo_cdi_pio_interface, ONLY: nml_io_cdi_pio_conf_handle
 #endif
-
-  USE mo_emvorado_init, ONLY: init_emvorado_mpi
 
 #ifdef __STANDALONE
   INTERFACE
@@ -895,9 +893,9 @@ MODULE mo_mpi
     MODULE PROCEDURE p_minmax_common_sp
   END INTERFACE p_minmax_common
 
-  CHARACTER(*), PARAMETER :: modname = "mo_mpi"
+  CHARACTER(*), PARAMETER :: modname = 'mo_mpi'
 
-  CHARACTER(len=256) :: message_text = ""
+  CHARACTER(len=256) :: message_text = ''
   
 #if defined( _OPENACC )
 #define ACC_DEBUG NOACC
@@ -1265,7 +1263,6 @@ CONTAINS
     INTEGER :: sizeof_prefetch_processes, pio_type_
 
     INTEGER :: num_radario_procs
-    INTEGER :: icomm_cart, my_cart_id
     LOGICAL :: lhave_radar
 
 
@@ -1377,18 +1374,6 @@ CONTAINS
 
     num_radario_procs = 0
     p_radario_pe0 = 0
-    IF (lhave_radar) THEN
-      message_text(:) = ' '
-      CALL init_emvorado_mpi ( radar_flag_doms_model,  & ! INPUT
-                               MPI_COMM_NULL, 0, 1,    & ! INPUT
-                               MPI_COMM_NULL, 0, 1,    & ! INPUT
-                               .TRUE.,                 & ! INPUT
-                               0, 0, 0,                & ! INPUT
-                               p_error, message_text )
-      IF (p_error /= 0) THEN
-        CALL finish ('init_emvorado_mpi', TRIM(message_text))
-      END IF
-    END IF
 
 #else
 
@@ -1817,23 +1802,6 @@ CONTAINS
         p_radario_pe0 = num_test_procs + num_work_procs + num_io_procs + num_restart_procs + sizeof_prefetch_processes
       ELSE
         p_radario_pe0 = p_work_pe0
-      END IF
-      IF (my_process_is_work()) THEN
-        icomm_cart = p_comm_work
-        my_cart_id = p_pe_work
-      ELSE
-        icomm_cart = MPI_COMM_NULL
-        my_cart_id = MPI_UNDEFINED
-      END IF
-      message_text(:) = ' '
-      CALL init_emvorado_mpi ( radar_flag_doms_model,            & ! INPUT
-           process_mpi_all_comm, p_pe, process_mpi_all_size,     & ! INPUT
-           icomm_cart, my_cart_id, num_work_procs,               & ! INPUT
-           my_process_is_work(),                                 & ! INPUT
-           num_radario_procs, p_work_pe0, p_radario_pe0,         & ! INPUT
-           p_error, message_text)
-      IF (p_error /= 0) THEN
-        CALL finish ('init_emvorado_mpi', TRIM(message_text))
       END IF
     END IF
 

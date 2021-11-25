@@ -157,6 +157,7 @@ MODULE mo_echam_phy_memory
       & qsvi      (:,:)=>NULL(),    &!< [kg/m2] snow        content, vertically integrated through the atmospheric column
       & qgvi      (:,:)=>NULL(),    &!< [kg/m2] graupel     content, vertically integrated through the atmospheric column
       & qhvi      (:,:)=>NULL(),    &!< [kg/m2] hail        content, vertically integrated through the atmospheric column
+      & cptgzvi   (:,:)=>NULL(),    &!< [kg/m2] dry static energy  , vertically integrated through the atmospheric column
       & rho       (:,:,:)=>NULL(),  &!< [kg/m3] air density
       & mh2o      (:,:,:)=>NULL(),  &!< [kg/m2] h2o content (vap+liq+ice)
       & mair      (:,:,:)=>NULL(),  &!< [kg/m2] air content
@@ -387,6 +388,8 @@ MODULE mo_echam_phy_memory
       & ri_atm    (:,:,:)=>NULL(),  &!< moist Richardson number at layer interfaces
       & mixlen    (:,:,:)=>NULL()    !< mixing length at layer interfaces
 
+    REAL(wp),POINTER ::     &
+      & cptgz       (:,:,:)=>NULL()   !< dry static energy
 
     REAL(wp),POINTER ::      &
       & cfm     (:,:,:)=>NULL(),     &!< turbulent exchange coefficient
@@ -3182,6 +3185,28 @@ CONTAINS
       
       __acc_attach(field%tottem1)
       
+      ! &       field% cptgz  (nproma,nlev,nblks), &
+      cf_desc    = t_cf_var('cptgz', 'm2 s-2', 'dry static energy', datatype_flt)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( field_list, prefix//'cptgz', field%cptgz,                  &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
+                  & lrestart = .TRUE., initval = 1.e-4_wp, ldims=shape3d,      &
+                  & lopenacc=.TRUE.)
+      __acc_attach(field%cptgz)
+
+      ! &       field% cptgzvi     (nproma,nblks),          &
+      cf_desc    = t_cf_var('vertically integrated dry static energy', 'm2 s-2', 'vert_int_dry_static_energy', &
+           &                datatype_flt)
+      grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( field_list, prefix//'cptgzvi', field%cptgzvi,              &
+           &        GRID_UNSTRUCTURED_CELL, ZA_ATMOSPHERE,                       &
+           &        cf_desc, grib2_desc,                                         &
+           &        ldims=shape2d,                                               &
+           &        lrestart = .FALSE.,                                          &
+           &        isteptype=TSTEP_INSTANT,                                     &
+           &        lopenacc=.TRUE.)
+      __acc_attach(field%cptgzvi)
+
       ! REMARK: required for art emmision handling
       !IF (is_variable_in_output(var_name=prefix//'cfm')) THEN
       cf_desc    = t_cf_var('turb_exchng_coeff_momentum', '', '', datatype_flt)

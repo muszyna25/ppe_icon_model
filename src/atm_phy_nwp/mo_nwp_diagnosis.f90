@@ -65,7 +65,7 @@ MODULE mo_nwp_diagnosis
   USE mo_opt_nwp_diagnostics,ONLY: calsnowlmt, cal_cape_cin, maximize_field_lpi, compute_field_tcond_max, &
                                    compute_field_uh_max, compute_field_vorw_ctmax, compute_field_w_ctmax, &
                                    compute_field_dbz3d_lin, maximize_field_dbzctmax, &
-                                   compute_field_echotop, compute_field_echotopinm
+                                   compute_field_echotop, compute_field_echotopinm, compute_field_dursun
   USE mo_nwp_ww,             ONLY: ww_diagnostics, ww_datetime
   USE mtime,                 ONLY: datetime, timeDelta, getTimeDeltaFromDateTime,  &
     &                              deallocateTimedelta, newTimeDelta, newDatetime, &
@@ -88,6 +88,7 @@ MODULE mo_nwp_diagnosis
   PUBLIC  :: nwp_statistics
   PUBLIC  :: nwp_diag_for_output
   PUBLIC  :: nwp_opt_diagnostics
+  PUBLIC  :: nwp_opt_diagnostics_2
   PUBLIC  :: nwp_diag_output_1
   PUBLIC  :: nwp_diag_output_2
   PUBLIC  :: nwp_diag_output_minmax_micro
@@ -1803,6 +1804,38 @@ CONTAINS
 
   END SUBROUTINE nwp_opt_diagnostics
 
+  !>
+  !! Subroutine collecting the calls for computing optional diagnostic output variables
+  !! that should be called directly from the physics interface in order to consider
+  !! the intermediate values of nesting time steps
+  !!
+  !! @par Revision History
+  !! Developed by Daniel Rieger, DWD (2021-07-06)
+  !!
+  !!
+  SUBROUTINE nwp_opt_diagnostics_2(p_patch, prm_diag, cosmu0, dt_phy)
+
+    TYPE(t_patch),         INTENT(IN)    :: p_patch         !< current patch
+    TYPE(t_nwp_phy_diag),  INTENT(INOUT) :: prm_diag        !< physics diagnostics
+    REAL(wp),              INTENT(IN)    :: cosmu0(:,:)     !< Cosine of solar zenith angle
+    REAL(wp),              INTENT(IN)    :: dt_phy          !< time interval for fast physics
+
+    INTEGER :: jg
+
+    IF (ltimer) CALL timer_start(timer_nh_diagnostics)
+    
+    jg = p_patch%id
+
+    IF (var_in_output(jg)%dursun) THEN
+      ! sunshine duration is an accumulative value like precipitation or runoff
+      CALL compute_field_dursun( p_patch, dt_phy,                                           &
+           &                     prm_diag%dursun, prm_diag%swflxsfc, prm_diag%swflx_up_sfc, &
+           &                     prm_diag%swflx_dn_sfc_diff, cosmu0 )
+    ENDIF
+
+    IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
+
+  END SUBROUTINE nwp_opt_diagnostics_2
 
   !-------------------------------------------------------------------------
   !>

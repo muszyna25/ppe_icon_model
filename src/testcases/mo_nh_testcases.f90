@@ -74,7 +74,8 @@ MODULE mo_nh_testcases
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random
   USE mo_random_util,          ONLY: add_random_noise_global
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
-  USE mo_nh_rce_exp,           ONLY: init_nh_state_rce_glb
+  USE mo_nh_rce_exp,           ONLY: init_nh_state_rce_glb,              &
+                                   & init_nh_state_rce_tprescr_glb
   USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, init_nh_state_rico, &
                                    & init_torus_with_sounding, init_warm_bubble, &
                                    & init_torus_rcemip_analytical_sounding
@@ -86,7 +87,6 @@ MODULE mo_nh_testcases
   USE mo_upatmo_config,        ONLY: upatmo_config
   USE mo_vertical_coord_table, ONLY: vct_a
   USE mo_hydro_adjust,         ONLY: hydro_adjust_const_thetav
-  USE mo_les_config,           ONLY: les_config
 
   IMPLICIT NONE  
   
@@ -481,7 +481,12 @@ MODULE mo_nh_testcases
   CASE ('RCE_Tconst')
 
    ! Running Radiative Convective Equilibrium testcase
-   CALL message(TRIM(routine),'running ICON in RCE with constant initial T profile')
+     CALL message(TRIM(routine),'running ICON in RCE with constant initial T profile')
+
+  CASE ('RCE_Tprescr')
+   ! Running Radiative Convective Equilibrium with prescribed temperature profile
+     CALL message(TRIM(routine),'running ICON in RCE with prescribed initial temperature profile')
+     
 
   CASE ('RICO')
 
@@ -1121,9 +1126,12 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'setup dcmip_gw_31 (gravity waves on small planet) test')
 
+    l_hydro_adjust = .TRUE.
+
     DO jg = 1, n_dom
-      CALL init_nh_dcmip_gw( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-        &                    p_nh_state(jg)%diag, p_nh_state(jg)%metrics )
+      CALL init_nh_dcmip_gw( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),  &
+        &                    p_nh_state(jg)%diag, p_nh_state(jg)%metrics, & 
+        &                    l_hydro_adjust)
     ENDDO
 
     CALL message(TRIM(routine),'End setup dcmip_gw_31 test')
@@ -1262,7 +1270,7 @@ MODULE mo_nh_testcases
       CALL init_nh_state_rce_glb ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_nh_state(jg)%metrics )
 
-      IF (temp_case /= 'blob') THEN
+      IF (temp_case == 'blob') THEN
         CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,          &
                       & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
                       & start_level=nlev-3,                                    &
@@ -1274,6 +1282,21 @@ MODULE mo_nh_testcases
       CALL message(TRIM(routine),'End setup global RCE test')
     END DO !jg
 
+  CASE ('RCE_Tprescr')
+
+     ! u,v,w are initialized to zero.  initialize with temperature profile, add random noise
+     ! to virtual potential temperature inside init_nh_state_rce_tprescr_glb.
+    DO jg = 1, n_dom
+      nlev   = p_patch(jg)%nlev
+      CALL init_nh_state_rce_tprescr_glb ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
+                      & p_nh_state(jg)%diag, p_nh_state(jg)%metrics )
+      
+      
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+!
+      CALL message(TRIM(routine),'End setup global RCE_Tprescr test')
+    END DO !jg
+    
   CASE ('RICO')
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&

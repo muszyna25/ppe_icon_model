@@ -35,7 +35,7 @@ CPPFLAGS="-I${XML2_ROOT}/include/libxml2"
 FC='ftn'
 
 
-FCFLAGS="-g -O -Mrecursive -Mallocatable=03 -acc=verystrict -ta=nvidia:cc60 -Minfo=accel,inline -I${SERIALBOX2_ROOT}/include -D__SWAPDIM"
+FCFLAGS="-g -O -Mrecursive -Mallocatable=03 -Mbackslash -acc=verystrict -ta=nvidia:cc60 -Minfo=accel,inline -I${SERIALBOX2_ROOT}/include -D__SWAPDIM"
 
 LDFLAGS="-L${GCC_PATH}/snos/lib64 -L${SERIALBOX2_ROOT}/lib -L${XML2_ROOT}/lib"
 

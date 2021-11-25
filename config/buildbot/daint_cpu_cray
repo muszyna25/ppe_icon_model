@@ -1,9 +1,21 @@
 #!/bin/bash
 
+SPACK_BRANCH='master'
+GIT_REMOTE='https://github.com/C2SM/spack-c2sm.git'
+
+SPACK_SPEC="icon@dev-build%cce icon_target=cpu +ocean"
+
+git clone -b ${SPACK_BRANCH} ${GIT_REMOTE}
+
+cd spack-c2sm
+# install spack temp instance with branch config files and mch spack packages
+./config.py -m daint -i . -r ./spack/etc/spack -p $PWD/spack -s $PWD/spack -u ON -c ./spack-cache
+# source spack temp instance
+. spack/share/spack/setup-env.sh
+cd ..
+
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
 
-${ICON_DIR}/config/cscs/daint.cpu.cray
-
-MAKE_PROCS=8
-make -j ${MAKE_PROCS}
+MAKE_PROCS=12
+spack dev-build -u build --ignore-dependencies -j ${MAKE_PROCS} ${SPACK_SPEC}

@@ -12,12 +12,11 @@
 !! headers of the routines.
 
 MODULE mo_load_restart
-  USE mo_cdi,                ONLY: streamOpenRead, cdiStringError, streamInqVlist, streamClose
   USE mo_exception,          ONLY: message, finish, warning
   USE mo_load_multifile_restart, ONLY: multifileReadPatch, multifileCheckRestartFiles
   USE mo_load_singlefile_restart, ONLY: singlefileReadPatch, singlefileCheckRestartFiles
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_mpi,                ONLY: p_comm_work, p_comm_rank, my_process_is_mpi_workroot, my_process_is_stdio
+  USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_workroot, my_process_is_stdio
   USE mo_multifile_restart_util, ONLY: multifileRestartLinkName
   USE mo_restart_nml_and_att,ONLY: restartAttributeList_read, ocean_initFromRestart_OVERRIDE
   USE mo_restart_util,       ONLY: restartSymlinkName
@@ -25,12 +24,14 @@ MODULE mo_load_restart
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_load_restart, timer_load_restart_io, &
     & timer_load_restart_comm_setup, timer_load_restart_communication, &
     & timer_load_restart_get_var_id, timers_level
-  USE mo_util_string,        ONLY: separator, toCharacter
   USE mo_var_list_register_utils, ONLY: vlr_select_restart_vars, vlr_collect_modelTypes
   USE mo_master_control,     ONLY: get_my_process_name
+  USE mo_netcdf_errhandler,  ONLY: nf
 
   IMPLICIT NONE
   PRIVATE
+
+  INCLUDE 'netcdf.inc'
 
   PUBLIC :: read_restart_files, read_restart_header
 
@@ -102,23 +103,12 @@ CONTAINS
   ! This IS used for both single- AND multifile restart files.
   SUBROUTINE readRestartAttributeFile(attributeFile)
     CHARACTER(*), INTENT(IN) :: attributeFile
-    INTEGER :: fileId, vlistId
-    CHARACTER(:), POINTER :: cdiErrorText 
+    INTEGER :: ncid
     CHARACTER(*), PARAMETER :: routine = modname//":readRestartAttributeFile"
-    LOGICAL :: isReader
 
-    isReader = 0 == p_comm_rank(p_comm_work)
-    IF(isReader) THEN
-      fileId  = streamOpenRead(attributeFile)
-      ! check if the file could be opened
-      IF(fileId < 0) THEN
-        cdiErrorText => toCharacter(cdiStringError(fileId))
-        CALL finish(routine, 'File '//attributeFile//' cannot be opened: '//cdiErrorText)
-      END IF
-      vlistId = streamInqVlist(fileId)
-    END IF
-    CALL restartAttributeList_read(vlistId, 0, p_comm_work)
-    IF(isReader) CALL streamClose(fileId)
+    IF(my_process_is_mpi_workroot()) CALL nf(nf_open(attributeFile, NF_NOWRITE, ncid), routine)
+    CALL restartAttributeList_read(0, p_comm_work, ncid=ncid)
+    IF(my_process_is_mpi_workroot()) CALL nf(nf_close(ncid), routine)
     CALL message(routine, "read namelists and attributes from restart file")
   END SUBROUTINE readRestartAttributeFile
 
@@ -188,7 +178,7 @@ CONTAINS
     END DO
     IF(timers_level >= 5) CALL timer_stop(timer_load_restart)
     CALL message('','')
-    CALL message('',separator)
+    CALL message('','----------------------------------------------')
     CALL message('','')
   END SUBROUTINE read_restart_files
 

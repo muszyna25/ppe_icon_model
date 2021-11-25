@@ -53,6 +53,7 @@ MODULE mo_nwp_sfc_interface
   USE sfc_seaice,             ONLY: seaice_timestep_nwp
   USE sfc_terra_data                ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt, grav, salinity_fac, rhoh2o
+  USE mo_index_list,          ONLY: generate_index_list
 
   IMPLICIT NONE 
 
@@ -131,6 +132,7 @@ CONTAINS
 
     REAL(wp) :: sso_sigma_t(nproma)
     INTEGER  :: lc_class_t (nproma)
+    INTEGER  :: cond (nproma), init_list_tmp (nproma), icount_init_tmp, ic_tot
 
     REAL(wp) :: t_snow_now_t (nproma)
     REAL(wp) :: t_snow_new_t (nproma)
@@ -310,6 +312,7 @@ CONTAINS
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,                 &
 !$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t,            &
 !$OMP   meltrate,h_snow_gp_t,conv_frac,t_sk_now_t,t_sk_new_t,skinc_t,tsnred,plevap_t,z0_t,laifac_t,         &
+!$OMP   cond,init_list_tmp,ic_tot,icount_init_tmp,                                                          &
 !$OMP   qsat1,dqsdt1,qsat2,dqsdt2,sntunefac,sntunefac2,snowfrac_lcu_t) ICON_OMP_GUIDED_SCHEDULE
 
     !$acc enter data copyin (zml_soil)                                             &
@@ -317,6 +320,7 @@ CONTAINS
     !$acc            create (rain_gsp_rate, snow_gsp_rate, graupel_gsp_rate)       &
     !$acc            create (init_list, it1, it2, fact1, fact2, frac_sv)           &
     !$acc            create (frac_snow_sv, ice_gsp_rate),                          &
+    !$acc            create (cond, init_list_tmp)                                  &
     !$acc if(lzacc)
 
     DO jb = i_startblk, i_endblk
@@ -366,12 +370,12 @@ CONTAINS
 
        ! Copy precipitation fields for subsequent downscaling
        !$acc parallel if(lzacc)
-       !$acc loop gang vector private(i_count)
+       !$acc loop gang private(i_count)
        DO isubs = 1,ntiles_total
          i_count = ext_data%atm%gp_count_t(jb,isubs) 
          IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
 !$NEC ivdep
-         !$acc loop private(jc)
+         !$acc loop vector private(jc)
          DO ic = 1, i_count
            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
            rain_gsp_rate(jc,isubs)    = prm_diag%rain_gsp_rate(jc,jb)
@@ -415,11 +419,11 @@ CONTAINS
          !$acc end parallel
 
          !$acc parallel if(lzacc)
-         !$acc loop gang vector private(i_count)
+         !$acc loop gang private(i_count)
          DO isubs = ntiles_lnd+1, ntiles_total
            i_count = ext_data%atm%gp_count_t(jb,isubs) 
 !$NEC ivdep
-           !$acc loop private(jc,tmp1)
+           !$acc loop vector private(jc,tmp1)
            DO ic = 1, i_count
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
              ! Another tuning factor in order to treat partial snow cover different for fresh snow and 'old' snow
@@ -474,14 +478,14 @@ CONTAINS
 !---------- Preparations for TERRA in the case if snow tiles are considered
        IF(lsnowtile) THEN      ! snow is considered as separate tiles
          !$acc parallel if(lzacc)
-         !$acc loop gang vector private(isubs_snow,i_count_snow)
+         !$acc loop gang private(isubs_snow,i_count_snow)
          DO isubs = 1, ntiles_lnd
 
            isubs_snow = isubs + ntiles_lnd
            i_count_snow = ext_data%atm%gp_count_t(jb,isubs_snow) 
 
 !$NEC ivdep
-           !$acc loop private(jc, tmp3, tmp1, tmp2)
+           !$acc loop vector private(jc, tmp3, tmp1, tmp2)
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
   
@@ -1108,32 +1112,56 @@ CONTAINS
 
            ! Check for newly activated grid points that need to be initialized
            icount_init = 0
-!$NEC ivdep
+           icount_init_tmp = 0
+
            !$acc parallel if(lzacc)
-           !$acc loop seq 
+           !$acc loop gang vector private(jc)
            DO ic = 1, i_count
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
              IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs) == 2) THEN
-               icount_init = icount_init + 1
-               init_list(icount_init) = jc
-               it1(icount_init) = isubs      ! target of copy operation
-               it2(icount_init) = isubs_snow ! source of copy operation
+               cond(ic) = 1
+             ELSE
+               cond(ic) = 0
              ENDIF
            ENDDO
            !$acc end parallel
-!$NEC ivdep
+
+           CALL generate_index_list(cond, init_list, 1, i_count, icount_init, 1,lacc=lzacc)
+
            !$acc parallel if(lzacc)
-           !$acc loop seq
+           !$acc loop gang vector
+           DO ic = 1, icount_init
+             init_list(ic) = ext_data%atm%idx_lst_t(init_list(ic),jb,isubs)
+             it1(ic) = isubs      ! target of copy operation
+             it2(ic) = isubs_snow ! source of copy operation
+           ENDDO
+           !$acc end parallel
+
+           !$acc parallel if(lzacc)
+           !$acc loop gang vector private(jc)
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
              IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs_snow) == 2) THEN
-               icount_init = icount_init + 1
-               init_list(icount_init) = jc
-               it1(icount_init) = isubs_snow ! target of copy operation
-               it2(icount_init) = isubs      ! source of copy operation
+               cond(ic) = 1
+             ELSE
+               cond(ic) = 0
              ENDIF
            ENDDO
            !$acc end parallel
+
+           CALL generate_index_list(cond, init_list_tmp, 1, i_count_snow, icount_init_tmp, 1,lacc=lzacc)
+
+           !$acc parallel if(lzacc)
+           !$acc loop gang vector private(ic_tot)
+           DO ic = 1, icount_init_tmp
+             ic_tot = ic + icount_init
+             init_list(ic_tot) = ext_data%atm%idx_lst_t( init_list_tmp(ic) ,jb,isubs_snow)
+             it1(ic_tot) = isubs_snow ! target of copy operation
+             it2(ic_tot) = isubs      ! source of copy operation
+           ENDDO
+           !$acc end parallel
+
+           icount_init = icount_init + icount_init_tmp
 !$NEC ivdep
            !$acc parallel if(lzacc)
            !$acc loop gang vector private(jc, is1, is2)
@@ -1383,6 +1411,7 @@ CONTAINS
     !$acc           delete (rain_gsp_rate, snow_gsp_rate, graupel_gsp_rate)       &
     !$acc           delete (init_list, it1, it2, fact1, fact2, frac_sv)           &
     !$acc           delete (frac_snow_sv, ice_gsp_rate),                          &
+    !$acc           delete (cond, init_list_tmp),                                 &
     !$acc if(lzacc)
 
     !

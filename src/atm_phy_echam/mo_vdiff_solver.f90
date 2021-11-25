@@ -1383,7 +1383,7 @@ CONTAINS
         !
         zsnew = bb(jl,jk,ih) + tpfac3*pcptgz(jl,jk)
         zhnew = (zsnew + zdis(jl,jk) - pgeom1(jl,jk))
-        zcp   = cpd+(cpv-cpd)*pqm1(jl,jk) ! cp of moist air
+        zcp   = cpd!+(cpv-cpd)*pqm1(jl,jk) ! cp of moist air
         !
         ! Now derive the heating for constant pressure conditions
         ! as needed for provisional updating in the physics.

@@ -481,17 +481,13 @@ CONTAINS
     !---------------------------------------------------------------------
 
     CALL message( TRIM(routine),'end' )
-
   END SUBROUTINE init_ho_relaxation
 
-  SUBROUTINE nf(status)
+  SUBROUTINE nf(errstat)
+    USE mo_netcdf_errhandler, ONLY: nf_ext => nf
+    INTEGER, INTENT(IN) :: errstat
 
-    INTEGER, INTENT(in) :: status
-
-    IF (status /= nf_noerr) THEN
-      CALL finish('mo_ext_data netCDF error', nf_strerror(status))
-    ENDIF
-
+    CALL nf_ext(errstat, routine)
   END SUBROUTINE nf
 
   SUBROUTINE init_ho_recon_fields( patch_2D,patch_3D, p_os, p_op_coeff)

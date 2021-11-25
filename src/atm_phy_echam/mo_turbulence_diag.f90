@@ -231,7 +231,7 @@ CONTAINS
         ! Virtual dry static energy, potential temperature, virtual potential
         ! temperature
 
-        pcptgz (jl,jk) = pghf(jl,jk)*grav+ptm1(jl,jk)*(cpd+(cpv-cpd)*pqm1(jl,jk))
+        pcptgz (jl,jk) = pghf(jl,jk)*grav+ptm1(jl,jk)*cpd !(cpd+(cpv-cpd)*pqm1(jl,jk))
         ztheta (jl,jk) = ptm1(jl,jk)*ztheta(jl,jk)
         zthetav(jl,jk) = ztheta(jl,jk)*(1._wp+vtmpc1*pqm1(jl,jk)-pxm1(jl,jk))
 
@@ -265,7 +265,7 @@ CONTAINS
         ! Virtual dry static energy, potential temperature, virtual potential
         ! temperature
 
-        pcptgz (jl,jk) = pghf(jl,jk)*grav+ptm1(jl,jk)*(cpd+(cpv-cpd)*pqm1(jl,jk))
+        pcptgz (jl,jk) = pghf(jl,jk)*grav+ptm1(jl,jk)*cpd !*(cpd+(cpv-cpd)*pqm1(jl,jk))
         ztheta (jl,jk) = ptm1(jl,jk)*ztheta(jl,jk)
         zthetav(jl,jk) = ztheta(jl,jk)*(1._wp+vtmpc1*pqm1(jl,jk)-pxm1(jl,jk))
 
@@ -800,7 +800,7 @@ CONTAINS
         ELSE
           zqts(js,jsfc) = pqsat_tile(js,jsfc)                                              ! q_total at non-land surface
         END IF
-        pcpt_tile(js,jsfc) = ptsfc(js,jsfc) * (cpd + (cpv - cpd) * zqts(js,jsfc))
+        pcpt_tile(js,jsfc) = ptsfc(js,jsfc) * cpd ! (cpd + (cpv - cpd) * zqts(js,jsfc))
 
         ztheta      = ptsfc(js,jsfc)*(p0ref/ppsfc(js))**rd_o_cpd
         zthetav     = ztheta*(1._wp+vtmpc1*zqts(js,jsfc))

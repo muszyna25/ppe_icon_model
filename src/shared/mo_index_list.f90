@@ -14,8 +14,13 @@ MODULE mo_index_list
   PUBLIC :: generate_index_list, generate_index_list_batched
 
   INTERFACE generate_index_list
+#ifdef _OPENACC
+    MODULE PROCEDURE generate_index_list_i1_gpu
+    MODULE PROCEDURE generate_index_list_i4_gpu
+#else
     MODULE PROCEDURE generate_index_list_i1
     MODULE PROCEDURE generate_index_list_i4
+#endif
   END INTERFACE
 
 ! Warning: there will be no GPU -> CPU copy here, array of NUMBER
@@ -115,18 +120,18 @@ MODULE mo_index_list
 
   CONTAINS
 
-#ifndef _OPENACC
 
 ! Regular CPU implementation with a simple loop
 
-  SUBROUTINE generate_index_list_i1(conditions, indices, startid, endid, nvalid, dummy)
+  SUBROUTINE generate_index_list_i1(conditions, indices, startid, endid, nvalid, dummy,lacc)
     INTEGER(i1), INTENT(in)           :: conditions(:)
     INTEGER,     INTENT(inout)        :: indices(:)
     INTEGER,     INTENT(in)           :: startid
     INTEGER,     INTENT(in)           :: endid
     INTEGER,     INTENT(out)          :: nvalid
-    ! This argument is used in the OpenACC variant, but not in the GPU one 
+    ! These arguments are used in the OpenACC variant, but not in the CPU one 
     INTEGER,     INTENT(in), OPTIONAL :: dummy
+    LOGICAL,     INTENT(IN), OPTIONAL :: lacc
 
     INTEGER :: i
 
@@ -139,14 +144,15 @@ MODULE mo_index_list
     END DO
   END SUBROUTINE generate_index_list_i1
 
-  SUBROUTINE generate_index_list_i4(conditions, indices, startid, endid, nvalid, dummy)
+  SUBROUTINE generate_index_list_i4(conditions, indices, startid, endid, nvalid, dummy,lacc)
     INTEGER(i4), INTENT(in)           :: conditions(:)
     INTEGER,     INTENT(inout)        :: indices(:)
     INTEGER,     INTENT(in)           :: startid
     INTEGER,     INTENT(in)           :: endid
     INTEGER,     INTENT(out)          :: nvalid
-    ! This argument is used in the OpenACC variant, but not in the GPU one 
+    ! These arguments are used in the OpenACC variant, but not in the CPU one 
     INTEGER,     INTENT(in), OPTIONAL :: dummy
+    LOGICAL,     INTENT(IN), OPTIONAL :: lacc
 
     INTEGER :: i
 
@@ -158,6 +164,8 @@ MODULE mo_index_list
       END IF
     END DO
   END SUBROUTINE generate_index_list_i4
+
+#ifndef _OPENACC
 
   SUBROUTINE generate_index_list_batched_i1(conditions, indices, startid, endid, nvalid, dummy)
     INTEGER(i1), INTENT(in)           :: conditions(:,:)
@@ -205,55 +213,87 @@ MODULE mo_index_list
 
 #else
 
-! On the GPU call the CUB library through C++
+  ! on the gpu call the cub library through c++
 
   ! 1 byte
-  SUBROUTINE generate_index_list_i1(conditions, indices, startid, endid, nvalid, acc_async_queue)
-    INTEGER(i1), INTENT(in)           :: conditions(:)
-    INTEGER,     INTENT(inout)        :: indices(:)
-    INTEGER,     INTENT(in)           :: startid
-    INTEGER,     INTENT(in)           :: endid
-    INTEGER,     INTENT(out)          :: nvalid
-    INTEGER,     INTENT(in), OPTIONAL :: acc_async_queue
+  SUBROUTINE generate_index_list_i1_gpu(conditions, indices, startid, endid, nvalid, acc_async_queue,lacc)
+    INTEGER(i1), INTENT(IN)           :: conditions(:)
+    INTEGER,     INTENT(INOUT)        :: indices(:)
+    INTEGER,     INTENT(IN)           :: startid
+    INTEGER,     INTENT(IN)           :: endid
+    INTEGER,     INTENT(OUT)          :: nvalid
+    INTEGER,     INTENT(IN), OPTIONAL :: acc_async_queue
+    LOGICAL,     INTENT(IN), OPTIONAL :: lacc
 
     INTEGER(acc_handle_kind) :: stream
+    LOGICAL :: gen_list_on_gpu
 
-    IF ( PRESENT(acc_async_queue) ) THEN
-      stream = acc_get_cuda_stream(acc_async_queue)
+    IF (PRESENT(lacc)) THEN
+      gen_list_on_gpu = lacc
     ELSE
-      stream = acc_get_cuda_stream(acc_async_sync)
-    END IF
+      gen_list_on_gpu = .TRUE.
+    ENDIF
 
-    CALL generate_index_list_cuda_i1(           &
-      & acc_deviceptr(conditions),              &
-      & startid, endid,                         &
-      & acc_deviceptr(indices), nvalid, stream)
+    ! run on GPU
+    IF (gen_list_on_gpu) THEN
 
-  END SUBROUTINE generate_index_list_i1
+      IF ( PRESENT(acc_async_queue) ) THEN
+        stream = acc_get_cuda_stream(acc_async_queue)
+      ELSE
+        stream = acc_get_cuda_stream(acc_async_sync)
+      END IF
+
+      CALL generate_index_list_cuda_i1(           &
+        & acc_deviceptr(conditions),              &
+        & startid, endid,                         &
+        & acc_deviceptr(indices), nvalid, stream)
+
+    ! run on CPU
+    ELSE
+      CALL generate_index_list_i1(conditions, indices, startid, endid, nvalid)
+    ENDIF
+
+
+  END SUBROUTINE generate_index_list_i1_gpu
 
   ! 4 bytes
-  SUBROUTINE generate_index_list_i4(conditions, indices, startid, endid, nvalid, acc_async_queue)
+  SUBROUTINE generate_index_list_i4_gpu(conditions, indices, startid, endid, nvalid, acc_async_queue, lacc)
     INTEGER(i4), INTENT(in)           :: conditions(:)
     INTEGER,     INTENT(inout)        :: indices(:)
     INTEGER,     INTENT(in)           :: startid
     INTEGER,     INTENT(in)           :: endid
     INTEGER,     INTENT(out)          :: nvalid
     INTEGER,     INTENT(in), OPTIONAL :: acc_async_queue
+    LOGICAL,     INTENT(in), OPTIONAL :: lacc
 
     INTEGER(acc_handle_kind) :: stream
+    LOGICAL :: gen_list_on_gpu
 
-    IF ( PRESENT(acc_async_queue) ) THEN
-      stream = acc_get_cuda_stream(acc_async_queue)
+    IF (PRESENT(lacc)) THEN
+      gen_list_on_gpu = lacc
     ELSE
-      stream = acc_get_cuda_stream(acc_async_sync)
-    END IF
+      gen_list_on_gpu = .TRUE.
+    ENDIF
 
-    CALL generate_index_list_cuda_i4(           &
-      & acc_deviceptr(conditions),              &
-      & startid, endid,                         &
-      & acc_deviceptr(indices), nvalid, stream)
+    ! run on GPU
+    IF (gen_list_on_gpu) THEN
 
-  END SUBROUTINE generate_index_list_i4
+      IF ( PRESENT(acc_async_queue) ) THEN
+        stream = acc_get_cuda_stream(acc_async_queue)
+      ELSE
+        stream = acc_get_cuda_stream(acc_async_sync)
+      END IF
+
+      CALL generate_index_list_cuda_i4(           &
+        & acc_deviceptr(conditions),              &
+        & startid, endid,                         &
+        & acc_deviceptr(indices), nvalid, stream)
+
+    ! run on CPU
+    ELSE
+      CALL generate_index_list_i4(conditions, indices, startid, endid, nvalid)
+    ENDIF
+  END SUBROUTINE generate_index_list_i4_gpu
 
   !
   ! Batched

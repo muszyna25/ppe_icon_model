@@ -112,7 +112,7 @@ MODULE mo_nonhydro_types
                               ! (nproma,nlev,nblks_c)                     [kg/m^3/s]
     &  grf_tend_mflx(:,:,:),& ! rho*vn tendency field for use in grid refinement
                               ! (nproma,nlev,nblks_e)                     [kg/m^2/s^2]
-    &  grf_bdy_mflx(:,:,:),&  ! rho*vn boundary field for use in grid refinement
+    &  grf_bdy_mflx(:,:,:), & ! rho*vn boundary field for use in grid refinement
                               ! (nlev,npoints,2)                            [kg/m^2/s^2]
     &  grf_tend_thv(:,:,:), & ! theta_v tendency field for use in grid refinement
                               ! (nproma,nlev,nblks_c)                          [K/s]
@@ -121,13 +121,17 @@ MODULE mo_nonhydro_types
     &  dvn_ie_int(:,:),         & ! Storage field for vertical nesting: vn at parent interface level
     &  dvn_ie_ubc(:,:),         & ! Storage field for vertical nesting: vn at child upper boundary
     &  w_int(:,:,:),            & ! Storage field for vertical nesting: w at parent interface level
-    &  w_ubc(:,:),              & ! Storage field for vertical nesting: w at child upper boundary
+    &  w_ubc(:,:,:),            & ! Storage field for vertical nesting: 
+                                  ! average w plus time tendency at child upper boundary
     &  theta_v_ic_int(:,:,:),   & ! Storage field for vertical nesting: theta at parent interface level
-    &  theta_v_ic_ubc(:,:),     & ! Storage field for vertical nesting: theta at child upper boundary
+    &  theta_v_ic_ubc(:,:,:),   & ! Storage field for vertical nesting: 
+                                  ! average theta plus time tendency at child upper boundary
     &  rho_ic_int(:,:,:),       & ! Storage field for vertical nesting: rho at parent interface level
-    &  rho_ic_ubc(:,:),         & ! Storage field for vertical nesting: rho at child upper boundary
+    &  rho_ic_ubc(:,:,:),       & ! Storage field for vertical nesting: 
+                                  ! average rho plus time tendency at child upper boundary
     &  mflx_ic_int(:,:,:),      & ! Storage field for vertical nesting: mass flux at parent interface level
-    &  mflx_ic_ubc(:,:),        & ! Storage field for vertical nesting: mass flux at child upper boundary
+    &  mflx_ic_ubc(:,:,:),      & ! Storage field for vertical nesting: 
+                                  ! average mass flux plus time tendency at child upper boundary
     &  q_int(:,:,:),            & ! Storage field for vertical nesting: q at parent interface level
     &  q_ubc(:,:,:),            & ! Storage field for vertical nesting: q at child upper boundary
 
@@ -143,8 +147,8 @@ MODULE mo_nonhydro_types
     &  u_avg    (:,:,:),    & ! normal velocity average          [m/s]
     &  v_avg    (:,:,:),    & ! normal velocity average          [m/s]
     &  pres_avg (:,:,:),    & ! exner average                    [-]
-    &  temp_avg   (:,:,:),  & ! moist density average            [kg/m^3]
-    &  qv_avg    (:,:,:),   &  ! specific humidity average        [kg/kg]
+    &  temp_avg (:,:,:),    & ! moist density average            [kg/m^3]
+    &  qv_avg   (:,:,:),    & ! specific humidity average        [kg/kg]
 
     !
     ! e) optional diagnostics

@@ -509,11 +509,11 @@ CONTAINS
 
 
     ! Configure lateral boundary condition for limited area model (or global nudging)
-    IF(l_limited_area .OR. nudging_config%lnudging) THEN
+    IF( l_limited_area .OR. ANY(nudging_config(1:n_dom)%lnudging) ) THEN
       CALL configure_latbc()
     END IF
     ! Configure nudging (primary domain only)
-    CALL configure_nudging(p_patch(1)%nlev, msg_level, timers_level) 
+    CALL configure_nudging(p_patch(1)%nlev, p_patch(1:)%nshift_total, n_dom, msg_level, timers_level) 
 
     ! Settings for ozone tuning, depending on option for ozone climatology
     SELECT CASE (irad_o3)

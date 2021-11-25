@@ -902,11 +902,11 @@ MODULE mo_jsb_io_netcdf_iface
   USE mo_io_units,           ONLY: filename_max
   USE mo_jsb_domain_iface,   ONLY: t_patch
   USE mo_jsb_parallel_iface, ONLY: my_process_is_mpi_parallel, my_process_is_stdio, p_bcast, p_io, mpi_comm
-  USE mo_read_interface, ONLY: read_1D, read_2D, read_2D_time, read_2D_extdim, read_2D_int, openInputFile, closeFile, on_cells, &
-                               t_stream_id, read_netcdf_broadcast_method
+  USE mo_read_interface,     ONLY: read_1D, read_2D, read_2D_time, read_2D_1lev_1time, read_2D_extdim, read_2D_int, &
+    &                              openInputFile, closeFile, on_cells, t_stream_id, read_netcdf_broadcast_method
+  USE mo_netcdf_errhandler,  ONLY: nf
 
   IMPLICIT NONE
-
   PUBLIC
 
   TYPE t_input_file
@@ -920,6 +920,7 @@ MODULE mo_jsb_io_netcdf_iface
     PROCEDURE :: Read_1d        => netcdf_read_real_1d
     PROCEDURE :: Read_2d        => netcdf_read_real_2d
     PROCEDURE :: Read_2d_time   => netcdf_read_real_2d_time
+    PROCEDURE :: Read_2d_1lev_1time   => netcdf_read_real_2d_1lev_1time
     PROCEDURE :: Read_2d_extdim => netcdf_read_real_2d_extdim
     PROCEDURE :: Read_2d_int    => netcdf_read_int_2d
     PROCEDURE :: Has_dim        => netcdf_file_has_dim
@@ -1062,6 +1063,20 @@ CONTAINS
 
   END FUNCTION netcdf_read_real_2d_time
 
+  FUNCTION netcdf_read_real_2d_1lev_1time(input_file, variable_name, fill_array)
+
+    CLASS(t_input_file), INTENT(inout) :: input_file
+    CHARACTER(LEN=*),   INTENT(in)    :: variable_name
+    REAL(wp), TARGET, OPTIONAL        :: fill_array(:,:)
+    REAL(wp), POINTER                 :: netcdf_read_real_2d_1lev_1time(:,:)
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':netcdf_read_real_2d_1lev_1time'
+
+    CALL read_2D_1lev_1time( &
+      & input_file%stream_id, on_cells, TRIM(variable_name), fill_array,  netcdf_read_real_2d_1lev_1time)
+
+  END FUNCTION netcdf_read_real_2d_1lev_1time
+
   FUNCTION netcdf_read_real_2d_extdim(input_file, variable_name, fill_array, &
     start_extdim, end_extdim, extdim_name)
 
@@ -1147,35 +1162,6 @@ CONTAINS
     CALL p_bcast(netcdf_file_has_var, p_io, mpi_comm)
 
   END FUNCTION netcdf_file_has_var
-
-  SUBROUTINE nf(status, routine, warnonly, silent)
-
-    USE mo_exception, ONLY: em_warn
-
-    INTEGER, INTENT(in)           :: status
-    CHARACTER(len=*), INTENT(in)  :: routine
-    LOGICAL, INTENT(in), OPTIONAL :: warnonly
-    LOGICAL, INTENT(in), OPTIONAL :: silent
-
-    LOGICAL :: lwarnonly, lsilent
-
-    lwarnonly = .FALSE.
-    lsilent   = .FALSE.
-    IF(PRESENT(warnonly)) lwarnonly = .TRUE.
-    IF(PRESENT(silent))   lsilent   = silent
-
-    IF (lsilent) RETURN
-
-    IF (status /= nf_noerr) THEN
-      IF (lwarnonly) THEN
-        CALL message( TRIM(routine)//' netCDF error', NF_STRERROR(status), &
-          & level=em_warn)
-      ELSE
-        CALL finish( TRIM(routine)//' netCDF error', NF_STRERROR(status))
-      ENDIF
-    ENDIF
-
-  END SUBROUTINE nf
 
 END MODULE mo_jsb_io_netcdf_iface
 
@@ -1607,22 +1593,24 @@ END MODULE mo_jsb_varlist_iface
 MODULE mo_jsb_vertical_axes_iface
 
   USE mo_kind, ONLY: wp !, dp
-
   USE mo_name_list_output_zaxes_types, ONLY: t_verticalAxis, t_verticalAxisList
-  USE mo_cdi_ids,                      ONLY: set_vertical_grid, t_Vgrid
   USE mo_zaxis_type,                   ONLY: zaxisTypeList
 
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: t_verticalAxisList, Setup_jsb_vertical_axis, t_Vgrid, Set_jsb_restart_vgrid
-
+  PUBLIC :: t_verticalAxisList, Setup_jsb_vertical_axis, Set_jsb_restart_vgrid
   CHARACTER(len=*), PARAMETER :: modname = 'mo_jsb_vertical_axes_iface'
+
+  TYPE, PUBLIC :: t_Vgrid !just tp keep JSB happy
+  !TODO: remove dependencies hereof in external JSB code
+    INTEGER :: type
+    REAL(wp), ALLOCATABLE :: levels(:)
+  END type t_Vgrid
 
 CONTAINS
 
   SUBROUTINE Setup_jsb_vertical_axis(verticalAxisList, zaxis_id, name, length, longname, units, levels, lbounds, ubounds)
-
     TYPE(t_verticalAxisList), INTENT(inout) :: verticalAxisList
     INTEGER,                  INTENT(in)    :: zaxis_id
     CHARACTER(len=*),         INTENT(in)    :: name
@@ -1642,18 +1630,15 @@ CONTAINS
       &                zaxisLongname = longname          &
       &               ) &
       & )
-
   END SUBROUTINE Setup_jsb_vertical_axis
 
   SUBROUTINE Set_jsb_restart_vgrid(vgrid_defs, count, zaxis_id, levels)
-
     TYPE(t_Vgrid), INTENT(inout) :: vgrid_defs(:)
     INTEGER,       INTENT(inout) :: count
     INTEGER, VALUE               :: zaxis_id
     REAL(wp),      INTENT(in)    :: levels(:)
-
-    CALL set_vertical_grid(vgrid_defs, count, zaxis_id, levels)
-
+    !just tp keep JSB happy
+    !TODO: remove dependencies hereof in external JSB code
   END SUBROUTINE Set_jsb_restart_vgrid
 
 END MODULE mo_jsb_vertical_axes_iface

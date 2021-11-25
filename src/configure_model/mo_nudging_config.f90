@@ -21,7 +21,7 @@ MODULE mo_nudging_config
 
   USE mo_kind,                  ONLY: wp
   USE mo_exception,             ONLY: finish, message, message_text
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_util_string,           ONLY: int2string, real2string
 
@@ -270,7 +270,7 @@ MODULE mo_nudging_config
   !  ENDIF
   ! 
   ! to be on the safe side.
-  TYPE(t_nudging_config), TARGET :: nudging_config
+  TYPE(t_nudging_config), TARGET :: nudging_config(max_dom)
 
   ! Convenience substitute for 'nudging_config%ltype(indg_type%globn)'
   ! for use in 'src/atm_dyn_iconam/mo_nh_stepping' 
@@ -284,17 +284,20 @@ CONTAINS !......................................................................
   !! - Upper boundary nudging
   !! - Global nudging
   !!
-  SUBROUTINE configure_nudging( nlev,        &
+  SUBROUTINE configure_nudging( nlev, nshift_total, n_dom, &
     &                           msg_level,   &
     &                           timers_level )
 
     ! In/out variables
-    INTEGER, INTENT(IN) :: nlev          ! Number of grid layers of primary domain
-    INTEGER, INTENT(IN) :: msg_level     ! Control parameter for message output
-    INTEGER, INTENT(IN) :: timers_level  ! Control parameter for timer
+    INTEGER, INTENT(IN) :: nlev            ! Number of grid layers of primary domain
+    INTEGER, INTENT(IN) :: nshift_total(:) ! total shift of model top with respect to base domain
+    INTEGER, INTENT(IN) :: n_dom           ! total number of domains
+    INTEGER, INTENT(IN) :: msg_level       ! Control parameter for message output
+    INTEGER, INTENT(IN) :: timers_level    ! Control parameter for timer
 
     ! Local variables
     REAL(wp) :: height, start_height, end_height
+    INTEGER  :: jg
     INTEGER  :: jk, nlevp1, jvar
     LOGICAL  :: lfound, lremove_qv
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: c4print
@@ -305,7 +308,7 @@ CONTAINS !......................................................................
 
     ! Crosscheck of namelist entries should have taken place beforehand 
     ! in 'src/namelists/mo_nudging_nml: check_nudging'.
-    IF (.NOT. nudging_config%lchecked) THEN
+    IF (.NOT. ALL(nudging_config(1:n_dom)%lchecked)) THEN
       CALL finish(routine, "Crosscheck of nudging_nml still pending. " &
         & //"Please, check the program sequence.")
     ENDIF
@@ -313,29 +316,33 @@ CONTAINS !......................................................................
     !---------------------------------------------------
     ! Set auxiliary variables in 'nudging_config'
     !---------------------------------------------------
+
+    DO jg = 1, n_dom
+      ! Set thresholds for message output
+      nudging_config(jg)%msg_thr%low  = 4   ! For important output
+      nudging_config(jg)%msg_thr%med  = 10  ! For less important output
+      nudging_config(jg)%msg_thr%high = 12  ! For least important output
     
-    ! Set thresholds for message output
-    nudging_config%msg_thr%low  = 4   ! For important output
-    nudging_config%msg_thr%med  = 10  ! For less important output
-    nudging_config%msg_thr%high = 12  ! For least important output
-    
-    ! Set thresholds for timers
-    nudging_config%tmr_thr%low  = 1
-    nudging_config%tmr_thr%med  = 5
-    nudging_config%tmr_thr%high = 10
+      ! Set thresholds for timers
+      nudging_config(jg)%tmr_thr%low  = 1
+      nudging_config(jg)%tmr_thr%med  = 5
+      nudging_config(jg)%tmr_thr%high = 10
+    ENDDO
 
     !---------------------------------------------------
     ! Initialize derived parameters in 'nudging_config'
     !---------------------------------------------------
 
-    nudging_config%ltype(:)          = .FALSE.
-    nudging_config%ilev_start        = -1
-    nudging_config%ilev_end          = -1
-    nudging_config%lvar(:)           = .FALSE.
-    nudging_config%ldiagnose         = .FALSE.
-    nudging_config%dpsdt             = -999._wp
-    nudging_config%diag_kit%fileunit = -1000
-    nudging_config%diag_kit%ncount   = 0
+    DO jg = 1, n_dom
+      nudging_config(jg)%ltype(:)          = .FALSE.
+      nudging_config(jg)%ilev_start        = -1
+      nudging_config(jg)%ilev_end          = -1
+      nudging_config(jg)%lvar(:)           = .FALSE.
+      nudging_config(jg)%ldiagnose         = .FALSE.
+      nudging_config(jg)%dpsdt             = -999._wp
+      nudging_config(jg)%diag_kit%fileunit = -1000
+      nudging_config(jg)%diag_kit%ncount   = 0
+    ENDDO
 
     lremove_qv = .FALSE.
 
@@ -343,249 +350,280 @@ CONTAINS !......................................................................
     ! Determine derived parameters
     !---------------------------------------------------
 
-    IF (nudging_config%lnudging) THEN
+    DO jg = 1,n_dom
 
-      ! Set switch for selected nudging type
-      nudging_config%ltype(nudging_config%nudge_type) = .TRUE.
+      IF (nudging_config(jg)%lnudging) THEN
 
-      ! Evaluate nudging start and end heights:
-      ! Check status of 'vct_a'
-      IF (.NOT. ALLOCATED(vct_a)) CALL finish(TRIM(routine), 'vct_a still uninitialized.')
-      nlevp1    = nlev + 1
-      lfound    = .FALSE.
-      ! 1) Start height:
-      start_height = nudging_config%nudge_start_height
-      DO jk = nlevp1, 1, -1
-        ! (No shift of vertical index necessary, because this is done for the primary domain, only)
-        ! Nominal height of half level
-        ! (Note: we (arbitrarily) defined that those vertical grid layers, 
-        ! in which 'start/end_height' lie, should be subject to nudging. 
-        ! This is, why we do not use 'height = 0.5_wp * (vct_a(jk) + vct_a(jk+1))' here.)
-        height = vct_a(jk)
-        IF (height > start_height) THEN
-          ! We have found the lowermost grid layer, where nudging is applied
-          ! (Because vertical looping starts from model top, 'ilev_end' corresponds 
-          ! to the start height, and 'ilev_start' corresponds to the end height)
-          nudging_config%ilev_end = jk
-          ! Indicate the find
-          lfound = .TRUE.
-          EXIT 
-        ENDIF
-      ENDDO  !jk
-      IF (.NOT. lfound) CALL finish(TRIM(routine), 'Could not find ilev_end corresponding to nudge_start_height.')
-      ! Just to make sure
-      nudging_config%ilev_end = MIN( MAX( 1, nudging_config%ilev_end ), nlev )
-      ! 2) End height
-      end_height = nudging_config%nudge_end_height
-      lfound     = .FALSE.
-      DO jk = 1, nudging_config%ilev_end + 1
-        height = vct_a(jk)
-        IF (height < end_height) THEN
-          ! We have found the uppermost grid layer, where nudging is applied
-          nudging_config%ilev_start = jk - 1
-          ! Indicate the find
-          lfound = .TRUE.
-          EXIT
-        ENDIF
-      ENDDO
-      IF (.NOT. lfound) CALL finish(TRIM(routine), 'Could not find ilev_start corresponding to nudge_end_height.')
-      ! Just to make sure
-      nudging_config%ilev_start = MIN( MAX( 1, nudging_config%ilev_start ), nlev )
-      ! We replace the namelist entry for end height by the effective end height
-      nudging_config%nudge_end_height   = 0.5_wp * ( vct_a(nudging_config%ilev_start)     &
-        &                                          + vct_a(nudging_config%ilev_start + 1) )
-      ! Finally, we can compute the nudging scale height 
-      ! (if there is no explicit namelist input for it, or 'nudge_profile = 1' is selected)
-      IF ( nudging_config%nudge_scale_height < 0._wp .OR.        & 
-        &  nudging_config%nudge_profile == indg_profile%sqrddist ) THEN
-        nudging_config%nudge_scale_height = nudging_config%nudge_end_height - nudging_config%nudge_start_height
-      ENDIF
+        ! Set switch for selected nudging type
+        nudging_config(jg)%ltype(nudging_config(jg)%nudge_type) = .TRUE.
 
-      ! For global nudging only
 
-      IF (nudging_config%nudge_type == indg_type%globn) THEN
-        ! Evaluate the namelist input for the variables that are to be nudged
-        ! (please note that the evaluation is very rudimentary without any sophisticated error handling)
-        IF (LEN_TRIM(nudging_config%nudge_var) == 0) THEN 
-          ! The string list with the variables that shall be nudged is empty
-          CALL finish(routine, "nudge_var is empty.")
-        ELSEIF (INDEX(TRIM(nudging_config%nudge_var), TRIM(cndg_var(indg_var%all))) > 0) THEN
-          ! All variables, for which nudging has been implemented, are subject to nudging
-          nudging_config%lvar(:) = .TRUE.
-        ELSE
-          ! In this case, the string should contain either the character identifier of a single variable, 
-          ! or a comma-separated list with the character identifiers of several variables
-          lfound = .FALSE.
-          DO jvar = 1, indg_var%nitem
-            IF (INDEX(TRIM(nudging_config%nudge_var), TRIM(cndg_var(jvar))) > 0) THEN
-              ! Current variable 'jvar' shall be nudged
-              nudging_config%lvar(jvar) = .TRUE.
-              lfound                    = .TRUE.
+        ! Vertical start and end levels are determined for DOM 1 only, and lateron 
+        ! adapted for eventually vertically nested domains by taking into account 
+        ! the vertical shift parameter nshift_total(jg).
+        IF (jg==1) THEN
+
+          ! Evaluate nudging start and end heights:
+          ! Check status of 'vct_a'
+          IF (.NOT. ALLOCATED(vct_a)) CALL finish(TRIM(routine), 'vct_a still uninitialized.')
+          nlevp1    = nlev + 1
+          lfound    = .FALSE.
+
+          ! 1) Start height:
+          start_height = nudging_config(jg)%nudge_start_height
+          DO jk = nlevp1, 1, -1
+            ! (No shift of vertical index necessary, because this is done for the primary domain, only)
+            ! Nominal height of half level
+            ! (Note: we (arbitrarily) defined that those vertical grid layers, 
+            ! in which 'start/end_height' lie, should be subject to nudging. 
+            ! This is, why we do not use 'height = 0.5_wp * (vct_a(jk) + vct_a(jk+1))' here.)
+            height = vct_a(jk)
+            IF (height > start_height) THEN
+              ! We have found the lowermost grid layer, where nudging is applied
+              ! (Because vertical looping starts from model top, 'ilev_end' corresponds 
+              ! to the start height, and 'ilev_start' corresponds to the end height)
+              nudging_config(jg)%ilev_end = jk
+              ! Indicate the find
+              lfound = .TRUE.
+              EXIT 
             ENDIF
-          ENDDO  !jvar
-          IF (.NOT. lfound) CALL finish(routine, "No valid variable identifier found in nudge_var.")
-        ENDIF  !Sift variables
-        ! The model setup might not allow to nudge water vapour, although the user requests it
-        IF (nudging_config%lvar(indg_var%qv) .AND. .NOT. nudging_config%lqv_nudgable) THEN
-          nudging_config%lvar(indg_var%qv) = .FALSE.
-          lremove_qv                       = .TRUE.
-        ENDIF
-        ! Include global nudging in timer monitoring?
-        nudging_config%ltimer = timers_level > nudging_config%tmr_thr%med
-        ! Message output during the integration stepping?
-        nudging_config%lmessage = msg_level >= nudging_config%msg_thr%high
-        ! Runtime analysis of nudging requested?
-        IF (nudging_config%idiagnose > 0) THEN
-          nudging_config%ldiagnose = .TRUE.
-          ! Set name for ASCII file, to which diagnostics are written
-          nudging_config%diag_kit%filename = "nudging_diagnostics.txt"
-          ! Please note: if 'io_nml: inextra_2d = 3', 
-          ! 'src/atm_dyn_iconam/mo_nudging: diagnose_nudging' 
-          ! will store three extra 2d-fields with the names: 
-          ! * 'extra_2d1' -> mean sea-level pressure from ICON
-          ! * 'extra_2d2' -> mean sea-level pressure from driving model
-          ! * 'extra_2d3' -> 'extra_2d1' - 'extra_2d2'
-          ! However, this function is meant as some kind of debugging tool, 
-          ! so we neither mention it in "Namelist_overview.pdf
-          ! nor do we check here for the consistency between 'inextra_2d' 
-          ! and the entries in 'output_nml: ml_varlist'!
-        ENDIF
-        ! Convenience substitute for 'nudging_config%ltype(indg_type%globn)'
-        ! for use in 'src/atm_dyn_iconam/mo_nh_stepping'
-        ! (and 'src/drivers/mo_atmo_nonhydrostatic: destruct_atmo_nonhydrostatic')
-        l_global_nudging = nudging_config%ltype(indg_type%globn)
-      ENDIF  !IF (nudging_config%nudge_type == indg_type%globn)
-
-      !---------------------------------------------------
-      ! Print some info
-      !---------------------------------------------------
-
-      IF (msg_level >= nudging_config%msg_thr%med) THEN 
-
-        ! Nudging type
-        SELECT CASE(nudging_config%nudge_type)
-        CASE(indg_type%ubn)
-          c4print = "upper boundary nudging for limited-area mode"
-        CASE(indg_type%globn)
-          c4print = "global nudging"
-        END SELECT
-        WRITE(message_text,'(a)') 'Nudging is switched on.'
-        CALL message(TRIM(routine), message_text)
-        WRITE(message_text,'(a)') 'Selected nudging type: '//TRIM(c4print)
-        CALL message(TRIM(routine), message_text)
-
-        ! Profile of nudging strength
-        SELECT CASE(nudging_config%nudge_profile)
-        CASE(indg_profile%sqrddist)
-          c4print = "inverse squared scaled vertical distance from nudging start height"
-        CASE(indg_profile%const)
-          c4print = "constant"
-        CASE(indg_profile%tanh)
-          c4print = "hyperbolic tangent decreasing in magnitude from nudging end height downwards"
-        CASE(indg_profile%trapid) 
-          c4print = "trapezoidal"
-        END SELECT
-        WRITE(message_text,'(a)') 'Selected profile of nudging strength between start and end height: ' &
-          & //TRIM(c4print)
-        CALL message(TRIM(routine), message_text)
-
-        ! Nudging start and end heights and the scale height
-        WRITE(message_text,'(a)') 'Nudging includes the full levels between:'
-        CALL message(TRIM(routine), message_text)
-        jk     = nudging_config%ilev_start
-        height = 0.5_wp * ( vct_a(jk) + vct_a(jk+1) )  
-        WRITE(message_text,'(a)') ' - Level jk = '//TRIM(int2string(jk))//', height z(jk) = ' &
-          & //TRIM(real2string(height))//' m'
-        CALL message(' ', message_text, adjust_right=.TRUE.)
-        jk     = nudging_config%ilev_end
-        height = 0.5_wp * ( vct_a(jk) + vct_a(jk+1) )  
-        WRITE(message_text,'(a)') ' - Level jk = '//TRIM(int2string(jk))//', height z(jk) = ' &
-          & //TRIM(real2string(height))//' m'
-        CALL message(' ', message_text, adjust_right=.TRUE.)
-        IF (ANY((/indg_profile%sqrddist, indg_profile%tanh, indg_profile%trapid/) &
-          & == nudging_config%nudge_profile)) THEN 
-          WRITE(message_text,'(a)') 'Scale height for profile of nudging strength: ' &
-            & //TRIM(real2string(nudging_config%nudge_scale_height))//' m'
-          CALL message(TRIM(routine), message_text)
+          ENDDO  !jk
+          IF (.NOT. lfound) CALL finish(TRIM(routine), 'Could not find ilev_end corresponding to nudge_start_height.')
+          ! Just to make sure
+          nudging_config(jg)%ilev_end = MIN( MAX( 1, nudging_config(jg)%ilev_end ), nlev )
+          !
+          ! 2) End height
+          end_height = nudging_config(jg)%nudge_end_height
+          lfound     = .FALSE.
+          DO jk = 1, nudging_config(jg)%ilev_end + 1
+            height = vct_a(jk)
+            IF (height < end_height) THEN
+              ! We have found the uppermost grid layer, where nudging is applied
+              nudging_config(jg)%ilev_start = jk - 1
+              ! Indicate the find
+              lfound = .TRUE.
+              EXIT
+            ENDIF
+          ENDDO
+          IF (.NOT. lfound) CALL finish(TRIM(routine), 'Could not find ilev_start corresponding to nudge_end_height.')
+          ! Just to make sure
+          nudging_config(jg)%ilev_start = MIN( MAX( 1, nudging_config(jg)%ilev_start ), nlev )
+          ! We replace the namelist entry for end height by the effective end height
+          nudging_config(jg)%nudge_end_height   = 0.5_wp * ( vct_a(nudging_config(jg)%ilev_start)     &
+            &                                          + vct_a(nudging_config(jg)%ilev_start + 1) )
+          ! Finally, we can compute the nudging scale height 
+          ! (if there is no explicit namelist input for it, or 'nudge_profile = 1' is selected)
+          IF ( nudging_config(jg)%nudge_scale_height < 0._wp .OR.        & 
+            &  nudging_config(jg)%nudge_profile == indg_profile%sqrddist ) THEN
+            nudging_config(jg)%nudge_scale_height = nudging_config(jg)%nudge_end_height - nudging_config(jg)%nudge_start_height
+          ENDIF
+          !
+        ELSE  ! for jg > 1
+          !
+          ! copy from DOM 1
+          nudging_config(jg)%nudge_end_height   = nudging_config(1)%nudge_end_height
+          nudging_config(jg)%nudge_scale_height = nudging_config(1)%nudge_scale_height
+          !
+          IF (nudging_config(1)%ilev_end <= nshift_total(jg)) THEN
+            ! switch off nudging implicitly, as the domain top height is below the nudging start height.
+            nudging_config(jg)%ilev_start = 0
+            nudging_config(jg)%ilev_end   = -1
+          ELSE
+            nudging_config(jg)%ilev_start = MAX(1,nudging_config(1)%ilev_start-nshift_total(jg))
+            nudging_config(jg)%ilev_end   = MAX(1,nudging_config(1)%ilev_end  -nshift_total(jg))
+          ENDIF
         ENDIF
 
-        ! For upper boundary nudging only
-
-        IF (nudging_config%nudge_type == indg_type%ubn) THEN
-
-          ! Max. nudging coefficients
-          WRITE(message_text,'(a)') 'Max. nudging coefficient for horizontal wind: ' &
-            & //TRIM(real2string(nudging_config%max_nudge_coeff_vn))
-          CALL message(TRIM(routine), message_text)
-          WRITE(message_text,'(a)') 'Max. nudging coefficient for thermodynamic variables: ' &
-            & //TRIM(real2string(nudging_config%max_nudge_coeff_thermdyn))
-          CALL message(TRIM(routine), message_text)
 
         ! For global nudging only
 
-        ELSEIF (nudging_config%nudge_type == indg_type%globn) THEN
-
-          ! Nudging variables and max. nudging coefficients
-          WRITE(message_text,'(a)') 'Active nudging variables:'
-          CALL message(TRIM(routine), message_text)
-          DO jvar = 1, indg_var%nitem
-            IF (nudging_config%lvar(jvar)) THEN
-              IF (jvar == indg_var%vn) THEN
-                c4print = "horizontal wind (max. nudging coefficient: " &
-                  & //TRIM(real2string(nudging_config%max_nudge_coeff_vn))//")"
-              ELSEIF (jvar == indg_var%thermdyn .AND. &
-                &     nudging_config%thermdyn_type == ithermdyn_type%hydrostatic) THEN
-                c4print = "hydrostatically balanced pressure & temperature (max. nudging coefficient: " &
-                  & //TRIM(real2string(nudging_config%max_nudge_coeff_thermdyn))//")"
-              ELSEIF (jvar == indg_var%thermdyn .AND. &
-                &     nudging_config%thermdyn_type == ithermdyn_type%nonhydrostatic) THEN
-                c4print = "density & virtual potential temperature (max. nudging coefficient: " &
-                  & //TRIM(real2string(nudging_config%max_nudge_coeff_thermdyn))//")"
-              ELSEIF (jvar == indg_var%qv) THEN
-                c4print = "water vapour (max. nudging coefficient: " &
-                  & //TRIM(real2string(nudging_config%max_nudge_coeff_qv))//")"
+        IF (nudging_config(jg)%nudge_type == indg_type%globn) THEN
+          ! Evaluate the namelist input for the variables that are to be nudged
+          ! (please note that the evaluation is very rudimentary without any sophisticated error handling)
+          IF (LEN_TRIM(nudging_config(jg)%nudge_var) == 0) THEN 
+            ! The string list with the variables that shall be nudged is empty
+            CALL finish(routine, "nudge_var is empty.")
+          ELSEIF (INDEX(TRIM(nudging_config(jg)%nudge_var), TRIM(cndg_var(indg_var%all))) > 0) THEN
+            ! All variables, for which nudging has been implemented, are subject to nudging
+            nudging_config(jg)%lvar(:) = .TRUE.
+          ELSE
+            ! In this case, the string should contain either the character identifier of a single variable, 
+            ! or a comma-separated list with the character identifiers of several variables
+            lfound = .FALSE.
+            DO jvar = 1, indg_var%nitem
+              IF (INDEX(TRIM(nudging_config(jg)%nudge_var), TRIM(cndg_var(jvar))) > 0) THEN
+                ! Current variable 'jvar' shall be nudged
+                nudging_config(jg)%lvar(jvar) = .TRUE.
+                lfound                        = .TRUE.
               ENDIF
-              WRITE(message_text,'(a)') '- '//TRIM(c4print)
-              CALL message(' ', message_text, adjust_right=.TRUE.)
-            ENDIF  !IF (nudging_config%lvar(jvar))
-          ENDDO  !jvar
-          IF (lremove_qv) THEN
-            ! Although requested, water vapour may not be available for nudging
-            WRITE(message_text,'(a)') 'Note: qv has been removed from the list of nudging variables, ...' 
-            CALL message(TRIM(routine), message_text)
-            WRITE(message_text,'(a)') '... since the current model setup does not allow to nudge it.'
-            CALL message(TRIM(routine), message_text)
-          ENDIF  !IF (lremove_qv)
-          ! If analysis of nudging success/impact is switched on
-          IF (nudging_config%ldiagnose) THEN
-            WRITE(message_text,'(a)') 'Analysis of nudging success and impact is switched on.'
-            CALL message(TRIM(routine), message_text)
-            WRITE(message_text,'(a)') 'A time series of the diagnostics of the nudging analysis ...' 
-            CALL message(TRIM(routine), message_text)
-            WRITE(message_text,'(a)') '... should be written to the ASCII file: ' &
-              & //TRIM(nudging_config%diag_kit%filename)
-            CALL message(TRIM(routine), message_text)
-            WRITE(message_text,'(a)') 'The diagnostics are:' 
-            CALL message(TRIM(routine), message_text)
-            WRITE(message_text,'(a)') '- correlation of the mean sea-level pressure between ICON and driving data'
-            CALL message(' ', message_text, adjust_right=.TRUE.)
-            WRITE(message_text,'(a)') '- global mean of the absolute horizontal wind divergence'
-            CALL message(' ', message_text, adjust_right=.TRUE.)
-            WRITE(message_text,'(a)') '- global mean of the absolute surface pressure tendency'
-            CALL message(' ', message_text, adjust_right=.TRUE.)
-            WRITE(message_text,'(a)') 'The nudging analysis takes place every ' &
-              & //TRIM(int2string(nudging_config%idiagnose))//' run_nml/dtime.'
+            ENDDO  !jvar
+            IF (.NOT. lfound) CALL finish(routine, "No valid variable identifier found in nudge_var.")
+          ENDIF  !Sift variables
+          ! The model setup might not allow to nudge water vapour, although the user requests it
+          IF (nudging_config(jg)%lvar(indg_var%qv) .AND. .NOT. nudging_config(jg)%lqv_nudgable) THEN
+            nudging_config(jg)%lvar(indg_var%qv) = .FALSE.
+            lremove_qv                           = .TRUE.
+          ENDIF
+          ! Include global nudging in timer monitoring?
+          nudging_config(jg)%ltimer = timers_level > nudging_config(jg)%tmr_thr%med
+          ! Message output during the integration stepping?
+          nudging_config(jg)%lmessage = msg_level >= nudging_config(jg)%msg_thr%high
+          ! Runtime analysis of nudging requested?
+          IF (nudging_config(jg)%idiagnose > 0) THEN
+            nudging_config(jg)%ldiagnose = .TRUE.
+            ! Set name for ASCII file, to which diagnostics are written
+            nudging_config(jg)%diag_kit%filename = "nudging_diagnostics.txt"
+            ! Please note: if 'io_nml: inextra_2d = 3', 
+            ! 'src/atm_dyn_iconam/mo_nudging: diagnose_nudging' 
+            ! will store three extra 2d-fields with the names: 
+            ! * 'extra_2d1' -> mean sea-level pressure from ICON
+            ! * 'extra_2d2' -> mean sea-level pressure from driving model
+            ! * 'extra_2d3' -> 'extra_2d1' - 'extra_2d2'
+            ! However, this function is meant as some kind of debugging tool, 
+            ! so we neither mention it in "Namelist_overview.pdf
+            ! nor do we check here for the consistency between 'inextra_2d' 
+            ! and the entries in 'output_nml: ml_varlist'!
+          ENDIF
+        ENDIF  !IF (nudging_config(jg)%nudge_type == indg_type%globn)
+
+        !---------------------------------------------------
+        ! Print some info
+        !---------------------------------------------------
+
+        IF (msg_level >= nudging_config(jg)%msg_thr%med) THEN 
+
+          ! Nudging type
+          SELECT CASE(nudging_config(jg)%nudge_type)
+          CASE(indg_type%ubn)
+            c4print = "upper boundary nudging for limited-area mode"
+          CASE(indg_type%globn)
+            c4print = "global nudging"
+          END SELECT
+          WRITE(message_text,'(a,i2)') 'Nudging is switched on for DOM', jg
+          CALL message(TRIM(routine), message_text)
+          WRITE(message_text,'(a)') 'Selected nudging type: '//TRIM(c4print)
+          CALL message(TRIM(routine), message_text)
+
+          ! Profile of nudging strength
+          SELECT CASE(nudging_config(jg)%nudge_profile)
+          CASE(indg_profile%sqrddist)
+            c4print = "inverse squared scaled vertical distance from nudging start height"
+          CASE(indg_profile%const)
+            c4print = "constant"
+          CASE(indg_profile%tanh)
+            c4print = "hyperbolic tangent decreasing in magnitude from nudging end height downwards"
+          CASE(indg_profile%trapid) 
+            c4print = "trapezoidal"
+          END SELECT
+          WRITE(message_text,'(a)') 'Selected profile of nudging strength between start and end height: ' &
+            & //TRIM(c4print)
+          CALL message(TRIM(routine), message_text)
+
+          ! Nudging start and end heights and the scale height
+          WRITE(message_text,'(a)') 'Nudging includes the full levels between:'
+          CALL message(TRIM(routine), message_text)
+          jk     = nudging_config(jg)%ilev_start
+          height = 0.5_wp * ( vct_a(jk) + vct_a(jk+1) )  
+          WRITE(message_text,'(a)') ' - Level jk = '//TRIM(int2string(jk))//', height z(jk) = ' &
+            & //TRIM(real2string(height))//' m'
+          CALL message(' ', message_text, adjust_right=.TRUE.)
+          jk     = nudging_config(jg)%ilev_end
+          height = 0.5_wp * ( vct_a(jk) + vct_a(jk+1) )  
+          WRITE(message_text,'(a)') ' - Level jk = '//TRIM(int2string(jk))//', height z(jk) = ' &
+            & //TRIM(real2string(height))//' m'
+          CALL message(' ', message_text, adjust_right=.TRUE.)
+          IF (ANY((/indg_profile%sqrddist, indg_profile%tanh, indg_profile%trapid/) &
+            & == nudging_config(jg)%nudge_profile)) THEN 
+            WRITE(message_text,'(a)') 'Scale height for profile of nudging strength: ' &
+              & //TRIM(real2string(nudging_config(jg)%nudge_scale_height))//' m'
             CALL message(TRIM(routine), message_text)
           ENDIF
 
-        ENDIF  !IF (nudging_config%nudge_type == indg_type%...)
-        
-      ENDIF  !IF (msg_level >= nudging_config%msg_thr%med)
-      
-    ENDIF  !IF (nudging_config%lnudging)
-    
-    ! Indicate that the setup of 'nudging_config' took place
-    nudging_config%lconfigured = .TRUE.
+          ! For upper boundary nudging only
+
+          IF (nudging_config(jg)%nudge_type == indg_type%ubn) THEN
+
+            ! Max. nudging coefficients
+            WRITE(message_text,'(a)') 'Max. nudging coefficient for horizontal wind: ' &
+              & //TRIM(real2string(nudging_config(jg)%max_nudge_coeff_vn))
+            CALL message(TRIM(routine), message_text)
+            WRITE(message_text,'(a)') 'Max. nudging coefficient for thermodynamic variables: ' &
+              & //TRIM(real2string(nudging_config(jg)%max_nudge_coeff_thermdyn))
+            CALL message(TRIM(routine), message_text)
+
+          ! For global nudging only
+
+          ELSEIF (nudging_config(jg)%nudge_type == indg_type%globn) THEN
+
+            ! Nudging variables and max. nudging coefficients
+            WRITE(message_text,'(a)') 'Active nudging variables:'
+            CALL message(TRIM(routine), message_text)
+            DO jvar = 1, indg_var%nitem
+              IF (nudging_config(jg)%lvar(jvar)) THEN
+                IF (jvar == indg_var%vn) THEN
+                  c4print = "horizontal wind (max. nudging coefficient: " &
+                    & //TRIM(real2string(nudging_config(jg)%max_nudge_coeff_vn))//")"
+                ELSEIF (jvar == indg_var%thermdyn .AND. &
+                  &     nudging_config(jg)%thermdyn_type == ithermdyn_type%hydrostatic) THEN
+                  c4print = "hydrostatically balanced pressure & temperature (max. nudging coefficient: " &
+                    & //TRIM(real2string(nudging_config(jg)%max_nudge_coeff_thermdyn))//")"
+                ELSEIF (jvar == indg_var%thermdyn .AND. &
+                  &     nudging_config(jg)%thermdyn_type == ithermdyn_type%nonhydrostatic) THEN
+                  c4print = "density & virtual potential temperature (max. nudging coefficient: " &
+                    & //TRIM(real2string(nudging_config(jg)%max_nudge_coeff_thermdyn))//")"
+                ELSEIF (jvar == indg_var%qv) THEN
+                  c4print = "water vapour (max. nudging coefficient: " &
+                    & //TRIM(real2string(nudging_config(jg)%max_nudge_coeff_qv))//")"
+                ENDIF
+                WRITE(message_text,'(a)') '- '//TRIM(c4print)
+                CALL message(' ', message_text, adjust_right=.TRUE.)
+              ENDIF  !IF (nudging_config(jg)%lvar(jvar))
+            ENDDO  !jvar
+            IF (lremove_qv) THEN
+              ! Although requested, water vapour may not be available for nudging
+              WRITE(message_text,'(a)') 'Note: qv has been removed from the list of nudging variables, ...' 
+              CALL message(TRIM(routine), message_text)
+              WRITE(message_text,'(a)') '... since the current model setup does not allow to nudge it.'
+              CALL message(TRIM(routine), message_text)
+            ENDIF  !IF (lremove_qv)
+            ! If analysis of nudging success/impact is switched on
+            IF (nudging_config(jg)%ldiagnose) THEN
+              WRITE(message_text,'(a)') 'Analysis of nudging success and impact is switched on.'
+              CALL message(TRIM(routine), message_text)
+              WRITE(message_text,'(a)') 'A time series of the diagnostics of the nudging analysis ...' 
+              CALL message(TRIM(routine), message_text)
+              WRITE(message_text,'(a)') '... should be written to the ASCII file: ' &
+                & //TRIM(nudging_config(jg)%diag_kit%filename)
+              CALL message(TRIM(routine), message_text)
+              WRITE(message_text,'(a)') 'The diagnostics are:' 
+              CALL message(TRIM(routine), message_text)
+              WRITE(message_text,'(a)') '- correlation of the mean sea-level pressure between ICON and driving data'
+              CALL message(' ', message_text, adjust_right=.TRUE.)
+              WRITE(message_text,'(a)') '- global mean of the absolute horizontal wind divergence'
+              CALL message(' ', message_text, adjust_right=.TRUE.)
+              WRITE(message_text,'(a)') '- global mean of the absolute surface pressure tendency'
+              CALL message(' ', message_text, adjust_right=.TRUE.)
+              WRITE(message_text,'(a)') 'The nudging analysis takes place every ' &
+                & //TRIM(int2string(nudging_config(jg)%idiagnose))//' run_nml/dtime.'
+              CALL message(TRIM(routine), message_text)
+            ENDIF
+
+          ENDIF  !IF (nudging_config(jg)%nudge_type == indg_type%...)
+
+        ENDIF  !IF (msg_level >= nudging_config(jg)%msg_thr%med)
+
+      ENDIF  !IF (nudging_config(jg)%lnudging)
+
+      ! Indicate that the setup of 'nudging_config(jg)' took place
+      nudging_config(jg)%lconfigured = .TRUE.
+
+    ENDDO  ! jg
+
+    ! Convenience substitute for 'nudging_config(1)%ltype(indg_type%globn)'
+    ! for use in 'src/atm_dyn_iconam/mo_nh_stepping'
+    ! (and 'src/drivers/mo_atmo_nonhydrostatic: destruct_atmo_nonhydrostatic')
+    l_global_nudging = nudging_config(1)%ltype(indg_type%globn)
+
 
   END SUBROUTINE configure_nudging
 
