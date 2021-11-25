@@ -262,7 +262,7 @@ CONTAINS
     sst => ext_sea(jg)%sst
     sic => ext_sea(jg)%sic
     !$ACC DATA PRESENT( tsw, seaice, siced, mask, sst, sic, p_patch%cells%center ) &
-    !$ACC       CREATE( zts, zic, ztsw )                                           &
+    !$ACC       CREATE( zts, zic, ztsw ) COPYIN(tiw)                               &
     !$ACC           IF( lzopenacc )
 
     !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )

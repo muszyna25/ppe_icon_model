@@ -1,0 +1,12 @@
+#!/bin/bash
+
+SPACK_SPEC="icon@dev-build%gcc icon_target=cpu +eccodes"
+
+# source spack instance
+. /project/g110/spack/user/daint/spack/share/spack/setup-env.sh
+
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
+
+MAKE_PROCS=8
+spack dev-build -u build -j ${MAKE_PROCS} ${SPACK_SPEC}
