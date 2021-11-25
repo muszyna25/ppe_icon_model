@@ -461,6 +461,172 @@ CONTAINS
   END SUBROUTINE calc_internal_press_grad_zstar
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  !>
+  !! Calculation the hydrostatic pressure gradient at edges with zstar 
+  !! Fixes problems due to chain rule violation
+  !!
+  SUBROUTINE calc_internal_press_grad_zstar_chain(patch_3d, rho, pressure_hyd, bc_total_top_potential, &
+      & grad_coeff, stretch_c, press_grad)
+    !
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), INTENT(in)                 :: rho          (nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< density
+    REAL(wp), INTENT(inout)              :: pressure_hyd (nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(in)                 :: bc_total_top_potential(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< density
+    REAL(wp), INTENT(in)                 :: grad_coeff(:,:,:)
+    REAL(wp), INTENT(IN)                 :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
+    REAL(wp), INTENT(inout)              :: press_grad    (nproma,n_zlev, patch_3d%p_patch_2d(1)%nblks_e)  !< hydrostatic pressure gradient
+
+    ! local variables:
+    !CHARACTER(len=max_char_length), PARAMETER :: &
+    !       & routine = (this_mod_name//':calc_internal_pressure')
+    INTEGER :: je, jk, jb, jc, ic1,ic2,ib1,ib2
+    INTEGER :: start_index, end_index
+    REAL(wp) :: z_grav_rho_inv
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    TYPE(t_patch), POINTER :: patch_2D
+    INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
+    REAL(wp), POINTER :: prism_thick_e(:,:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+    REAL(wp) :: phy(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! Extra pressure term for zstar
+    
+    REAL(wp) :: rho_chain(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! Compensate for chain rule 
+    REAL(wp) :: sigma_del_s 
+
+    REAL(wp) :: press_L, press_R, phy_L, phy_R 
+    REAL(wp) :: thick1, thick2 
+    !-----------------------------------------------------------------------
+    z_grav_rho_inv = OceanReferenceDensity_inv * grav
+    patch_2D        => patch_3d%p_patch_2d(1)
+    edges_in_domain => patch_2D%edges%in_domain
+    all_cells       => patch_2D%cells%ALL
+    prism_thick_e   => patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_e
+
+    iidx => patch_3D%p_patch_2D(1)%edges%cell_idx
+    iblk => patch_3D%p_patch_2D(1)%edges%cell_blk
+
+    pressure_hyd (1:nproma,1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
+    phy          (1:nproma,1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
+    !-------------------------------------------------------------------------
+
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+
+      DO jc = start_index, end_index
+
+        pressure_hyd(jc,1,jb) = rho(jc,1,jb)*z_grav_rho_inv*&
+         &stretch_c(jc, jb)*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,1,jb) &
+         & + bc_total_top_potential(jc,jb)
+
+        !! This is the pressure correction term for grad_s(z) in the zstar
+        !! momentum eqn 
+        phy(jc, 1, jb) = 0.0_wp - &
+            & stretch_c(jc, jb)*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc, 1, jb)
+        
+        rho_chain(jc, 1, jb) = rho(jc,1,jb)*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc, 1, jb)
+
+        DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
+          pressure_hyd(jc,jk,jb) = pressure_hyd(jc,jk-1,jb) + 0.5_wp*(rho(jc,jk,jb)+rho(jc,jk-1,jb))&
+            &*z_grav_rho_inv*stretch_c(jc, jb)*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb)
+
+          phy(jc,jk,jb) = phy(jc,jk-1,jb) - &
+            & stretch_c(jc, jb)*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb)
+        
+          rho_chain(jc, jk, jb) = rho_chain(jc, jk-1, jb) + &
+            & 0.5_wp*(rho(jc,jk,jb)+rho(jc,jk-1,jb))*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb)
+
+
+        END DO
+
+        sigma_del_s = 0.0_wp 
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+            sigma_del_s = sigma_del_s + patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb)
+            rho_chain(jc, jk, jb) = rho_chain(jc, jk, jb)/sigma_del_s
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_DO
+
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, ic1, ib1, ic2, ib2, jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, start_index, end_index)
+
+      DO je = start_index, end_index
+
+          ic1=patch_2D%edges%cell_idx(je,jb,1)
+          ib1=patch_2D%edges%cell_blk(je,jb,1)
+          ic2=patch_2D%edges%cell_idx(je,jb,2)
+          ib2=patch_2D%edges%cell_blk(je,jb,2)
+
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
+          !! For each edge, we can determine for the bottom layer only
+          !! what the shallower cell is by comparing
+          !! patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb)
+          !! Then we correct the pressure_hyd to only add
+          !! the shallower height to the pressure.
+
+          thick1 = patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(ic1, jk, ib1)
+          thick2 = patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(ic2, jk, ib2)
+
+          !! Correction for partial cells to ensure well balancedness
+          IF ( (jk .EQ. patch_3d%p_patch_1d(1)%dolic_e(je,jb)) .AND. &
+            & ( abs(thick1 - thick2) > 1E-10) ) THEN
+            
+            press_L = pressure_hyd(ic2, jk, ib2)
+            press_R = pressure_hyd(ic1, jk, ib1)
+
+            phy_L   = phy(ic2, jk, ib2)
+            phy_R   = phy(ic1, jk, ib1)
+
+            IF (thick1 > thick2) THEN
+
+              press_R = pressure_hyd(ic1, jk-1, ib1) + &
+                & 0.5_wp*( rho(ic1, jk - 1, ib1) + rho(ic1, jk, ib1) )    &
+                & *z_grav_rho_inv * stretch_c(ic1, ib1)*thick2
+              phy_R   = phy(ic1, jk-1, ib1) - &
+                & stretch_c(ic1, ib1) * thick2
+
+            ELSE
+              press_L = pressure_hyd(ic2, jk-1, ib2) + &
+                & 0.5_wp*( rho(ic2, jk - 1, ib2) + rho(ic2, jk, ib2) )    &
+                & *z_grav_rho_inv * stretch_c(ic2, ib2)*thick1
+              phy_L   = phy(ic2, jk-1, ib2) - &
+                & stretch_c(ic2, ib2) * thick1
+
+            END IF
+         
+            press_grad(je,jk,jb) = (press_L - press_R)*grad_coeff(je,jk,jb)
+            press_grad(je,jk,jb) = press_grad(je,jk,jb) + &
+              & z_grav_rho_inv*(phy_L - phy_R)*grad_coeff(je,jk,jb)* &
+              & 0.5_wp*( rho_chain(ic2,jk,ib2) + rho_chain(ic1,jk,ib1) )
+ 
+          ELSE  
+          
+           press_grad(je,jk,jb)=(pressure_hyd(ic2,jk,ib2)-pressure_hyd(ic1,jk,ib1))*grad_coeff(je,jk,jb)
+           !! Pressure gradient is corrected because the 2 adjoining levels
+           !! are not at the same height. However this correction term is not
+           !! exact. Therefore, we replace rho with rho_chain to ensure that
+           !! there are not pressure gradients if ssh is uniform
+           press_grad(je,jk,jb)=press_grad(je,jk,jb) + &
+            & z_grav_rho_inv*(phy(ic2,jk,ib2)-phy(ic1,jk,ib1))*grad_coeff(je,jk,jb)* &
+            & 0.5_wp*( rho_chain(ic2,jk,ib2) + rho_chain(ic1,jk,ib1) )
+         
+          END IF
+
+          
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
+    
+  END SUBROUTINE calc_internal_press_grad_zstar_chain
+  !-------------------------------------------------------------------------
+
+
 
   !-------------------------------------------------------------------------
   !>
