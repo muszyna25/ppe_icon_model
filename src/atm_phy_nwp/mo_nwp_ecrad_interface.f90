@@ -65,7 +65,7 @@ MODULE mo_nwp_ecrad_interface
                                    &   t_ecrad_thermodynamics_type,              &
                                    &   t_ecrad_gas_type, t_ecrad_flux_type,      &
                                    &   t_ecrad_cloud_type
-  USE mo_nwp_ecrad_prep_aerosol, ONLY: nwp_ecrad_prep_aerosol
+  USE mo_nwp_ecrad_prep_aerosol, ONLY: nwp_ecrad_prep_aerosol                   
   USE mo_nwp_ecrad_utilities,    ONLY: ecrad_set_single_level,                   &
                                    &   ecrad_set_thermodynamics,                 &
                                    &   ecrad_set_clouds,                         &
@@ -319,35 +319,34 @@ CONTAINS
           &                   fact_reffc, ecrad_conf%cloud_fraction_threshold, nlev, i_startidx_rad, i_endidx_rad)
 
 ! Fill aerosol configuration type
-        SELECT CASE (irad_aero)
-          CASE(0)
-            ! No aerosol, nothing to do
-          CASE(2)
-            ! Case 2: Constant aerosol
-            !         Arguments can be added to fill ecrad_aerosol with actual values. For the time being,
-            !         we stay consistent with RRTM where irad_aero=2 does not add any aerosol
-            CALL nwp_ecrad_prep_aerosol(ecrad_conf, ecrad_aerosol)
-          CASE(5,6)
-            ! Fill aerosol configuration type with Tanre or Tegen aerosol
-            CALL nwp_ecrad_prep_aerosol(1, nlev, i_startidx_rad, i_endidx_rad,     &
-              &                         zaeq1(jcs:jce,:,jb), zaeq2(jcs:jce,:,jb),  &
-              &                         zaeq3(jcs:jce,:,jb), zaeq4(jcs:jce,:,jb),  &
-              &                         zaeq5(jcs:jce,:,jb),                       &
-              &                         ecrad_conf, ecrad_aerosol)
-          CASE(9)
-            ! Use ART aerosol
-            CALL nwp_ecrad_prep_aerosol(1, nlev, i_startidx_rad, i_endidx_rad, jb, pt_patch%id, &
-              &                         zaeq1(jcs:jce,:,jb), zaeq2(jcs:jce,:,jb),               &
-              &                         zaeq3(jcs:jce,:,jb), zaeq4(jcs:jce,:,jb),               &
-              &                         zaeq5(jcs:jce,:,jb),                                    &
-              &                         ecrad_conf, ecrad_aerosol)
-            CALL finish(routine, 'irad_aero = 9 not yet fully implemented for ecRad')
-          CASE DEFAULT
-            CALL finish(routine, 'irad_aero not valid for ecRad')
-        END SELECT
+      SELECT CASE (irad_aero)
+        CASE(0)
+          ! No aerosol, nothing to do
+        CASE(2)
+          ! Case 2: Constant aerosol
+          !         Arguments can be added to fill ecrad_aerosol with actual values. For the time being,
+          !         we stay consistent with RRTM where irad_aero=2 does not add any aerosol
+          CALL nwp_ecrad_prep_aerosol(ecrad_conf, ecrad_aerosol)
+        CASE(5,6)
+          ! Fill aerosol configuration type with Tanre or Tegen aerosol
+         CALL nwp_ecrad_prep_aerosol(1, nlev, i_startidx_rad, i_endidx_rad,     &
+            &                         zaeq1(jcs:jce,:,jb), zaeq2(jcs:jce,:,jb),  &
+            &                         zaeq3(jcs:jce,:,jb), zaeq4(jcs:jce,:,jb),  &
+            &                         zaeq5(jcs:jce,:,jb),                       &
+            &                         ecrad_conf, ecrad_aerosol)
+        CASE(9)
+          ! Use ART aerosol
+          CALL nwp_ecrad_prep_aerosol(1, nlev, i_startidx_rad, i_endidx_rad, jb, jg, nproma,  &
+            &                         zaeq1(jcs:jce,:,jb), zaeq2(jcs:jce,:,jb),       &
+            &                         zaeq3(jcs:jce,:,jb), zaeq4(jcs:jce,:,jb),       &
+            &                         zaeq5(jcs:jce,:,jb),                            &
+            &                         ecrad_conf, ecrad_aerosol)
+        CASE DEFAULT
+          CALL finish(routine, 'irad_aero not valid for ecRad')
+      END SELECT
 
-        ecrad_flux%cloud_cover_sw(:) = 0._wp
-        ecrad_flux%cloud_cover_lw(:) = 0._wp
+      ecrad_flux%cloud_cover_sw(:) = 0._wp
+      ecrad_flux%cloud_cover_lw(:) = 0._wp
 
 !---------------------------------------------------------------------------------------
 ! Call the radiation scheme ecRad

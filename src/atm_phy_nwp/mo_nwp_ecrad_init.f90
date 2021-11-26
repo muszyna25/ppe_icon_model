@@ -119,7 +119,7 @@ CONTAINS
     SELECT CASE (irad_aero)
       CASE (0) ! No aerosol
         ecrad_conf%use_aerosols = .false.
-      CASE (2,5,6) ! Constant, Tanre, Tegen
+      CASE (2,5,6,9) ! Constant, Tanre, Tegen, ART
         ecrad_conf%use_aerosols = .true.
       CASE DEFAULT
         CALL finish(routine, 'irad_aero not valid for ecRad')
