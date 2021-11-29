@@ -272,7 +272,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   lupatmo_phy = (.NOT. lreset_mode) .AND. &
     & upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled ) 
 
-  IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
+  IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' .OR. nh_test_name == 'RCE_Tprescr' ) THEN
     ! allocate storage var for press to be used in o3_pl2ml
     ALLOCATE (zrefpres(nproma,nlev,nblks_c),STAT=istatus)
     IF(istatus/=SUCCESS)THEN
@@ -404,7 +404,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
         IF ( (nh_test_name == 'APE_nwp' .OR. nh_test_name == 'dcmip_tc_52' .OR.        &
             & nh_test_name == 'RCEMIP_analytical'  .OR.                                &
-            & nh_test_name == 'RCE_Tconst' .OR. nh_test_name == 'CBL_flxconst') ) THEN
+            & nh_test_name == 'RCE_Tconst' .OR. nh_test_name == 'RCE_Tprescr' &
+            & .OR. nh_test_name == 'CBL_flxconst') ) THEN
 
           ! t_g = ape_sst1
 
@@ -437,7 +438,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
             p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
           END DO
 
-        ELSE IF ( ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) &
+        ELSE IF ( ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' &
+               & .OR. nh_test_name == 'RCE_Tprescr' )                       &
       &            .AND. atm_phy_nwp_config(jg)%inwp_turb/=ismag) THEN !
 
           DO jc = i_startidx, i_endidx
@@ -606,7 +608,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       ENDDO
     ENDDO
 
-    IF (ltestcase .AND. ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) .AND. &
+    IF (ltestcase .AND. ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' .OR. nh_test_name == 'RCE_Tprescr' ) .AND. &
         ANY( (/ismag,iprog/) /= atm_phy_nwp_config(jg)%inwp_turb)) THEN !
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -813,7 +815,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     ENDIF  ! APE
 
     IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' .OR. &
-       & nh_test_name == 'RCEMIP_analytical') THEN
+         & nh_test_name == 'RCE_Tprescr' .OR. nh_test_name == 'RCEMIP_analytical') THEN
       ! solar flux (W/m2) in 14 SW bands
       scale_fac = sol_const/1361.371_wp ! computed relative to amip (1361)
       ssi_radt(:) = scale_fac*ssi_amip(:)
@@ -880,7 +882,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
           prm_diag%acdnc(jc,jk,jb) = zcdnc
         END DO !jc
       END DO   !jk
-      IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
+      IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst'   &
+         & .OR. nh_test_name == 'RCE_Tprescr'                        ) THEN
         DO jk = 1,nlev
           DO jc = i_startidx, i_endidx
             !--- computation of reference pressure field from the reference exner field
@@ -890,7 +893,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
           END DO !jc
         END DO   !jk
       END IF
-      IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
+      IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst'   &
+         & .OR. nh_test_name == 'RCE_Tprescr'                        ) THEN
         ! a ref press field needs to be computed for testcases with a
         ! constant ozone.  the reference field allows the ozone to be
         ! interpolated at a restart without changing due to a changing p field.
@@ -932,7 +936,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 !          &           zf_aux,   p_metrics%z_mc,                & ! vertical in/out
 !          &           ext_data%atm_td%o3(:,:,:,nmonths),p_prog%tracer(:,:,:,io3))! o3Field in/out
 
-        IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
+        IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' &
+           & .OR. nh_test_name == 'RCE_Tprescr'                      ) THEN
           CALL o3_pl2ml (jcs=i_startidx, jce=i_endidx,     &
             & kbdim=nproma,                                &
             & nlev_pres = nlev_o3,klev= nlev ,             &
@@ -989,7 +994,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
   END SELECT !inwp_radiation
 
-  IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
+  IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' .OR. &
+     & nh_test_name == 'RCE_Tprescr'                                ) THEN
     DEALLOCATE (zrefpres)
     DEALLOCATE (zreftemp)
     DEALLOCATE (zpres_sfc)

@@ -6,7 +6,7 @@ set -eu
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='gcc/6.3.0 openmpi/3.0.1 hdf5 netcdf netcdf-fortran parallel-netcdf libszip zlib libxml2 openblas cuda climate'
+MODULES='gcc/9.3.0 openmpi/4.0.2 hdf5/1.10.1 netcdf/4.6.0 netcdf-fortran/4.4.1 parallel-netcdf/1.12.2 libszip/2.1.1 zlib/1.2.11 libxml2/2.9.10 openblas/0.3.15 cuda/10.1.243 climate/4.0'
 
 ################################################################################
 
@@ -30,7 +30,7 @@ LIBS="-Wl,--disable-new-dtags -Wl,--as-needed -lnetcdf -lnetcdff -lxml2 -lopenbl
 MPI_LAUNCH='mpiexec'
 
 # Speed up the configuration by disabling MPI checks:
-EXTRA_CONFIG_ARGS='--disable-openmp --disable-mpi-checks'
+EXTRA_CONFIG_ARGS='--disable-openmp --disable-mpi-checks --disable-claw'
 
 ################################################################################
 

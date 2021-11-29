@@ -166,7 +166,7 @@ CONTAINS
     offset = 0
     CALL commData%sync(.FALSE.)
     DO iv = 1, SIZE(vars)
-      IF (has_valid_time_level(vars(iv)%p%info, desc%id, desc%nnew, desc%nnew_rcf)) THEN
+      IF (has_valid_time_level(vars(iv)%p%info, desc%id, desc%nnow, desc%nnow_rcf)) THEN
         hgi = desc%hmap(vars(iv)%p%info%hgrid)
         SELECT CASE(vars(iv)%p%info%data_type)
         CASE(REAL_T)

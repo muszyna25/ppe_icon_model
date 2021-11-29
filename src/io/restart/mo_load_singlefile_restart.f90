@@ -28,7 +28,7 @@ MODULE mo_load_singlefile_restart
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
     & distrib_read, distrib_nf_close, idx_lvl_blk
   USE mo_netcdf_errhandler,  ONLY: nf
-  USE mo_dynamics_config,    ONLY: nnew, nnew_rcf
+  USE mo_dynamics_config,    ONLY: nnow, nnow_rcf
   USE mo_fortran_tools,      ONLY: t_ptr_3d, t_ptr_3d_int, t_ptr_3d_sp
 
   IMPLICIT NONE
@@ -100,7 +100,7 @@ CONTAINS
       WRITE(0, "(a)") "opening " // restart_filename
       CALL nf(nf_open(restart_filename, NF_NOWRITE, fID), routine)
       DO iV = 1, SIZE(vDat)
-        skip(iV) = .NOT.has_valid_time_level(vDat(iV)%p%info, ptc%id, nnew(ptc%id), nnew_rcf(ptc%id))
+        skip(iV) = .NOT.has_valid_time_level(vDat(iV)%p%info, ptc%id, nnow(ptc%id), nnow_rcf(ptc%id))
         IF (.NOT.skip(iV)) THEN
           skip(iV) = nf_inq_varid(fID, TRIM(vDat(iV)%p%info%name), dummy) .NE. NF_NOERR
           IF (ocean_initFromRestart_OVERRIDE .AND. skip(iV)) THEN
