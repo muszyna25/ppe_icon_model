@@ -25,6 +25,7 @@ case "$use_host" in
   uc2*|fh2*|hk*) use_site=kit.edu ;;
   melian*) use_site=local.net ;;
   *mpimet.mpg.de) use_site=mpg.de ;;
+  *euler*) use_site=ethz.ch ;;
 esac
 
 
@@ -1214,6 +1215,52 @@ set_run_target_tave_knl()
 EOF
     start_header
 }
+
+#=============================================================================
+#=============================================================================
+set_run_target_euler()
+{
+  # euler.ethz.ch
+  typeset poolFolder_prefix=/cluster/work/climate/colombsi
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/icon_input}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/icon_input}
+
+  set_default use_nproma 64
+  set_default use_nodes 1
+
+  #JENKINS_NO_OF_CORES can is unbound when not used with jenkins icon
+  set +eu
+
+  if [[ -z $JENKINS_NO_OF_CORES ]]; then 
+      set_default use_mpi_procs_pernode 1
+  else
+      set_default use_mpi_procs_pernode $JENKINS_NO_OF_CORES
+  fi
+  set_default use_openmp_threads 1
+
+  set -eu
+
+  cdo="/cluster/apps/climate/2.0/bin/cdo"
+  cdo_diff="diff"
+
+  job_log_name="LOG.$job_name.%J"
+
+  cat >> $output_script << EOF
+# ===========================
+#### BATCH_SYSTEM=BSUB ####
+#-----------------------------------------------------------------------------
+#BSUB -J $job_name
+#BSUB -oo $output_folder/$job_log_name.o
+#BSUB -eo $output_folder/$job_log_name.o
+# ===========================
+EOF
+
+  # create header
+  start_header
+
+}
+
+#=============================================================================
 
 #=============================================================================
 set_run_target_pacluster()
