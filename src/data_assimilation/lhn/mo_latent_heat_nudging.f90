@@ -397,6 +397,13 @@ SUBROUTINE organize_lhn ( &
         END IF
       ENDDO
     ENDDO
+!$ACC LOOP GANG VECTOR
+    ! Extrapolate freezing level below ground if none has been found, assuming a gradient of -6.5K/km
+    DO jc = i_startidx, i_endidx
+      IF (prm_diag%hzerocl(jc,jb) == p_metrics%z_ifc(jc,nlev+1,jb)) THEN
+        prm_diag%hzerocl(jc,jb) = MAX(0._wp, p_metrics%z_mc(jc,nlev,jb) + (pt_diag%temp(jc,nlev,jb)-tmelt)/6.5e-3_wp)
+      ENDIF
+    END DO
 !$ACC END PARALLEL
   ENDDO
 !$OMP END DO
@@ -888,11 +895,11 @@ SUBROUTINE organize_lhn ( &
 !$ACC LOOP GANG VECTOR
    DO jc = i_startidx, i_endidx
      IF (pr_obs(jc,jb) > 0.0_wp)     lhn_fields%pr_obs_sum(jc,jb) = lhn_fields%pr_obs_sum(jc,jb)       &
-                                                   + pr_obs(jc,jb) * zdt
-     IF (pr_mod(jc,jb) > 0.0_wp)     lhn_fields%pr_mod_sum(jc,jb) = lhn_fields%pr_mod_sum(jc,jb)       &
+                                                   + pr_obs_nofilt(jc,jb) * zdt
+     IF (pr_obs(jc,jb) > 0.0_wp)     lhn_fields%pr_mod_sum(jc,jb) = lhn_fields%pr_mod_sum(jc,jb)       &
                                                    + pr_mod(jc,jb) * zdt
-     IF (pr_ref(jc,jb) > 0.0_wp)     lhn_fields%pr_ref_sum(jc,jb) = lhn_fields%pr_ref_sum(jc,jb)       &
-                                                   + pr_ref(jc,jb) * zdt
+     IF (pr_obs(jc,jb) > 0.0_wp)     lhn_fields%pr_ref_sum(jc,jb) = lhn_fields%pr_ref_sum(jc,jb)       &
+                                                   + pr_mod_nofilt(jc,jb) * zdt
 
 !-------------------------------------------------------------------------------
 ! Section 10b : control output for some variables via lhn_diag
@@ -907,18 +914,18 @@ SUBROUTINE organize_lhn ( &
      lhn_diag(jc,nlev-3,jb) = pr_ana(jc,jb)                 ! ive: 4
      lhn_diag(jc,nlev-4,jb) = wobs_space(jc,jb)             ! ive: 5
      lhn_diag(jc,nlev-5,jb) = wobs_time(jc,jb)              ! ive: 6
-     IF (pr_obs(jc,jb) > assimilation_config(jg)%thres_lhn .AND. pr_mod(jc,jb) > assimilation_config(jg)%thres_lhn) &
+     IF (pr_obs(jc,jb) > assimilation_config(jg)%thres_lhn .AND. pr_ref(jc,jb) > assimilation_config(jg)%thres_lhn) &
        lhn_diag(jc,nlev-6,jb) = 1.0_wp          ! ive: 7
-     IF (pr_obs(jc,jb) > assimilation_config(jg)%thres_lhn .AND. pr_mod(jc,jb) <= assimilation_config(jg)%thres_lhn) &
+     IF (pr_obs(jc,jb) > assimilation_config(jg)%thres_lhn .AND. pr_ref(jc,jb) <= assimilation_config(jg)%thres_lhn) &
        lhn_diag(jc,nlev-6,jb) = 2.0_wp          ! ive: 7
-     IF (pr_obs(jc,jb) <= assimilation_config(jg)%thres_lhn .AND. pr_mod(jc,jb) > assimilation_config(jg)%thres_lhn) &
+     IF (pr_obs(jc,jb) <= assimilation_config(jg)%thres_lhn .AND. pr_ref(jc,jb) > assimilation_config(jg)%thres_lhn) &
        lhn_diag(jc,nlev-6,jb) = 3.0_wp          ! ive: 7
-     IF (pr_obs(jc,jb) > pr_mod(jc,jb)) THEN
+     IF (pr_obs(jc,jb) > pr_ref(jc,jb)) THEN
        lhn_diag(jc,nlev-7,jb) = 1.0_wp          ! ive: 8
      ELSE
        lhn_diag(jc,nlev-7,jb) = 0.0_wp          ! ive: 8
      ENDIF
-     IF (pr_obs(jc,jb) < pr_mod(jc,jb)) THEN
+     IF (pr_obs(jc,jb) < pr_ref(jc,jb)) THEN
        lhn_diag(jc,nlev-8,jb) = -1.0_wp         ! ive: 9
      ELSE
        lhn_diag(jc,nlev-8,jb) = 0.0_wp          ! ive: 9
@@ -929,6 +936,7 @@ SUBROUTINE organize_lhn ( &
      lhn_diag(jc,nlev-13,jb) = scale_diag(jc,jb)       ! ive: 14
      lhn_diag(jc,nlev-14,jb) = treat_diag(jc,jb)            ! ive: 15
      lhn_diag(jc,nlev-15,jb) = lhn_fields%brightband(jc,jb) ! ive: 16
+     lhn_diag(jc,nlev-16,jb) = pr_obs_nofilt(jc,jb)
    ENDDO
 !$ACC END PARALLEL
 
@@ -1108,7 +1116,7 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
   REAL  (KIND=wp) ::           &
     obs_sum(nproma,pt_patch%nblks_c) ,&      ! observed (radar) precipitation rate         (kg/m2*s)
     obs_ratio(nproma,pt_patch%nblks_c) ,&
-    obs_sum_g
+    obs_sum_g, bbllim(nproma,pt_patch%nblks_c)
 
   INTEGER         ::           &
     obs_cnt(nproma,pt_patch%nblks_c)      ! total model precipitation rate              (kg/m2*s)
@@ -1325,7 +1333,7 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
         DO jc=i_startidx,i_endidx
             IF (obs_cnt (jc,jb) <  1_i4 ) CYCLE
             obs_sum (jc,jb) = obs_sum (jc,jb) / REAL(obs_cnt (jc,jb),wp)
-            IF ( obs_sum (jc,jb) > 2.5_wp ) THEN
+            IF ( obs_sum (jc,jb) > assimilation_config(jg)%bbthres ) THEN 
                obs_sum_g = obs_sum_g + obs_sum (jc,jb)
                nsum_g    = nsum_g + 1
             ENDIF
@@ -1357,9 +1365,11 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
       DO jb = 1, pt_patch%nblks_c
         DO jc = 1, nproma
           lhn_fields%brightband(jc,jb) = 0.0_wp
+          bbllim(jc,jb)= MAX(MIN(1000._wp,assimilation_config(jg)%hzerolim - prm_diag%hzerocl(jc,jb)),-100._wp)
         END DO
       END DO
-      CALL detect_bright_band (pt_patch,radar_data,prm_diag,lhn_fields,obs_ratio)
+
+      CALL detect_bright_band (pt_patch,radar_data,prm_diag,lhn_fields,obs_ratio,bbllim)
  
   ENDIF
 
@@ -1813,7 +1823,7 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
 
 END SUBROUTINE lhn_obs_prep
 
-SUBROUTINE detect_bright_band(pt_patch,radar_data,prm_diag,lhn_fields,sumrad)
+SUBROUTINE detect_bright_band(pt_patch,radar_data,prm_diag,lhn_fields,sumrad,bbllim)
 !-------------------------------------------------------------------------------
 !
 ! Description:
@@ -1828,7 +1838,7 @@ SUBROUTINE detect_bright_band(pt_patch,radar_data,prm_diag,lhn_fields,sumrad)
   TYPE(t_lhn_diag),        INTENT(inout)    :: lhn_fields
 
   REAL (KIND=wp), DIMENSION(nproma,pt_patch%nblks_c),INTENT(IN)    :: &
-     sumrad
+     sumrad, bbllim
 
   INTEGER (KIND=i4) :: &
     jc,jb,nh,jg,nbright,nbrightg
@@ -1864,6 +1874,7 @@ SUBROUTINE detect_bright_band(pt_patch,radar_data,prm_diag,lhn_fields,sumrad)
 !$ACC              sumrad, assimilation_config(jg))
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,nh) ICON_OMP_GUIDED_SCHEDULE
+
    DO jb=i_startblk,i_endblk
        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
          &                i_startidx, i_endidx, i_rlstart, i_rlend)
@@ -1876,9 +1887,8 @@ SUBROUTINE detect_bright_band(pt_patch,radar_data,prm_diag,lhn_fields,sumrad)
               DO nh=1,assimilation_config(jg)%nradar
                  IF  ( radar_data%radar_td%radheight(jc,jb,nh) > 0.0_wp                   &
                .AND.  (prm_diag%hzerocl(jc,jb)-radar_data%radar_td%radheight(jc,jb,nh)) >= -100_wp &
-               .AND.  (prm_diag%hzerocl(jc,jb)-radar_data%radar_td%radheight(jc,jb,nh)) <= 1000_wp &
+               .AND.  (prm_diag%hzerocl(jc,jb)-radar_data%radar_td%radheight(jc,jb,nh)) <= bbllim(jc,jb) &
                .AND.  sumrad(jc,jb) > 1.0_wp) THEN
-!             ) THEN
                        lhn_fields%brightband(jc,jb)=1.0_wp
                        EXIT
                  ENDIF
@@ -2595,8 +2605,11 @@ SUBROUTINE lhn_q_inc(i_startidx,i_endidx,jg,zdt,ke,t,ttend_lhn,p,qv,qc,qi, &
 
      IF ( assimilation_config(jg)%lhn_limit) qvtend_lhn(jc,k) = MIN ( qvtend_lhn(jc,k), 0.1*qv(jc,k)/zdt)
 
-     IF ( assimilation_config(jg)%lhn_no_ttend ) ttend_lhn(jc,k) = 0.0 
-     
+     IF ( assimilation_config(jg)%lhn_no_ttend ) THEN
+         ttend_lhn(jc,k) = 0.0
+     ELSE
+         ttend_lhn(jc,k) = assimilation_config(jg)%rttend * ttend_lhn(jc,k)
+     ENDIF
 
     ENDDO
   ENDDO

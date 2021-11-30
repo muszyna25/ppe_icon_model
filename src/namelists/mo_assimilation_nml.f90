@@ -80,7 +80,10 @@ MODULE mo_assimilation_nml
     tt_artif_max      ,& ! maximum of latent heat used as artificial profile
     zlev_artif_max    ,& ! altidude of maximum of artificial profile
     std_artif_max     ,& ! parameter to define vertical width of artifical temperature profile
-    start_fadeout         ! time relative to lhn_end, when the lhn coefficient in decreased toward 0
+    start_fadeout     ,& ! time relative to lhn_end, when the lhn coefficient in decreased toward 0
+    rttend            ,& ! ratio of temperature increment to be applied
+    bbthres           ,& ! threshold of precipitation rate used in bright band detection
+    hzerolim             ! limitation of hzerocl used in bright band detection
 
  CHARACTER (LEN=100)              ::           &
     radar_in             ,& ! directory for reading radar-files
@@ -100,7 +103,7 @@ MODULE mo_assimilation_nml
                               nlhnverif_start ,nlhnverif_end           ,           &
                               lhn_coef, fac_lhn_up  ,fac_lhn_down      ,           &
                               thres_lhn    ,                                       &  ! noobs_date
-                              rqrsgmax                   ,           &
+                              rqrsgmax     , rttend                    ,           &
                               radar_in     ,                                       &
                               lhn_black    ,blacklist_file             ,           &
                               lhn_artif    ,fac_lhn_artif, fac_lhn_artif_tune ,    &
@@ -109,12 +112,12 @@ MODULE mo_assimilation_nml
                               lhn_relax    ,nlhn_relax                 ,           &
                               lhn_incloud  ,lhn_diag, lhn_qrs          ,           &
                               lhn_logscale ,lhn_wweight                ,           &
-                              lhn_bright   ,                                       &
+                              lhn_bright   ,bbthres ,hzerolim          ,           &
                               lhn_artif_only   ,                                   &
                               height_file  ,lhn_spqual                 ,           &
                               lhn_dt_obs   ,nradar, radardata_file     ,           &
-                              tt_artif_max  ,zlev_artif_max, std_artif_max,        &
-                              start_fadeout ,                                      &
+                              tt_artif_max ,zlev_artif_max, std_artif_max,         &
+                              start_fadeout,                                       &
                               dace_coupling ,dace_time_ctrl, dace_debug
 CONTAINS
   !>
@@ -172,10 +175,13 @@ CONTAINS
     height_file(:)        = 'radarheight.nc'
 !    noobs_date  (:)    = '            '
     rqrsgmax           = 1.0_wp
+    rttend             = 1.0_wp
     tt_artif_max       = 0.0015
     zlev_artif_max     = 1000.
     std_artif_max      = 4.
     start_fadeout      = 1.0
+    bbthres            = 2.5
+    hzerolim           = 2500.
 
     !------------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above by 
@@ -263,10 +269,13 @@ CONTAINS
         assimilation_config(jg)%fac_lhn_down    = fac_lhn_down
         assimilation_config(jg)%thres_lhn       = thres_lhn
         assimilation_config(jg)%rqrsgmax        = rqrsgmax
+        assimilation_config(jg)%rttend          = rttend  
         assimilation_config(jg)%tt_artif_max    = tt_artif_max
         assimilation_config(jg)%zlev_artif_max  = zlev_artif_max
         assimilation_config(jg)%std_artif_max   = std_artif_max
         assimilation_config(jg)%start_fadeout   = start_fadeout
+        assimilation_config(jg)%bbthres         = bbthres
+        assimilation_config(jg)%hzerolim        = hzerolim
         assimilation_config(jg)%radar_in        = radar_in
         assimilation_config(jg)%radardata_file  = radardata_file(jg)
         assimilation_config(jg)%blacklist_file  = blacklist_file(jg)

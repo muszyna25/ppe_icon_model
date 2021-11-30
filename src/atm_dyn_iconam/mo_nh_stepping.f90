@@ -3264,7 +3264,7 @@ MODULE mo_nh_stepping
 
     atm_phy_nwp_config(:)%lcalc_acc_avg = .FALSE.
 
-    CALL restore_initial_state(p_patch(1:), p_nh_state, prm_diag, prm_nwp_tend, p_lnd_state, ext_data)
+    CALL restore_initial_state(p_patch(1:), p_nh_state, prm_diag, prm_nwp_tend, p_lnd_state, ext_data, lhn_fields)
 
     ! Reinitialize time-dependent ensemble perturbations if necessary
     IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
