@@ -916,12 +916,10 @@ CONTAINS
 
 
     ! ********************************************************************************
-    ! [RADAROP]
-    ! ********************************************************************************
     !
-    ! Enter "cross checks" for namelist parameters here:
-    ! *  RadarOp may be switched on only if nonhydro and inwp enabled.
-    ! *  RadarOp may be switched on only if preprocessor flag enabled (see below).
+    ! Cross checks for EMVORADO-related namelist parameters:
+    ! *  EMVORADO may be switched on only if nonhydro and inwp enabled.
+    ! *  EMVORADO may be switched on only if preprocessor flag enabled (see below).
     ! 
     ! ********************************************************************************
 
@@ -1004,7 +1002,7 @@ CONTAINS
 
     INTEGER  :: jg, ndoms_radaractive
     CHARACTER(len=255) :: errstring
-    
+
 #ifndef HAVE_RADARFWO
     IF ( ANY(luse_radarfwo) ) THEN
         CALL finish( routine,'run_nml: luse_radarfwo is set .TRUE. in some domains but ICON was compiled without -DHAVE_RADARFWO')

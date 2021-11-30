@@ -2981,9 +2981,9 @@ iforcing=3
 
 %\hline
 echotop\_meta \\[2\baselineskip]
-\squeezeme{The type contains:}\\[\baselineskip]
-\squeezeme{echotop\_meta(1:n\_dom)\%time\_interval}\\[\baselineskip]
-\squeezeme{echotop\_meta(1:n\_dom)\%dbzthresh}   &
+\squeezeme{\hspace*{3ex} This type contains:}\\[\baselineskip]
+\squeezeme{\hspace*{3ex} echotop\_meta(1:n\_dom)\%time\_interval}\\[\baselineskip]
+\squeezeme{\hspace*{3ex} echotop\_meta(1:n\_dom)\%dbzthresh}   &
 \squeezeme{TYPE(n\_dom)} \\[4\baselineskip]
 R(1)\\[\baselineskip]
 \squeezeme{R(max\_echotop)}\\[2\baselineskip]
@@ -7141,7 +7141,7 @@ EMVORADO needs its own namelist(s) for each radar-active model domain in a separ
 namelist input file \verb+RADARSIM_PARAMS+. More details can be found in the \textcolor{red}{EMVORADO User's Guide} available from
 the COSMO web page (\mbox{www.cosmo-model.org} $\rightarrow$ Documentation $\rightarrow$ EMVORADO) or from the
 submodule \verb+./externals/emvorado/DOC/TEX/emvorado_userguide.pdf+.
-& iequations=3,  iforcing=3
+& iequations=3,  iforcing=3, \\ICON configure'd with \verb+--enable-emvorado+
 \tabularnewline
 
 \end{longtab}
@@ -7347,6 +7347,78 @@ supplemented by the channel name.
 
 Defined and used in: \verb+src/namelists/mo_synsat_nml.f90+
 
+%-----------------------------------------------------------------------------
+% synradar_nml:
+%-----------------------------------------------------------------------------
+\subsection[synradar\_nml]{synradar\_nml}%
+
+  The list of diagnostic output variables in ICON incorporates some fields related
+  to synthetic radar reflectivity on the model grid:
+  \begin{itemize}
+    \item \texttt{'dbz', 'dbz\_850', 'dbz\_cmax', 'dbz\_ctmax'}
+    \item \texttt{'echotop', 'echotopinm'}
+  \end{itemize}
+  By default, these are based on
+  a simple analytic so-called Rayleigh-approximation for single-particle backscattering.
+
+  If ICON is configured with the flag \verb+--enable-emvorado+ and compiled with
+  the pre-processor flag \verb+-DHAVE_RADARFWO+, some alternative, more accurate
+  Mie- or T-matrix methods from the radar forward operator EMVORADO can be used by namelist choice (see below), particularly for
+  improving the simulation of the so-called "bright band", the enhanced reflectivity in the melting layer.
+  
+%
+EMVORADO is the Efficient Modular VOlume RADar Operator for simulating radar volume scans for cloud- and weather radar wavelenghts, see
+\begin{itemize}
+\item EMVORADO User's Guide\\
+  in ICON's EMVORADO submodule \verb+./externals/emvorado/DOC/TEX/emvorado_userguide.pdf+\\
+  or on the COSMO web page (\mbox{www.cosmo-model.org} $\rightarrow$ Documentation $\rightarrow$ EMVORADO)\\
+  \verb+http://www.cosmo-model.org/content/model/documentation/core/emvorado_userguide.pdf+
+\item A COSMO Technical Report No. 28\\
+  on the COSMO web page (\mbox{www.cosmo-model.org} $\rightarrow$ COSMO Tech Reports)\\
+  \verb+http://www.cosmo-model.org/content/model/documentation/techReports/cosmo/docs/techReport28.pdf+
+\end{itemize}
+for detailed information.
+
+\begin{longtab}
+
+%\hline
+synradar\_meta \\[2\baselineskip]
+\squeezeme{\hspace*{3ex} This type contains:}\\[\baselineskip]
+\squeezeme{\hspace*{3ex} synradar\_meta\%itype\_refl}\\[\baselineskip]
+\hspace*{3ex} \parbox{\linewidth-3ex}{and many other parameters which are only relevant if itype\_refl is not the default (4)} &
+\squeezeme{TYPE(dbzcalc\_params)} \\[4\baselineskip] I&
+\,\\[4\baselineskip]
+4&&
+Instance of the derived type \textbf{dbzcalc\_params} from EMVORADO to specify details of the radar reflectivity calculation for related outputs ('dbz', 'dbz\_850', 'dbz\_cmax', 'dbz\_ctmax', 'echotop', 'echotopinm').
+The type is documented in detail in the \textcolor{red}{EMVORADO User's Guide}. \\
+The most important component is \textbf{itype\_refl:}\\
+\textbf{1:} Mie-scattering from EMVORADO assuming spherical particles and including a detailed melting scheme for the radar ``bright band''.\\
+\textbf{3:} Rayleigh-Oguchi approximation from EMVORADO including a simple melting scheme, but not producing pronounced ``bright bands''.\\
+\textbf{4:} Traditional Rayleigh approximation from ICON, also without pronounced ``bright bands''. \textbf{This is the default.}\\
+\textbf{5:} T-matrix scattering from EMVORADO assuming oblate spheroids, otherwise similar to Mie-option 1.\\
+\textbf{6:} T-matrix scattering from EMVORADO assuming spherical particles, only for sanity-checks against Mie-option 1.\\
+For options 1, 5, 6 there are many more relevant type components.
+&
+iforcing=3, \\ ICON configure'd with \verb+--enable-emvorado+
+\tabularnewline
+
+%\hline
+ydir\_mielookup\_write&
+C& ' ' & &
+For reflectivity calculations: directory for storing new automatically created reflectivity lookup tables in case of EMVORADO-methods that employ reflectivity lookup tables to boost efficiency (synradar\_meta\%itype\_refl=1, 5, 6 together with synradar\_meta\%llookup\_mie=.TRUE.) &
+iforcing=3, \\ ICON configure'd with \verb+--enable-emvorado+, \\ \squeezeme{synradar\_meta\%itype\_refl=1, 5, 6} \\ \squeezeme{synradar\_meta\%llookup\_mie=.TRUE.}
+\tabularnewline
+
+%\hline
+ydir\_mielookup\_read&
+C& ' ' & &
+For reflectivity calculations: directory for reading the reflectivity lookup tables in case of EMVORADO-methods that employ reflectivity lookup tables to boost efficiency (synradar\_meta\%itype\_refl=1, 5, 6 together with synradar\_meta\%llookup\_mie=.TRUE.) &
+iforcing=3, \\ ICON configure'd with \verb+--enable-emvorado+, \\ \squeezeme{synradar\_meta\%itype\_refl=1, 5, 6} \\ \squeezeme{synradar\_meta\%llookup\_mie=.TRUE.}
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_synradar_nml.f90+
 
 %------------------------------------------------------------------------------
 % time_nml
