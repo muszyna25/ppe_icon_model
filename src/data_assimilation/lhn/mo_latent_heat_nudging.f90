@@ -1273,7 +1273,8 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
 !$ACC DATA PRESENT(pt_patch, prm_diag, lhn_fields, lhn_fields%brightband, radar_data,                  &
 !$ACC              radar_data%radar_ct%blacklist, radar_data%radar_td%obs, radar_data%radar_td%spqual, &
 !$ACC              wobs_time, wobs_space, pr_obs, num_t_obs, assimilation_config(jg))                  &
-!$ACC      COPYIN(td_in_min) CREATE(obs_sum, obs_ratio, obs_cnt)
+!$ACC      COPYIN(td_in_min) CREATE(obs_sum, obs_ratio, bbllim, obs_cnt)
+
 
   IF (assimilation_config(jg)%lhn_bright .AND. &
    & ( (MOD(datetime_current%time%minute,5)  == 0 .AND. datetime_current%time%second < 10 ) &
@@ -1871,7 +1872,7 @@ SUBROUTINE detect_bright_band(pt_patch,radar_data,prm_diag,lhn_fields,sumrad,bbl
 
 !$ACC DATA PRESENT(pt_patch, prm_diag, prm_diag%hzerocl, lhn_fields, lhn_fields%brightband,  &
 !$ACC              radar_data, radar_data%radar_ct%blacklist, radar_data%radar_td%radheight, &
-!$ACC              sumrad, assimilation_config(jg))
+!$ACC              sumrad, bbllim, assimilation_config(jg))
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,nh) ICON_OMP_GUIDED_SCHEDULE
 
