@@ -30,7 +30,7 @@ MODULE mo_ice_interface
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: dtime, ltimer
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
-  USE mo_exception,           ONLY: finish
+  USE mo_exception,           ONLY: finish, message
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
 
@@ -52,6 +52,11 @@ MODULE mo_ice_interface
   USE mo_ice_parameterizations, ONLY: ice_cut_off, set_ice_albedo
   USE mo_ice_fem_interface,   ONLY: ice_fem_interface
   USE mo_ice_advection,       ONLY: ice_advection_upwind
+
+  USE mo_ice_new_dynamics,   ONLY: ice_new_dynamics
+  USE mo_ocean_nml,          ONLY: n_zlev
+
+  USE mo_impl_constants,     ONLY: sea_boundary,sea, land, boundary
 
   IMPLICIT NONE
 
@@ -107,21 +112,31 @@ CONTAINS
 
       IF (timers_level > 1) CALL timer_start(timer_extra40)
 
-      ! solve for ice velocities (AWI FEM model wrapper)
-      CALL ice_fem_interface ( p_patch_3D, p_ice, p_os, p_as, atmos_fluxes, p_op_coeff, p_oce_sfc)
+      IF ( i_ice_dyn == 1 ) THEN
+        ! solve for ice velocities (AWI FEM model wrapper)
+        CALL ice_fem_interface ( p_patch_3D, p_ice, p_os, p_as, atmos_fluxes, p_op_coeff, p_oce_sfc)
+      ENDIF
 
-      ! advection
+      IF ( i_ice_dyn == 2 ) THEN
+        CALL ice_new_dynamics( p_patch_3D, p_ice, p_os, p_as, atmos_fluxes, p_op_coeff, p_oce_sfc)
+      ENDIF
+
+
+      CALL dbg_print('bef.iceadv: conc',p_ice%conc  ,str_module,2, in_subset=p_patch%cells%owned)
+
+      !---------------------------- advection---FESOM
       IF (i_ice_advec == 0) THEN
         IF (ltimer) CALL timer_start(timer_ice_advection)
 
         CALL ice_advection_upwind( p_patch_3D, p_op_coeff, p_ice )
 
         IF (ltimer) CALL timer_stop(timer_ice_advection)
-      ELSEIF (i_ice_advec == 1) THEN ! nothing to do here
+      ELSEIF (i_ice_advec == 1) THEN
+         CALL message('ice_dynamics', 'FESOM ICE' )  ! nothing to do here
         ! advection on FEM grid is done inside ice_fem_interface
       ENDIF
 
-      ! fix possible overshoots/undershoots after advection (previously, ice_clean_up_dyn)
+ !    ! fix possible overshoots/undershoots after advection (previously, ice_clean_up_dyn)
       CALL ice_cut_off( p_patch, p_ice )
 
       IF (timers_level > 1) CALL timer_stop(timer_extra40)
