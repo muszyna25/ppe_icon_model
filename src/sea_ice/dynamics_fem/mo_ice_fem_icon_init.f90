@@ -29,6 +29,7 @@ MODULE mo_ice_fem_icon_init
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
   USE mo_exception,           ONLY: message
+  USE mo_impl_constants,      ONLY: max_char_length
   USE mo_impl_constants,      ONLY: success
 
   USE mo_parallel_config,     ONLY: nproma
@@ -85,7 +86,7 @@ CONTAINS
     TYPE(t_patch_3D), TARGET, INTENT(IN)    :: p_patch_3D
 
     !Local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_ice_fem_interface:init_fem_wgts'
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ice_fem_interface:init_fem_wgts'
 
     ! Patch
     TYPE(t_patch), POINTER :: p_patch
@@ -101,7 +102,7 @@ CONTAINS
     REAL(wp) :: rdeno, rsum
 
     !-------------------------------------------------------------------------
-    CALL message(routine, 'start' )
+    CALL message(TRIM(routine), 'start' )
 
     p_patch => p_patch_3D%p_patch_2D(1)
     iidx => p_patch%verts%cell_idx
@@ -155,7 +156,7 @@ CONTAINS
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
-    CALL message (routine, 'end')
+    CALL message (TRIM(routine), 'end')        
 
   END SUBROUTINE init_fem_wgts
 
@@ -254,9 +255,9 @@ CONTAINS
 
     !Local variables
     INTEGER :: ist
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_ice_fem_interface:destruct_fem_wgts'
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ice_fem_interface:destruct_fem_wgts'
     !-------------------------------------------------------------------------
-    CALL message(routine, 'start' )
+    CALL message(TRIM(routine), 'start' )
 
     DEALLOCATE(c2v_wgt,STAT=ist)
     IF (ist /= SUCCESS) THEN
@@ -278,7 +279,7 @@ CONTAINS
       CALL finish (routine,'deallocating rot_mat_3D failed')
     ENDIF
 
-    CALL message (routine, 'end')
+    CALL message (TRIM(routine), 'end')        
 
   END SUBROUTINE destruct_fem_wgts
   !-------------------------------------------------------------------------
@@ -304,7 +305,7 @@ CONTAINS
     TYPE(t_patch_3D), TARGET, INTENT(in) :: p_patch_3D
 
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_ice_fem_interface:ice_fem_grid_init'
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ice_fem_interface:ice_fem_grid_init'
 
     ! Patch
     TYPE(t_patch), POINTER :: p_patch
@@ -488,7 +489,7 @@ CONTAINS
     INTEGER :: ist
     ! Temporary var
     INTEGER ::  elem, elnodes(3)
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_ice_fem_interface:basisfunctions_nod'
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ice_fem_interface:basisfunctions_nod'
     LOGICAL :: found, kill
 
     ! allocate bafux_nod, bafuy_nod
