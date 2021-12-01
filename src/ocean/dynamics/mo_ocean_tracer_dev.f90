@@ -53,7 +53,7 @@ MODULE mo_ocean_tracer_dev
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_sync,                      ONLY: sync_c, sync_e, sync_patch_array
-  USE mo_timer,                     ONLY: timer_start, timer_stop, timers_level, timer_extra30
+  USE mo_timer,                     ONLY: timer_start, timer_stop, timers_level, timer_dif_vert, timer_extra30
   USE mo_statistics,                ONLY: global_minmaxmean, print_value_location
   USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
   USE mo_ocean_GM_Redi,             ONLY: calc_ocean_physics, &
