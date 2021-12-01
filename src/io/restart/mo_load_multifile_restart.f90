@@ -32,7 +32,7 @@ MODULE mo_load_multifile_restart
   USE mo_communication_factory,  ONLY: setup_comm_pattern
   USE mo_decomposition_tools,    ONLY: t_glb2loc_index_lookup, init_glb2loc_index_lookup, set_inner_glb_index, &
     &                                  deallocate_glb2loc_index_lookup
-  USE mo_dynamics_config,        ONLY: nnew, nnew_rcf
+  USE mo_dynamics_config,        ONLY: nnow, nnow_rcf
   USE mo_exception,              ONLY: finish, warning
   USE mo_kind,                   ONLY: sp, dp
   USE mo_model_domain,           ONLY: t_patch
@@ -400,7 +400,7 @@ CONTAINS
     IF (ALLOCATED(files)) THEN
       IF (SIZE(files) .GT. 0) THEN
         DO iV = 1, SIZE(vDat)
-          IF (.NOT.has_valid_time_level(vDat(iV)%p%info, ptc%id, nnew(ptc%id), nnew_rcf(ptc%id))) CYCLE
+          IF (.NOT.has_valid_time_level(vDat(iV)%p%info, ptc%id, nnow(ptc%id), nnow_rcf(ptc%id))) CYCLE
           i = nf_inq_varid(files(1)%ncid, vDat(iV)%p%info%name, vIDs(1,iV))
           IF (i .EQ. NF_NOERR) THEN
             CALL nf(nf_inq_varndims(files(1)%ncid, vIDs(1, iV), nds(iV)), routine)

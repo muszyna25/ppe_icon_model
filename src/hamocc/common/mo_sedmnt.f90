@@ -2,46 +2,29 @@
 !! @brief Variables for sediment modules
 !!
 !! declaration and memory allocation
-#include "hamocc_omp_definitions.inc"
+ 
 MODULE mo_sedmnt
 
   USE mo_kind, ONLY        : wp
+  USE mo_exception, ONLY      : message, finish
   USE mo_param1_bgc, ONLY  : nsedtra, npowtra, n_bgctra, nsed_diag
   USE mo_control_bgc, ONLY: dtbgc, bgc_nproma, bgc_zlevs 
   USE mo_hamocc_nml, ONLY : isac,ks,ksp,dzs,porwat
-  USE mo_memory_bgc, ONLY : kbo, bolay, bolaymin,sinkspeed_dust
+  USE mo_memory_bgc, ONLY :  sinkspeed_dust
   USE mo_bgc_constants, ONLY: g,rhoref_water
+  USE mo_bgc_memory_types
 
   IMPLICIT NONE
 
   PUBLIC
 
-  REAL(wp), ALLOCATABLE, TARGET :: sedlay (:,:,:)
-  REAL(wp), ALLOCATABLE, TARGET :: powtra (:,:,:)
-  REAL(wp), ALLOCATABLE, TARGET :: sedtend(:,:,:)
+  REAL(wp), ALLOCATABLE :: seddw(:)   ! global variable
+  REAL(wp), ALLOCATABLE :: porsol(:)  ! global variable
+  REAL(wp), ALLOCATABLE :: porwah(:)  ! global variable
+  REAL(wp), ALLOCATABLE :: pors2w(:)  ! global variable
 
-  REAL(wp), ALLOCATABLE,TARGET :: sedhpl(:,:)
-  REAL(wp), ALLOCATABLE,TARGET :: seddenit(:)
-
-  REAL(wp), ALLOCATABLE :: seddw(:)
-  REAL(wp), ALLOCATABLE :: porsol(:)
-  REAL(wp), ALLOCATABLE :: porwah(:)
-  REAL(wp), ALLOCATABLE :: pors2w(:)
-
-  REAL(wp), ALLOCATABLE :: seddzi(:)
-  REAL(wp), ALLOCATABLE :: z_sed(:)
-
-  REAL(wp), ALLOCATABLE :: silpro(:)
-  REAL(wp), ALLOCATABLE :: prorca(:)
-  REAL(wp), ALLOCATABLE :: prcaca(:)
-  REAL(wp), ALLOCATABLE :: produs(:)
-
-  REAL(wp), ALLOCATABLE, TARGET :: burial(:,:)
-
-  ! pown2bud closes the mass balance for the alkalinity for biogenic induced changes in N2 in sediment
-  REAL(wp), ALLOCATABLE :: pown2bud(:,:)
-  ! powh2obud closes the mass balance for oxygen
-  REAL(wp), ALLOCATABLE :: powh2obud(:,:)
+  REAL(wp), ALLOCATABLE :: seddzi(:)  ! global variable
+  REAL(wp), ALLOCATABLE :: z_sed(:)   ! global variable
 
   REAL(wp) :: sedict, calcon, rno3, o2ut, ansed, sedac, sedifti
   REAL(wp) :: calcwei, opalwei, orgwei
@@ -146,86 +129,56 @@ END SUBROUTINE
 
 
 
+SUBROUTINE  ini_bottom(local_bgc_mem, start_idx,end_idx,klevs,pddpo)
 
-
-SUBROUTINE  ini_bottom(start_idx,end_idx,klevs,pddpo)
-
+ TYPE(t_bgc_memory), POINTER :: local_bgc_mem
  REAL(wp), INTENT(IN):: pddpo(bgc_nproma,bgc_zlevs)
 
  INTEGER, INTENT(IN) :: start_idx, end_idx
  INTEGER,  TARGET::klevs(bgc_nproma)
  INTEGER ::  j, k, kpke
 
-
   DO j = start_idx, end_idx
    k=klevs(j)
-        kbo(j) = 1
-        bolay(j) = 0._wp
+        local_bgc_mem%kbo(j) = 1
+        local_bgc_mem%bolay(j) = 0._wp
         IF(k.gt.0)THEN
         IF ( pddpo(j,k) > 0.5_wp ) THEN
-           bolay(j) = pddpo(j,k)
-           kbo(j) = k
+           local_bgc_mem%bolay(j) = pddpo(j,k)
+           local_bgc_mem%kbo(j) = k
         ENDIF
         ENDIF
   END DO
 
-
  ! find depth of last wet layer
   ! and evaluate global min depth of last layer
 
-
-  bolaymin=8000._wp
-!HAMOCC_OMP_PARALLEL	
-!HAMOCC_OMP_DO PRIVATE(j,kpke,k,bolaymin) HAMOCC_OMP_DEFAULT_SCHEDULE
+  ! bolaymin is neanilges, as is only compuetd on an arbitery local memory
+!   bolaymin=8000._wp
+ 	
   DO j = start_idx, end_idx
    kpke=klevs(j)
    IF(kpke>0)THEN ! always valid for MPIOM
    DO k = kpke-1, 1, -1
       IF ( pddpo(j,k) > 0.5_wp .AND. pddpo(j,k+1) <= 0.5_wp ) THEN
-         bolay(j) = pddpo(j,k) ! local thickness of bottom layer
-         kbo(j) = k
-         bolaymin = MIN(bolaymin,bolay(j))
+         local_bgc_mem%bolay(j) = pddpo(j,k) ! local thickness of bottom layer
+         local_bgc_mem%kbo(j) = k
+!          bolaymin = MIN(bolaymin,local_bgc_mem%bolay(j))
       ENDIF
     END DO
    ENDIF
   END DO
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
-
+  
  END SUBROUTINE
+ 
  SUBROUTINE ALLOC_MEM_SEDMNT
 
-
-    ALLOCATE (sedlay(bgc_nproma,ks,nsedtra))
-    sedlay(:,:,:) = 0._wp
-
-    ALLOCATE (sedhpl(bgc_nproma,ks))
-    ALLOCATE (burial(bgc_nproma,nsedtra))
-    burial(:,:) = 0._wp
-    ALLOCATE (powtra(bgc_nproma,ks,npowtra))
-    ALLOCATE (silpro(bgc_nproma))
-    silpro(:) = 0._wp
-    ALLOCATE (prorca(bgc_nproma))
-    prorca(:) = 0._wp
-
-    ALLOCATE (prcaca(bgc_nproma))
-    prcaca(:) = 0._wp
-    ALLOCATE (produs(bgc_nproma))
-    produs(:) = 0._wp
     ALLOCATE (seddzi(ksp))
     ALLOCATE (z_sed(ks))
     ALLOCATE (seddw(ks))
     ALLOCATE (porsol(ks))
     ALLOCATE (porwah(ks))
     ALLOCATE (pors2w(ks))
-    ALLOCATE (pown2bud(bgc_nproma,ks))
-    pown2bud(:,:) = 0._wp
-    ALLOCATE (powh2obud(bgc_nproma,ks))
-    powh2obud(:,:) = 0._wp
-    ALLOCATE (sedtend(bgc_nproma,ks,nsed_diag))
-    sedtend(:,:,:)=0._wp
-    ALLOCATE (seddenit(bgc_nproma))
-    seddenit(:)=0._wp
 
   END SUBROUTINE ALLOC_MEM_SEDMNT
 

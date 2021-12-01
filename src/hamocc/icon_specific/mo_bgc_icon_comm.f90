@@ -1,19 +1,17 @@
-#include "hamocc_omp_definitions.inc"      
+       
+#include "omp_definitions.inc"
+
    MODULE mo_bgc_icon_comm
 
 ! icon specific routines for output, update etc
 
       USE mo_ocean_diagnostics_types,   ONLY:  t_ocean_regions
 
-      USE mo_ocean_types,          ONLY:  t_hydro_ocean_prog
-
       USE mo_control_bgc,          ONLY: dtb,bgc_gin, bgc_arctic, bgc_lab, & 
        &                                 bgc_natl, bgc_atl, bgc_tatl, &
        &                                 bgc_tropac, &
        &                                 bgc_land, bgc_ind, &
        &                                 bgc_soce, bgc_npac, bgc_carb,inv_dtb
-
-      USE mo_sedmnt,               ONLY: powtra, sedlay, burial, sedhpl
 
       USE mo_exception, ONLY      : message, finish
 
@@ -41,7 +39,8 @@
 
       USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_cpl_co2, ks, l_N_cycle,i_settling
 
-
+      USE mo_bgc_memory_types,   ONLY: t_bgc_memory, t_sediment_memory, t_aggregates_memory
+ 
       IMPLICIT NONE
 
       PUBLIC
@@ -81,13 +80,12 @@
        END SUBROUTINE
 !================================================================================== 
     
-      SUBROUTINE update_icon(start_idx, end_idx, &
+      SUBROUTINE update_icon(local_bgc_mem, start_idx, end_idx, &
 &             klevs, pddpo, ptracer,pco2flx)
 
-      USE mo_memory_bgc, ONLY: bgctra,bgcflux
       USE mo_param1_bgc, ONLY: n_bgctra,kcflux
 
-
+      TYPE(t_bgc_memory), POINTER :: local_bgc_mem
       REAL(wp)     :: ptracer(nproma,n_zlev,n_bgctra)    
       INTEGER, INTENT(in)::klevs(nproma)
       REAL(wp),INTENT(in) :: pddpo(nproma,n_zlev) !< size of scalar grid cell (3rd REAL) [m]
@@ -100,34 +98,27 @@
                 routine = 'update_icon'
 
      ! CALL message(TRIM(routine), 'start' )
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(jc,kpke,jk,itrac) HAMOCC_OMP_DEFAULT_SCHEDULE
+ 
       DO jc=start_idx,end_idx 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
-          pco2flx(jc)=bgcflux(jc,kcflux) * molw_co2
+          pco2flx(jc)=local_bgc_mem%bgcflux(jc,kcflux) * molw_co2
         DO jk =1,kpke
           DO itrac=1,n_bgctra
-             ptracer(jc,jk,itrac) = bgctra(jc,jk,itrac)
+             ptracer(jc,jk,itrac) = local_bgc_mem%bgctra(jc,jk,itrac)
           ENDDO 
         ENDDO
         ENDIF
       ENDDO
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+ 
+ 
       END SUBROUTINE
 
 !================================================================================== 
-      SUBROUTINE update_bgc(start_index, end_index, &
+      SUBROUTINE update_bgc(local_bgc_mem, local_sediment_mem, start_index, end_index, &
 &             klevs,pddpo,jb,ptracer,pco2mr,p_diag,p_sed,p_tend)
 
-      USE mo_memory_bgc, ONLY: bgctra, co3, hi, bgctend,  &
- &                         akw3,ak13,ak23,akb3,aksp,satoxy, &
- &                         akf3,aks3,aksi3,ak1p3,ak2p3,ak3p3, &
- &                         satn2, satn2o, solco2,kbo,bolay,&
-&                          atm
-
-      USE mo_bgc_bcond,  ONLY: ext_data_bgc
+     USE mo_bgc_bcond,  ONLY: ext_data_bgc
 
       USE MO_PARAM1_BGC, ONLY: n_bgctra, issso12,         &
  &                             isssc12, issssil, issster, &
@@ -140,9 +131,10 @@
 &                              ipownh4, ipowno2
 
 
-      USE mo_sedmnt,  ONLY: pown2bud, powh2obud, prorca, &
- &                          silpro, produs, prcaca
-
+      TYPE(t_bgc_memory), POINTER :: local_bgc_mem
+      TYPE(t_sediment_memory), POINTER :: local_sediment_mem
+      
+      
       REAL(wp)     :: ptracer(nproma,n_zlev,n_bgctra)    
       REAL(wp)     :: pco2mr(nproma)
       INTEGER, INTENT(in)::klevs(nproma), jb
@@ -157,92 +149,83 @@
       CHARACTER(LEN=max_char_length), PARAMETER :: &
                 routine = 'update_icon'
 
-
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(jc,kpke,jk,itrac) HAMOCC_OMP_DEFAULT_SCHEDULE
       DO jc=start_index,end_index 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
-          if(l_cpl_co2)atm(jc,iatmco2) = pco2mr(jc)
-          satn2(jc)  = p_tend%satn2(jc,jb)    
-          satn2o(jc) = p_tend%satn2o(jc,jb)    
-          solco2(jc) = p_tend%solco2(jc,jb)    
+          if(l_cpl_co2)local_bgc_mem%atm(jc,iatmco2) = pco2mr(jc)
+          local_bgc_mem%satn2(jc)  = p_tend%satn2(jc,jb)    
+          local_bgc_mem%satn2o(jc) = p_tend%satn2o(jc,jb)    
+          local_bgc_mem%solco2(jc) = p_tend%solco2(jc,jb)    
         DO jk =1,kpke
           DO itrac = 1,n_bgctra
-             bgctra(jc,jk,itrac)=ptracer(jc,jk,itrac) 
+             local_bgc_mem%bgctra(jc,jk,itrac)=ptracer(jc,jk,itrac) 
           ENDDO 
-          hi(jc, jk) = p_diag%hi(jc,jk,jb)    
-          co3(jc, jk) = p_diag%co3(jc,jk,jb)    
-          aksp(jc, jk) = p_tend%aksp(jc,jk,jb)    
-          ak13(jc, jk) = p_tend%ak1(jc,jk,jb)    
-          ak23(jc, jk) = p_tend%ak2(jc,jk,jb)    
-          akb3(jc, jk) = p_tend%akb(jc,jk,jb)    
-          akw3(jc, jk) = p_tend%akw(jc,jk,jb)    
-          aksi3(jc, jk) = p_tend%aksi(jc,jk,jb)    
-          ak1p3(jc, jk) = p_tend%ak1p(jc,jk,jb)    
-          ak2p3(jc, jk) = p_tend%ak2p(jc,jk,jb)    
-          ak3p3(jc, jk) = p_tend%ak3p(jc,jk,jb)    
-          aks3(jc, jk) = p_tend%aks(jc,jk,jb)  
-          akf3(jc, jk) = p_tend%akf(jc,jk,jb)     
-          satoxy(jc, jk) = p_tend%satoxy(jc,jk,jb)    
-          bgctend(jc,jk,kh2ob) =  p_tend%h2obudget(jc,jk,jb) 
-          bgctend(jc,jk,kn2b) =  p_tend%n2budget(jc,jk,jb) 
+          local_bgc_mem%hi(jc, jk)   = p_diag%hi(jc,jk,jb)    
+          local_bgc_mem%co3(jc, jk)  = p_diag%co3(jc,jk,jb)    
+          local_bgc_mem%aksp(jc, jk) = p_tend%aksp(jc,jk,jb)    
+          local_bgc_mem%ak13(jc, jk) = p_tend%ak1(jc,jk,jb)    
+          local_bgc_mem%ak23(jc, jk) = p_tend%ak2(jc,jk,jb)    
+          local_bgc_mem%akb3(jc, jk) = p_tend%akb(jc,jk,jb)    
+          local_bgc_mem%akw3(jc, jk) = p_tend%akw(jc,jk,jb)    
+          local_bgc_mem%aksi3(jc, jk) = p_tend%aksi(jc,jk,jb)    
+          local_bgc_mem%ak1p3(jc, jk) = p_tend%ak1p(jc,jk,jb)    
+          local_bgc_mem%ak2p3(jc, jk) = p_tend%ak2p(jc,jk,jb)    
+          local_bgc_mem%ak3p3(jc, jk) = p_tend%ak3p(jc,jk,jb)    
+          local_bgc_mem%aks3(jc, jk) = p_tend%aks(jc,jk,jb)  
+          local_bgc_mem%akf3(jc, jk) = p_tend%akf(jc,jk,jb)     
+          local_bgc_mem%satoxy(jc, jk) = p_tend%satoxy(jc,jk,jb)    
+          local_bgc_mem%bgctend(jc,jk,kh2ob) =  p_tend%h2obudget(jc,jk,jb) 
+          local_bgc_mem%bgctend(jc,jk,kn2b) =  p_tend%n2budget(jc,jk,jb) 
         ENDDO
      ! Sediment
-         kbo(jc) = p_sed%kbo(jc,jb)
-         bolay(jc) = p_sed%bolay(jc,jb)
-        ! Burial layers
+         local_bgc_mem%kbo(jc) = p_sed%kbo(jc,jb)
+         local_bgc_mem%bolay(jc) = p_sed%bolay(jc,jb)
+        ! local_sediment_mem%burial layers
          if (lsediment_only) THEN
-             silpro(jc) = ext_data_bgc%silpro(jc,jb)
-             produs(jc) = ext_data_bgc%produs(jc,jb)
-             prcaca(jc) = ext_data_bgc%prcaca(jc,jb)
-             prorca(jc) = ext_data_bgc%prorca(jc,jb)
+             local_sediment_mem%silpro(jc) = ext_data_bgc%silpro(jc,jb)
+             local_sediment_mem%produs(jc) = ext_data_bgc%produs(jc,jb)
+             local_sediment_mem%prcaca(jc) = ext_data_bgc%prcaca(jc,jb)
+             local_sediment_mem%prorca(jc) = ext_data_bgc%prorca(jc,jb)
          ENDIF
-         burial(jc,issso12) = p_sed%bo12(jc,jb) 
-         burial(jc,isssc12) = p_sed%bc12(jc,jb)
-         burial(jc,issssil) = p_sed%bsil(jc,jb)
-         burial(jc,issster) = p_sed%bter(jc,jb)
+         local_sediment_mem%burial(jc,issso12) = p_sed%bo12(jc,jb) 
+         local_sediment_mem%burial(jc,isssc12) = p_sed%bc12(jc,jb)
+         local_sediment_mem%burial(jc,issssil) = p_sed%bsil(jc,jb)
+         local_sediment_mem%burial(jc,issster) = p_sed%bter(jc,jb)
         DO jk =1,ks
              ! Solid sediment
-             sedlay(jc,jk,issso12) = p_sed%so12(jc,jk,jb) 
-             sedlay(jc,jk,isssc12) = p_sed%sc12(jc,jk,jb) 
-             sedlay(jc,jk,issssil) = p_sed%ssil(jc,jk,jb) 
-             sedlay(jc,jk,issster) = p_sed%ster(jc,jk,jb)  
+             local_sediment_mem%sedlay(jc,jk,issso12) = p_sed%so12(jc,jk,jb) 
+             local_sediment_mem%sedlay(jc,jk,isssc12) = p_sed%sc12(jc,jk,jb) 
+             local_sediment_mem%sedlay(jc,jk,issssil) = p_sed%ssil(jc,jk,jb) 
+             local_sediment_mem%sedlay(jc,jk,issster) = p_sed%ster(jc,jk,jb)  
              ! Pore water
-             powtra(jc,jk,ipowaic) = p_sed%pwic(jc,jk,jb)  
-             powtra(jc,jk,ipowaal) = p_sed%pwal(jc,jk,jb) 
-             powtra(jc,jk,ipowaph) = p_sed%pwph(jc,jk,jb) 
-             powtra(jc,jk,ipowaox) = p_sed%pwox(jc,jk,jb)  
-             powtra(jc,jk,ipowasi) = p_sed%pwsi(jc,jk,jb) 
-             powtra(jc,jk,ipowafe) = p_sed%pwfe(jc,jk,jb) 
-             powtra(jc,jk,ipown2)  = p_sed%pwn2(jc,jk,jb) 
-             powtra(jc,jk,ipowno3) = p_sed%pwno3(jc,jk,jb) 
-             powtra(jc,jk,ipowh2s) = p_sed%pwh2s(jc,jk,jb) 
+             local_sediment_mem%powtra(jc,jk,ipowaic) = p_sed%pwic(jc,jk,jb)  
+             local_sediment_mem%powtra(jc,jk,ipowaal) = p_sed%pwal(jc,jk,jb) 
+             local_sediment_mem%powtra(jc,jk,ipowaph) = p_sed%pwph(jc,jk,jb) 
+             local_sediment_mem%powtra(jc,jk,ipowaox) = p_sed%pwox(jc,jk,jb)  
+             local_sediment_mem%powtra(jc,jk,ipowasi) = p_sed%pwsi(jc,jk,jb) 
+             local_sediment_mem%powtra(jc,jk,ipowafe) = p_sed%pwfe(jc,jk,jb) 
+             local_sediment_mem%powtra(jc,jk,ipown2)  = p_sed%pwn2(jc,jk,jb) 
+             local_sediment_mem%powtra(jc,jk,ipowno3) = p_sed%pwno3(jc,jk,jb) 
+             local_sediment_mem%powtra(jc,jk,ipowh2s) = p_sed%pwh2s(jc,jk,jb) 
              IF (l_N_cycle) THEN
-                powtra(jc,jk,ipownh4) = p_sed%pwnh4(jc,jk,jb) 
-                powtra(jc,jk,ipowno2) = p_sed%pwno2(jc,jk,jb)
+                local_sediment_mem%powtra(jc,jk,ipownh4) = p_sed%pwnh4(jc,jk,jb) 
+                local_sediment_mem%powtra(jc,jk,ipowno2) = p_sed%pwno2(jc,jk,jb)
              ENDIF
-             sedhpl(jc,jk)         = p_sed%sedhi(jc,jk,jb) 
-             powh2obud(jc,jk)    = p_sed%pwh2ob(jc,jk,jb) 
-             pown2bud(jc,jk)     = p_sed%pwn2b(jc,jk,jb) 
+             local_sediment_mem%sedhpl(jc,jk)         = p_sed%sedhi(jc,jk,jb) 
+             local_sediment_mem%powh2obud(jc,jk)    = p_sed%pwh2ob(jc,jk,jb) 
+             local_sediment_mem%pown2bud(jc,jk)     = p_sed%pwn2b(jc,jk,jb) 
         ENDDO
        ENDIF
 
       ENDDO
-!HAMICC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+
+ 
       END SUBROUTINE
 
 !================================================================================== 
-  SUBROUTINE set_bgc_tendencies_output(start_idx, end_idx, &
+  SUBROUTINE set_bgc_tendencies_output(local_bgc_mem, local_sediment_mem, local_aggregate_memory, start_idx, end_idx, &
 &             klevs,pddpo,jb,p_tend, p_diag, p_sed, p_agg)
-
       
-      USE mo_memory_bgc, ONLY: bgctend, bgcflux, hi, co3, sedfluxo, &
- &                         aks3, akf3, aksi3, ak1p3, ak2p3, ak3p3, &
- &                         akw3, akb3, aksp, ak13, ak23, satoxy, satn2, &
- &                         satn2o, solco2, atm
-
       USE mo_param1_bgc, ONLY: kphosy, ksred, kremin, kdenit, &
  &                             kcflux, koflux, knflux, knfixd, &
  &                             knfix, kgraz, ksilpro, kprorca, &
@@ -268,9 +251,12 @@
 &                              knh3flux, kgppnh, kcyapro, kammox, knitox, &
 &                              kdnrn, kdnra, kanam, ksammox, ksnitox, &
 &                              ksdnrn, ksdnra, ksanam, ksnrn2
+
+      USE mo_memory_agg, ONLY : kavdp, kavrhop, ksticka, klmaxagg, kdfagg, kavrhof
   
-      USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend
-      USE mo_memory_agg, ONLY : aggdiag, kavdp, kavrhop, ksticka, klmaxagg, kdfagg, kavrhof
+      TYPE(t_bgc_memory), POINTER :: local_bgc_mem
+      TYPE(t_sediment_memory), POINTER :: local_sediment_mem
+      TYPE(t_aggregates_memory), POINTER :: local_aggregate_memory
 
       TYPE(t_hamocc_tend) :: p_tend
       TYPE(t_hamocc_diag) :: p_diag
@@ -285,184 +271,180 @@
 
       INTEGER :: jc, jk, kpke
 
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(jc,jk,kpke) HAMOCC_OMP_DEFAULT_SCHEDULE
+ 
       DO jc=start_idx,end_idx 
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
-        p_tend%co2mr(jc,jb) = atm(jc,iatmco2)
-        p_tend%cflux(jc,jb) = bgcflux(jc,kcflux)
-        p_tend%pco2(jc,jb)  = bgcflux(jc,kpco2)
-        p_tend%oflux(jc,jb) = bgcflux(jc,koflux)
-        p_tend%nflux(jc,jb) = bgcflux(jc,knflux)
-        p_tend%dmsflux(jc,jb) = bgcflux(jc,kdmsflux)
-        p_tend%orginp(jc,jb) = bgcflux(jc,korginp)
-        p_tend%silinp(jc,jb) = bgcflux(jc,ksilinp)
-        p_tend%calinp(jc,jb) = bgcflux(jc,kcalinp)
-        p_tend%n2oflux(jc,jb) = bgcflux(jc,kn2oflux)
-        p_tend%nfixd(jc,jb) = bgcflux(jc,knfixd)
-        p_tend%prcaca(jc,jb) = bgcflux(jc,kprcaca)
-        p_tend%prorca(jc,jb) = bgcflux(jc,kprorca)
-        p_tend%silpro(jc,jb) = bgcflux(jc,ksilpro)
-        p_tend%produs(jc,jb) = bgcflux(jc,kprodus)
-        p_tend%coex90(jc,jb) = bgcflux(jc,kcoex90)
-        p_tend%calex90(jc,jb) = bgcflux(jc,kcalex90)
-        p_tend%opex90(jc,jb) = bgcflux(jc,kopex90)
-        p_tend%coex1000(jc,jb) = bgcflux(jc,kcoex1000)
-        p_tend%calex1000(jc,jb) = bgcflux(jc,kcalex1000)
-        p_tend%opex1000(jc,jb) = bgcflux(jc,kopex1000)
-        p_tend%coex2000(jc,jb) = bgcflux(jc,kcoex2000)
-        p_tend%calex2000(jc,jb) = bgcflux(jc,kcalex2000)
-        p_tend%opex2000(jc,jb) = bgcflux(jc,kopex2000)
-        p_tend%lysocline(jc,jb)=bgcflux(jc,klysocl)
-        p_tend%nitrogeninp(jc,jb)=bgcflux(jc,knitinp)
+        p_tend%co2mr(jc,jb) = local_bgc_mem%atm(jc,iatmco2)
+        p_tend%cflux(jc,jb) = local_bgc_mem%bgcflux(jc,kcflux)
+        p_tend%pco2(jc,jb)  = local_bgc_mem%bgcflux(jc,kpco2)
+        p_tend%oflux(jc,jb) = local_bgc_mem%bgcflux(jc,koflux)
+        p_tend%nflux(jc,jb) = local_bgc_mem%bgcflux(jc,knflux)
+        p_tend%dmsflux(jc,jb) = local_bgc_mem%bgcflux(jc,kdmsflux)
+        p_tend%orginp(jc,jb) = local_bgc_mem%bgcflux(jc,korginp)
+        p_tend%silinp(jc,jb) = local_bgc_mem%bgcflux(jc,ksilinp)
+        p_tend%calinp(jc,jb) = local_bgc_mem%bgcflux(jc,kcalinp)
+        p_tend%n2oflux(jc,jb) = local_bgc_mem%bgcflux(jc,kn2oflux)
+        p_tend%nfixd(jc,jb) = local_bgc_mem%bgcflux(jc,knfixd)
+        p_tend%prcaca(jc,jb) = local_bgc_mem%bgcflux(jc,kprcaca)
+        p_tend%prorca(jc,jb) = local_bgc_mem%bgcflux(jc,kprorca)
+        p_tend%silpro(jc,jb) = local_bgc_mem%bgcflux(jc,ksilpro)
+        p_tend%produs(jc,jb) = local_bgc_mem%bgcflux(jc,kprodus)
+        p_tend%coex90(jc,jb) = local_bgc_mem%bgcflux(jc,kcoex90)
+        p_tend%calex90(jc,jb) = local_bgc_mem%bgcflux(jc,kcalex90)
+        p_tend%opex90(jc,jb) = local_bgc_mem%bgcflux(jc,kopex90)
+        p_tend%coex1000(jc,jb) = local_bgc_mem%bgcflux(jc,kcoex1000)
+        p_tend%calex1000(jc,jb) = local_bgc_mem%bgcflux(jc,kcalex1000)
+        p_tend%opex1000(jc,jb) = local_bgc_mem%bgcflux(jc,kopex1000)
+        p_tend%coex2000(jc,jb) = local_bgc_mem%bgcflux(jc,kcoex2000)
+        p_tend%calex2000(jc,jb) = local_bgc_mem%bgcflux(jc,kcalex2000)
+        p_tend%opex2000(jc,jb) = local_bgc_mem%bgcflux(jc,kopex2000)
+        p_tend%lysocline(jc,jb)=local_bgc_mem%bgcflux(jc,klysocl)
+        p_tend%nitrogeninp(jc,jb)=local_bgc_mem%bgcflux(jc,knitinp)
         kpke=klevs(jc)
         DO jk =1,kpke
-             p_tend%npp(jc,jk,jb) = bgctend(jc,jk,kphosy)
-             p_tend%graz(jc,jk,jb) = bgctend(jc,jk,kgraz)
-             p_tend%zoomor(jc,jk,jb) = bgctend(jc,jk,kzdy)
-             p_tend%phymor(jc,jk,jb) = bgctend(jc,jk,kpdy)
-             p_tend%exudz(jc,jk,jb) = bgctend(jc,jk,kexudz)
-             p_tend%graton(jc,jk,jb) = bgctend(jc,jk,kgraton)
-             p_tend%exud(jc,jk,jb) = bgctend(jc,jk,kexudp)
-             p_tend%nfix(jc,jk,jb) = bgctend(jc,jk,knfix)
-             p_tend%phoc(jc,jk,jb) = bgctend(jc,jk,kpho_cya)
-             p_tend%cyloss(jc,jk,jb) = bgctend(jc,jk,kcyaloss)
-             p_tend%bacfra(jc,jk,jb) = bgctend(jc,jk,kbacfra)
-             p_tend%remina(jc,jk,jb) = bgctend(jc,jk,kremin)
-             p_tend%remins(jc,jk,jb) = bgctend(jc,jk,ksred)
-             p_tend%reminn(jc,jk,jb) = bgctend(jc,jk,kdenit)
-             p_tend%h2obudget(jc,jk,jb) = bgctend(jc,jk,kh2ob)
-             p_tend%n2budget(jc,jk,jb) = bgctend(jc,jk,kn2b)
-             p_tend%delsil(jc,jk,jb) = bgctend(jc,jk,kdelsil)
-             p_tend%delcar(jc,jk,jb) = bgctend(jc,jk,kdelcar)
-             p_tend%h2sprod(jc,jk,jb) = bgctend(jc,jk,kh2sprod)
-             p_tend%h2sloss(jc,jk,jb) = bgctend(jc,jk,kh2sloss)
-             p_tend%dmsprod(jc,jk,jb) = bgctend(jc,jk,kdmsprod)
-             p_tend%dmsbac(jc,jk,jb) = bgctend(jc,jk,kdmsbac)
-             p_tend%dmsuv(jc,jk,jb) = bgctend(jc,jk,kdmsuv)
-             p_tend%euexp(jc,jk,jb) = bgctend(jc,jk,keuexp)
-             p_diag%hi(jc,jk,jb)     = hi(jc, jk)
-             p_diag%co3(jc,jk,jb)    = co3(jc,jk) 
-             p_tend%akb(jc,jk,jb)    = akb3(jc,jk) 
-             p_tend%akw(jc,jk,jb)    = akw3(jc,jk) 
-             p_tend%ak1(jc,jk,jb)    = ak13(jc,jk) 
-             p_tend%ak2(jc,jk,jb)    = ak23(jc,jk) 
-             p_tend%aks(jc,jk,jb)    = aks3(jc,jk) 
-             p_tend%akf(jc,jk,jb)    = akf3(jc,jk) 
-             p_tend%ak1p(jc,jk,jb)   = ak1p3(jc,jk) 
-             p_tend%ak2p(jc,jk,jb)   = ak2p3(jc,jk)
-             p_tend%ak3p(jc,jk,jb)   = ak3p3(jc,jk)
-             p_tend%aksi(jc,jk,jb)   = aksi3(jc,jk)
-             p_tend%aksp(jc,jk,jb)   = aksp(jc,jk) 
-             p_tend%flim(jc,jk,jb) = bgctend(jc,jk,kflim)
-             p_tend%nlim(jc,jk,jb) = bgctend(jc,jk,knlim)
-             p_tend%plim(jc,jk,jb) = bgctend(jc,jk,kplim)
-             p_tend%cTlim(jc,jk,jb) = bgctend(jc,jk,kcTlim)
-             p_tend%cLlim(jc,jk,jb) = bgctend(jc,jk,kcLlim)
-             p_tend%cPlim(jc,jk,jb) = bgctend(jc,jk,kcPlim)
-             p_tend%cFlim(jc,jk,jb) = bgctend(jc,jk,kcFlim)
-             p_tend%satoxy(jc,jk,jb)    = satoxy(jc,jk) 
-             p_tend%aou(jc,jk,jb) = bgctend(jc,jk,kaou)
-            
+             p_tend%npp(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kphosy)
+             p_tend%graz(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kgraz)
+             p_tend%zoomor(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kzdy)
+             p_tend%phymor(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kpdy)
+             p_tend%exudz(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kexudz)
+             p_tend%graton(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kgraton)
+             p_tend%exud(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kexudp)
+             p_tend%nfix(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,knfix)
+             p_tend%phoc(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kpho_cya)
+             p_tend%cyloss(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kcyaloss)
+             p_tend%bacfra(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kbacfra)
+             p_tend%remina(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kremin)
+             p_tend%remins(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,ksred)
+             p_tend%reminn(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kdenit)
+             p_tend%h2obudget(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kh2ob)
+             p_tend%n2budget(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kn2b)
+             p_tend%delsil(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kdelsil)
+             p_tend%delcar(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kdelcar)
+             p_tend%h2sprod(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kh2sprod)
+             p_tend%h2sloss(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kh2sloss)
+             p_tend%dmsprod(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kdmsprod)
+             p_tend%dmsbac(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kdmsbac)
+             p_tend%dmsuv(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kdmsuv)
+             p_tend%euexp(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,keuexp)
+             p_diag%hi(jc,jk,jb)     = local_bgc_mem%hi(jc, jk)
+             p_diag%co3(jc,jk,jb)    = local_bgc_mem%co3(jc,jk) 
+             p_tend%akb(jc,jk,jb)    = local_bgc_mem%akb3(jc,jk) 
+             p_tend%akw(jc,jk,jb)    = local_bgc_mem%akw3(jc,jk) 
+             p_tend%ak1(jc,jk,jb)    = local_bgc_mem%ak13(jc,jk) 
+             p_tend%ak2(jc,jk,jb)    = local_bgc_mem%ak23(jc,jk) 
+             p_tend%aks(jc,jk,jb)    = local_bgc_mem%aks3(jc,jk) 
+             p_tend%akf(jc,jk,jb)    = local_bgc_mem%akf3(jc,jk) 
+             p_tend%ak1p(jc,jk,jb)   = local_bgc_mem%ak1p3(jc,jk) 
+             p_tend%ak2p(jc,jk,jb)   = local_bgc_mem%ak2p3(jc,jk)
+             p_tend%ak3p(jc,jk,jb)   = local_bgc_mem%ak3p3(jc,jk)
+             p_tend%aksi(jc,jk,jb)   = local_bgc_mem%aksi3(jc,jk)
+             p_tend%aksp(jc,jk,jb)   = local_bgc_mem%aksp(jc,jk) 
+             p_tend%flim(jc,jk,jb)   = local_bgc_mem%bgctend(jc,jk,kflim)
+             p_tend%nlim(jc,jk,jb)   = local_bgc_mem%bgctend(jc,jk,knlim)
+             p_tend%plim(jc,jk,jb)   = local_bgc_mem%bgctend(jc,jk,kplim)
+             p_tend%cTlim(jc,jk,jb)  = local_bgc_mem%bgctend(jc,jk,kcTlim)
+             p_tend%cLlim(jc,jk,jb)  = local_bgc_mem%bgctend(jc,jk,kcLlim)
+             p_tend%cPlim(jc,jk,jb)  = local_bgc_mem%bgctend(jc,jk,kcPlim)
+             p_tend%cFlim(jc,jk,jb)  = local_bgc_mem%bgctend(jc,jk,kcFlim)
+             p_tend%satoxy(jc,jk,jb)    = local_bgc_mem%satoxy(jc,jk) 
+             p_tend%aou(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kaou)
         ENDDO
         
         IF(i_settling==2)then
              DO jk = 1,kpke
-                 p_tend%wdust(jc,jk,jb) = bgctend(jc,jk,kwdust)
-                 p_tend%wpoc(jc,jk,jb) = bgctend(jc,jk,kwpoc)
-                 p_tend%wopal(jc,jk,jb) = bgctend(jc,jk,kwopal)
-                 p_tend%wcal(jc,jk,jb) = bgctend(jc,jk,kwcal)
-                 p_agg%avdp(jc,jk,jb) = aggdiag(jc,jk,kavdp)
-                 p_agg%avrhop(jc,jk,jb) = aggdiag(jc,jk,kavrhop)
-                 p_agg%sticka(jc,jk,jb) = aggdiag(jc,jk,ksticka)
-                 p_agg%lmaxagg(jc,jk,jb) = aggdiag(jc,jk,klmaxagg)
-                 p_agg%dfagg(jc,jk,jb) = aggdiag(jc,jk,kdfagg)
+                 p_tend%wdust(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kwdust)
+                 p_tend%wpoc(jc,jk,jb)  = local_bgc_mem%bgctend(jc,jk,kwpoc)
+                 p_tend%wopal(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kwopal)
+                 p_tend%wcal(jc,jk,jb)  = local_bgc_mem%bgctend(jc,jk,kwcal)
+                 p_agg%avdp(jc,jk,jb)   = local_aggregate_memory%aggdiag(jc,jk,kavdp)
+                 p_agg%avrhop(jc,jk,jb) = local_aggregate_memory%aggdiag(jc,jk,kavrhop)
+                 p_agg%sticka(jc,jk,jb) = local_aggregate_memory%aggdiag(jc,jk,ksticka)
+                 p_agg%lmaxagg(jc,jk,jb) = local_aggregate_memory%aggdiag(jc,jk,klmaxagg)
+                 p_agg%dfagg(jc,jk,jb)  = local_aggregate_memory%aggdiag(jc,jk,kdfagg)
              END DO
         END IF
                  
 
         IF (l_N_cycle) THEN
-             p_tend%nh3flux(jc,jb) = bgcflux(jc,knh3flux)
+             p_tend%nh3flux(jc,jb) = local_bgc_mem%bgcflux(jc,knh3flux)
              DO jk = 1,kpke
-                p_tend%gppnh4(jc,jk,jb) = bgctend(jc,jk,kgppnh)
-                p_tend%cyapro(jc,jk,jb) = bgctend(jc,jk,kcyapro)
-                p_tend%ammox(jc,jk,jb) = bgctend(jc,jk,kammox)
-                p_tend%nitox(jc,jk,jb) = bgctend(jc,jk,knitox)
-                p_tend%dnrn(jc,jk,jb) = bgctend(jc,jk,kdnrn)
-                p_tend%dnra(jc,jk,jb) = bgctend(jc,jk,kdnra)
-                p_tend%anam(jc,jk,jb) = bgctend(jc,jk,kanam)
+                p_tend%gppnh4(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kgppnh)
+                p_tend%cyapro(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kcyapro)
+                p_tend%ammox(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kammox)
+                p_tend%nitox(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,knitox)
+                p_tend%dnrn(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kdnrn)
+                p_tend%dnra(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kdnra)
+                p_tend%anam(jc,jk,jb) = local_bgc_mem%bgctend(jc,jk,kanam)
              ENDDO
-             p_tend%sedflnh4(jc,jb) = sedfluxo(jc,ipownh4) 
-             p_tend%sedflno2(jc,jb) = sedfluxo(jc,ipowno2)
+             p_tend%sedflnh4(jc,jb) = local_bgc_mem%sedfluxo(jc,ipownh4) 
+             p_tend%sedflno2(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowno2)
              DO jk = 1,ks
-                p_sed%pwnh4(jc,jk,jb) = powtra(jc,jk,ipownh4) 
-                p_sed%pwno2(jc,jk,jb) = powtra(jc,jk,ipowno2)
-                p_tend%sedammox(jc,jk,jb) = sedtend(jc,jk,ksammox)
-                p_tend%sednitox(jc,jk,jb) = sedtend(jc,jk,ksnitox)
-                p_tend%seddnrn(jc,jk,jb) = sedtend(jc,jk,ksdnrn)
-                p_tend%seddnra(jc,jk,jb) = sedtend(jc,jk,ksdnra)
-                p_tend%sedanam(jc,jk,jb) = sedtend(jc,jk,ksanam)
-                p_tend%sednrn2(jc,jk,jb) = sedtend(jc,jk,ksnrn2)
+                p_sed%pwnh4(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipownh4) 
+                p_sed%pwno2(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowno2)
+                p_tend%sedammox(jc,jk,jb) = local_sediment_mem%sedtend(jc,jk,ksammox)
+                p_tend%sednitox(jc,jk,jb) = local_sediment_mem%sedtend(jc,jk,ksnitox)
+                p_tend%seddnrn(jc,jk,jb) = local_sediment_mem%sedtend(jc,jk,ksdnrn)
+                p_tend%seddnra(jc,jk,jb) = local_sediment_mem%sedtend(jc,jk,ksdnra)
+                p_tend%sedanam(jc,jk,jb) = local_sediment_mem%sedtend(jc,jk,ksanam)
+                p_tend%sednrn2(jc,jk,jb) = local_sediment_mem%sedtend(jc,jk,ksnrn2)
              ENDDO
 
         ENDIF
-        p_tend%satn2(jc,jb)    = satn2(jc) 
-        p_tend%satn2o(jc,jb)    = satn2o(jc) 
-        p_tend%solco2(jc,jb)    = solco2(jc) 
+        p_tend%satn2(jc,jb)    = local_bgc_mem%satn2(jc) 
+        p_tend%satn2o(jc,jb)   = local_bgc_mem%satn2o(jc) 
+        p_tend%solco2(jc,jb)   = local_bgc_mem%solco2(jc) 
         ! Sediment
-        ! Burial layers
-        p_sed%bo12(jc,jb) = burial(jc,issso12)
-        p_sed%bc12(jc,jb) = burial(jc,isssc12)
-        p_sed%bsil(jc,jb) = burial(jc,issssil)
-        p_sed%bter(jc,jb) = burial(jc,issster) 
+        ! local_sediment_mem%burial layers
+        p_sed%bo12(jc,jb) = local_sediment_mem%burial(jc,issso12)
+        p_sed%bc12(jc,jb) = local_sediment_mem%burial(jc,isssc12)
+        p_sed%bsil(jc,jb) = local_sediment_mem%burial(jc,issssil)
+        p_sed%bter(jc,jb) = local_sediment_mem%burial(jc,issster) 
         ! Sediment-ocean fluxes
-        p_tend%sedflic(jc,jb) = sedfluxo(jc,ipowaic) 
-        p_tend%sedflal(jc,jb) = sedfluxo(jc,ipowaal) 
-        p_tend%sedflph(jc,jb) = sedfluxo(jc,ipowaph) 
-        p_tend%sedflox(jc,jb) = sedfluxo(jc,ipowaox) 
-        p_tend%sedflsi(jc,jb) = sedfluxo(jc,ipowasi) 
-        p_tend%sedflfe(jc,jb) = sedfluxo(jc,ipowafe) 
-        p_tend%sedfln2(jc,jb) = sedfluxo(jc,ipown2) 
-        p_tend%sedflno3(jc,jb) = sedfluxo(jc,ipowno3) 
-        p_tend%sedflh2s(jc,jb) = sedfluxo(jc,ipowh2s) 
+        p_tend%sedflic(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowaic) 
+        p_tend%sedflal(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowaal) 
+        p_tend%sedflph(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowaph) 
+        p_tend%sedflox(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowaox) 
+        p_tend%sedflsi(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowasi) 
+        p_tend%sedflfe(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowafe) 
+        p_tend%sedfln2(jc,jb) = local_bgc_mem%sedfluxo(jc,ipown2) 
+        p_tend%sedflno3(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowno3) 
+        p_tend%sedflh2s(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowh2s) 
         DO jk =1,ks
              ! Solid sediment
-             p_sed%so12(jc,jk,jb) = sedlay(jc,jk,issso12)
-             p_sed%sc12(jc,jk,jb) = sedlay(jc,jk,isssc12)
-             p_sed%ssil(jc,jk,jb) = sedlay(jc,jk,issssil)
-             p_sed%ster(jc,jk,jb) = sedlay(jc,jk,issster)
+             p_sed%so12(jc,jk,jb) = local_sediment_mem%sedlay(jc,jk,issso12)
+             p_sed%sc12(jc,jk,jb) = local_sediment_mem%sedlay(jc,jk,isssc12)
+             p_sed%ssil(jc,jk,jb) = local_sediment_mem%sedlay(jc,jk,issssil)
+             p_sed%ster(jc,jk,jb) = local_sediment_mem%sedlay(jc,jk,issster)
              ! Pore water
-             p_sed%pwic(jc,jk,jb) = powtra(jc,jk,ipowaic)
-             p_sed%pwal(jc,jk,jb) = powtra(jc,jk,ipowaal)
-             p_sed%pwph(jc,jk,jb) = powtra(jc,jk,ipowaph)
-             p_sed%pwox(jc,jk,jb) = powtra(jc,jk,ipowaox)
-             p_sed%pwsi(jc,jk,jb) = powtra(jc,jk,ipowasi)
-             p_sed%pwfe(jc,jk,jb) = powtra(jc,jk,ipowafe)
-             p_sed%pwn2(jc,jk,jb) = powtra(jc,jk,ipown2)
-             p_sed%pwno3(jc,jk,jb) = powtra(jc,jk,ipowno3)
-             p_sed%pwh2s(jc,jk,jb) = powtra(jc,jk,ipowh2s)
-             p_sed%sedhi(jc,jk,jb) = sedhpl(jc,jk)
-             p_sed%pwh2ob(jc,jk,jb) = powh2obud(jc,jk)
-             p_sed%pwn2b(jc,jk,jb) = pown2bud(jc,jk)
+             p_sed%pwic(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowaic)
+             p_sed%pwal(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowaal)
+             p_sed%pwph(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowaph)
+             p_sed%pwox(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowaox)
+             p_sed%pwsi(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowasi)
+             p_sed%pwfe(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowafe)
+             p_sed%pwn2(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipown2)
+             p_sed%pwno3(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowno3)
+             p_sed%pwh2s(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowh2s)
+             p_sed%sedhi(jc,jk,jb) = local_sediment_mem%sedhpl(jc,jk)
+             p_sed%pwh2ob(jc,jk,jb) = local_sediment_mem%powh2obud(jc,jk)
+             p_sed%pwn2b(jc,jk,jb) = local_sediment_mem%pown2bud(jc,jk)
 
              ! tendencies
-             p_tend%sedro2(jc,jk,jb) = sedtend(jc,jk,isremino) 
-             p_tend%sedrn(jc,jk,jb)  = sedtend(jc,jk,isreminn) 
-             p_tend%sedrs(jc,jk,jb)  = sedtend(jc,jk,isremins) 
+             p_tend%sedro2(jc,jk,jb) = local_sediment_mem%sedtend(jc,jk,isremino) 
+             p_tend%sedrn(jc,jk,jb)  = local_sediment_mem%sedtend(jc,jk,isreminn) 
+             p_tend%sedrs(jc,jk,jb)  = local_sediment_mem%sedtend(jc,jk,isremins) 
              
         ENDDO
       ENDIF
       ENDDO
-!HAMOC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+
+ 
 
   END SUBROUTINE 
 
 !================================================================================== 
-  SUBROUTINE set_bgc_tendencies_output_sedon(start_idx,end_idx,pddpo,jb, &
+  SUBROUTINE set_bgc_tendencies_output_sedon(local_bgc_mem, local_sediment_mem, start_idx,end_idx,pddpo,jb, &
  &                                           p_tend, p_sed)
-
-      USE mo_memory_bgc, ONLY: sedfluxo
 
       USE mo_param1_bgc, ONLY: issso12, &
  &                             isssc12, issssil, issster, &
@@ -475,9 +457,9 @@
  &                             ksanam, ksnrn2
 
       USE mo_bgc_bcond, ONLY: ext_data_bgc
+      TYPE(t_bgc_memory), POINTER :: local_bgc_mem
+      TYPE(t_sediment_memory), POINTER :: local_sediment_mem
   
-      USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend
-
       TYPE(t_hamocc_sed) :: p_sed
       TYPE(t_hamocc_tend):: p_tend
 
@@ -487,8 +469,6 @@
 
       INTEGER :: jc, jk
 
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(jc,jk) HAMOCC_OMP_DEFAULT_SCHEDULE
       DO jc=start_idx,end_idx 
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
         p_tend%prcaca(jc,jb) = ext_data_bgc%prcaca(jc,jb)
@@ -496,74 +476,73 @@
         p_tend%silpro(jc,jb) = ext_data_bgc%silpro(jc,jb)
         p_tend%produs(jc,jb) = ext_data_bgc%produs(jc,jb)
         ! Sediment
-        ! Burial layers
-        p_sed%bo12(jc,jb) = burial(jc,issso12)
-        p_sed%bc12(jc,jb) = burial(jc,isssc12)
-        p_sed%bsil(jc,jb) = burial(jc,issssil)
-        p_sed%bter(jc,jb) = burial(jc,issster) 
+        ! local_sediment_mem%burial layers
+        p_sed%bo12(jc,jb) = local_sediment_mem%burial(jc,issso12)
+        p_sed%bc12(jc,jb) = local_sediment_mem%burial(jc,isssc12)
+        p_sed%bsil(jc,jb) = local_sediment_mem%burial(jc,issssil)
+        p_sed%bter(jc,jb) = local_sediment_mem%burial(jc,issster) 
         ! Sediment-ocean fluxes
-        p_tend%sedflic(jc,jb) = sedfluxo(jc,ipowaic) 
-        p_tend%sedflal(jc,jb) = sedfluxo(jc,ipowaal) 
-        p_tend%sedflph(jc,jb) = sedfluxo(jc,ipowaph) 
-        p_tend%sedflox(jc,jb) = sedfluxo(jc,ipowaox) 
-        p_tend%sedflsi(jc,jb) = sedfluxo(jc,ipowasi) 
-        p_tend%sedflfe(jc,jb) = sedfluxo(jc,ipowafe) 
-        p_tend%sedfln2(jc,jb) = sedfluxo(jc,ipown2) 
-        p_tend%sedflno3(jc,jb) = sedfluxo(jc,ipowno3) 
-        p_tend%sedflh2s(jc,jb) = sedfluxo(jc,ipowh2s) 
+        p_tend%sedflic(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowaic) 
+        p_tend%sedflal(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowaal) 
+        p_tend%sedflph(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowaph) 
+        p_tend%sedflox(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowaox) 
+        p_tend%sedflsi(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowasi) 
+        p_tend%sedflfe(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowafe) 
+        p_tend%sedfln2(jc,jb) = local_bgc_mem%sedfluxo(jc,ipown2) 
+        p_tend%sedflno3(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowno3) 
+        p_tend%sedflh2s(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowh2s) 
         if (l_N_cycle) THEN
-           p_tend%sedflnh4(jc,jb) = sedfluxo(jc,ipownh4) 
-           p_tend%sedflno2(jc,jb) = sedfluxo(jc,ipowno2)
+           p_tend%sedflnh4(jc,jb) = local_bgc_mem%sedfluxo(jc,ipownh4) 
+           p_tend%sedflno2(jc,jb) = local_bgc_mem%sedfluxo(jc,ipowno2)
            DO jk = 1,ks
-                p_sed%pwnh4(jc,jk,jb) = powtra(jc,jk,ipownh4) 
-                p_sed%pwno2(jc,jk,jb) = powtra(jc,jk,ipowno2)
-                p_tend%sedammox(jc,jk,jb) = sedtend(jc,jk,ksammox)
-                p_tend%sednitox(jc,jk,jb) = sedtend(jc,jk,ksnitox)
-                p_tend%seddnrn(jc,jk,jb) = sedtend(jc,jk,ksdnrn)
-                p_tend%seddnra(jc,jk,jb) = sedtend(jc,jk,ksdnra)
-                p_tend%sedanam(jc,jk,jb) = sedtend(jc,jk,ksanam)
-                p_tend%sednrn2(jc,jk,jb) = sedtend(jc,jk,ksnrn2)
+                p_sed%pwnh4(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipownh4) 
+                p_sed%pwno2(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowno2)
+                p_tend%sedammox(jc,jk,jb) = local_sediment_mem%sedtend(jc,jk,ksammox)
+                p_tend%sednitox(jc,jk,jb) = local_sediment_mem%sedtend(jc,jk,ksnitox)
+                p_tend%seddnrn(jc,jk,jb) = local_sediment_mem%sedtend(jc,jk,ksdnrn)
+                p_tend%seddnra(jc,jk,jb) = local_sediment_mem%sedtend(jc,jk,ksdnra)
+                p_tend%sedanam(jc,jk,jb) = local_sediment_mem%sedtend(jc,jk,ksanam)
+                p_tend%sednrn2(jc,jk,jb) = local_sediment_mem%sedtend(jc,jk,ksnrn2)
            ENDDO
         ENDIF
         DO jk =1,ks
              ! Solid sediment
-             p_sed%so12(jc,jk,jb) = sedlay(jc,jk,issso12)
-             p_sed%sc12(jc,jk,jb) = sedlay(jc,jk,isssc12)
-             p_sed%ssil(jc,jk,jb) = sedlay(jc,jk,issssil)
-             p_sed%ster(jc,jk,jb) = sedlay(jc,jk,issster)
+             p_sed%so12(jc,jk,jb) = local_sediment_mem%sedlay(jc,jk,issso12)
+             p_sed%sc12(jc,jk,jb) = local_sediment_mem%sedlay(jc,jk,isssc12)
+             p_sed%ssil(jc,jk,jb) = local_sediment_mem%sedlay(jc,jk,issssil)
+             p_sed%ster(jc,jk,jb) = local_sediment_mem%sedlay(jc,jk,issster)
              ! Pore water
-             p_sed%pwic(jc,jk,jb) = powtra(jc,jk,ipowaic)
-             p_sed%pwal(jc,jk,jb) = powtra(jc,jk,ipowaal)
-             p_sed%pwph(jc,jk,jb) = powtra(jc,jk,ipowaph)
-             p_sed%pwox(jc,jk,jb) = powtra(jc,jk,ipowaox)
-             p_sed%pwsi(jc,jk,jb) = powtra(jc,jk,ipowasi)
-             p_sed%pwfe(jc,jk,jb) = powtra(jc,jk,ipowafe)
-             p_sed%pwn2(jc,jk,jb) = powtra(jc,jk,ipown2)
-             p_sed%pwno3(jc,jk,jb) = powtra(jc,jk,ipowno3)
-             p_sed%pwh2s(jc,jk,jb) = powtra(jc,jk,ipowh2s)
-             p_sed%sedhi(jc,jk,jb) = sedhpl(jc,jk)
-             p_sed%pwh2ob(jc,jk,jb) = powh2obud(jc,jk)
-             p_sed%pwn2b(jc,jk,jb) = pown2bud(jc,jk)
+             p_sed%pwic(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowaic)
+             p_sed%pwal(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowaal)
+             p_sed%pwph(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowaph)
+             p_sed%pwox(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowaox)
+             p_sed%pwsi(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowasi)
+             p_sed%pwfe(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowafe)
+             p_sed%pwn2(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipown2)
+             p_sed%pwno3(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowno3)
+             p_sed%pwh2s(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowh2s)
+             p_sed%sedhi(jc,jk,jb) = local_sediment_mem%sedhpl(jc,jk)
+             p_sed%pwh2ob(jc,jk,jb) = local_sediment_mem%powh2obud(jc,jk)
+             p_sed%pwn2b(jc,jk,jb) = local_sediment_mem%pown2bud(jc,jk)
 
              ! tendencies
-             p_tend%sedro2(jc,jk,jb) = sedtend(jc,jk,isremino) 
-             p_tend%sedrn(jc,jk,jb)  = sedtend(jc,jk,isreminn) 
-             p_tend%sedrs(jc,jk,jb)  = sedtend(jc,jk,isremins) 
+             p_tend%sedro2(jc,jk,jb) = local_sediment_mem%sedtend(jc,jk,isremino) 
+             p_tend%sedrn(jc,jk,jb)  = local_sediment_mem%sedtend(jc,jk,isreminn) 
+             p_tend%sedrs(jc,jk,jb)  = local_sediment_mem%sedtend(jc,jk,isremins) 
              
         ENDDO
       ENDIF
       ENDDO
-!HAMOC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+
+ 
 
   END SUBROUTINE 
 
 !================================================================================== 
     
-      SUBROUTINE initial_update_icon(start_index, end_index, &
+      SUBROUTINE initial_update_icon(local_bgc_mem, local_sediment_mem, start_index, end_index, &
 &             klevs,pddpo,jb,ptracer, p_sed,p_diag,pco2flux)
 
-      USE mo_memory_bgc, ONLY: bgctra, hi, co3, kbo,bolay,bgcflux
       USE mo_param1_bgc, ONLY: n_bgctra, issso12, &
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
@@ -572,9 +551,10 @@
  &                             ipowasi, ipowafe, ipowh2s, &
  &                             kcflux
   
-
-
+      TYPE(t_bgc_memory), POINTER :: local_bgc_mem
+      TYPE(t_sediment_memory), POINTER :: local_sediment_mem
       REAL(wp)     :: ptracer(nproma,n_zlev,n_bgctra)    
+
       INTEGER, INTENT(in)::klevs(nproma)
       TYPE(t_hamocc_sed) :: p_sed
       TYPE(t_hamocc_diag) :: p_diag
@@ -588,54 +568,54 @@
                 routine = 'update_icon'
 
      ! CALL message(TRIM(routine), 'start' )
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(jc,kpke,jk) HAMOCC_OMP_DEFAULT_SCHEDULE
+ 
       DO jc=start_index,end_index 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
-         if(l_cpl_co2)pco2flux(jc)=bgcflux(jc,kcflux) * molw_co2
+         if(l_cpl_co2)pco2flux(jc)=local_bgc_mem%bgcflux(jc,kcflux) * molw_co2
         DO jk =1,kpke
           DO itrac=1,n_bgctra
-             ptracer(jc,jk,itrac) = bgctra(jc,jk,itrac)
+             ptracer(jc,jk,itrac) = local_bgc_mem%bgctra(jc,jk,itrac)
           ENDDO
-             p_diag%hi(jc,jk,jb)  = hi(jc, jk)
-             p_diag%co3(jc,jk,jb) = co3(jc,jk) 
+
+             p_diag%hi(jc,jk,jb)  = local_bgc_mem%hi(jc, jk)
+             p_diag%co3(jc,jk,jb) = local_bgc_mem%co3(jc,jk) 
         ENDDO
         ! Sediment
-        ! Burial layers
-        p_sed%bo12(jc,jb) = burial(jc,issso12)
-        p_sed%bc12(jc,jb) = burial(jc,isssc12)
-        p_sed%bsil(jc,jb) = burial(jc,issssil)
-        p_sed%bter(jc,jb) = burial(jc,issster) 
-        p_sed%bolay(jc,jb) = bolay(jc)
-        p_sed%kbo(jc,jb) = kbo(jc)
+        ! local_sediment_mem%burial layers
+        p_sed%bo12(jc,jb) = local_sediment_mem%burial(jc,issso12)
+        p_sed%bc12(jc,jb) = local_sediment_mem%burial(jc,isssc12)
+        p_sed%bsil(jc,jb) = local_sediment_mem%burial(jc,issssil)
+        p_sed%bter(jc,jb) = local_sediment_mem%burial(jc,issster) 
+        p_sed%bolay(jc,jb) = local_bgc_mem%bolay(jc)
+        p_sed%kbo(jc,jb) = local_bgc_mem%kbo(jc)
         DO jk =1,ks
              ! Solid sediment
-             p_sed%so12(jc,jk,jb) = sedlay(jc,jk,issso12)
-             p_sed%sc12(jc,jk,jb) = sedlay(jc,jk,isssc12)
-             p_sed%ssil(jc,jk,jb) = sedlay(jc,jk,issssil)
-             p_sed%ster(jc,jk,jb) = sedlay(jc,jk,issster)
+             p_sed%so12(jc,jk,jb) = local_sediment_mem%sedlay(jc,jk,issso12)
+             p_sed%sc12(jc,jk,jb) = local_sediment_mem%sedlay(jc,jk,isssc12)
+             p_sed%ssil(jc,jk,jb) = local_sediment_mem%sedlay(jc,jk,issssil)
+             p_sed%ster(jc,jk,jb) = local_sediment_mem%sedlay(jc,jk,issster)
              ! Pore water
-             p_sed%pwic(jc,jk,jb) = powtra(jc,jk,ipowaic)
-             p_sed%pwal(jc,jk,jb) = powtra(jc,jk,ipowaal)
-             p_sed%pwph(jc,jk,jb) = powtra(jc,jk,ipowaph)
-             p_sed%pwox(jc,jk,jb) = powtra(jc,jk,ipowaox)
-             p_sed%pwsi(jc,jk,jb) = powtra(jc,jk,ipowasi)
-             p_sed%pwfe(jc,jk,jb) = powtra(jc,jk,ipowafe)
-             p_sed%pwn2(jc,jk,jb) = powtra(jc,jk,ipown2)
-             p_sed%pwno3(jc,jk,jb) = powtra(jc,jk,ipowno3)
-             p_sed%pwh2s(jc,jk,jb) = powtra(jc,jk,ipowh2s)
+             p_sed%pwic(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowaic)
+             p_sed%pwal(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowaal)
+             p_sed%pwph(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowaph)
+             p_sed%pwox(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowaox)
+             p_sed%pwsi(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowasi)
+             p_sed%pwfe(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowafe)
+             p_sed%pwn2(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipown2)
+             p_sed%pwno3(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowno3)
+             p_sed%pwh2s(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowh2s)
              if (l_N_cycle) THEN
-                p_sed%pwnh4(jc,jk,jb) = powtra(jc,jk,ipownh4) 
-                p_sed%pwno2(jc,jk,jb) = powtra(jc,jk,ipowno2) 
+                p_sed%pwnh4(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipownh4) 
+                p_sed%pwno2(jc,jk,jb) = local_sediment_mem%powtra(jc,jk,ipowno2) 
              ENDIF
-             p_sed%sedhi(jc,jk,jb) = sedhpl(jc,jk)
+             p_sed%sedhi(jc,jk,jb) = local_sediment_mem%sedhpl(jc,jk)
         ENDDO
       ENDIF
  
       ENDDO
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+ 
+ 
       END SUBROUTINE
 
 !================================================================================== 
@@ -812,20 +792,20 @@
   END SUBROUTINE print_bgc_parameters
 !================================================================================== 
 
-  SUBROUTINE print_wpoc
-   USE mo_memory_bgc, ONLY: wpoc, wdust
+  SUBROUTINE print_wpoc(wpoc)
+    REAL(wp), INTENT(in) :: wpoc(:,:)
+     
     CHARACTER(LEN=max_char_length) :: &
                 cpara_name,cpara_val
 
     INTEGER:: k
 
  ! CALL to_bgcout("wdust",wdust)
-   
    cpara_name='========WPOC [m/d]'
    cpara_val="============="
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
    
-   DO k=1,n_zlev  
+   DO k=1,n_zlev
     write(cpara_name,'(i2)')k
     write(cpara_val,'(f6.2)')wpoc(1,k)/dtb
     CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
@@ -835,7 +815,6 @@
    cpara_val="==========="
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
   
-
   END SUBROUTINE print_wpoc
 
 !================================================================================== 

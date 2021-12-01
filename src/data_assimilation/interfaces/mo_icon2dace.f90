@@ -66,7 +66,7 @@ MODULE mo_icon2dace
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_cell
   USE mo_intp_data_strc,        ONLY: p_int_state
-  
+  USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config 
   !-------------------
   ! ICON event control
   !-------------------
@@ -227,7 +227,8 @@ MODULE mo_icon2dace
                             add_veri,        &! add entry to feedback file
                             prefix_out        ! feedback output file prefix
   use mo_tovs,        only: read_tovs_nml,   &! read TOVS_* namelists
-                            superob_tovs
+                            superob_tovs,    &
+                            use_reff          ! use ICON effective radii in RTTOV 
   use mo_rad,         only: rad_set,         &! Options for radiance datasets
                             n_set
   !------------------------
@@ -1571,10 +1572,12 @@ contains
          "ps pf ph t u v den q qcl qci qv_s z0& 
          & t2m td2m rh2m u_10m v_10m clct clcl clcm clch&
          & tsurf h_snow fr_ice" ! "t_so" currently not used
-    character(*), parameter :: fields_rad_cld = &
-         "qv_dia qc_dia qi_dia clc"
+    character(*), parameter :: fields_rad_cld      = &
+                                                  "qv_dia qc_dia qi_dia clc"
+    character(*), parameter :: fields_rad_reff  = "reff_qc reff_qi" 
     character(512)          :: fields
 
+ 
     g  => state% grid
     nz =  g% nz
     atm_d => p_nh_state(1)% diag
@@ -1592,8 +1595,9 @@ contains
     end do
 
     fields = fields_default
-    if (l_rad_cld) fields = trim(fields)//' '//trim(fields_rad_cld)
-    
+    if (l_rad_cld .and. .not. use_reff ) fields = trim(fields)//' '//trim(fields_rad_cld)
+    if (l_rad_cld .and.  use_reff )      fields = trim(fields)//' '//trim(fields_rad_cld)//' '//trim(fields_rad_reff)
+
     call allocate (state, fields)
     
     ! Ensure that diagnostic fields are up-to-date (HR, CW)
@@ -1612,6 +1616,11 @@ contains
     if (lqr) call allocate (state, "qr")
     if (lqs) call allocate (state, "qs")
     if (lqg) call allocate (state, "qg")
+
+    if  (atm_phy_nwp_config(1)% icalc_reff .gt. 0 .and. use_reff ) then 
+       call allocate (state, "reff_qc") 
+       call allocate (state, "reff_qi") 
+    end if  
 
     if (dbg_level > 1) then
        if (dace% lpio) write(0,*) "iqv,iqc,iqi,iqr,iqs,iqg=",iqv,iqc,iqi,iqr,iqs,iqg
@@ -1647,6 +1656,11 @@ contains
             state%          qv_dia (j,1,k,1) = phy_d% tot_cld  (idx,k,blk,iqv)
             state%          qc_dia (j,1,k,1) = phy_d% tot_cld  (idx,k,blk,iqc)
             state%          qi_dia (j,1,k,1) = phy_d% tot_cld  (idx,k,blk,iqi)
+
+            if (atm_phy_nwp_config(1)% icalc_reff .gt. 0 .and. use_reff ) then 
+               state%       reff_qc(j,1,k,1) = phy_d% reff_qc (idx,k,blk)    
+               state%       reff_qi(j,1,k,1) = phy_d% reff_qi (idx,k,blk) 
+            end if
           end if
           if (lqr) state% qr (j,1,k,1) = atm_r% tracer(idx,k,blk,iqr)
           if (lqs) state% qs (j,1,k,1) = atm_r% tracer(idx,k,blk,iqs)
@@ -1804,6 +1818,11 @@ contains
     call read_nml_report     ! set defaults in table 'rept_use'
     call read_tovs_nml       ! read namelists /TOVS_OBS/ and /TOVS_OBS_CHAN_NML/
     flush (6)
+
+
+    if  (use_reff .and. atm_phy_nwp_config(1)% icalc_reff <= 0) &
+         call finish('init_dace_op', 'use_reff (DACE namelist) requires &
+         &icalc_reff > 0 (ICON namelist)')
 
     !===================================
     ! read observations from CDFIN files

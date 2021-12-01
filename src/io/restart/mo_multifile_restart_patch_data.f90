@@ -166,7 +166,7 @@ CONTAINS
       DO iV = 1, SIZE(me%varData) !SIZE(vWrNow)
         ci => me%varData(iV)%p%info
         IF (.NOT.has_valid_time_level(ci, me%description%id, &
-          &  me%description%nnew, me%description%nnew_rcf)) CYCLE
+          &  me%description%nnow, me%description%nnow_rcf)) CYCLE
         CALL rfids%def_ncdfvar(ci, desc%hmap(ci%hgrid))
       END DO
     END SUBROUTINE setup_meta
@@ -274,7 +274,7 @@ CONTAINS
       IF (vWrDone(iV)) CYCLE
       curInfo => me%varData(iV)%p%info
       IF (.NOT.has_valid_time_level(curInfo, me%description%id, &
-        &        me%description%nnew, me%description%nnew_rcf)) THEN
+        &        me%description%nnow, me%description%nnow_rcf)) THEN
         vWrDone(iV) = .true. ! nothing to do
         CYCLE
       END IF

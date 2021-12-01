@@ -61,7 +61,8 @@ MODULE mo_radiation_nml
                                  & config_llw_cloud_scat => llw_cloud_scat, &
                                  & config_iliquid_scat => iliquid_scat, &
                                  & config_iice_scat => iice_scat,    &
-                                 & config_ecrad_data_path => ecrad_data_path
+                                 & config_ecrad_data_path => ecrad_data_path, &
+                                 & config_nproma_rad => nproma_rad
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
@@ -184,6 +185,7 @@ MODULE mo_radiation_nml
   INTEGER  :: iliquid_scat
   INTEGER  :: iice_scat
   CHARACTER(len=MAX_CHAR_LENGTH) :: ecrad_data_path
+  INTEGER  :: nproma_rad
   !
   NAMELIST /radiation_nml/ ldiur, nmonth,         &
     &                      lyr_perp, yr_perp,     &
@@ -208,7 +210,8 @@ MODULE mo_radiation_nml
     &                      llw_cloud_scat,        &
     &                      iliquid_scat,          &
     &                      iice_scat,             &
-    &                      ecrad_data_path
+    &                      ecrad_data_path,       &
+    &                      nproma_rad
 
 CONTAINS
 
@@ -278,6 +281,7 @@ CONTAINS
     iliquid_scat    = 0
     iice_scat       = 0
     ecrad_data_path = '.'
+    nproma_rad      = -1
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -355,6 +359,7 @@ CONTAINS
     config_iliquid_scat    = iliquid_scat
     config_iice_scat       = iice_scat
     config_ecrad_data_path = TRIM(ecrad_data_path)
+    config_nproma_rad      = nproma_rad
 
     IF ( direct_albedo_water == 3 ) THEN
       csalb => csalb2

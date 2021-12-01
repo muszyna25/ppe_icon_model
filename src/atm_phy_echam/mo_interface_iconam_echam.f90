@@ -1065,6 +1065,7 @@ IF (lart) jt_end = advection_config(jg)%nname
           field% mairvi(jc,jb) = 0.0_wp
           field% mdryvi(jc,jb) = 0.0_wp
           field% mrefvi(jc,jb) = 0.0_wp
+          field% cptgzvi(jc,jb) = 0.0_wp
         END DO
         !$ACC END PARALLEL
         !
@@ -1122,6 +1123,10 @@ IF (lart) jt_end = advection_config(jg)%nname
             ! reference air path
             field% mrefvi(jc,   jb) = field% mrefvi(jc,   jb) &
               &                      +field% mref  (jc,jk,jb)
+            !
+            ! reference air path
+            field% cptgzvi(jc,  jb) = field% cptgzvi(jc,   jb) &
+              &                      +(field%cptgz(jc,jk,jb)*field%rho(jc,jk,jb)*field%dz(jc,jk,jb))
             !
           END DO
         END DO

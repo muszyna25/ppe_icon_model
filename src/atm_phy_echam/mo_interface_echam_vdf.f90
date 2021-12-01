@@ -20,13 +20,13 @@
 MODULE mo_interface_echam_vdf
 
   USE mo_kind                ,ONLY: wp
-  USE mtime                  ,ONLY: datetime
+  USE mtime                  ,ONLY: datetime, OPERATOR(>)
 
   USE mo_exception           ,ONLY: finish, warning
 
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_run_config          ,ONLY: ntracer
-  USE mo_echam_phy_config    ,ONLY: echam_phy_config
+  USE mo_echam_phy_config    ,ONLY: echam_phy_config, echam_phy_tc, dt_zero
   USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field, &
     &                               t_echam_phy_tend,  prm_tend
 
@@ -106,7 +106,6 @@ CONTAINS
     REAL(wp) :: zco2       (nproma,patch%nblks_c)          !< co2 value passed on to jsbach
 
     REAL(wp) :: zqx      (nproma,patch%nlev,patch%nblks_c)       !< total cloud condensate
-    REAL(wp) :: zcptgz   (nproma,patch%nlev,patch%nblks_c)       !< dry static energy
     REAL(wp) :: zthvvar  (nproma,patch%nlev,patch%nblks_c)       !< intermediate value of thvvar
     REAL(wp) :: dummy    (nproma,patch%nlev,patch%nblks_c)       !< to replace thvvar
     REAL(wp) :: dummyx   (nproma,patch%nlev,patch%nblks_c)       !< to replace xvar
@@ -222,7 +221,7 @@ CONTAINS
 
     !$ACC DATA PCREATE( zxt_emis ) IF( ntrac > 0 )
     !$ACC DATA PRESENT( field, tend ),                                          &
-    !$ACC      PCREATE( zcpt_sfc_tile, ri_tile, zqx, zcptgz, zbn_tile,          &
+    !$ACC      PCREATE( zcpt_sfc_tile, ri_tile, zqx, zbn_tile,                  &
     !$ACC               zbhn_tile, zbm_tile, zbh_tile, dummy, dummyx,           &
     !$ACC               wstar, qs_sfc_tile, hdtcbl, ri_atm, mixlen, cfm,        &
     !$ACC               cfm_tile, cfh, cfh_tile, cfv, cftotte, cfthv, zaa,      &
@@ -526,7 +525,7 @@ CONTAINS
                !
                &          zfactor_sfc(:,:),                  &! out, for "vdiff_up"
                &          zcpt_sfc_tile(:,:,:),              &! out, for "vdiff_up"
-               &          zcptgz(:,:,:),                     &! out, for "vdiff_up"
+               &          field%cptgz(:,:,:),                &! out, for "vdiff_up"
                &          zthvvar(:,:,:),                    &! out, for "vdiff_up"
                &          thvsig(:,:),                       &! out, for "cucall"
                &          ztottevn (:,:,:),                  &! out, for "vdiff_up"
@@ -746,19 +745,6 @@ CONTAINS
           ! Surface processes that provide time-dependent lower boundary
           ! condition for wind, temperature, tracer concentration, etc.
           !
-          !$ACC DATA PRESENT( field%lhflx_tile, field%shflx_tile, field%evap_tile )
-          !$ACC PARALLEL DEFAULT(NONE)
-          !$ACC LOOP SEQ
-          DO jsfc=1,nsfc_type
-            !$ACC LOOP GANG VECTOR
-            DO jl=jcs,jce
-              field% lhflx_tile(jl,jb,jsfc) = 0._wp
-              field% shflx_tile(jl,jb,jsfc) = 0._wp
-              field% evap_tile (jl,jb,jsfc) = 0._wp
-            END DO
-          END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
 
     !$ACC WAIT
           !
@@ -897,7 +883,7 @@ CONTAINS
                &        field%frac_tile(:,jb,:),         &! in, area fraction of each sfc type
                &               cfm_tile(:,jb,:),         &! in
                &        zaa(:,:,:,:,jb),                 &! in, from "vdiff_down"
-               &         zcptgz(:,:,jb),                 &! in, from "vdiff_down"
+               &        field%cptgz(:,:,jb),             &! in, from "vdiff_down"
                &        field%   ua(:,:,jb),             &! in, um1
                &        field%   va(:,:,jb),             &! in, vm1
                &        field%   ta(:,:,jb),             &! in, tm1
@@ -1682,42 +1668,43 @@ CONTAINS
          !$ACC END DATA
        END IF
        !
-       ! accumulate tendencies for later updating the model state
-       SELECT CASE(fc_vdf)
-       CASE(0)
-          ! diagnostic, do not use tendency
-       CASE(1)
+       ! accumulate surface lw increment for later updating the model state
+       ! but only if radiative processes are active.
+       IF ( echam_phy_tc(jg)%dt_rad > dt_zero ) THEN
+          SELECT CASE(fc_vdf)
+          CASE(1)
           ! use tendency to update the model state
           !$ACC DATA PRESENT( tend%ta_phy, tend_ta_rlw_impl )
           !$ACC PARALLEL DEFAULT(NONE)
           !$ACC LOOP GANG VECTOR
           DO jl = jcs,jce
-            tend%ta_phy(jl,nlev,jb) = tend%ta_phy(jl,nlev,jb) + tend_ta_rlw_impl(jl,jb)
+             tend%ta_phy(jl,nlev,jb) = tend%ta_phy(jl,nlev,jb) + tend_ta_rlw_impl(jl,jb)
           END DO
           !$ACC END PARALLEL
           !$ACC END DATA
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
 !!$          ...
-       END SELECT
-       !
-       ! update physics state for input to the next physics process
-       SELECT CASE(fc_vdf)
-       CASE(0)
-          ! diagnostic, do not use tendency
-       CASE(1,2)
-          ! use tendency to update the physics state
-          IF (lparamcpl) THEN
-            !$ACC DATA PRESENT( field%ta, tend_ta_rlw_impl )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG VECTOR
-            DO jl = jcs,jce
-              field% ta(jl,nlev,jb) = field% ta(jl,nlev,jb) + tend_ta_rlw_impl(jl,jb)*pdtime
-            END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
-          END IF
-       END SELECT
+          END SELECT
+          !
+          ! update physics state for input to the next physics process
+          SELECT CASE(fc_vdf)
+          CASE(0)
+             ! diagnostic, do not use tendency
+          CASE(1,2)
+             ! use tendency to update the physics state
+             IF (lparamcpl) THEN
+               !$ACC DATA PRESENT( field%ta, tend_ta_rlw_impl )
+               !$ACC PARALLEL DEFAULT(NONE)
+               !$ACC LOOP GANG VECTOR
+               DO jl = jcs,jce
+                  field% ta(jl,nlev,jb) = field% ta(jl,nlev,jb) + tend_ta_rlw_impl(jl,jb)*pdtime
+               END DO
+               !$ACC END PARALLEL
+               !$ACC END DATA
+             END IF
+          END SELECT
+       END IF
 
     !$ACC WAIT
 
@@ -1738,7 +1725,7 @@ CONTAINS
             &          field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
             &          field% zf  (:,nlev  ,jb),        &! in, height of lowermost full level (m)
             &          field% zh  (:,nlev+1,jb),        &! in, surface height    (m)
-            &          zcptgz(:,nlev,jb),               &! in dry static energy
+            &          field%cptgz(:,nlev,jb),          &! in dry static energy
             &          zcpt_sfc_tile(:,jb,:),           &! in dry static energy
             &          zbn_tile(:,jb,:),                &! in for diagnostic
             &          zbhn_tile(:,jb,:),               &! in for diagnostic

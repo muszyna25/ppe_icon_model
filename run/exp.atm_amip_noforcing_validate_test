@@ -3,80 +3,129 @@
 # AMIP experiment without forcing
 #
 author_list="Marco Giorgetta, MPIM"
+# adapted to the structure of the coupled model scripts, given by R. Redler, and set to new
+# grid and input data. M. Esch, MPIM, Oct 2021
 #
 #--------------------------------------------------------------------------------------------------
 #
 # This file describes an AMIP experiment based on the non-hydrostatic atmosphere.
 # The forcing is switched off.
-# The experiment is intialized from IFS analysis.
+# The experiment is initialized from IFS analysis.
 #
 # _bb_table_Description_  AMIP experiment, no forcing
 # _bb_table_Model_        non-hydrostatic atmosphere
 #
 #--------------------------------------------------------------------------------------------------
 
-# (1) Variables provided by the scripting mechanism
+# (0) Basic model configuration
+# -----------------------------
+
+atmos_gridID="0043"
+atmos_refinement="R02B04"
+
+nproma_atm=${nproma}
+
+#
+#--------------------------------------------------------------------------------------------------
+#
+# (1) Define the model time stepping
+# ----------------------------------
+
+radTimeStep="PT8M"              # radiation time step:    16 time steps per day
+atmTimeStep="PT4M"              # atmosphere time step:   96 time steps per day
+                                 #                          6 time steps per radTimeStep
+#--------------------------------------------------------------------------------------------------
+
+#  (2) Variables provided by the scripting mechanism
 
 # EXPNAME                       = name of exp. in 'exp.<name>'
 # basedir                       = base directory, where src/, run/ etc exist
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
+#                                 -> deprecated. nproma_atm is used here.
 
-icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/public/mpim"
 
 #--------------------------------------------------------------------------------------------------
 
-# (2) Set variables needed by the scripting mechanism
+# (3) Set variables needed by the scripting mechanism
+# ---------------------------------------------------
 
 # horizontal grid(s)
-#
-grids_folder=${icon_data_poolFolder}/grids
-#
-# domain globe
-grid_id=0005
-grid_refinement=R02B04
-grid_label=G
-grid_name=icon_grid_${grid_id}_${grid_refinement}_${grid_label}
-#
-atmo_dyn_grids="'${grid_name}.nc',"
+# ------------------
+atm_grid_name=icon_grid_${atmos_gridID}_${atmos_refinement}_G
+
+atmo_grid_folder=${icon_data_poolFolder}/${atmos_gridID}
+atmo_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}
+atmo_dyn_grid=${atm_grid_name}.nc
 
 # start and end date+time
+# -----------------------
 start_date=${start_date:="1979-01-01T00:00:00Z"}
     end_date=${end_date:="1979-01-01T00:16:00Z"}
 
 # restart intervals
+# -----------------
 checkpoint_interval="PT8M"
 restart_interval="PT16M"
 
 # output intervals
-output_interval="PT4M"
-file_interval="PT4M"
+# ----------------
+atm_output_interval="PT4M"
+atm_file_interval="PT4M"
 
 # namelist files
-atmo_namelist=NAMELIST_${EXPNAME}_atm
+# --------------
+atm_namelist=NAMELIST_${EXPNAME}_atm
 
+atmo_namelist=${atm_namelist}
 #--------------------------------------------------------------------------------------------------
 
-# (3) Define the model configuration
+# (4) Define the model configuration
+#-----------------------------------
 
+# JSBACH settings
+# none
+#--------------------------------------------------------------------------------------------------
+
+# (6) Output control
+# ------------------
+
+# asynchronous diagnostic output processes
+# ----------------------------------------
+
+# output file selection
+# ---------------------
+
+# Note that "mpi_atm_io_procs" must match the number of output files
+#
+# output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
+
+output_atm_vgrid=yes               # produces 1 atm file 
+output_atm_3d=yes                  # produces 1 atm file 
+output_trc_3d=yes
+
+#-----------------------------------------------------------------------------
+#
 # atmospheric dynamics and physics
 # --------------------------------
-cat > ${atmo_namelist} << EOF
+
+cat > ${atm_namelist} << EOF
 !
 &parallel_nml
- nproma           = ${nproma}
+ nproma            = ${nproma_atm}
  p_test_run       = .false.
  l_log_checks     = .false.
 /
 &grid_nml
- dynamics_grid_filename = ${atmo_dyn_grids}
+ dynamics_grid_filename = "${atmo_dyn_grid}"
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- modelTimeStep    = "PT4M"
+ modelTimeStep    = "${atmTimeStep}"
  ltestcase        = .FALSE.     ! run testcase
- ldynamics        = .FALSE.     ! dynamics
- ltransport       = .FALSE.     ! transport
+ ldynamics        = .FALSE.      ! dynamics
+ ltransport       = .FALSE.      ! transport
  iforcing         = 0           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
@@ -122,11 +171,12 @@ EOF
 
 #--------------------------------------------------------------------------------------------------
 
-# (4) Define the input
+# Define the atmosphere and land input
+# ------------------------------------
 
 # namelist files
-#
-add_required_file ${basedir}/run/${atmo_namelist}                       ./
+# --------------
+add_required_file ${basedir}/run/${atm_namelist}                        ./
 
 # dictionary file for output variable names
 #
@@ -137,29 +187,36 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 # initial conditions
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-datadir=${icon_data_poolFolder}/initial_condition
-add_link_file $datadir/ifs2icon_1979010100_${grid_refinement}_${grid_label}.nc ./ifs2icon.nc
+datadir=${atmo_data_InputFolder}/initial_condition/r0001
+add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2icon.nc
+#
 
 # boundary conditions
 #
+# - land parameters
+#
+datadir=${atmo_data_InputFolder}/land/r0003
+#
 # - topography
-datadir=${icon_data_poolFolder}/preliminary_land_22-02-2018/${grid_refinement}_${grid_label}/land
-add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
-
+add_link_file ${datadir}/bc_land_sso_1979.nc                               ./bc_land_sso.nc
+#
+add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                     ./
+#
 #--------------------------------------------------------------------------------------------------
 
 # (5) Define the output
+# ---------------------
 
 # Parameters for all output files
 # -------------------------------
-cat >> ${atmo_namelist} << EOF
+cat >> ${atm_namelist} << EOF
 &io_nml
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  lnetcdf_flt64_output = .TRUE.
  itype_pres_msl   = 4
  restart_file_type= 5
- !restart_write_mode = "joint procs multifile"    !not necessary/useful in default r2b4 setup
+! restart_write_mode = "joint procs multifile" !not necessary/useful in default r2b4 setup
 /
 EOF
 
@@ -170,45 +227,44 @@ EOF
 #
 # 3-dimensional files include 'ps' and 'pfull' to allow the vertical
 # interpolation to pressure levels by cdo ap2pl.
-
-output_atm_vgrid=yes
 #
 if [[ "$output_atm_vgrid" == "yes" ]]; then
   #
-  cat >> ${atmo_namelist} << EOF
+  cat >> ${atm_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_vgrid"
  filename_format  = "<output_filename>_<levtype_l>"
  filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
- output_start     = "${start_date}"       ! output_start = output_end
- output_end       = "${start_date}"       ! --> write once only irrespective of
- output_interval  = "${output_interval}"  !     the output interval and
- file_interval    = "${file_interval}"    !     the file interval
+ output_start     = "${start_date}"           ! output_start = output_end
+ output_end       = "${start_date}"           ! --> write once only irrespective of
+ output_interval  = "${atm_output_interval}"  !     the output interval and
+ file_interval    = "${atm_file_interval}"    !     the file interval
  ml_varlist       = 'zghalf'  , 'zg'      , 'dzghalf'
 /
 EOF
 fi
-
-
-output_atm_3d=yes
+#
+# Standard AMIP output...
+#
 #
 if [[ "$output_atm_3d" == "yes" ]]; then
   #
-  cat >> ${atmo_namelist} << EOF
+  cat >> ${atm_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ps'      , 'pfull'   , 'zg'      ,
+ ml_varlist       = 'zg'      ,
+                    'ps'      , 'pfull'   ,
                     'rho'     , 'ta'      ,
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
@@ -216,8 +272,6 @@ if [[ "$output_atm_3d" == "yes" ]]; then
 EOF
 fi
 
-
-output_trc_3d=yes
 #
 if [[ "$output_trc_3d" == "yes" ]]; then
   #
@@ -230,8 +284,8 @@ if [[ "$output_trc_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ps'        , 'pfull'     , 'zg'        ,
 /

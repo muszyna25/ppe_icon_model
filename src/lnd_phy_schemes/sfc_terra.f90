@@ -1004,10 +1004,6 @@ mcid =   0
 mtid =   0
 mvid =   8
 
-  zaga = 1.0_wp
-  zagb = 1.0_wp
-  zagc = 1.0_wp
-
 !------------------------------------------------------------------------------
 ! Begin Subroutine terra
 !------------------------------------------------------------------------------
@@ -1207,7 +1203,7 @@ ENDDO
   !$acc create(zextinct, zfor_snow_mult, hzalam, zdqvtsnow)         &
   !$acc create(zrho_snow, zts_pm, ztsk_pm, ztfunc, ztsnow_pm, zeisa)&
   !$acc create(zagd, zage, limit_tch, zdz_snow)                     &
-  !$acc copyin(zaga, zagb, zagc)                                    &
+  !$acc create(zaga, zagb, zagc)                                    &
 
   ! Terra data module fields
   !$acc present(cporv, cfcap, cpwp, cadp, cik2, ckw0, ckw1, cdw0)    &
@@ -1238,6 +1234,17 @@ ENDDO
 #ifndef _OPENACC
   ln_10 = LOG(10.0_wp)
 #endif
+
+  !$acc parallel async if(lzacc)
+  !$acc loop gang vector collapse(2)
+  DO kso = 0, UBOUND(zaga,2)
+    DO i = 1, nvec
+      zaga(i,kso) = 1.0_wp
+      zagb(i,kso) = 1.0_wp
+      zagc(i,kso) = 1.0_wp
+    ENDDO
+  ENDDO
+  !$acc end parallel
 
 ! Temperaturedifference for liquid water content in frozen soil at -40 degC
 !  J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
@@ -5729,6 +5736,8 @@ ENDDO
     END DO
     !$acc end parallel
   ENDIF
+
+!$acc wait
 
 ! for optional fields related to soil water budget
 !$acc end data

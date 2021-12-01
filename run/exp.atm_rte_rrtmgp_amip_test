@@ -186,6 +186,7 @@ cat > ${atmo_namelist} << EOF
  echam_rad_config(1)%irad_cfc11 =  3
  echam_rad_config(1)%irad_cfc12 =  3
  echam_rad_config(1)%irad_aero  =  0
+ echam_rad_config(1)%rrtmgp_columns_chunk = 8000
 /
 &echam_gwd_nml
 /

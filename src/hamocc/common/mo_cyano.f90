@@ -7,12 +7,13 @@
 !!
 !!
 
-#include "hamocc_omp_definitions.inc"
+ 
 
 MODULE mo_cyano
 
   USE mo_kind, ONLY           : wp
   USE mo_control_bgc, ONLY    : dtb, dtbgc, bgc_nproma, bgc_zlevs
+  USE mo_bgc_memory_types, ONLY  : t_bgc_memory
   
   IMPLICIT NONE
 
@@ -23,12 +24,11 @@ MODULE mo_cyano
 
 CONTAINS
 
-SUBROUTINE cyano ( start_idx,end_idx,pddpo, za )
+SUBROUTINE cyano (local_bgc_mem, start_idx,end_idx,pddpo, za )
 
 !! @brief diagostic N2 fixation
 
-  USE mo_memory_bgc, ONLY     : rnit, n2_fixation, rn2, &
-       &                         bgctra, bgcflux, bgctend, satoxy 
+  USE mo_memory_bgc, ONLY     : rnit, n2_fixation, rn2
   USE mo_param1_bgc, ONLY     : iano3, iphosph, igasnit, &
        &                        ioxygen, ialkali, knfixd, &
        &                        kn2b, kaou
@@ -36,6 +36,8 @@ SUBROUTINE cyano ( start_idx,end_idx,pddpo, za )
   IMPLICIT NONE
 
   !! Arguments
+  TYPE(t_bgc_memory), POINTER    :: local_bgc_mem
+
 
   INTEGER, INTENT(in) :: start_idx            !< start index for j loop (ICON cells, MPIOM lat dir)   
   INTEGER, INTENT(in) :: end_idx              !< end index  for j loop  (ICON cells, MPIOM lat dir) 
@@ -50,57 +52,54 @@ SUBROUTINE cyano ( start_idx,end_idx,pddpo, za )
   !
   ! --------------------------------------------------------------------
   !
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(j,oldnitrate) HAMOCC_OMP_DEFAULT_SCHEDULE
      DO j = start_idx, end_idx
 
         IF (pddpo(j,1) > 0.5_wp) THEN
-           IF (bgctra(j,1,iano3) < (rnit*bgctra(j,1,iphosph))) THEN
+           IF (local_bgc_mem%bgctra(j,1,iano3) < (rnit*local_bgc_mem%bgctra(j,1,iphosph))) THEN
 
-              oldnitrate = bgctra(j,1,iano3)
+              oldnitrate = local_bgc_mem%bgctra(j,1,iano3)
 
-              bgctra(j,1,iano3) = bgctra(j,1,iano3)                 &
+              local_bgc_mem%bgctra(j,1,iano3) = local_bgc_mem%bgctra(j,1,iano3)                 &
                                      * (1._wp - n2_fixation*dtb)              &
-                                     + n2_fixation * dtb * rnit * bgctra(j,1,iphosph)
+                                     + n2_fixation * dtb * rnit * local_bgc_mem%bgctra(j,1,iphosph)
 
 
-              bgctra(j,1,igasnit)  = bgctra(j,1,igasnit)                  &
-                                     - (bgctra(j,1,iano3)-oldnitrate) /rn2  
+              local_bgc_mem%bgctra(j,1,igasnit)  = local_bgc_mem%bgctra(j,1,igasnit)                  &
+                                     - (local_bgc_mem%bgctra(j,1,iano3)-oldnitrate) /rn2  
 
 
          
-              bgctra(j,1,ioxygen)  = bgctra(j,1,ioxygen)                  &
-                                     - (bgctra(j,1,iano3)-oldnitrate) * 1.5_wp  ! factor 1.5 results from: NO3 = N + 3O = N + 1.5*O2 
+              local_bgc_mem%bgctra(j,1,ioxygen)  = local_bgc_mem%bgctra(j,1,ioxygen)                  &
+                                     - (local_bgc_mem%bgctra(j,1,iano3)-oldnitrate) * 1.5_wp  ! factor 1.5 results from: NO3 = N + 3O = N + 1.5*O2 
                                                                                  ! (O2 is used for the balancing)
 
               !alkalinity is decreased during n-fixation due to release of H+ 
               ! change in ALK is identical to change in NO3
 
-              bgctra(j,1,ialkali)  = bgctra(j,1,ialkali)                  &
-                   &                 - (bgctra(j,1,iano3)-oldnitrate)
+              local_bgc_mem%bgctra(j,1,ialkali)  = local_bgc_mem%bgctra(j,1,ialkali)                  &
+                   &                 - (local_bgc_mem%bgctra(j,1,iano3)-oldnitrate)
              
-              bgcflux(j,knfixd)    = (- oldnitrate + bgctra(j,1,iano3))/rn2 /dtbgc
-              bgctend(j,1,kn2b)    = bgctend(j,1,kn2b) - (bgctra(j,1,iano3) - oldnitrate) * (pddpo(j,1) + za(j))
-              bgctend(j,1, kaou)   = satoxy(j,1) - bgctra(j,1,ioxygen)
+              local_bgc_mem%bgcflux(j,knfixd)    = (- oldnitrate + local_bgc_mem%bgctra(j,1,iano3))/rn2 /dtbgc
+              local_bgc_mem%bgctend(j,1,kn2b)    = local_bgc_mem%bgctend(j,1,kn2b) - (local_bgc_mem%bgctra(j,1,iano3) - oldnitrate) * (pddpo(j,1) + za(j))
+              local_bgc_mem%bgctend(j,1, kaou)   = local_bgc_mem%satoxy(j,1) - local_bgc_mem%bgctra(j,1,ioxygen)
            ENDIF
         ENDIF
 
      ENDDO
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+ 
+ 
 END SUBROUTINE cyano
 
 
 
-SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
+SUBROUTINE cyadyn(local_bgc_mem, klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
 !! @brief prognostic N2 fixation, cyanobacteria
 
       USE mo_memory_bgc, ONLY      : pi_alpha_cya,          &
        &                            Topt_cya,T1_cya,T2_cya,bkcya_N,      &
-       &                            fPAR, strahl, ro2ut, ro2ut_cya,ralk,      &
+       &                            fPAR, ro2ut, ro2ut_cya,ralk,      &
        &                            doccya_fac, rnit, riron, rcar, rn2, &
-       &                            strahl, wcya, rnoi, cyamin, &
-       &                            bgctra, bgctend, swr_frac, meanswr, satoxy, &
+       &                            wcya, rnoi, cyamin, &
        &                            ro2ammo, bknh4_cya, bkno3_cya
 
       USE mo_param1_bgc, ONLY     : iano3, iphosph, igasnit, &
@@ -115,6 +114,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
            &                        l_N_cycle
 
       IMPLICIT NONE
+      TYPE(t_bgc_memory), POINTER    :: local_bgc_mem
 
       INTEGER, INTENT(in) ::  start_idx               !< 1st REAL of model grid
       INTEGER, INTENT(in) ::  end_idx                 !< 1st REAL of model grid
@@ -144,11 +144,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
       ! for N-cycle
       REAL(wp) :: no3cya, nh4cya, hib, xa_nh4, xa_no3, no3lim
       REAL(wp) :: xn_fe, xn_p
-!HAMOCC_OMP_PARALLEL 
-!HAMOCC_OMP_DO PRIVATE(j,kpke,k,avcyabac,avanut,avanfe,avnit,l_fe,l_I,T_min_Topt,&
-!HAMOCC_OMP           sgnT,l_T,xa_p,l_P,xa_fe,pho,phosy_cya, &
-!HAMOCC_OMP            cyapro,oldigasnit,cyaloss,dyn_pi_alpha_cya) HAMOCC_OMP_DEFAULT_SCHEDULE
-
+  
   DO j = start_idx, end_idx
   
     kpke=klevs(j)
@@ -158,40 +154,40 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
             IF( pddpo(j,k) .GT. 0.5_wp ) THEN
                    
 
-              avcyabac = MAX(1.e-11_wp,bgctra(j,k,icya))                !available cyanobacteria
-              avanut = MAX(0._wp,bgctra(j,k,iphosph))                   !available phosphate    
-              avanfe = MAX(0._wp,(bgctra(j,k,iiron)/riron))             !available iron
-              avnit = MAX(0._wp,bgctra(j,k,iano3)/rnit)                 !available nitrate
+              avcyabac = MAX(1.e-11_wp,local_bgc_mem%bgctra(j,k,icya))                !available cyanobacteria
+              avanut = MAX(0._wp,local_bgc_mem%bgctra(j,k,iphosph))                   !available phosphate    
+              avanfe = MAX(0._wp,(local_bgc_mem%bgctra(j,k,iiron)/riron))             !available iron
+              avnit = MAX(0._wp,local_bgc_mem%bgctra(j,k,iano3)/rnit)                 !available nitrate
                         
  
               if (l_dynamic_pi)then
                  
                    dyn_pi_alpha_cya = pi_alpha_cya + 0.05_wp* ptiestu(j,k)/(ptiestu(j,k) + 90._wp) ! pi_alpha  
                    
-                   l_I = (dyn_pi_alpha_cya*fPAR*strahl(j))*meanswr(j,k) &     ! light limitation
-                        /SQRT(cya_growth_max**2 + (dyn_pi_alpha_cya**2)*(fPAR*strahl(j)*meanswr(j,k))**2) 
+                   l_I = (dyn_pi_alpha_cya*fPAR*local_bgc_mem%strahl(j))*local_bgc_mem%meanswr(j,k) &     ! light limitation
+                        /SQRT(cya_growth_max**2 + (dyn_pi_alpha_cya**2)*(fPAR*local_bgc_mem%strahl(j)*local_bgc_mem%meanswr(j,k))**2) 
 
               else
-                   l_I = (pi_alpha_cya*fPAR*strahl(j))*swr_frac(j,k) &     ! light limitation
-                        /SQRT(cya_growth_max**2 + (pi_alpha_cya**2)*(fPAR*strahl(j)*swr_frac(j,k))**2) 
+                   l_I = (pi_alpha_cya*fPAR*local_bgc_mem%strahl(j))*local_bgc_mem%swr_frac(j,k) &     ! light limitation
+                        /SQRT(cya_growth_max**2 + (pi_alpha_cya**2)*(fPAR*local_bgc_mem%strahl(j)*local_bgc_mem%swr_frac(j,k))**2) 
          
               endif
-              bgctend(j,k,kcLlim) = l_I 
+              local_bgc_mem%bgctend(j,k,kcLlim) = l_I 
  
               T_min_Topt = ptho(j,k)-Topt_cya                          
               sgnT = sign(1._wp,T_min_Topt)
               IF(T_min_Topt .eq. 0._wp) sgnT = 0._wp 
 
               l_T = exp(-((T_min_Topt**4)/(T1_cya-T2_cya*sgnT)**4))          !temperature limitation 
-              bgctend(j,k,kcTlim) = l_T 
+              local_bgc_mem%bgctend(j,k,kcTlim) = l_T 
 
               xa_p = avanut                                                 
               l_P = xa_P / (bkcya_P + xa_P)                      !phosphate limitation 
-              bgctend(j,k,kcPlim) = l_P 
+              local_bgc_mem%bgctend(j,k,kcPlim) = l_P 
 
               xa_fe = avanfe         
               l_fe = xa_fe / (bkcya_fe + xa_fe)                  !iron limitation
-              bgctend(j,k,kcFlim) = l_fe 
+              local_bgc_mem%bgctend(j,k,kcFlim) = l_fe 
 
                
               IF (.not. l_N_cycle) THEN
@@ -205,24 +201,20 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
                  phosy_cya = pho*avcyabac  
               
                  ! limitation on DIC
-                 if (bgctra(j,k,isco212).le.rcar*phosy_cya) then
-                     cyapro = min(avnit-1.e-11_wp*rnoi,max(0._wp,(bgctra(j,k,isco212)-EPSILON(1.0_wp))/(rcar*phosy_cya)*cyapro))
-                     phosy_cya=max(0._wp,(bgctra(j,k,isco212)-EPSILON(1.0_wp)))/rcar
+                 if (local_bgc_mem%bgctra(j,k,isco212).le.rcar*phosy_cya) then
+                     cyapro = min(avnit-1.e-11_wp*rnoi,max(0._wp,(local_bgc_mem%bgctra(j,k,isco212)-EPSILON(1.0_wp))/(rcar*phosy_cya)*cyapro))
+                     phosy_cya=max(0._wp,(local_bgc_mem%bgctra(j,k,isco212)-EPSILON(1.0_wp)))/rcar
                  endif
                  ! ---------- nutrient uptake
 
               
-                 oldigasnit = bgctra(j,k,igasnit)  
-                 bgctra(j,k,igasnit) = bgctra(j,k,igasnit) - (phosy_cya - cyapro)*rnit/rn2  ! gasnit [N2]
-             
-  
-           
-
-                 bgctend(j,k,knfix) =  -1._wp * rn2 *(bgctra(j,k,igasnit) - oldigasnit)/dtbgc   ! N fixation
+                 oldigasnit = local_bgc_mem%bgctra(j,k,igasnit)  
+                 local_bgc_mem%bgctra(j,k,igasnit) = local_bgc_mem%bgctra(j,k,igasnit) - (phosy_cya - cyapro)*rnit/rn2  ! gasnit [N2]
+                 local_bgc_mem%bgctend(j,k,knfix) =  -1._wp * rn2 *(local_bgc_mem%bgctra(j,k,igasnit) - oldigasnit)/dtbgc   ! N fixation
                  surface_height = MERGE(za(j), 0._wp, k==1)
-                 bgctend(j,k,kn2b) = bgctend(j,k,kn2b) - (phosy_cya -cyapro) * rnit*(pddpo(j,k) +surface_height)
+                 local_bgc_mem%bgctend(j,k,kn2b) = local_bgc_mem%bgctend(j,k,kn2b) - (phosy_cya -cyapro) * rnit*(pddpo(j,k) +surface_height)
              
-                 bgctra(j,k,iano3) = bgctra(j,k,iano3) - cyapro*rnit                                                           
+                 local_bgc_mem%bgctra(j,k,iano3) = local_bgc_mem%bgctra(j,k,iano3) - cyapro*rnit                                                           
 
                  ! ---------- change of alkalinity 
                  !(only for production on nitrate, no change of alkalinity 
@@ -230,19 +222,19 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
                  ! P uptake due to N2fixation changes alkalinity by 1, as 
                  ! total phosphorous is considered in alk
 
-                 bgctra(j,k,ialkali) = bgctra(j,k,ialkali) + cyapro*ralk + (phosy_cya-cyapro)
+                 local_bgc_mem%bgctra(j,k,ialkali) = local_bgc_mem%bgctra(j,k,ialkali) + cyapro*ralk + (phosy_cya-cyapro)
 
                  ! ---------- oxygen production
                  ! O2 from cyano growth using NO3: cyapro [NO3] --> ro2ut 
                  ! O2 from cyano growth fixing N2: (pho - cyapro) [NO3]
                  ! -> ro2ut - 3 * rnit/rno2 = 172 - 3*16/2 = 148
-                 bgctra(j,k,ioxygen) = bgctra(j,k,ioxygen) + (phosy_cya - cyapro)*ro2ut_cya &
+                 local_bgc_mem%bgctra(j,k,ioxygen) = local_bgc_mem%bgctra(j,k,ioxygen) + (phosy_cya - cyapro)*ro2ut_cya &
                &                       + cyapro*ro2ut                                            
 
               ELSE
               
-                 xa_nh4 =  max(0._wp,bgctra(j,k,iammo)-1.E-9_wp)
-                 xa_no3 =  max(0._wp,bgctra(j,k,iano3)-1.E-7_wp)
+                 xa_nh4 =  max(0._wp,local_bgc_mem%bgctra(j,k,iammo)-1.E-9_wp)
+                 xa_no3 =  max(0._wp,local_bgc_mem%bgctra(j,k,iano3)-1.E-7_wp)
 
               
                  pho=dtb*cya_growth_max*l_I*l_T*avcyabac 
@@ -259,57 +251,57 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
 
                  cyapro = no3cya + nh4cya          ! cyapro in N units
 
-                 bgctra(j,k,iano3) = bgctra(j,k,iano3) - no3cya
-                 bgctra(j,k,iammo) = bgctra(j,k,iammo) - nh4cya   
+                 local_bgc_mem%bgctra(j,k,iano3) = local_bgc_mem%bgctra(j,k,iano3) - no3cya
+                 local_bgc_mem%bgctra(j,k,iammo) = local_bgc_mem%bgctra(j,k,iammo) - nh4cya   
                                                        
                  ! ---------- change of alkalinity 
                  !(only for production on nitrate, phosphate, no change of alkalinity 
                  !for N2 fixation Wolf-Gladrow et al.(2007))
                  ! P uptake due to N2fixation changes alkalinity by 1, as 
                  ! total phosphorous is considered in alk
-                 bgctra(j,k,ialkali) = bgctra(j,k,ialkali) + phosy_cya  - nh4cya + no3cya
+                 local_bgc_mem%bgctra(j,k,ialkali) = local_bgc_mem%bgctra(j,k,ialkali) + phosy_cya  - nh4cya + no3cya
 
                  ! ---------- oxygen production
                  ! O2 from cyano growth using NO3: cyapro [NO3] --> ro2ut 
                  ! O2 from cyano growth fixing N2: (phosy_cya - cyapro) [NO3]
                  ! -> ro2ut - 3 * rnit/rno2 = 172 - 3*16/2 = 148
 
-                 bgctra(j,k,ioxygen)= bgctra(j,k,ioxygen) + (phosy_cya - cyapro*rnoi)*148._wp &
+                 local_bgc_mem%bgctra(j,k,ioxygen)= local_bgc_mem%bgctra(j,k,ioxygen) + (phosy_cya - cyapro*rnoi)*148._wp &
                   &                       + (no3cya*ro2ut + nh4cya*ro2ammo)*rnoi 
 
 
-                 bgctend(j,k,kcyapro) = cyapro/dtbgc
+                 local_bgc_mem%bgctend(j,k,kcyapro) = cyapro/dtbgc
 
-                 bgctra(j,k,igasnit) = bgctra(j,k,igasnit) - (phosy_cya*rnit - cyapro)*0.5_wp  ! gasnit [N2]
+                 local_bgc_mem%bgctra(j,k,igasnit) = local_bgc_mem%bgctra(j,k,igasnit) - (phosy_cya*rnit - cyapro)*0.5_wp  ! gasnit [N2]
         
-                 bgctend(j,k,knfix) =  (phosy_cya*rnit - cyapro)/dtbgc ! output budgets [N]
+                 local_bgc_mem%bgctend(j,k,knfix) =  (phosy_cya*rnit - cyapro)/dtbgc ! output budgets [N]
 
-                 bgctend(j,k,kn2b) = bgctend(j,k,kn2b) - (phosy_cya*rnit - cyapro)*(pddpo(j,k) +surface_height) 
+                 local_bgc_mem%bgctend(j,k,kn2b) = local_bgc_mem%bgctend(j,k,kn2b) - (phosy_cya*rnit - cyapro)*(pddpo(j,k) +surface_height) 
           
               ENDIF ! l_N_cycle
 
 
-              bgctra(j,k,iphosph) = bgctra(j,k,iphosph) - phosy_cya    
-              bgctra(j,k,iiron) = bgctra(j,k,iiron) - phosy_cya * riron  
+              local_bgc_mem%bgctra(j,k,iphosph) = local_bgc_mem%bgctra(j,k,iphosph) - phosy_cya    
+              local_bgc_mem%bgctra(j,k,iiron) = local_bgc_mem%bgctra(j,k,iiron) - phosy_cya * riron  
 
-              bgctend(j,k,kpho_cya) =  phosy_cya/dtbgc
-              bgctend(j,k, kaou)   = satoxy(j,k) - bgctra(j,k,ioxygen)
+              local_bgc_mem%bgctend(j,k,kpho_cya) =  phosy_cya/dtbgc
+              local_bgc_mem%bgctend(j,k, kaou)   = local_bgc_mem%satoxy(j,k) - local_bgc_mem%bgctra(j,k,ioxygen)
               
 
               ! --------- change of total CO2
-              bgctra(j,k,isco212) = bgctra(j,k,isco212) - phosy_cya*rcar
+              local_bgc_mem%bgctra(j,k,isco212) = local_bgc_mem%bgctra(j,k,isco212) - phosy_cya*rcar
 
 
               ! --------- decay of cyanobacteria
-              cyaloss = cycdec * max(0._wp,bgctra(j,k,icya) - 2._wp*cyamin)                                
+              cyaloss = cycdec * max(0._wp,local_bgc_mem%bgctra(j,k,icya) - 2._wp*cyamin)                                
 
               ! --------- change of cyanobacteria
-              bgctra(j,k,icya) = bgctra(j,k,icya) + phosy_cya - cyaloss
-              bgctend(j,k,kcyaloss) =  cyaloss/dtbgc   
+              local_bgc_mem%bgctra(j,k,icya) = local_bgc_mem%bgctra(j,k,icya) + phosy_cya - cyaloss
+              local_bgc_mem%bgctend(j,k,kcyaloss) =  cyaloss/dtbgc   
 
               ! --------- decaying cyanobacteria are distributed to DOCCYA and detritus  
-              bgctra(j,k,idoc) = bgctra(j,k,idoc) + doccya_fac*cyaloss     
-              bgctra(j,k,idet) = bgctra(j,k,idet) + (1.0_wp - doccya_fac)*cyaloss        
+              local_bgc_mem%bgctra(j,k,idoc) = local_bgc_mem%bgctra(j,k,idoc) + doccya_fac*cyaloss     
+              local_bgc_mem%bgctra(j,k,idet) = local_bgc_mem%bgctra(j,k,idet) + (1.0_wp - doccya_fac)*cyaloss        
 
 
 
@@ -317,12 +309,8 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
             ENDIF ! wet cells
       ENDDO ! 
   ENDDO ! 
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
-
-
-!HAMOCC_OMP_PARALLEL 
-!HAMOCC_OMP_DO PRIVATE(j,kpke,k) HAMOCC_OMP_DEFAULT_SCHEDULE
+ 
+ 
 
 ! -------------- buoyancy of cyanobacteria----------------------------------------
 
@@ -337,7 +325,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
     kpke=klevs(j)
     IF (kpke > 0)THEN
     IF(pddpo(j,kpke).GT.0.5_wp) THEN
-           bgctra(j,kpke,icya)  = (bgctra(j,kpke,icya)*pddpo(j,kpke))      &
+           local_bgc_mem%bgctra(j,kpke,icya)  = (local_bgc_mem%bgctra(j,kpke,icya)*pddpo(j,kpke))      &
                    &              / (pddpo(j,kpke)+wcya)
              
     ENDIF
@@ -345,24 +333,24 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
     do k=(kpke-1),2,-1  
          ! water column
         if(pddpo(j,k+1).LE.0.5_wp)then ! last wet cell
-              bgctra(j,k,icya)  = (bgctra(j,k,icya)*pddpo(j,k))      &
+              local_bgc_mem%bgctra(j,k,icya)  = (local_bgc_mem%bgctra(j,k,icya)*pddpo(j,k))      &
                    &              / (pddpo(j,k)+wcya)
 
          else
-               bgctra(j,k,icya)    = (bgctra(j,k  ,icya)*pddpo(j,k)    &
-                   &                +  bgctra(j,k+1,icya)*wcya)/          &
+               local_bgc_mem%bgctra(j,k,icya)    = (local_bgc_mem%bgctra(j,k  ,icya)*pddpo(j,k)    &
+                   &                +  local_bgc_mem%bgctra(j,k+1,icya)*wcya)/          &
                    &                          (pddpo(j,k)+wcya)
          endif 
     
    ENDDO
     k=1
     IF((pddpo(j,k).GT.0.5_wp) .and. (pddpo(j,k+1).GT.0.5_wp) )then ! only if next cell also wet
-         bgctra(j,k,icya)  =  bgctra(j,k,icya) + (wcya*bgctra(j,k+1,icya))/(pddpo(j,k)+za(j))
+         local_bgc_mem%bgctra(j,k,icya)  =  local_bgc_mem%bgctra(j,k,icya) + (wcya*local_bgc_mem%bgctra(j,k+1,icya))/(pddpo(j,k)+za(j))
     endif   
    ENDIF
  ENDDO
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+ 
+ 
 
                   
  

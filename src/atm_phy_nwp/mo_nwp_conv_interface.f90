@@ -138,11 +138,12 @@ CONTAINS
 
     ! compute lpi_con(_max) only if all relevant fields are allocated (non-dummy).
     ! This is only the case, if any of the lpi-fields is requested in the output_nml.
-    lcompute_lpi = ( SIZE(prm_diag%lpi_con_max,1) * SIZE(prm_diag%lpi_con,1)     &
-      &            * SIZE(prm_diag%mlpi_con_max,1)* SIZE(prm_diag%mlpi_con,1) ) > 0
+    ! GZ: taking the size product of all 4 fields causes an integer overflow for nproma > 215 (2**7.75)
+    lcompute_lpi = SIZE(prm_diag%lpi_con_max,1) * SIZE(prm_diag%lpi_con,1) > 0 .AND.  &
+      &            SIZE(prm_diag%mlpi_con_max,1)* SIZE(prm_diag%mlpi_con,1) > 0
     !
     ! compute lfd_con(_max) only if all relevant fields are allocated (non-dummy).
-    lcompute_lfd = ( SIZE(prm_diag%lfd_con_max,1) * SIZE(prm_diag%lfd_con,1) ) > 0
+    lcompute_lfd = SIZE(prm_diag%lfd_con_max,1) * SIZE(prm_diag%lfd_con,1) > 0
 
 #ifndef __PGI
 !FIXME: PGI + OpenMP produce deadlock in this loop. Compiler bug suspected

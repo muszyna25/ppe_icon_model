@@ -22,9 +22,10 @@ MODULE mo_ice_advection
   !
   USE mo_kind,                ONLY: wp
   USE mo_util_dbg_prnt,       ONLY: dbg_print
+  USE mo_exception,           ONLY: message, message_text, finish  
   USE mo_run_config,          ONLY: dtime
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_sync,                ONLY: SYNC_C, sync_patch_array
+  USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_impl_constants,      ONLY: sea_boundary
@@ -81,24 +82,30 @@ CONTAINS
     p_patch => p_patch_3D%p_patch_2D(1)
     cells_in_domain => p_patch%cells%in_domain
 !--------------------------------------------------------------------------------------------------
+!     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hi)
+!     CALL sync_patch_array(SYNC_C, p_patch, p_ice%conc)
+!     CALL finish('sea_ice:upwind advect','Test sync ok')
+!     
+!     CALL sync_patch_array(SYNC_E, p_patch, p_ice%vn_e)
+!     CALL finish('sea_ice:upwind advect','Test sync ok')
 
     !upwind estimate of tracer flux
     CALL upwind_hflux_ice( p_patch_3D, p_ice%hi*p_ice%conc,  p_ice%vn_e, z_adv_flux_h )
+  
+    CALL sync_patch_array(SYNC_E, p_patch, z_adv_flux_h)
+        
     DO jk=1,p_ice%kice
-      CALL div_oce_3D( z_adv_flux_h(:,jk,:), p_patch, p_op_coeff%div_coeff, flux_hi  (:,jk,:),&
-        & 1, cells_in_domain)
+      CALL div_oce_3D( z_adv_flux_h(:,jk,:), p_patch, p_op_coeff%div_coeff, flux_hi  (:,jk,:), 1)
     ENDDO
 
     CALL upwind_hflux_ice( p_patch_3D, p_ice%conc, p_ice%vn_e, z_adv_flux_h )
     DO jk=1,p_ice%kice
-      CALL div_oce_3D( z_adv_flux_h(:,jk,:), p_patch, p_op_coeff%div_coeff, flux_conc(:,jk,:),&
-        & 1, cells_in_domain)
+      CALL div_oce_3D( z_adv_flux_h(:,jk,:), p_patch, p_op_coeff%div_coeff, flux_conc(:,jk,:), 1)
     ENDDO
 
     CALL upwind_hflux_ice( p_patch_3D, p_ice%hs*p_ice%conc, p_ice%vn_e, z_adv_flux_h )
     DO jk=1,p_ice%kice
-      CALL div_oce_3D( z_adv_flux_h(:,jk,:), p_patch, p_op_coeff%div_coeff, flux_hs  (:,jk,:),&
-        & 1, cells_in_domain)
+      CALL div_oce_3D( z_adv_flux_h(:,jk,:), p_patch, p_op_coeff%div_coeff, flux_hs  (:,jk,:), 1)
     ENDDO
 
     DO jk = 1,p_ice%kice
@@ -139,6 +146,8 @@ CONTAINS
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hs  (:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hi  (:,:,:))
 
+!     CALL finish('sea_ice:upwind advect','Test sync ok')
+   
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('ice_adv: vol ice'  , p_ice%vol , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('ice_adv: vol snow' , p_ice%vols, str_module, 4, in_subset=p_patch%cells%owned)
@@ -281,7 +290,8 @@ CONTAINS
     p_patch         => p_patch_3D%p_patch_2D(1)
     edges_in_domain => p_patch%edges%in_domain
     !-----------------------------------------------------------------------
-
+    pupflux_e = 0.0_wp
+    
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
     ELSE
@@ -305,8 +315,8 @@ CONTAINS
     iibc => p_patch%edges%cell_blk
 
     ! loop through all patch edges (and blocks)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!ICONOMP_PARALLEL
+!ICON_OMP_DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
 
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
@@ -334,8 +344,8 @@ CONTAINS
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!ICON_OMP_END_DO_NOWAIT
+!ICONOMP_END_PARALLEL
 
   END SUBROUTINE upwind_hflux_ice
 

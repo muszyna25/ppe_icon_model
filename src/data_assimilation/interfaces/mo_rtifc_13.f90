@@ -857,10 +857,8 @@ FTRACE_BEGIN('rtifc_init')
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_god_par@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_god_par
 
@@ -1007,33 +1005,38 @@ FTRACE_BEGIN('rtifc_init')
   end subroutine rtifc_cleanup
 
 
-  subroutine rtifc_get_preslev(instrIdx, preslev, status)
-    integer,  intent(in)  :: instrIdx
-    real(wp), intent(out) :: preslev(:)
-    integer,  intent(out) :: status  ! exit status
+  subroutine rtifc_get_preslev(instrIdx, status, preslev, nlevs)
+    integer,  intent(in)            :: instrIdx
+    integer,  intent(out)           :: status  ! exit status
+    real(wp), intent(out), optional :: preslev(:)
+    integer,  intent(out), optional :: nlevs
     !------------------------------
     ! Returns RTTOV pressure levels
     !------------------------------
-    integer :: nlevs_user, nlevs_top
+    integer :: nlevs_user, nlevs_top, nl
 
     status = NO_ERROR
 
-    nlevs_user = size(preslev)
-    if (nlevs_user > nlevs .or. nlevs_user < nlevs - 1) then
-      status = ERR_DIM
-      return
-    end if
     if (.not.associated(coefs)) then
       status = ERR_RTTOV_SETUP
       return
     end if
-    if (size(coefs) < 1) then
+    if (size(coefs) < instrIdx .or. instrIdx <= 0) then
       status = ERR_RTTOV_SETUP
       return
     end if
 
-    nlevs_top = nlevs - nlevs_user
-    preslev(:) = coefs(instrIdx)%coef%ref_prfl_p(1+nlevs_top:)
+    nl = coefs(instrIdx)%coef%nlevels
+    if (present(nlevs)) nlevs = nl
+    if (present(preslev)) then
+      nlevs_user = size(preslev)
+      if (nlevs_user > nl .or. nlevs_user < nl - 1) then
+        status = ERR_DIM
+        return
+      end if
+      nlevs_top = nl - nlevs_user
+      preslev(:) = coefs(instrIdx)%coef%ref_prfl_p(1+nlevs_top:)
+    end if
 
   end subroutine rtifc_get_preslev
 
@@ -1104,11 +1107,15 @@ FTRACE_BEGIN('rtifc_fill_input_rad')
     end if
     nprof = ie - is + 1
     nlevs = size(rad%t_fg, 1)
-    if (.not.ropts%interpolation%addinterp) then
-      call check_nlevs(nlevs, nlevs_top, status)
-      if (status /= NO_ERROR) return
-    else
-      nlevs_top = 0
+
+    call check_nlevs(nlevs, nlevs_top, status)
+    if (status /= NO_ERROR) then
+      if (.not.ropts%interpolation%addinterp) then
+        return
+      else
+        ! Model levels as input
+        nlevs_top = 0
+      end if
     end if
     nlay = nlevs + nlevs_top - 1
 
@@ -1151,10 +1158,10 @@ FTRACE_BEGIN('rtifc_fill_input_rad')
       if (size(rad% cfrac,1) < nlay ) then ; DIM_ERROR('cfrac (nlay)' ) ; end if
     endif
     if (rad% i_o3 > 0) then
-      if (.not.associated(rad%spec)   ) then ; DIM_ERROR('rad%spec (O3)'   ) ; end if
-      if (size(rad% spec,1) < rad%i_o3) then ; DIM_ERROR('rad%spec (i_o3)' ) ; end if
-      if (size(rad% spec,2) < nlevs  ) then ; DIM_ERROR('rad%spec (nlevs)') ; end if
-      if (size(rad% spec,3) < nprof  ) then ; DIM_ERROR('rad%spec (nprof)') ; end if
+      if (.not.associated(rad%trg)   ) then ; DIM_ERROR('rad%trg (O3)'   ) ; end if
+      if (size(rad%trg,1) < rad%i_o3) then ; DIM_ERROR('rad%trg (i_o3)' ) ; end if
+      if (size(rad%trg,2) < nlevs  ) then ; DIM_ERROR('rad%trg (nlevs)') ; end if
+      if (size(rad%trg,3) < nprof  ) then ; DIM_ERROR('rad%trg (nprof)') ; end if
     endif
 
     status = 0
@@ -1220,6 +1227,10 @@ FTRACE_BEGIN('rtifc_fill_input_rad')
       else
         profiles(jprof)% ctp           = default_ctp
         profiles(jprof)% cfraction     = default_cfraction
+      end if
+      if (associated(rad% clwde) .and. associated(rad% icede)) then
+        profiles(jprof)% clwde         = rad% clwde(:,iprof)
+        profiles(jprof)% icede         = rad% icede(:,iprof)
       end if
       profiles(jprof)% icede_param     = default_icede_param
       profiles(jprof)% ice_scheme      = default_ice_scheme
@@ -1307,30 +1318,30 @@ FTRACE_BEGIN('rtifc_fill_input_rad')
       if (rad%i_o3 > 0) then
         do iprof = is, ie
           jprof = iprof - is + 1
-          profiles(jprof)% o3(1) = rad%spec(rad%i_o3,1,iprof)
+          profiles(jprof)% o3(1) = rad%trg(rad%i_o3,1,iprof)
         enddo
 !NEC$ novector
         do i=1,nlevs
           do iprof = is, ie
             jprof = iprof - is + 1
-            profiles(jprof)% o3(i+nlevs_top) = rad%spec(rad%i_o3,i,iprof)
+            profiles(jprof)% o3(i+nlevs_top) = rad%trg(rad%i_o3,i,iprof)
           enddo
         enddo
       endif
 
-!       if (rad%i_co2 > 0) then
-!         do iprof = is, ie
-!          jprof = iprof - is + 1
-!           profiles(jprof)% co2(1) = rad%spec(rad%i_co2,1,iprof)
-!         enddo
-! !NEC$ novector
-!         do i=1,nlevs
-!           do iprof = is, ie
-!            jprof = iprof - is + 1
-!             profiles(jprof)% co2(i+nlevs_top) = rad%spec(rad%i_co2,i,iprof)
-!           enddo
-!         enddo
-!       endif
+      if (rad%i_co2 > 0) then
+        do iprof = is, ie
+         jprof = iprof - is + 1
+          profiles(jprof)% co2(1) = rad%trg(rad%i_co2,1,iprof)
+        enddo
+!NEC$ novector
+        do i=1,nlevs
+          do iprof = is, ie
+           jprof = iprof - is + 1
+            profiles(jprof)% co2(i+nlevs_top) = rad%trg(rad%i_co2,i,iprof)
+          enddo
+        enddo
+      endif
 
 !       ... similar for n2o, co, ch4, ...
     else ! Vectorize levels
@@ -1357,14 +1368,19 @@ FTRACE_BEGIN('rtifc_fill_input_rad')
         end if
         end if
 
+        if (associated(profiles(jprof)% clwde) .and. associated( profiles(jprof)% icede)) then 
+          profiles(jprof)% clwde(1:nlay) = rad% clwde(1:nlay,iprof)
+          profiles(jprof)% icede(1:nlay) = rad% icede(1:nlay,iprof)
+        end if
+
         if (rad%i_o3 > 0) then
-          profiles(jprof)% o3(1)               = rad% spec(rad%i_o3,1,iprof)
-          profiles(jprof)% o3(1+nlevs_top:)    = rad% spec(rad%i_o3,1:nlevs,iprof)
+          profiles(jprof)% o3(1)              = rad%trg(rad%i_o3,1,iprof)
+          profiles(jprof)% o3(1+nlevs_top:)   = rad%trg(rad%i_o3,1:nlevs,iprof)
         endif
-!         if (rad%i_co2 > 0) then
-!           profiles(jprof)% co2(1)               = rad% spec(rad%i_co2,1,iprof)
-!           profiles(jprof)% co2(1+nlevs_top:)    = rad% spec(rad%i_co2,1:nlevs,iprof)
-!         endif
+        if (rad%i_co2 > 0) then
+          profiles(jprof)% co2(1)             = rad%trg(rad%i_co2,1,iprof)
+          profiles(jprof)% co2(1+nlevs_top:)  = rad%trg(rad%i_co2,1:nlevs,iprof)
+        endif
 !       ... similar for n2o, co, ch4, ...
       end do
     endif
@@ -1481,11 +1497,14 @@ FTRACE_BEGIN('rtifc_fill_input_var')
     end if
     nprof     = ie - is + 1
     nlevs     = size(temp, 1)
-    if (.not.ropts%interpolation%addinterp) then
-      call check_nlevs(nlevs, nlevs_top, status)
-      if (status /= NO_ERROR) return
-    else
-      nlevs_top = 0
+    call check_nlevs(nlevs, nlevs_top, status)
+    if (status /= NO_ERROR) then
+      if (.not.ropts%interpolation%addinterp) then
+        return
+      else
+        ! Model levels as input
+        nlevs_top = 0
+      end if
     end if
     nlay = nlevs + nlevs_top - 1
 
@@ -1978,12 +1997,11 @@ FTRACE_BEGIN('rtifc_direct')
     end do
     nprof_calc  = count(prof_used(:))
     if (nchansprofs < nprof_calc) then
-      write(0,*) 'Less RTTOV-calculations than profiles! RTTOV will crash'
       write(0,*) 'nchansprofs',nchansprofs
       write(0,*) 'nprof_calc',nprof_calc
       write(0,*) 'iprof_s, iprof_e', iprof_s, iprof_e
       write(0,*) 'lprofs', lprofs(:)
-      stop
+      call finish('rtifc_direct@mo_rtifc_13', 'Less RTTOV-calculations than profiles! RTTOV will crash')
     end if
     ! 2. Determine an array to translate lprofs into lprofs_aux
     allocate(index_prof(iprof_s:iprof_e))
@@ -2732,12 +2750,11 @@ FTRACE_BEGIN('rtifc_k')
     end do
     nprof_calc  = count(prof_used(:))
     if (nchansprofs < nprof_calc) then
-      write(0,*) 'Less RTTOV-calculations than profiles! RTTOV will crash'
       write(0,*) 'nchansprofs',nchansprofs
       write(0,*) 'nprof_calc',nprof_calc
       write(0,*) 'iprof_s, iprof_e', iprof_s, iprof_e
       write(0,*) 'lprofs', lprofs(:)
-      stop
+      call finish('rtifc_direct@mo_rtifc_13', 'Less RTTOV-calculations than profiles! RTTOV will crash')
     end if
     ! 2. Determine an array to translate lprofs into lprofs_aux
     allocate(index_prof(iprof_s:iprof_e))
@@ -5203,10 +5220,8 @@ FTRACE_END('dealloc_rttov_arrays')
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
 
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_coef@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_coef
 
@@ -5226,10 +5241,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_coef_scatt@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_coef_scatt
 
@@ -5249,10 +5262,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_optp@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_optp
 
@@ -5272,10 +5283,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_optp_data@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_optp_data
 
@@ -5294,10 +5303,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_optp_baran@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_optp_baran
 
@@ -5317,10 +5324,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_phasefn_int@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_phasefn_int
 
@@ -5340,10 +5345,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_fast_coef@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_fast_coef
 
@@ -5363,10 +5366,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_fast_coef_gas@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_fast_coef_gas
 
@@ -5386,10 +5387,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_nlte_coef@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_nlte_coef
 
@@ -5409,10 +5408,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_coef_pccomp@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_coef_pccomp
 
@@ -5433,11 +5430,8 @@ FTRACE_END('dealloc_rttov_arrays')
 
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_coef_pccomp1@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_coef_pccomp1
 
@@ -5457,10 +5451,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_coef_pccomp2@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_coef_pccomp2
 
@@ -5480,10 +5472,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_coef_mfasis@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_coef_mfasis
 
@@ -5503,10 +5493,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_mfasis_axis@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_mfasis_axis
 
@@ -5526,10 +5514,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_mfasis_lut@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_mfasis_lut
 
@@ -5549,10 +5535,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_coef_htfrtc@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_coef_htfrtc
 
@@ -5752,10 +5736,8 @@ FTRACE_END('dealloc_rttov_arrays')
     lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
     call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
                    source, lcom, errorcode)
-    if (errorcode /= MPI_SUCCESS) then
-      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-      stop 'MPI ERROR'
-    endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_emis_atlas@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
   end subroutine p_bcast_rttov_cnt_emis_atlas
 
@@ -5775,10 +5757,8 @@ FTRACE_END('dealloc_rttov_arrays')
    lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
    call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
         source, lcom, errorcode)
-   if (errorcode /= MPI_SUCCESS) then
-     print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-     stop 'MPI ERROR'
-   endif
+   if (errorcode /= MPI_SUCCESS) &
+        call finish('p_bcast_rttov_cnt_telsem@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
  end subroutine p_bcast_rttov_cnt_telsem
 
@@ -5798,10 +5778,8 @@ FTRACE_END('dealloc_rttov_arrays')
    lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
    call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
         source, lcom, errorcode)
-   if (errorcode /= MPI_SUCCESS) then
-     print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-     stop 'MPI ERROR'
-   endif
+   if (errorcode /= MPI_SUCCESS) &
+        call finish('p_bcast_rttov_cnt_cnrm@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
  end subroutine p_bcast_rttov_cnt_cnrm
 
@@ -5821,10 +5799,8 @@ FTRACE_END('dealloc_rttov_arrays')
    lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
    call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
         source, lcom, errorcode)
-   if (errorcode /= MPI_SUCCESS) then
-     print *, 'MPI ERROR in MPI_Bcast: ', errorcode
-     stop 'MPI ERROR'
-   endif
+    if (errorcode /= MPI_SUCCESS) &
+         call finish('p_bcast_rttov_cnt_brdf@mo_rtifc_13', 'MPI ERROR in MPI_Bcast')
 #endif
  end subroutine p_bcast_rttov_cnt_brdf
 
@@ -5958,69 +5934,6 @@ FTRACE_END('dealloc_rttov_arrays')
       write(iunit) profiles(i)%cfraction
     end if
   end subroutine print_profile
-
-!   subroutine read_profile(i, iunit, ind)
-!   !--------------------------------------------
-!   ! subroutine read_profile for debugging only
-!   !--------------------------------------------
-!     integer, intent(in) :: i
-!     integer, intent(in) :: iunit
-!     integer, intent(in), optional :: ind
-
-!     integer :: j,k,ii
-
-!     do
-!       read(iunit) j,ii
-!       read(iunit) profiles(i)%nlevels
-!       if (associated(profiles(i)%p) .and. associated(profiles(i)%t) .and. associated(profiles(i)%q)) then
-!         do j = 1, size(profiles(i)%p)
-!           read(iunit) k, profiles(i)%p(j), profiles(i)%t(j), profiles(i)%q(j)
-!           if (k /= j) stop
-!         end do
-!       end if
-!       if (associated(profiles(i)%cloud)) read(iunit) profiles(i)%cloud(:,:)
-! #if defined(RTTOV12) || defined(RTTOV13)
-!       if (associated(profiles(i)%cfrac)) read(iunit) profiles(i)%cfrac(:)
-! #else
-!       if (associated(profiles(i)%cfrac)) read(iunit) profiles(i)%cfrac(:,:)
-! #endif
-!       read(iunit) profiles(i)%icede_param
-! #if defined(RTTOV12) || defined(RTTOV13)
-!       read(iunit) profiles(i)%ice_scheme
-! #else
-!       read(iunit) profiles(i)%ish
-! #endif
-!       read(iunit) profiles(i)%skin%surftype
-!       read(iunit) profiles(i)%skin%watertype
-!       read(iunit) profiles(i)%skin%t
-!       read(iunit) profiles(i)%skin%fastem
-!       read(iunit) profiles(i)%s2m%t
-!       read(iunit) profiles(i)%s2m%q
-!       read(iunit) profiles(i)%s2m%o
-!       read(iunit) profiles(i)%s2m%p
-!       read(iunit) profiles(i)%s2m%u
-!       read(iunit) profiles(i)%s2m%v
-!       read(iunit) profiles(i)%s2m%wfetc
-!       read(iunit) profiles(i)%zenangle
-!       read(iunit) profiles(i)%azangle
-!       read(iunit) profiles(i)%sunzenangle
-!       read(iunit) profiles(i)%sunazangle
-!       read(iunit) profiles(i)%elevation
-!       read(iunit) profiles(i)%latitude
-!       read(iunit) profiles(i)%longitude
-!       read(iunit) profiles(i)%Be
-!       read(iunit) profiles(i)%cosbk
-!       read(iunit) profiles(i)%ctp
-!       read(iunit) profiles(i)%cfraction
-
-!       if (.not.present(ind)) then
-!         exit
-!       else
-!         if (ii == ind) exit
-!       end if
-!     end do
-!   end subroutine read_profile
-
 
 !==================================
 #endif /* (_RTTOV_VERSION == 13) */

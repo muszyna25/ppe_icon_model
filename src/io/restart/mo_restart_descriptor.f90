@@ -293,7 +293,7 @@ CONTAINS
       ! that have a valid time level
       DO i = 1, SIZE(pData%varData)
         ci => pData%varData(i)%p%info
-        IF(has_valid_time_level(ci, desc%id, desc%nnew, desc%nnew_rcf)) &
+        IF(has_valid_time_level(ci, desc%id, desc%nnow, desc%nnow_rcf)) &
           & CALL rfids%def_ncdfvar(ci, desc%hmap(ci%hgrid))
       ENDDO
       CALL nf(nf_set_fill(ncid, NF_NOFILL, i), routine)

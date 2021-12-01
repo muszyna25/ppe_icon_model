@@ -52,6 +52,7 @@ MODULE mo_io_config
                                            !  (LPI_MAX, UH_MAX, VORW_CTMAX, W_CTMAX, DBZ_CTMAX)
   CHARACTER(len=max_timedelta_str_len) :: precip_interval(max_dom)   ! time interval over which precipitation variables are accumulated
   CHARACTER(len=max_timedelta_str_len) :: runoff_interval(max_dom)   ! time interval over which runoff variables are accumulated
+  CHARACTER(len=max_timedelta_str_len) :: sunshine_interval(max_dom) ! time interval over which sunshine duration is accumulated
   CHARACTER(len=max_timedelta_str_len) :: maxt_interval(max_dom)     ! time interval for tmax_2m, tmin_2m
   REAL(wp):: dt_lpi                     ! calling frequency [seconds] of lpi diagnosis for hourly maximum calculation
   REAL(wp):: dt_celltracks              ! calling frequency [seconds] of celltrack diagnosis for hourly maximum calculation
@@ -137,6 +138,7 @@ MODULE mo_io_config
     LOGICAL :: vor_v        = .FALSE. !< Flag. TRUE if computation of meridional component of relative vorticity desired
     LOGICAL :: bvf2         = .FALSE. !< Flag. TRUE if computation of square of Brunt-Vaisala frequency desired
     LOGICAL :: parcelfreq2  = .FALSE. !< Flag. TRUE if computation of square of general parcel oscillation frequency desired
+    LOGICAL :: dursun       = .FALSE. !< Flag. TRUE if computation of sunshine duration is required
     LOGICAL :: res_soilwatb = .FALSE. !< Flag. TRUE if computation of residuum of soil water is desired
   END TYPE t_var_in_output
 
@@ -249,6 +251,7 @@ CONTAINS
         var_in_output(jg)%echotop     = is_variable_in_output_dom(var_name="echotop", jg=jg)
         var_in_output(jg)%echotopinm  = is_variable_in_output_dom(var_name="echotopinm", jg=jg)
         var_in_output(jg)%smi         = is_variable_in_output_dom(var_name="smi", jg=jg)
+        var_in_output(jg)%dursun      = is_variable_in_output_dom(var_name="dursun", jg=jg)
 
         ! Check for special case: SMI is not in one of the output lists but it is part of a output group.
         ! In this case, the group can not be checked, as the connection between SMI and the group will be

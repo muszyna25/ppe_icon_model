@@ -49,7 +49,7 @@ MODULE mo_initicon_io
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
     &                               MODE_COSMO, iss, iorg, ibc, iso4, idu, SUCCESS,     &
     &                               vname_len
-  USE mo_exception,           ONLY: message, finish, message_text
+  USE mo_exception,           ONLY: message, finish, message_text, warning
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
     &                               my_process_is_mpi_workroot,    &
@@ -852,6 +852,13 @@ MODULE mo_initicon_io
         &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,3))
       CALL read_2d_1lev_1time(stream_id, on_cells, 'SMIL4', &
         &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,4))
+
+      ! Checks
+      IF(ANY(initicon(jg)%sfc_in%snowweq < 0._wp)) THEN
+        CALL warning(routine,'W_SNOW contains negative values: Setting to Zero')
+        initicon(jg)%sfc_in%snowweq =  &
+          & MERGE(initicon(jg)%sfc_in%snowweq, 0._wp, (initicon(jg)%sfc_in%snowweq >= 0._wp))
+      ENDIF
 
       ! close file
       !

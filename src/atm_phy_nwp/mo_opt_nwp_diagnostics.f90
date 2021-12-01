@@ -90,6 +90,7 @@ MODULE mo_opt_nwp_diagnostics
   PUBLIC :: compute_field_htop_sc
   PUBLIC :: compute_field_twater
   PUBLIC :: compute_field_q_sedim
+  PUBLIC :: compute_field_dursun
   PUBLIC :: compute_field_tcond_max
   PUBLIC :: compute_field_uh_max
   PUBLIC :: compute_field_vorw_ctmax
@@ -3769,6 +3770,71 @@ CONTAINS
     END DO
 
   END SUBROUTINE compute_field_echotopinm
+
+  !>
+  !! Calculate sunshine duration
+  !!
+  !!  According to WMO (2003),2 sunshine duration during a given period is defined as
+  !!  the sum of that sub-period for which the perpendicular direct solar irradiance exceeds 120 W m–2
+  !!  WMO-No. 8 Guide to Meteorological Instruments and Methods of Observation
+  !!
+  !! The direct solar irradiance at the surface is calculated from the shortwave net flux at surface, 
+  !! the shortwave upward flux and the shortwave diffuse downward radiative flux. It is divided
+  !! by the cosine of solar zenith angle to get the perpendicular solar irradiance.
+  !! If the direct solar irradiance exeeds 120 Wm-2 the sunshine duration is extended by the fast physics timestep
+  !!
+  !! @par Revision History
+  !! Initial revision by Burkhardt Rockel, Hereon (2021-06-17) 
+  !!
+  SUBROUTINE compute_field_dursun( pt_patch,  dt_phy, dursun, &
+    &                              swflxsfc, swflx_up_sfc, swflx_dn_sfc_diff, cosmu0 )
+
+    TYPE(t_patch),      INTENT(IN)    :: pt_patch                 !< patch on which computation is performed
+
+    REAL(wp),           INTENT(IN)    :: dt_phy                   !< time interval for fast physics
+                                                                  !< packages on domain jg
+
+    REAL(wp),           INTENT(INOUT) :: dursun(:,:)              !< sunshine duration (s)
+    REAL(wp),           INTENT(IN)    :: swflxsfc(:,:)            !< shortwave net flux at surface [W/m2]
+    REAL(wp),           INTENT(IN)    :: swflx_up_sfc(:,:)        !< shortwave upward flux at the surface [W/m2]
+    REAL(wp),           INTENT(IN)    :: swflx_dn_sfc_diff(:,:)   !< shortwave diffuse downward radiative flux at the surface [W/m2]
+    REAL(wp),           INTENT(IN)    :: cosmu0(:,:)              !< cosine of solar zenith angle
+
+    ! Use a minimum value to avoid div0: The exact value does not make a difference
+    ! as the 120 W/m2 will not be hit for such small values anyway.
+    REAL(wp) :: cosmu0_dark = 1.e-9_wp
+    INTEGER  :: i_rlstart,  i_rlend
+    INTEGER  :: i_startblk, i_endblk
+    INTEGER  :: i_startidx, i_endidx
+    INTEGER  :: jb, jc
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_block( i_rlstart )
+    i_endblk   = pt_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( pt_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+        DO jc = i_startidx, i_endidx
+          IF(cosmu0(jc,jb)>cosmu0_dark) THEN
+            IF ( (swflxsfc(jc,jb) + swflx_up_sfc(jc,jb) - swflx_dn_sfc_diff(jc,jb))/cosmu0(jc,jb)  > 120._wp) THEN
+              dursun(jc,jb) = dursun(jc,jb) + dt_phy
+            END IF
+          ENDIF
+        END DO
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_dursun
 
 END MODULE mo_opt_nwp_diagnostics
 

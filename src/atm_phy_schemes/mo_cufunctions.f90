@@ -273,6 +273,7 @@ CONTAINS
   ELEMENTAL FUNCTION foealfcu ( ptare )
     REAL(KIND=jprb)             :: foealfcu
     REAL(KIND=jprb), INTENT(in) :: ptare
+!$ACC ROUTINE SEQ
     foealfcu = MIN(1.0_JPRB,((MAX(rticecu,MIN(rtwat,ptare))&
          & -rticecu)*rtwat_rticecu_r)**2)
   END FUNCTION foealfcu

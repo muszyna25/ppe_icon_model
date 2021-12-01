@@ -56,42 +56,33 @@ $addexp checksuite.infrastructure/testbed/exp.icon-testbed_read-netcdf --builder
 # Additional tests for GPU
 # Some AMIP tests fail with extremely small differences in some Physics fields; investigation ongoing
 
-# PGI for CPU: failing currently are atm_amip_update (missing reference data) and
-# atm_heldsaurez (z_at_plevels:: Error in computing interpolation coefficients)
-#./rmexp "checksuite.icon-dev/check.atm_amip_update"                 --builders DAINT_CPU_pgi --list $listname
-#./rmexp "checksuite.icon-dev/check.atm_heldsuarez"                  --builders DAINT_CPU_pgi --list $listname
-# CCE-CPU and PGI-CPU/GPU: remove traditional tests which use PSrad
+# CCE-CPU and NVIDIA-CPU/GPU: remove traditional tests which use PSrad
 
-./rmexp checksuite.icon-dev/check.atm_ape                  --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
-./rmexp checksuite.icon-dev/check.atm_amip                 --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
-./rmexp checksuite.icon-dev/check.atm_amip_update          --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
-./rmexp checksuite.icon-dev/check.atm_amip_diagparams_constbc_nojsb_notransport_nodynamics --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
-./rmexp checksuite.icon-dev/check.atm_sma                  --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
-./rmexp checksuite.icon-dev/check.atm_2mom_bubble_rceTorus --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
+./rmexp checksuite.icon-dev/check.atm_ape                  --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
+./rmexp checksuite.icon-dev/check.atm_amip                 --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
+./rmexp checksuite.icon-dev/check.atm_amip_update          --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
+./rmexp checksuite.icon-dev/check.atm_amip_diagparams_constbc_nojsb_notransport_nodynamics --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
+./rmexp checksuite.icon-dev/check.atm_sma                  --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
+./rmexp checksuite.icon-dev/check.atm_2mom_bubble_rceTorus --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
 
 # But add the RTE-RRTMGP based tests
-$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_ape  --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
-$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
-$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_update --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
-$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_diagparams_constbc_nojsb_notransport_nodynamics --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
+$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_ape  --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
+$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
+$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_update --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
+$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_diagparams_constbc_nojsb_notransport_nodynamics --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
 
-# Activate this after debugging
-#### $addexp checksuite.icon-dev/check.atm_amip_rte_rrtmgp_update --builders DAINT_CPU_pgi DAINT_GPU_pgi --list $listname
-
-# PGI for GPU: failing currently because:
+# NVIDIA for GPU: failing currently because:
 #              mo_ice_interface:ice_fast_interface: This part has not been ported to GPU.
-./rmexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest                  --builders DAINT_GPU_pgi --list $listname
-./rmexp checksuite.ocean_internal/technical/exp.test_ocean_omip_technical         --builders DAINT_GPU_pgi --list $listname
+./rmexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest                  --builders DAINT_GPU_pgi DAINT_GPU_nvidia --list $listname
+./rmexp checksuite.ocean_internal/technical/exp.test_ocean_omip_technical         --builders DAINT_GPU_pgi DAINT_GPU_nvidia --list $listname
 
 # add tolerance check to daint builders
-$addexp checksuite.icon-dev/check.mch_ch_lowres                                   --builders DAINT_CPU_pgi --list $listname
-$addexp checksuite.icon-dev/check.mch_ch_lowres                                   --builders DAINT_GPU_pgi --list $listname
-$addexp "checksuite.icon-dev/check.mch_opr_r04b07*"                               --builders DAINT_CPU_pgi --list $listname
-$addexp "checksuite.icon-dev/check.mch_opr_r04b07*"                               --builders DAINT_GPU_pgi --list $listname
+$addexp checksuite.icon-dev/check.mch_ch_lowres                                   --builders DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
+$addexp "checksuite.icon-dev/check.mch_opr_r04b07*"                               --builders DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
 
 # add tracer only test to DAINT builders (for checking equivalence of vertical transport code for GPU vs CPU)
-$addexp checksuite.icon-dev/check.atm_tracer_Hadley                                  --builders DAINT_CPU_pgi --list $listname
-#$addexp checksuite.icon-dev/check.atm_tracer_Hadley                                  --builders DAINT_GPU_pgi --list $listname
+$addexp checksuite.icon-dev/check.atm_tracer_Hadley                                  --builders DAINT_CPU_pgi DAINT_CPU_nvidia --list $listname
+#$addexp checksuite.icon-dev/check.atm_tracer_Hadley                                  --builders DAINT_GPU_pgi DAINT_GPU_nvidia --list $listname
 
 #-----------------------------------------------------------
 # DWD
@@ -120,11 +111,12 @@ for builder in DWD_nec DWD_nec_yac2; do
   ./rmexp checksuite.icon-dev/check.atm_sma                                      --builders ${builder} --list $listname
   ./rmexp checksuite.icon-dev/check.atm_2mom_bubble_rceTorus                     --builders ${builder} --list $listname
 done
-
+# only DWD_nec
+$addexp checksuite.rcnl.dwd.de/exp.run_ICON_09_R2B6N7_oper_EPS.run               --builders DWD_nec --list $listname
 
 #-----------------------------------------------------------
 # Ruby0 coupled tests, only with mpi
-$addexp exp.esm_bb_ruby0 --without-configureflags without-mpi --machines mistral --runflags "cpu_time=00:10:00 no_of_nodes=4" --list $listname
+$addexp exp.esm_bb_ruby0 --without-configureflags without-mpi --machines mistral --runflags "cpu_time=00:20:00 no_of_nodes=4" --list $listname
 
 #-----------------------------------------------------------
 # Other tests
@@ -158,8 +150,8 @@ checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_inter
 for builder in MISTRAL_intel18_pio; do
   $addexp checksuite.infrastructure/output/exp.atm_amip_R2B4_1day_pio --builders ${builder} --list $listname
   $addexp checksuite.infrastructure/output/exp.atm_amip_R2B4_1day     --builders ${builder} --list $listname
-  $addexp exp.esm_bb_ruby0_pio      --builders ${builder} --list $listname --runflags "cpu_time=00:10:00 no_of_nodes=4"
-  $addexp exp.esm_bb_ruby0          --builders ${builder} --list $listname --runflags "cpu_time=00:10:00 no_of_nodes=4"
+  $addexp exp.esm_bb_ruby0_pio      --builders ${builder} --list $listname --runflags "cpu_time=00:20:00 no_of_nodes=4"
+  $addexp exp.esm_bb_ruby0          --builders ${builder} --list $listname --runflags "cpu_time=00:20:00 no_of_nodes=4"
   $addexp checksuite.infrastructure/output/exp.hamocc_omip_10days  --builder ${builder} --list $listname
 done
 

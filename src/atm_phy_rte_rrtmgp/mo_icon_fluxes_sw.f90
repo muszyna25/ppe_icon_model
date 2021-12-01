@@ -3,8 +3,7 @@ module mo_icon_fluxes_sw
 
   use mo_kind,          only: wp
   use mo_optical_props, only: ty_optical_props
-  use mo_fluxes, only: ty_fluxes_broadband, &
-    are_desired_broadband, reduce_broadband
+  use mo_fluxes, only: ty_fluxes_broadband
   implicit none
 
   type, extends(ty_fluxes_broadband), public :: ty_icon_fluxes_sw
@@ -94,7 +93,7 @@ contains
     integer :: nlev, ncol, ngpt, nbndsw, isfc, band, gpt, limits(2), jl
     integer :: band2gpt(2, spectral_disc%get_nband())
 
-    error_msg = reduce_broadband(this, gpt_flux_up, gpt_flux_dn, &
+    error_msg = this%ty_fluxes_broadband%reduce(gpt_flux_up, gpt_flux_dn, &
       spectral_disc, top_at_1, gpt_flux_dn_dir)
     if (TRIM(error_msg) /= '') return
 
@@ -164,7 +163,7 @@ contains
     class(ty_icon_fluxes_sw), intent(in) :: this
     logical                              :: are_desired_icon
 
-    are_desired_icon = are_desired_broadband(this)
+    are_desired_icon = this%ty_fluxes_broadband%are_desired()
   end function are_desired_icon
 
   subroutine del(this)

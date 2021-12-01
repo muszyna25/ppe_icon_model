@@ -6,7 +6,7 @@
 MODULE mo_memory_bgc
 
   USE mo_kind, ONLY   : wp
-  USE mo_param1_bgc, ONLY: n_bgctra, natm, npowtra, nbgctend,nbgcflux
+  USE mo_param1_bgc, ONLY: natm
   USE mo_control_bgc, ONLY: rmasko, bgc_nproma, bgc_zlevs
   USE mo_hamocc_nml, ONLY: l_cpl_co2 
  
@@ -16,62 +16,6 @@ MODULE mo_memory_bgc
   PUBLIC
 
   INTEGER :: n90depth,n1000depth,n2000depth
-  INTEGER, DIMENSION (:), ALLOCATABLE  :: kbo   !< k-index of bottom layer (2d)
-
-  REAL(wp), ALLOCATABLE, TARGET :: bgctra(:,:,:)
-  REAL(wp), ALLOCATABLE, TARGET :: bgctend(:,:,:)
-  REAL(wp), ALLOCATABLE, TARGET :: bgcflux(:,:)
-  REAL(wp), ALLOCATABLE         :: solco2(:)
-
-
-  REAL(wp), ALLOCATABLE, TARGET :: co3 (:,:)
-  REAL(wp), ALLOCATABLE, TARGET :: hi  (:,:)
-  REAL(wp), ALLOCATABLE, TARGET :: aksp(:,:)
-
-  REAL(wp), ALLOCATABLE :: swr_frac (:,:)
-  REAL(wp), ALLOCATABLE :: meanswr(:,:)
-  REAL(wp), ALLOCATABLE :: akw3(:,:)
-  REAL(wp), ALLOCATABLE :: akb3(:,:)
-  REAL(wp), ALLOCATABLE :: ak13(:,:)
-  REAL(wp), ALLOCATABLE :: ak23(:,:)
-  REAL(wp), ALLOCATABLE :: aks3(:,:)
-  REAL(wp), ALLOCATABLE :: akf3(:,:)
-  REAL(wp), ALLOCATABLE :: ak1p3(:,:)
-  REAL(wp), ALLOCATABLE :: ak2p3(:,:)
-  REAL(wp), ALLOCATABLE :: ak3p3(:,:)
-  REAL(wp), ALLOCATABLE :: aksi3(:,:)
-  REAL(wp), ALLOCATABLE :: satoxy(:,:)
-  REAL(wp), ALLOCATABLE :: satn2(:)
-  REAL(wp), ALLOCATABLE :: satn2o(:)
-  REAL(wp), ALLOCATABLE :: atdifv(:)
-  REAL(wp), ALLOCATABLE :: suppco2(:)
-  REAL(wp), ALLOCATABLE :: sedfluxo(:,:)
-  REAL(wp), ALLOCATABLE :: aksurf(:,:)    !> dissociation constants for DIC,bor and water 
-                                            !> at the sea surface, no pressure dependency 
-  REAL(wp), ALLOCATABLE :: atm(:,:)
-
-  REAL(wp), ALLOCATABLE :: co2flux(:)     !> sea-air C-flux, ingetrated over whole simulation period
-  REAL(wp), ALLOCATABLE :: o2flux(:)      !> sea-air O2-flux, ingetrated over whole simulation period
-  REAL(wp), ALLOCATABLE :: n2flux(:)      !> sea-air N2-flux, ingetrated over whole simulation period
-  REAL(wp), ALLOCATABLE :: n2oflux(:)     !> sea-air N2-flux, ingetrated over whole simulation period
-  REAL(wp), ALLOCATABLE :: co2trans(:)    !> transfer coefficient for CO2 atmosph/ocean
-  REAL(wp), ALLOCATABLE :: wpoc(:,:)      ! depth-dependent detritus settling speed
-  REAL(wp), ALLOCATABLE :: wdust(:,:)     ! depth-dependent dust settling speed
-  REAL(wp), ALLOCATABLE :: wopal(:,:)     ! daily sinking speed of opal (namelist parameter)
-  REAL(wp), ALLOCATABLE :: wcal(:,:)     ! daily sinking speed of cal (namelist parameter)
-  REAL(wp), ALLOCATABLE :: ws_agg(:,:)    ! daily sinking speed of aggregates (namelist parameter)
-
-  REAL(wp), ALLOCATABLE :: co2conc(:)
-  REAL(wp), ALLOCATABLE :: co2flux_cpl(:)
-
-  REAL(wp), DIMENSION (:), ALLOCATABLE :: bolay !<  height of bottom cell
-  REAL(wp), DIMENSION (:), ALLOCATABLE :: expoor
-  REAL(wp), DIMENSION (:), ALLOCATABLE :: expoca
-  REAL(wp), DIMENSION (:), ALLOCATABLE :: exposi
-  REAL(wp), DIMENSION (:), ALLOCATABLE :: strahl
-  REAL(wp), DIMENSION (:), ALLOCATABLE :: alar1max
-  REAL(wp), DIMENSION (:), ALLOCATABLE :: TSFmax
-  REAL(wp), DIMENSION (:), ALLOCATABLE :: TMFmax
 
   REAL(wp), DIMENSION(6):: dmsp
 
@@ -126,116 +70,5 @@ MODULE mo_memory_bgc
 
 
 CONTAINS
-
-  SUBROUTINE ALLOC_MEM_CARBCH
-
-    ALLOCATE (wpoc(bgc_nproma,bgc_zlevs))
-    ALLOCATE (wdust(bgc_nproma,bgc_zlevs))
-    ALLOCATE (wopal(bgc_nproma,bgc_zlevs))
-    ALLOCATE (wcal(bgc_nproma,bgc_zlevs))
-    ALLOCATE (ws_agg(bgc_nproma,bgc_zlevs))
-
-    ALLOCATE (bgctra(bgc_nproma,bgc_zlevs,n_bgctra))
-    
-    ALLOCATE (bgctend(bgc_nproma,bgc_zlevs,nbgctend))
-    bgctend = 0._wp
-
-    ALLOCATE (bgcflux(bgc_nproma,nbgcflux))
-    bgcflux = 0._wp
-
-    ALLOCATE (hi(bgc_nproma,bgc_zlevs))
-
-    ALLOCATE (co3(bgc_nproma,bgc_zlevs))
-
-    ALLOCATE (solco2(bgc_nproma))
-    solco2(:) = rmasko
-
-    ALLOCATE (satn2o(bgc_nproma))
-    satn2o(:) = rmasko
-
-    ALLOCATE (satoxy(bgc_nproma,bgc_zlevs))
-    satoxy(:,:) = rmasko
-
-    ALLOCATE (satn2(bgc_nproma))
-    satn2(:) = rmasko
-
-    ALLOCATE (sedfluxo(bgc_nproma,npowtra))
-    sedfluxo(:,:) = 0._wp
-
-    ALLOCATE (aksp(bgc_nproma,bgc_zlevs))
-
-    ALLOCATE (aks3(bgc_nproma,bgc_zlevs))
-
-    ALLOCATE (akf3(bgc_nproma,bgc_zlevs))
-
-    ALLOCATE (ak1p3(bgc_nproma,bgc_zlevs))
-
-    ALLOCATE (ak2p3(bgc_nproma,bgc_zlevs))
-
-    ALLOCATE (ak3p3(bgc_nproma,bgc_zlevs))
-
-    ALLOCATE (aksi3(bgc_nproma,bgc_zlevs))
-
-    ALLOCATE (ak23(bgc_nproma,bgc_zlevs))
-
-    ALLOCATE (ak13(bgc_nproma,bgc_zlevs))
-
-    ALLOCATE (akb3(bgc_nproma,bgc_zlevs))
-
-    ALLOCATE (akw3(bgc_nproma,bgc_zlevs))
-
-    ALLOCATE (swr_frac(bgc_nproma,bgc_zlevs))
-    swr_frac=1._wp
-    ALLOCATE (meanswr(bgc_nproma,bgc_zlevs))
-    meanswr=0._wp
-    ALLOCATE (aksurf(bgc_nproma,10))
-     aksurf(:,:) = rmasko
-    ALLOCATE (atm(bgc_nproma,natm))
-    ALLOCATE (atdifv(bgc_nproma))
-    ALLOCATE (suppco2(bgc_nproma))
-    suppco2(:) = 0.0_wp
-
-    ALLOCATE (co2flux(bgc_nproma))
-    co2flux(:) = 0.0_wp
-    ALLOCATE (o2flux(bgc_nproma))
-    o2flux(:) = 0.0_wp
-    ALLOCATE (n2flux(bgc_nproma))
-    n2flux(:) = 0.0_wp
-    ALLOCATE (n2oflux(bgc_nproma))
-    n2oflux(:) = 0.0_wp
-
-    IF (l_cpl_co2) THEN
-      ALLOCATE (co2trans(bgc_nproma))
-      co2trans(:) = 0.0_wp
-      ALLOCATE (co2conc(bgc_nproma))
-      co2conc(:) = 0.0_wp
-      ALLOCATE (co2flux_cpl(bgc_nproma))
-      co2flux_cpl(:) = 0.0_wp
-    ENDIF
-
-
-  END SUBROUTINE ALLOC_MEM_CARBCH
-
-  SUBROUTINE ALLOC_MEM_BIOMOD
-
-    USE mo_control_bgc
-    USE mo_param1_bgc
-
-
-    ALLOCATE (expoor(bgc_nproma))
-    expoor(:)=0._wp
-    ALLOCATE (expoca(bgc_nproma))
-    expoca(:)=0._wp
-    ALLOCATE (exposi(bgc_nproma))
-    exposi(:)=0._wp
-    ALLOCATE (kbo(bgc_nproma))
-    ALLOCATE (strahl(bgc_nproma))
-    strahl=200._wp
-    ALLOCATE (bolay(bgc_nproma))
-    ALLOCATE (alar1max(bgc_nproma))
-    ALLOCATE (TSFmax(bgc_nproma))
-    ALLOCATE (TMFmax(bgc_nproma))
-
-  END SUBROUTINE ALLOC_MEM_BIOMOD
 
 END MODULE mo_memory_bgc

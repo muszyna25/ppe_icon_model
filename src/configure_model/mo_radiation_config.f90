@@ -164,6 +164,8 @@ MODULE mo_radiation_config
                                         !< 1: Baran et al. (2016)
     CHARACTER(len=MAX_CHAR_LENGTH) :: &
       &  ecrad_data_path                !< Folder containing optical properties
+    INTEGER  :: nproma_rad              !< subblock size used for the ecrad interface.
+                                        !< If set negativ, the absolute value is considered as the number of subblocks.
     !
   
   !END TYPE t_radiation_config

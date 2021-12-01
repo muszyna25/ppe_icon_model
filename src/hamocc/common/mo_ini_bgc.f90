@@ -1,4 +1,4 @@
-#include "hamocc_omp_definitions.inc"
+ 
 !>
 !! @brief set start values for bgc variables
 !!
@@ -6,10 +6,13 @@
 MODULE mo_ini_bgc
 
   USE mo_kind, ONLY        : wp
-  USE mo_memory_bgc, ONLY   : hi, co3, bgctra,  atm, &
-       &                     atmacon, atmacmol,    &
+  USE mo_bgc_memory_types, ONLY  :   t_bgc_memory, t_sediment_memory, t_aggregates_memory
+
+
+
+  USE mo_memory_bgc, ONLY   :atmacon, atmacmol,    &
        &                     ozkoa,ralk, ro2ut_cya, cyamin,    &
-       &                     wpoc, calcinp,orginp,silinp, &
+       &                     calcinp,orginp,silinp, &
        &                     phytomi, grami, remido, dyphy, zinges,        &
        &                     epsher,  spemor, gammap, gammaz, ecan, &
        &                     pi_alpha, fpar, bkphy, bkzoo, bkopal,         &
@@ -17,17 +20,17 @@ MODULE mo_ini_bgc
        &                     n2_fixation, ro2ut, rcar, rnit,     &
        &                     rnoi, nitdem, n2prod, ropal,   &
        &                     perc_diron, riron, fesoly, relaxfe,     &
-       &                     kbo, bolay, rn2,             &
-       &                     wdust, thresh_o2,   &
+       &                     rn2,             &
+       &                     thresh_o2,   &
        &                     pi_alpha_cya,          &
        &                     Topt_cya,T1_cya,T2_cya,bkcya_N, &
        &                     buoyancyspeed_cya, bkh2sox, rh2sox, &
        &                     doccya_fac, thresh_aerob, thresh_sred, &
-       &                     wopal, wcal, wcya, p2gtc, ro2bal, dmsp,prodn2o,docmin, &
+       &                     wcya, p2gtc, ro2bal, dmsp,prodn2o,docmin, &
        &                     no2denit, anamoxra, nitriox, nitrira, ro2ammo, &
        &                     bknh4_cya, bkno3_cya, bkno3, bknh4, rmm, kg_denom, bkpo4, &
        &                     bkno2, bkrad, bkfe, rno3nh4, rno3no2, rno2no3, rnh4no2, &
-       &                     alk_nrn2, rno2n2, o2thresh, o2den_lim, &
+       &                     alk_nrn2, rno2n2, o2thresh, o2den_lim, rrrcl,  &
        &                     sinkspeed_dust
 
   USE mo_memory_agg, ONLY  : agg_org_dens, det_mol2mass, rho_tep, &
@@ -37,9 +40,8 @@ MODULE mo_ini_bgc
        &                     stickiness_calc, stickiness_dust, &
        &                     agg_df_min, agg_df_max, agg_re_crit
 
-
-  USE mo_sedmnt, ONLY      : powtra, sedlay, sedhpl,disso_op,disso_cal,&
-       &                     o2ut, rno3, sred_sed, silsat
+  USE mo_sedmnt, ONLY      : disso_op,disso_cal,&
+       &                     o2ut, rno3, sred_sed, silsat, calcon
 
   USE mo_hamocc_nml, ONLY  : l_cpl_co2, i_settling, &
        &                     sinkspeed_poc, sinkspeed_opal, sinkspeed_calc,&
@@ -66,6 +68,9 @@ MODULE mo_ini_bgc
        &                     izoo, ipowafe, issster, &
        &                     icya, iiron, idms, ih2s, ipowh2s, &
        &                     iammo, iano2, ipownh4, ipowno2
+
+  USE mo_bgc_constants
+     
 !  USE mo_planetary_constants, ONLY: g, rhoref_water
   IMPLICIT NONE
 
@@ -259,6 +264,16 @@ CONTAINS
 !             light dependency (coupled to abs_bgc, max at no light, in surface layer 0.
 
 
+  !     -----------------------------------------------------------------
+  !*            SET MEAN TOTAL [CA++] IN SEAWATER (MOLES/KG)
+  !             (SEE BROECKER A. PENG, 1982, P. 26)
+  !             ([CA++](MOLES/KG)=1.026E-2*(S/35.) AFTER
+  !             CULKIN(1965), CF. BROECKER ET AL. 1982)
+  !             ------------- --- -------- -- --- -----
+  !
+  calcon = 1.03e-2_wp
+
+  rrrcl = salchl * 1.025_wp * bor1 * bor2
 
   END SUBROUTINE SET_PARAMETERS_BGC
 
@@ -335,21 +350,22 @@ CONTAINS
   END SUBROUTINE
 
   ! ---------------------------------------------------------------------
-  SUBROUTINE ini_wpoc(ptiestw)
+  SUBROUTINE ini_wpoc(local_bgc_memory, ptiestw)
   ! initialize wpoc,wopal,wcal
   ! if lmartin==TRUE (mo_control_bgc, nml)
   ! wpoc increases linearly with depth below mc_depth (beleg, nml)
   ! otherwise the constant sinkspeed_poc (beleg, nml) is used
+   TYPE(t_bgc_memory), POINTER :: local_bgc_memory
    REAL(wp),INTENT(in):: ptiestw(bgc_zlevs+1)
 
    INTEGER :: k 
    REAL(wp) :: at_mc_depth
    
    ! default case: constant sinking speed
-   wpoc(:,:)  = sinkspeed_poc
-   wopal(:,:) = sinkspeed_opal
-   wcal(:,:) = sinkspeed_calc
-   wdust(:,:) = sinkspeed_dust
+   local_bgc_memory%wpoc(:,:)  = sinkspeed_poc
+   local_bgc_memory%wopal(:,:) = sinkspeed_opal
+   local_bgc_memory%wcal(:,:) = sinkspeed_calc
+   local_bgc_memory%wdust(:,:) = sinkspeed_dust
 
    IF(i_settling==1)then
    DO k = 1,bgc_zlevs
@@ -358,13 +374,15 @@ CONTAINS
       ! w=w0 + a*(z-z0)
       ! z0= mc_depth
       ! a=remin_rate/b  with F(z)=F(z0)(z/zo)**(-b) 
-      wpoc(:,k) = sinkspeed_martin_ez + at_mc_depth * drempoc/mc_fac * (ptiestw(k+1) - mc_depth) 
+      local_bgc_memory%wpoc(:,k) = sinkspeed_martin_ez + at_mc_depth * drempoc/mc_fac * (ptiestw(k+1) - mc_depth)
    ENDDO
    ENDIF
   END SUBROUTINE ini_wpoc
   
-  SUBROUTINE ini_aquatic_tracers (start_idx, end_idx , klevs, ibek )
+  SUBROUTINE ini_aquatic_tracers (local_bgc_mem, start_idx, end_idx , klevs, ibek )
 
+    TYPE(t_bgc_memory), POINTER :: local_bgc_mem
+ 
     INTEGER, INTENT(in)  :: start_idx                  !< 1st REAL of model grid.
     INTEGER, INTENT(in)  :: end_idx                  !< 2nd REAL of model grid.
     INTEGER :: klevs(bgc_nproma)                  !< 3rd (vertical) REAL of model grid.
@@ -388,154 +406,156 @@ CONTAINS
     oxyat   = 2.5e-4_wp
     oxymed  = 2.e-4_wp
 
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(j,k,kpke,m) HAMOCC_OMP_DEFAULT_SCHEDULE
+ 
    DO j = start_idx, end_idx
     kpke=klevs(j)
     m=ibek(j)
     DO k = 1, kpke
 
-                bgctra(j,k,isco212) = 2.27e-3_wp     ! [kmol/m3]
-                bgctra(j,k,ialkali) = 2.37e-3_wp
-                bgctra(j,k,iphosph) = phosmed
-                bgctra(j,k,ioxygen) = oxymed
-                bgctra(j,k,isilica) = silmed
-                bgctra(j,k,iagesc) = 0._wp
-                bgctra(j,k,igasnit)= 1e-5_wp
-                bgctra(j,k,idoc)   = 1.e-10_wp
-                bgctra(j,k,iphy)   = 1.e-8_wp
-                bgctra(j,k,izoo)   = 1.e-8_wp
-                bgctra(j,k,idet)   = 1.e-8_wp
-                bgctra(j,k,icalc)  = 0._wp
-                bgctra(j,k,ih2s)  = 0._wp
-                bgctra(j,k,idms)   = 0._wp
-                bgctra(j,k,iopal)  = 1.e-8_wp
-                bgctra(j,k,idust)  = 0._wp
-                bgctra(j,k,icya)   = 1.e-10_wp
-                bgctra(j,k,ian2o)    = 1.e-9_wp
-                hi(j,k)              = 3.e-9_wp
-                !co3(j,k)             = 0._wp       ! this good for initialisation -> 2.e-4?
-                co3(j,k)             = 2.e-4_wp       ! this good for initialisation -> 2.e-4?
-                bgctra(j,k,iano3)  = rnit*bgctra(j,k,iphosph)
-                bgctra(j,k,iiron)   = 0.6e-9_wp
+                local_bgc_mem%bgctra(j,k,isco212) = 2.27e-3_wp     ! [kmol/m3]
+                local_bgc_mem%bgctra(j,k,ialkali) = 2.37e-3_wp
+                local_bgc_mem%bgctra(j,k,iphosph) = phosmed
+                local_bgc_mem%bgctra(j,k,ioxygen) = oxymed
+                local_bgc_mem%bgctra(j,k,isilica) = silmed
+                local_bgc_mem%bgctra(j,k,iagesc) = 0._wp
+                local_bgc_mem%bgctra(j,k,igasnit)= 1e-5_wp
+                local_bgc_mem%bgctra(j,k,idoc)   = 1.e-10_wp
+                local_bgc_mem%bgctra(j,k,iphy)   = 1.e-8_wp
+                local_bgc_mem%bgctra(j,k,izoo)   = 1.e-8_wp
+                local_bgc_mem%bgctra(j,k,idet)   = 1.e-8_wp
+                local_bgc_mem%bgctra(j,k,icalc)  = 0._wp
+                local_bgc_mem%bgctra(j,k,ih2s)   = 0._wp
+                local_bgc_mem%bgctra(j,k,idms)   = 0._wp
+                local_bgc_mem%bgctra(j,k,iopal)  = 1.e-8_wp
+                local_bgc_mem%bgctra(j,k,idust)  = 0._wp
+                local_bgc_mem%bgctra(j,k,icya)   = 1.e-10_wp
+                local_bgc_mem%bgctra(j,k,ian2o)  = 1.e-9_wp
+                local_bgc_mem%hi(j,k)     = 3.e-9_wp
+                !local_bgc_mem%co3(j,k)             = 0._wp       ! this good for initialisation -> 2.e-4?
+                local_bgc_mem%co3(j,k)    = 2.e-4_wp       ! this good for initialisation -> 2.e-4?
+                local_bgc_mem%bgctra(j,k,iano3)  = rnit*local_bgc_mem%bgctra(j,k,iphosph)
+                local_bgc_mem%bgctra(j,k,iiron)  = 0.6e-9_wp
 
                 if((m.ge.bgc_soce).and.(m.le.bgc_npac))then
-                   bgctra(j,k,iphosph) = phospac
-                   bgctra(j,k,ioxygen) = oxypac
-                   bgctra(j,k,isilica) = silpac
-                   bgctra(j,k,iano3)  = rnit*bgctra(j,k,iphosph)
+                   local_bgc_mem%bgctra(j,k,iphosph) = phospac
+                   local_bgc_mem%bgctra(j,k,ioxygen) = oxypac
+                   local_bgc_mem%bgctra(j,k,isilica) = silpac
+                   local_bgc_mem%bgctra(j,k,iano3)  = rnit*local_bgc_mem%bgctra(j,k,iphosph)
                 elseif((m.ge.bgc_gin).and.(m.le.bgc_tatl))THEN
-                   bgctra(j,k,iphosph) = phosat
-                   bgctra(j,k,ioxygen) = oxyat
-                   bgctra(j,k,isilica) = silat
-                   bgctra(j,k,iano3)  = rnit*bgctra(j,k,iphosph)
+                   local_bgc_mem%bgctra(j,k,iphosph) = phosat
+                   local_bgc_mem%bgctra(j,k,ioxygen) = oxyat
+                   local_bgc_mem%bgctra(j,k,isilica) = silat
+                   local_bgc_mem%bgctra(j,k,iano3)  = rnit*local_bgc_mem%bgctra(j,k,iphosph)
                 endif
 
                 if (l_N_cycle) then
-                   bgctra(j,k,iammo) = 1.e-2_wp*bgctra(j,k,iano3)
-                   bgctra(j,k,iano2) = 1.e-2_wp*bgctra(j,k,iano3)
+                   local_bgc_mem%bgctra(j,k,iammo) = 1.e-2_wp*local_bgc_mem%bgctra(j,k,iano3)
+                   local_bgc_mem%bgctra(j,k,iano2) = 1.e-2_wp*local_bgc_mem%bgctra(j,k,iano3)
                 endif
 
                 if(m.eq.bgc_land)then
-                   bgctra(j,k,iagesc)  = rmasko
-                   bgctra(j,k,iphosph) = rmasko
-                   bgctra(j,k,isilica) = rmasko
-                   bgctra(j,k,ioxygen) = rmasko
-                   bgctra(j,k,ialkali) = rmasko
-                   bgctra(j,k,iiron)   = rmasko
-                   bgctra(j,k,isco212) = rmasko
-                   bgctra(j,k,iano3)   = rmasko
-                   bgctra(j,k,igasnit) = rmasko
-                   bgctra(j,k,idoc)    = rmasko
-                   bgctra(j,k,iphy)    = rmasko
-                   bgctra(j,k,izoo)    = rmasko
-                   bgctra(j,k,idet)    = rmasko
-                   bgctra(j,k,icalc)   = rmasko
-                   bgctra(j,k,ih2s)    = rmasko
-                   bgctra(j,k,iopal)   = rmasko
-                   bgctra(j,k,ian2o)   = rmasko
-                   bgctra(j,k,iiron)   = rmasko
-                   bgctra(j,k,icya)    = rmasko
-                   bgctra(j,k,idms)    = rmasko
-                   hi(j,k)             = rmasko
-                   co3(j,k)            = rmasko
+                   local_bgc_mem%bgctra(j,k,iagesc)  = rmasko
+                   local_bgc_mem%bgctra(j,k,iphosph) = rmasko
+                   local_bgc_mem%bgctra(j,k,isilica) = rmasko
+                   local_bgc_mem%bgctra(j,k,ioxygen) = rmasko
+                   local_bgc_mem%bgctra(j,k,ialkali) = rmasko
+                   local_bgc_mem%bgctra(j,k,iiron)   = rmasko
+                   local_bgc_mem%bgctra(j,k,isco212) = rmasko
+                   local_bgc_mem%bgctra(j,k,iano3)   = rmasko
+                   local_bgc_mem%bgctra(j,k,igasnit) = rmasko
+                   local_bgc_mem%bgctra(j,k,idoc)    = rmasko
+                   local_bgc_mem%bgctra(j,k,iphy)    = rmasko
+                   local_bgc_mem%bgctra(j,k,izoo)    = rmasko
+                   local_bgc_mem%bgctra(j,k,idet)    = rmasko
+                   local_bgc_mem%bgctra(j,k,icalc)   = rmasko
+                   local_bgc_mem%bgctra(j,k,ih2s)    = rmasko
+                   local_bgc_mem%bgctra(j,k,iopal)   = rmasko
+                   local_bgc_mem%bgctra(j,k,ian2o)   = rmasko
+                   local_bgc_mem%bgctra(j,k,iiron)   = rmasko
+                   local_bgc_mem%bgctra(j,k,icya)    = rmasko
+                   local_bgc_mem%bgctra(j,k,idms)    = rmasko
+                   local_bgc_mem%hi(j,k)  = rmasko
+                   local_bgc_mem%co3(j,k) = rmasko
                    if (l_N_cycle) then
-                      bgctra(j,k,iammo) = rmasko
-                      bgctra(j,k,iano2) = rmasko
+                      local_bgc_mem%bgctra(j,k,iammo) = rmasko
+                      local_bgc_mem%bgctra(j,k,iano2) = rmasko
                    endif
                 ENDIF
 
        ENDDO
     ENDDO
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+ 
+ 
 
   END SUBROUTINE ini_aquatic_tracers
 
   ! ---------------------------------------------------------------------
 
-  SUBROUTINE ini_pore_water_tracers(start_idx,end_idx)
+  SUBROUTINE ini_pore_water_tracers(local_bgc_mem, local_sediment_mem, start_idx,end_idx)
 
+    TYPE(t_bgc_memory), POINTER :: local_bgc_mem
+    TYPE(t_sediment_memory), POINTER :: local_sediment_mem
+    
     INTEGER, INTENT(in) :: start_idx
     INTEGER, INTENT(in) :: end_idx
 
+    INTEGER,  POINTER  :: kbo(:)   !< k-index of bottom layer (2d)    
     INTEGER :: j, k
+    
     !  Initial values for sediment pore water tracers. (solid components?)
-
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(j,k) HAMOCC_OMP_DEFAULT_SCHEDULE
+    kbo => local_bgc_mem%kbo
 
    DO j = start_idx, end_idx
     DO k = 1, ks
-             IF(bolay(j) > 0._wp) THEN
-                powtra(j,k,ipowaic) = bgctra(j,kbo(j),isco212)
-                powtra(j,k,ipowaal) = bgctra(j,kbo(j),ialkali)
-                powtra(j,k,ipowaph) = bgctra(j,kbo(j),iphosph)
-                powtra(j,k,ipowaox) = bgctra(j,kbo(j),ioxygen)
-                powtra(j,k,ipown2)  = 0._wp
-                powtra(j,k,ipowh2s) = 0._wp
-                powtra(j,k,ipowno3) = bgctra(j,kbo(j),iano3)
-                powtra(j,k,ipowasi) = bgctra(j,kbo(j),isilica)
-                powtra(j,k,ipowafe) = bgctra(j,kbo(j),iiron)
+             IF(local_bgc_mem%bolay(j) > 0._wp) THEN
+                local_sediment_mem%powtra(j,k,ipowaic) = local_bgc_mem%bgctra(j,kbo(j),isco212)
+                local_sediment_mem%powtra(j,k,ipowaal) = local_bgc_mem%bgctra(j,kbo(j),ialkali)
+                local_sediment_mem%powtra(j,k,ipowaph) = local_bgc_mem%bgctra(j,kbo(j),iphosph)
+                local_sediment_mem%powtra(j,k,ipowaox) = local_bgc_mem%bgctra(j,kbo(j),ioxygen)
+                local_sediment_mem%powtra(j,k,ipown2)  = 0._wp
+                local_sediment_mem%powtra(j,k,ipowh2s) = 0._wp
+                local_sediment_mem%powtra(j,k,ipowno3) = local_bgc_mem%bgctra(j,kbo(j),iano3)
+                local_sediment_mem%powtra(j,k,ipowasi) = local_bgc_mem%bgctra(j,kbo(j),isilica)
+                local_sediment_mem%powtra(j,k,ipowafe) = local_bgc_mem%bgctra(j,kbo(j),iiron)
+                                
                 IF (l_N_cycle) THEN
-                   powtra(j,k,ipownh4) = bgctra(j,kbo(j),iammo)
-                   powtra(j,k,ipowno2) = bgctra(j,kbo(j),iano2)
+                   local_sediment_mem%powtra(j,k,ipownh4) = local_bgc_mem%bgctra(j,kbo(j),iammo)
+                   local_sediment_mem%powtra(j,k,ipowno2) = local_bgc_mem%bgctra(j,kbo(j),iano2)
                 ENDIF
-                sedlay(j,k,issso12) = 1.e-8_wp
-                sedlay(j,k,isssc12) = 1.e-8_wp
-                sedlay(j,k,issster) = 30._wp
-                sedlay(j,k,issssil) = 0._wp
-                sedhpl(j,k)         = hi(j,kbo(j))
+                local_sediment_mem%sedlay(j,k,issso12) = 1.e-8_wp
+                local_sediment_mem%sedlay(j,k,isssc12) = 1.e-8_wp
+                local_sediment_mem%sedlay(j,k,issster) = 30._wp
+                local_sediment_mem%sedlay(j,k,issssil) = 0._wp
+                local_sediment_mem%sedhpl(j,k)         = local_bgc_mem%hi(j,kbo(j))
              ELSE
-                powtra(j,k,ipowno3) = rmasks   ! pore water
-                powtra(j,k,ipown2)  = rmasks
-                powtra(j,k,ipowaic) = rmasks
-                powtra(j,k,ipowaal) = rmasks
-                powtra(j,k,ipowaph) = rmasks
-                powtra(j,k,ipowh2s) = rmasks
-                powtra(j,k,ipowaox) = rmasks
-                powtra(j,k,ipowasi) = rmasks
-                powtra(j,k,ipowafe) = rmasks
+                local_sediment_mem%powtra(j,k,ipowno3) = rmasks   ! pore water
+                local_sediment_mem%powtra(j,k,ipown2)  = rmasks
+                local_sediment_mem%powtra(j,k,ipowaic) = rmasks
+                local_sediment_mem%powtra(j,k,ipowaal) = rmasks
+                local_sediment_mem%powtra(j,k,ipowaph) = rmasks
+                local_sediment_mem%powtra(j,k,ipowh2s) = rmasks
+                local_sediment_mem%powtra(j,k,ipowaox) = rmasks
+                local_sediment_mem%powtra(j,k,ipowasi) = rmasks
+                local_sediment_mem%powtra(j,k,ipowafe) = rmasks
                 IF (l_N_cycle) THEN
-                   powtra(j,k,ipownh4) = rmasks
-                   powtra(j,k,ipowno2) = rmasks
+                   local_sediment_mem%powtra(j,k,ipownh4) = rmasks
+                   local_sediment_mem%powtra(j,k,ipowno2) = rmasks
                 ENDIF
-                sedlay(j,k,issso12) = rmasks   ! solid sediment
-                sedlay(j,k,isssc12) = rmasks
-                sedlay(j,k,issssil) = rmasks
-                sedlay(j,k,issster) = rmasks
-                sedhpl(j,k)         = rmasks
+                local_sediment_mem%sedlay(j,k,issso12) = rmasks   ! solid sediment
+                local_sediment_mem%sedlay(j,k,isssc12) = rmasks
+                local_sediment_mem%sedlay(j,k,issssil) = rmasks
+                local_sediment_mem%sedlay(j,k,issster) = rmasks
+                local_sediment_mem%sedhpl(j,k)         = rmasks
              ENDIF
 
        ENDDO
     ENDDO
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+ 
+ 
 
   END SUBROUTINE ini_pore_water_tracers
 
   ! ---------------------------------------------------------------------
-
   SUBROUTINE ini_continental_carbon_input(totarea)
 
     REAL(wp), INTENT(in):: totarea
@@ -546,13 +566,14 @@ CONTAINS
 
   END SUBROUTINE ini_continental_carbon_input
 
-  SUBROUTINE ini_atmospheric_concentrations
+  SUBROUTINE ini_atmospheric_concentrations(local_bgc_mem)
 
+    TYPE(t_bgc_memory), POINTER :: local_bgc_mem
     !  atmospheric concentrations (overwritten from restart file)
 
-    atm(:,iatmco2) = atm_co2
-    atm(:,iatmo2)  = atm_o2
-    atm(:,iatmn2)  = atm_n2
+    local_bgc_mem%atm(:,iatmco2) = atm_co2
+    local_bgc_mem%atm(:,iatmo2)  = atm_o2
+    local_bgc_mem%atm(:,iatmn2)  = atm_n2
 
   END SUBROUTINE ini_atmospheric_concentrations
 

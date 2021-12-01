@@ -25,6 +25,7 @@ case "$use_host" in
   uc2*|fh2*|hk*) use_site=kit.edu ;;
   melian*) use_site=local.net ;;
   *mpimet.mpg.de) use_site=mpg.de ;;
+  *euler*) use_site=ethz.ch ;;
 esac
 
 
@@ -62,7 +63,7 @@ start_header()
     fi
     cat >> $output_script << EOF
 #=============================================================================
-set -x
+set +x
 ulimit -s unlimited
 #=============================================================================
 #
@@ -172,16 +173,6 @@ job_name="$job_name"
 cdo="${cdo}"
 cdo_diff="${cdo} ${cdo_diff}"
 
-# constants for time calculations
-# -------------------------------
-second=1                                 # [s] 1 second
-minute=60                                # [s] 1 minute
-hour=3600                                # [s] 1 hour
-day=86400                                # [s] 1 day
-month=2592000                            # [s] 30 days
-year360=31104000                         # [s] 360 days
-year=31556900                            # [s] 1 earth year
-
 # define script functions used in the experiment run script
 # ---------------------------------------------------------
 . ./add_run_routines
@@ -271,7 +262,7 @@ set_run_target_bullx_cpu()
 
     [[ "x$use_queue" != 'x' ]] && queue=$use_queue
 
-    use_mpi_startrun="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((${smt_adjust} * OMP_NUM_THREADS)) --propagate=STACK,CORE"
+    use_mpi_startrun="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=quiet,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((${smt_adjust} * OMP_NUM_THREADS)) --propagate=STACK,CORE"
     # TODO: disabled because other core files are generated
     # case $use_flags_group in
     #   debug)
@@ -285,6 +276,7 @@ set_run_target_bullx_cpu()
             add_free_var KMP_LIBRARY "turnaround"
             add_free_var KMP_KMP_SETTINGS "1"
             add_free_var OMP_WAIT_POLICY "active"
+            add_free_var KMP_WARNINGS "0"
 	    ;;
     esac
     case $use_mpi_root in
@@ -341,68 +333,6 @@ set_run_target_bullx_cpu()
 	job_type=parallel
 	tasks_per_node=$use_mpi_procs_pernode
     fi
-
-  [[ "x$use_queue" != 'x' ]] && queue=$use_queue
-
-  use_mpi_startrun="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((${smt_adjust} * OMP_NUM_THREADS)) --propagate=STACK,CORE"
-# TODO: disabled because other core files are generated
-# case $use_flags_group in
-#   debug)
-#     use_mpi_startrun="${use_mpi_startrun},CORE"
-#     ;;
-# esac
-
-  case _$use_compiler in
-    "_intel" )
-        add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
-        add_free_var KMP_LIBRARY "turnaround"
-        add_free_var KMP_KMP_SETTINGS "1"
-        add_free_var OMP_WAIT_POLICY "active"
-      ;;
-  esac
-  case $use_mpi_root in
-    *bullxmpi*)
-      # this does currently not work on mistral but is most probably needed
-      # for other SLURM installations
-      #use_mpi_startrun+=" --mpi=openmpi"
-      add_free_var OMPI_MCA_pml cm
-      add_free_var OMPI_MCA_mtl mxm
-      add_free_var OMPI_MCA_coll '^ghc'
-      add_free_var MXM_RDMA_PORTS 'mlx5_0:1'
-      add_free_var OMPI_MCA_coll_fca_enable 1
-      add_free_var OMPI_MCA_coll_fca_priority 95
-      ;;
-    *openmpi*)
-      add_free_var OMPI_MCA_pml cm
-      add_free_var OMPI_MCA_mtl mxm
-      add_free_var OMPI_MCA_coll ^fca
-      add_free_var MXM_RDMA_PORTS 'mlx5_0:1'
-      add_free_var HCOLL_MAIN_IB 'mlx5_0:1'
-      add_free_var HCOLL_ML_DISABLE_BARRIER 1
-      add_free_var HCOLL_ML_DISABLE_IBARRIER 1
-      add_free_var HCOLL_ML_DISABLE_BCAST 0
-      add_free_var HCOLL_ENABLE_MCAST_ALL 1
-      add_free_var HCOLL_ENABLE_MCAST 1
-      add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallv 1
-      add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallw 1
-      add_free_var MXM_HANDLE_ERRORS bt
-      add_free_var UCX_HANDLE_ERRORS bt
-      ;;
-    *intel*mpi*)
-      add_free_var I_MPI_FABRICS shm:dapl
-      add_free_var I_MPI_DAPL_UD enable
-      add_free_var I_MPI_DAPL_UD_PROVIDER ofa-v2-mlx5_0-1u
-      add_free_var DAPL_UCM_REP_TIME 8000
-      add_free_var DAPL_UCM_RTU_TIME 4000
-      add_free_var DAPL_UCM_CQ_SIZE 1000
-      add_free_var DAPL_UCM_QP_SIZE 1000
-      add_free_var DAPL_UCM_RETRY 10
-      add_free_var DAPL_ACK_RETRY 10
-      add_free_var DAPL_ACK_TIMER 20
-      add_free_var DAPL_UCM_TX_BURST 100
-      add_free_var DAPL_WR_MAX 500
-      ;;
-  esac
 
     if [[ "x$BB_SYSTEM" != "x" ]]
     then
@@ -795,6 +725,7 @@ EOF
   cat >>$output_script <<EOF
 export UCX_MEMTYPE_CACHE=n
 export UCX_TLS=tcp,sm
+export ECCODES_DEFINITION_PATH=${icon_data_rootFolder}/mch/eccodes_definitions
 EOF
 }
 
@@ -905,6 +836,7 @@ export UCX_TLS=tcp,sm
 export OMPI_MCA_osc="^rdma"
 export OMPI_MCA_pml="ucx"
 export OMPI_MCA_btl="^uct"
+export ECCODES_DEFINITION_PATH=${icon_data_rootFolder}/mch/eccodes_definitions
 fi
 EOF
 }
@@ -1008,6 +940,10 @@ set_run_target_daint_cpu()
 EOF
 
   start_header
+
+  cat >> $output_script << EOF
+export ECCODES_DEFINITION_PATH=${icon_data_rootFolder}/mch/eccodes_definitions
+EOF
 }
 
 #=============================================================================
@@ -1017,7 +953,7 @@ set_run_target_daint_gpu()
     rootFolder_prefix=/users/icontest
     icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
-    set_default use_nproma 8000
+    set_default use_nproma -1
     set_default use_prefetch_procs 0
     set_default use_account_no "$(id -gn)"
     if [[ "x$BB_SYSTEM" != "x" ]]
@@ -1107,6 +1043,7 @@ EOF
 export CRAY_CUDA_MPS=1
 export MPICH_RDMA_ENABLED_CUDA=1
 #export PGI_ACC_SYNCHRONOUS=1
+export ECCODES_DEFINITION_PATH=${icon_data_rootFolder}/mch/eccodes_definitions
 EOF
 }
 
@@ -1278,6 +1215,52 @@ set_run_target_tave_knl()
 EOF
     start_header
 }
+
+#=============================================================================
+#=============================================================================
+set_run_target_euler()
+{
+  # euler.ethz.ch
+  typeset poolFolder_prefix=/cluster/work/climate/colombsi
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/icon_input}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/icon_input}
+
+  set_default use_nproma 64
+  set_default use_nodes 1
+
+  #JENKINS_NO_OF_CORES can is unbound when not used with jenkins icon
+  set +eu
+
+  if [[ -z $JENKINS_NO_OF_CORES ]]; then 
+      set_default use_mpi_procs_pernode 1
+  else
+      set_default use_mpi_procs_pernode $JENKINS_NO_OF_CORES
+  fi
+  set_default use_openmp_threads 1
+
+  set -eu
+
+  cdo="/cluster/apps/climate/2.0/bin/cdo"
+  cdo_diff="diff"
+
+  job_log_name="LOG.$job_name.%J"
+
+  cat >> $output_script << EOF
+# ===========================
+#### BATCH_SYSTEM=BSUB ####
+#-----------------------------------------------------------------------------
+#BSUB -J $job_name
+#BSUB -oo $output_folder/$job_log_name.o
+#BSUB -eo $output_folder/$job_log_name.o
+# ===========================
+EOF
+
+  # create header
+  start_header
+
+}
+
+#=============================================================================
 
 #=============================================================================
 set_run_target_pacluster()

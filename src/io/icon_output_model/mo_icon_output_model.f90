@@ -33,7 +33,9 @@ MODULE mo_icon_output_model
   USE mtime,                  ONLY: datetimeToString, datetime
   USE mo_name_list_output,    ONLY: close_name_list_output, write_name_list_output
   USE mo_zaxis_type,          ONLY: zaxisTypeList, t_zaxisTypeList
-  USE mo_run_config,          ONLY: output_mode
+
+  !  USE mo_advection_config,    ONLY: configure_advection
+  USE mo_run_config,          ONLY: output_mode !,ldynamics, ltransport
   USE mo_gribout_config,      ONLY: configure_gribout
   ! Control parameters: run control, dynamics, i/o
   USE mo_run_config,          ONLY: &
@@ -264,7 +266,7 @@ MODULE mo_icon_output_model
     CALL setup_phys_patches
 
     ! we need the nnow info
-!     CALL configure_dynamics ( n_dom )
+!     CALL configure_dynamics ( n_dom, ldynamics, ltransport )
 
     CALL construct_icon_output_variables()
     

@@ -231,12 +231,15 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: ralsdcp
   REAL(KIND=jprb) :: ralfdcp
   REAL(KIND=jprb) :: rtwat
+  !$acc declare copyin(rtwat)
   REAL(KIND=jprb) :: rtber
   REAL(KIND=jprb) :: rtbercu
   REAL(KIND=jprb) :: rtice
   REAL(KIND=jprb) :: rticecu
+  !$acc declare copyin(rticecu)
   REAL(KIND=jprb) :: rtwat_rtice_r
   REAL(KIND=jprb) :: rtwat_rticecu_r
+  !$acc declare copyin(rtwat_rticecu_r)
   
   ! LEPCLD : LOGICAL : TURN THE PROGNOSTIC CLOUD SCHEME ON
   LOGICAL lepcld
@@ -1463,6 +1466,7 @@ IF (lhook) CALL dr_hook('SUCUMF',1,zhook_handle)
     rticecu=rtt-38._jprb
     rtwat_rtice_r=1._jprb/(rtwat-rtice)
     rtwat_rticecu_r=1._jprb/(rtwat-rticecu)
+!$acc update device(rticecu, rtwat, rtwat_rticecu_r)
 
   END SUBROUTINE su_yoethf
 

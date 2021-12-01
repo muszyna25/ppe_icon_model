@@ -6,6 +6,7 @@ MODULE mo_sedmnt_diffusion
 
  USE mo_kind, ONLY           : wp
  USE mo_hamocc_nml, ONLY     : ks,porwat, l_N_cycle
+ USE mo_bgc_memory_types, ONLY  : t_bgc_memory, t_sediment_memory
  
  IMPLICIT NONE
 
@@ -16,7 +17,7 @@ MODULE mo_sedmnt_diffusion
 
 CONTAINS
 
-SUBROUTINE DIPOWA (start_idx,end_idx)
+SUBROUTINE DIPOWA (local_bgc_mem, local_sediment_mem, start_idx,end_idx)
 !! @brief diffusion of pore water
 !!
 !! vertical diffusion of sediment pore water tracers
@@ -29,13 +30,8 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
 !! diffusion coefficient : zcoefsu/zcoeflo for upper/lower
 !! sediment layer boundary.
 
-
-
-  USE mo_memory_bgc, ONLY         : bgctra, sedfluxo,  &
-  &                                 kbo, bolay
-
   USE mo_sedmnt, ONLY         : sedict, seddzi, seddw, &
-       &                        porwah, powtra
+       &                        porwah
 
   USE mo_control_bgc, ONLY    : dtbgc
 
@@ -50,15 +46,17 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
   IMPLICIT NONE
 
   !! Arguments
+  TYPE(t_bgc_memory), POINTER :: local_bgc_mem
+  TYPE(t_sediment_memory), POINTER :: local_sediment_mem
 
   INTEGER, INTENT(in)  :: start_idx    !< start index for j loop (ICON cells, MPIOM lat dir)          
   INTEGER, INTENT(in)  :: end_idx      !< end index  for j loop  (ICON cells, MPIOM lat dir) 
          
 
   !! Local variables
-
+  INTEGER,  POINTER  :: kbo(:)   !< k-index of bottom layer (2d)
   INTEGER :: j,k,l,iv
-  INTEGER :: iv_oc                         !< index of bgctra in powtra loop
+  INTEGER :: iv_oc                         !< index of local_bgc_mem%bgctra in local_sediment_mem%powtra loop
 
   REAL(wp) :: sedb1(0:ks,npowtra)          !< 
   REAL(wp) :: zcoefsu(0:ks),zcoeflo(0:ks)  !< diffusion coefficients (upper/lower)
@@ -70,6 +68,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
   !
   ! --------------------------------------------------------------------
   !
+  kbo => local_bgc_mem%kbo  
   zcoefsu(0) = 0.0_wp
 
   DO  k = 1, ks
@@ -85,13 +84,13 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
 
   DO j = start_idx, end_idx
         
-    if(bolay(j) > 0.5_wp)then
+    if(local_bgc_mem%bolay(j) > 0.5_wp)then
         k = 0
 
         tredsy(k,1) = zcoefsu(k)
         tredsy(k,3) = zcoeflo(k)
         ! dz(kbo) - diff upper - diff lower
-        tredsy(k,2) =  bolay(j) - tredsy(k,1) - tredsy(k,3)
+        tredsy(k,2) =  local_bgc_mem%bolay(j) - tredsy(k,1) - tredsy(k,3)
 
 
         DO iv = 1, npowtra      ! loop over pore water tracers
@@ -115,7 +114,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
 
           sedb1( k, iv) = 0._wp
            ! tracer_concentration(kbo) * dz(kbo)
-          sedb1(k,iv) = bgctra(j,kbo(j),iv_oc) * bolay(j) 
+          sedb1(k,iv) = local_bgc_mem%bgctra(j,kbo(j),iv_oc) * local_bgc_mem%bolay(j) 
    
            
         END DO
@@ -129,7 +128,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
        DO iv= 1, npowtra
         DO k = 1, ks
               ! tracer_concentration(k[1:ks]) * porewater fraction(k) * dz(k)
-              sedb1(k,iv) = powtra(j,k,iv) * porwat(k) * seddw(k)
+              sedb1(k,iv) = local_sediment_mem%powtra(j,k,iv) * porwat(k) * seddw(k)
         END DO
        END DO
 
@@ -153,7 +152,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
      ! sediment bottom layer
      k = ks
      DO iv = 1, npowtra
-        powtra(j,k,iv) = sedb1(k,iv) / tredsy(k,2)
+        local_sediment_mem%powtra(j,k,iv) = sedb1(k,iv) / tredsy(k,2)
      END DO
 
 
@@ -161,8 +160,8 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
      DO iv = 1, npowtra
         DO k = 1, ks-1
            l = ks-k
-           powtra(j,l,iv) = ( sedb1(l,iv)            &
-                      &             - tredsy(l,3) * powtra(j,l+1,iv) )    &
+           local_sediment_mem%powtra(j,l,iv) = ( sedb1(l,iv)            &
+                      &             - tredsy(l,3) * local_sediment_mem%powtra(j,l+1,iv) )    &
                       &             / tredsy(l,2)
         END DO
      END DO
@@ -189,14 +188,14 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
 
            l = 0
 
-         aprior = bgctra(j,kbo(j),iv_oc)
-         bgctra(j,kbo(j),iv_oc) =                                  &
-              &         ( sedb1(l,iv) - tredsy(l,3) * powtra(j,l+1,iv) ) &
+         aprior = local_bgc_mem%bgctra(j,kbo(j),iv_oc)
+         local_bgc_mem%bgctra(j,kbo(j),iv_oc) =                                  &
+              &         ( sedb1(l,iv) - tredsy(l,3) * local_sediment_mem%powtra(j,l+1,iv) ) &
               &         / tredsy(l,2)
 
-         sedfluxo(j,iv) = (bgctra(j,kbo(j),iv_oc)-aprior)*bolay(j)/dtbgc
+         local_bgc_mem%sedfluxo(j,iv) = (local_bgc_mem%bgctra(j,kbo(j),iv_oc)-aprior)*local_bgc_mem%bolay(j)/dtbgc
 
-         IF (lsediment_only) bgctra(j,kbo(j),iv_oc) = aprior
+         IF (lsediment_only) local_bgc_mem%bgctra(j,kbo(j),iv_oc) = aprior
 
       END DO
      endif
@@ -205,22 +204,19 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
 
 END SUBROUTINE DIPOWA
 
-SUBROUTINE powadi ( j,  solrat, sedb1, sediso, bolven)
+SUBROUTINE powadi (local_bgc_mem, j,  solrat, sedb1, sediso, bolven)
 !! @file powadi.f90
 !! @brief vertical diffusion with simultaneous dissolution,
 !! implicit discretisation.
 !!
 !!
 
-
   USE mo_sedmnt, ONLY     : sedict, seddzi, seddw, porwah
-
-  USE mo_memory_bgc, ONLY     : bolay
-
 
   IMPLICIT NONE
 
   !! Arguments
+  TYPE(t_bgc_memory), POINTER :: local_bgc_mem
 
   INTEGER, INTENT(in)     :: j             !< zonal grid index
 
@@ -256,10 +252,10 @@ SUBROUTINE powadi ( j,  solrat, sedb1, sediso, bolven)
   asu = 0._wp
   alo = sedict*seddzi(1)*porwah(1)
 
-     IF(bolay(j) > 0._wp) THEN
+     IF(local_bgc_mem%bolay(j) > 0._wp) THEN
         tredsy(k,1) = -asu
         tredsy(k,3) = -alo
-        tredsy(k,2) = bolven*bolay(j) - tredsy(k,1) - tredsy(k,3)
+        tredsy(k,2) = bolven*local_bgc_mem%bolay(j) - tredsy(k,1) - tredsy(k,3)
      ELSE
         tredsy(k,1) = 0._wp
         tredsy(k,3) = 0._wp
@@ -268,7 +264,7 @@ SUBROUTINE powadi ( j,  solrat, sedb1, sediso, bolven)
 
 
   DO k = 1, ks
-        IF (bolay(j) > 0._wp) THEN
+        IF (local_bgc_mem%bolay(j) > 0._wp) THEN
            tredsy(k-1,1) = tredsy(k,1) / tredsy(k-1,2)
            tredsy(k,2)   = tredsy(k,2)                       &
                 &          - tredsy(k-1,3) * tredsy(k,1) / tredsy(k-1,2)
@@ -281,11 +277,11 @@ SUBROUTINE powadi ( j,  solrat, sedb1, sediso, bolven)
 
   k = ks
 
-     IF (bolay(j) > 0._wp)sediso(k) = sedb1(k) / tredsy(k,2)
+     IF (local_bgc_mem%bolay(j) > 0._wp)sediso(k) = sedb1(k) / tredsy(k,2)
 
   DO k = 1, ks
      l = ks-k
-        IF (bolay(j) > 0._wp) sediso(l) =                           &
+        IF (local_bgc_mem%bolay(j) > 0._wp) sediso(l) =                           &
              &           ( sedb1(l) - tredsy(l,3) * sediso(l+1) )       &
              &           / tredsy(l,2)
   END DO

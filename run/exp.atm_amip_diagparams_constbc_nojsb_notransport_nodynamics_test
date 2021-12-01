@@ -1,9 +1,10 @@
 #--------------------------------------------------------------------------------------------------
 #
-# AMIP experiment without transport and dynamics
-# Parameterizations are used in diagnostic mode
+# AMIP experiment
 #
 author_list="Marco Giorgetta, MPIM"
+# adapted to the structure of the coupled model scripts, given by R. Redler, and set to new
+# grid and input data. M. Esch, MPIM, Oct 2021
 #
 #--------------------------------------------------------------------------------------------------
 #
@@ -24,69 +25,119 @@ author_list="Marco Giorgetta, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 
-# (1) Variables provided by the scripting mechanism
+# (0) Basic model configuration
+# -----------------------------
+
+atmos_gridID="0043"
+atmos_refinement="R02B04"
+
+nproma_atm=${nproma}
+
+#
+#--------------------------------------------------------------------------------------------------
+#
+# (1) Define the model time stepping
+# ----------------------------------
+
+radTimeStep="PT8M"              # radiation time step:    16 time steps per day
+atmTimeStep="PT4M"              # atmosphere time step:   96 time steps per day
+                                 #                          6 time steps per radTimeStep
+#--------------------------------------------------------------------------------------------------
+
+#  (2) Variables provided by the scripting mechanism
 
 # EXPNAME                       = name of exp. in 'exp.<name>'
 # basedir                       = base directory, where src/, run/ etc exist
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
+#                                 -> deprecated. nproma_atm is used here.
 
-icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/public/mpim"
 
 #--------------------------------------------------------------------------------------------------
 
-# (2) Set variables needed by the scripting mechanism
+# (3) Set variables needed by the scripting mechanism
+# ---------------------------------------------------
 
 # horizontal grid(s)
-#
-grids_folder=${icon_data_poolFolder}/grids
-#
-# domain globe
-grid_id=0005
-grid_refinement=R02B04
-grid_label=G
-grid_name=icon_grid_${grid_id}_${grid_refinement}_${grid_label}
-#
-atmo_dyn_grids="'${grid_name}.nc',"
+# ------------------
+atm_grid_name=icon_grid_${atmos_gridID}_${atmos_refinement}_G
+
+atmo_grid_folder=${icon_data_poolFolder}/${atmos_gridID}
+atmo_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}
+atmo_dyn_grid=${atm_grid_name}.nc
 
 # start and end date+time
+# -----------------------
 start_date=${start_date:="1979-01-01T00:00:00Z"}
     end_date=${end_date:="1979-01-01T00:16:00Z"}
 
 # restart intervals
+# -----------------
 checkpoint_interval="PT8M"
 restart_interval="PT16M"
 
 # output intervals
-output_interval="PT4M"
-file_interval="PT4M"
+# ----------------
+atm_output_interval="PT4M"
+atm_file_interval="PT4M"
 
 # namelist files
-atmo_namelist=NAMELIST_${EXPNAME}_atm
+# --------------
+atm_namelist=NAMELIST_${EXPNAME}_atm
+
+atmo_namelist=${atm_namelist}
+#--------------------------------------------------------------------------------------------------
+
 
 #--------------------------------------------------------------------------------------------------
 
-# (3) Define the model configuration
+# (6) Output control
+# ------------------
 
-# atmospheric dynamics and physics
-# --------------------------------
-cat > ${atmo_namelist} << EOF
+# asynchronous diagnostic output processes
+# ----------------------------------------
+
+# output file selection
+# ---------------------
+
+# Note that "mpi_atm_io_procs" must match the number of output files
+#
+# output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
+
+output_atm_vgrid=yes               # produces 1 atm file 
+output_atm_3d=yes                  # produces 1 atm file 
+output_atm_2d=yes                  # produces 1 atm file 
+output_phy_3d=yes                  # produces 1 atm file
+                                   # Note: "yes" increases the output volume significantly!
+output_trc_3d=yes
+
+#-----------------------------------------------------------------------------
+#
+# (4) Define the model configuration
+#-----------------------------------
+
+#
+# atmosphere namelist
+# -------------------
+
+cat > ${atm_namelist} << EOF
 !
 &parallel_nml
- nproma           = ${nproma}
+ nproma            = ${nproma_atm}
 /
 &grid_nml
- dynamics_grid_filename = ${atmo_dyn_grids}
+ dynamics_grid_filename = "${atmo_dyn_grid}"
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- modelTimeStep    = "PT4M"
+ modelTimeStep    = "${atmTimeStep}"
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .FALSE.     ! dynamics
  ltransport       = .FALSE.     ! transport
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
- msg_level        = 12          ! level of details report during integration 
+ msg_level        = 15          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
  activate_sync_timers = .TRUE.
 /
@@ -118,15 +169,15 @@ cat > ${atmo_namelist} << EOF
 ! --------
 !
 ! atmospheric phyiscs (""=never)
- echam_phy_config(1)%dt_rad = "PT8M", echam_phy_config(1)%fc_rht = 0
- echam_phy_config(1)%dt_vdf = "PT4M", echam_phy_config(1)%fc_vdf = 0
- echam_phy_config(1)%dt_cnv = "PT4M", echam_phy_config(1)%fc_cnv = 0
- echam_phy_config(1)%dt_cld = "PT4M", echam_phy_config(1)%fc_cld = 0
- echam_phy_config(1)%dt_gwd = "PT4M", echam_phy_config(1)%fc_gwd = 0
- echam_phy_config(1)%dt_sso = "PT4M", echam_phy_config(1)%fc_sso = 0
+ echam_phy_config(1)%dt_rad = "${radTimeStep}", echam_phy_config(1)%fc_rht = 0
+ echam_phy_config(1)%dt_vdf = "${atmTimeStep}", echam_phy_config(1)%fc_vdf = 0
+ echam_phy_config(1)%dt_cnv = "${atmTimeStep}", echam_phy_config(1)%fc_cnv = 0
+ echam_phy_config(1)%dt_cld = "${atmTimeStep}", echam_phy_config(1)%fc_cld = 0
+ echam_phy_config(1)%dt_gwd = "${atmTimeStep}", echam_phy_config(1)%fc_gwd = 0
+ echam_phy_config(1)%dt_sso = "${atmTimeStep}", echam_phy_config(1)%fc_sso = 0
 !
 ! atmospheric chemistry (""=never)
- echam_phy_config(1)%dt_mox = "PT4M", echam_phy_config(1)%fc_mox = 0
+ echam_phy_config(1)%dt_mox = "${atmTimeStep}", echam_phy_config(1)%fc_mox = 0
  echam_phy_config(1)%dt_car = ""
  echam_phy_config(1)%dt_art = ""
 !
@@ -136,6 +187,7 @@ cat > ${atmo_namelist} << EOF
  echam_phy_config(1)%lice   = .TRUE.
  echam_phy_config(1)%lmlo   = .FALSE.
  echam_phy_config(1)%llake  = .FALSE.
+!
 /
 &echam_rad_nml
 !
@@ -178,7 +230,8 @@ EOF
 
 #--------------------------------------------------------------------------------------------------
 
-# (4) Define the input
+# Define the atmosphere input
+# ---------------------------
 
 # model files
 #
@@ -186,8 +239,8 @@ add_link_file ${basedir}/data/lsdata.nc                                 ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files
-#
-add_required_file ${basedir}/run/${atmo_namelist}                       ./
+# --------------
+add_required_file ${basedir}/run/${atm_namelist}                        ./
 
 # dictionary file for output variable names
 #
@@ -198,96 +251,87 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 # initial conditions
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-datadir=${icon_data_poolFolder}/initial_condition
-add_link_file $datadir/ifs2icon_1979010100_${grid_refinement}_${grid_label}.nc ./ifs2icon.nc
+datadir=${atmo_data_InputFolder}/initial_condition/r0001
+add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2icon.nc
 #
 # - land: source?, date+time?
-datadir=${icon_data_poolFolder}/preliminary_land/r0002/${grid_refinement}_${grid_label}/land
-add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
-# added in namelist, but not active and not yet available (2017-Dec-07)
-#add_link_file ${datadir}/ic_land_carbon_1976.nc                         ./ic_land_carbon.nc
+datadir=${atmo_data_InputFolder}/land/r0003
+add_link_file ${datadir}/ic_land_soil_1979.nc                           ./ic_land_soil.nc
 
 # boundary conditions
 #
+# - well mixed greenhouse gases (ssp245: years 0-2500)
+#
+datadir=${icon_data_poolFolder}/independent/greenhouse_gases
+add_link_file $datadir/greenhouse_historical_plus.nc                    ./bc_greenhouse_gases.nc
+#
 # range of years for yearly files
 # assume start_date and end_date have the format yyyy-...
+#
 start_year=$(( ${start_date%%-*} - 1 ))
 end_year=$(( ${end_date%%-*} + 1 ))
 #
-# - well mixed greenhouse gases
-datadir=${icon_data_poolFolder}/greenhouse_gases
-add_link_file $datadir/greenhouse_historical_plus.nc                    ./bc_greenhouse_gases.nc
-#
 # - ozone
 # -- for irad_o3=4
-datadir=${icon_data_poolFolder}/ozone/cmip6/${grid_refinement}_${grid_label}
-add_link_file $datadir/bc_ozone_picontrol.nc                            ./bc_ozone.nc
+#
+datadir=${atmo_data_InputFolder}/ozone/r0001
+add_link_file ${datadir}/bc_ozone_picontrol.nc                          ./bc_ozone.nc
 #
 # - tropospheric anthropogenic aerosols, simple plumes
+#
+datadir=${icon_data_poolFolder}/independent/MACv2_simple_plumes_merged
 add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                          ./MACv2.0-SP_v1.nc
 #
-# - Kinne background aerosols are needed for the year 1850 (irad_aero=18)
+#   Kinne background aerosols are needed for the year 1850 (irad_aero=18)
 #
-datadir=${icon_data_poolFolder}/aerosol_29-06-2018/kinne/${grid_refinement}_${grid_label}
+#   Here we use revised data based on work by Sebastian Rast
 #
-add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                    ./
-add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                    ./
-add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc               ./bc_aeropt_kinne_sw_b14_fin.nc
+datadir=${atmo_data_InputFolder}/aerosol_kinne/r0001
 #
-## unused
-## - stratospheric aerosol (CMIP6)
-#datadir=/pool/data/ICON/grids/public/mpim/independent/CMIP6Forcing
-##                                                                                        #                
-#if [ ! -d $datadir ]; then
-#  echo 'directory '$datadir' for stratospheric aerosol data does not exist'
-#  exit -1
-#fi
-#year=$start_year
-#while [[ $year -le $end_year ]]
-#do
-#  if [[ $year -le 2014 ]]
-#  then
-#    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
-#  else
-#    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_2014.nc     ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
-#  fi
-#  (( year = year+1 ))
-#done
-#
-## unused
+add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                  ./
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                  ./
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
 #
 # - sst and sic
-datadir=${icon_data_poolFolder}/sst_and_seaice/1.1.2
-add_link_file $datadir/sic_${grid_refinement}_${grid_label}.nc          ./bc_sic.nc
-add_link_file $datadir/sst_${grid_refinement}_${grid_label}.nc          ./bc_sst.nc
+#
+datadir=${atmo_data_InputFolder}/sst_and_seaice/r0001
+#
+add_link_file ${datadir}/bc_sic_1979_2016.nc                               ./bc_sic.nc
+add_link_file ${datadir}/bc_sst_1979_2016.nc                               ./bc_sst.nc
 #
 # - ssi and tsi
-datadir=${icon_data_poolFolder}/solar_radiation/3.2
-add_link_file $datadir/swflux_14band_cmip6_1850-2299-v3.2.nc            ./bc_solar_irradiance_sw_b14.nc
 #
-# - topography and sso parameters
-datadir=${icon_data_poolFolder}/preliminary_land_22-02-2018/${grid_refinement}_${grid_label}/land
-add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
+datadir=${icon_data_poolFolder}/independent/solar_radiation/3.2
+#
+add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc             ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
-datadir=${icon_data_poolFolder}/preliminary_land/r0002/${grid_refinement}_${grid_label}/land
-add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_land_frac.nc
-add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
-
+#
+datadir=${atmo_data_InputFolder}/land/r0003
+#
+add_link_file ${datadir}/bc_land_frac_1979.nc                              ./bc_land_frac.nc
+add_link_file ${datadir}/bc_land_phys_1979.nc                              ./bc_land_phys.nc
+add_link_file ${datadir}/bc_land_sso_1979.nc                               ./bc_land_sso.nc
+#
+# - the atmosphere grid itself (the grid copy section below from $HGRIDDIR is ignored)
+#
+add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                     ./
+#
 #--------------------------------------------------------------------------------------------------
 
 # (5) Define the output
+# ---------------------
 
 # Parameters for all output files
 # -------------------------------
-cat >> ${atmo_namelist} << EOF
+cat >> ${atm_namelist} << EOF
 &io_nml
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  lnetcdf_flt64_output = .TRUE.
  itype_pres_msl   = 4
  restart_file_type= 5
- !restart_write_mode = "joint procs multifile"    !not necessary/useful in default r2b4 setup
+! restart_write_mode = "joint procs multifile" !not necessary/useful in default r2b4 setup
 /
 EOF
 
@@ -298,71 +342,69 @@ EOF
 #
 # 3-dimensional files include 'ps' and 'pfull' to allow the vertical
 # interpolation to pressure levels by cdo ap2pl.
-
-output_atm_vgrid=yes
 #
 if [[ "$output_atm_vgrid" == "yes" ]]; then
   #
-  cat >> ${atmo_namelist} << EOF
+  cat >> ${atm_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_vgrid"
  filename_format  = "<output_filename>_<levtype_l>"
  filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
- output_start     = "${start_date}"       ! output_start = output_end
- output_end       = "${start_date}"       ! --> write once only irrespective of
- output_interval  = "${output_interval}"  !     the output interval and
- file_interval    = "${file_interval}"    !     the file interval
+ output_start     = "${start_date}"           ! output_start = output_end
+ output_end       = "${start_date}"           ! --> write once only irrespective of
+ output_interval  = "${atm_output_interval}"  !     the output interval and
+ file_interval    = "${atm_file_interval}"    !     the file interval
  ml_varlist       = 'zghalf'  , 'zg'      , 'dzghalf'
 /
 EOF
 fi
-
-
-output_atm_3d=yes
+#
+# Standard AMIP output...
+#
 #
 if [[ "$output_atm_3d" == "yes" ]]; then
   #
-  cat >> ${atmo_namelist} << EOF
+  cat >> ${atm_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ps'      , 'pfull'   , 'zg'      ,
+ ml_varlist       = 'zg'      ,
+                    'ps'      , 'pfull'   ,
                     'rho'     , 'ta'      ,
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
-                    'hur'     , 'cl'      ,
+                    'cl'      ,
 /
 EOF
 fi
 
 
-output_atm_2d=yes
-#
 if [[ "$output_atm_2d" == "yes" ]]; then
   #
-  cat >> ${atmo_namelist} << EOF
+  cat >> ${atm_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_2d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ps'      , 'psl'     ,
+ ml_varlist       = 'orog'    ,
+                    'ps'      , 'psl'     ,
                     'cosmu0'  ,
                     'rsdt'    ,
                     'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'  ,
@@ -379,27 +421,25 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'tauu_sso', 'tauv_sso', 'diss_sso',
                     'sfcwind' , 'uas'     , 'vas'     ,
                     'tas'     , 'dew2'    ,
-                    'ptp'     ,
+                    'ptp'
 /
 EOF
 fi
 
 
-output_phy_3d=yes
-#
 if [[ "$output_phy_3d" == "yes" ]]; then
   #
-  cat >> ${atmo_namelist} << EOF
+  cat >> ${atm_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_phy_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ps'           , 'pfull'        , 'zg'           ,
                     'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
@@ -413,15 +453,12 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va_vdf'  , 'tend_va_gwd'  , 'tend_va_sso'  ,
                     'tend_va_cnv'  ,
                     'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
-                    'tend_qhus_vdf',
-                    'tend_qhus_cnv', 'tend_qhus_cld',
+                    'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
                     !'tend_qhus_mox'
 /
 EOF
 fi
 
-
-output_trc_3d=yes
 #
 if [[ "$output_trc_3d" == "yes" ]]; then
   #
@@ -434,8 +471,8 @@ if [[ "$output_trc_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ps'        , 'pfull'     , 'zg'        ,
                     'mairvi_phy',

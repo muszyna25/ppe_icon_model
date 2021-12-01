@@ -1,0 +1,23 @@
+#!/bin/bash
+
+addexp="./addexp"
+#############################################################################
+##
+## create icon-dev list
+##
+#############################################################################
+listname=test_hamocc
+./rmlist $listname
+# ./mklist $listname
+./create_all_builders $listname
+
+#-----------------------------------------------------------
+# add omip technical tests only with mpi parallelization
+$addexp  checksuite.ocean_internal/hamocc/exp.test_hamocc_omip_technical \
+ --machines mistral --without-configureflags without-mpi enable-mixed --runflags "cpu_time=00:30:00 mpi_procs_pernode=5"  --list $listname
+
+#----------------------------------------------------------- 
+#lets see the list
+./lslist $listname
+#-----------------------------------------------------------
+

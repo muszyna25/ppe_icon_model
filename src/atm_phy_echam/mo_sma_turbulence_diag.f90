@@ -370,7 +370,7 @@ CONTAINS
         ztvmid(jl,jk,jb)=zsdep1*ptvm1(jl,jk,jb)+zsdep2*ptvm1(jl,jk+1,jb)
 
         ! Virtual dry static energy
-        pcptgz(jl,jk,jb) = pghf(jl,jk,jb)*grav+ptm1(jl,jk,jb)*(cpd+(cpv-cpd)*pqm1(jl,jk,jb))
+        pcptgz(jl,jk,jb) = pghf(jl,jk,jb)*grav+ptm1(jl,jk,jb)*cpd!+(cpv-cpd)*pqm1(jl,jk,jb))
 
         ! Potential temperature
         ztheta(jl,jk,jb) = ptm1(jl,jk,jb)*(p0ref/papm1(jl,jk,jb))**rd_o_cpd
@@ -384,7 +384,7 @@ CONTAINS
 
       ! dry static energy pcpt_tile
       !
-      pcptgz(jl,klev,jb) = pghf(jl,klev,jb)*grav+ptm1(jl,klev,jb)*(cpd+(cpv-cpd)*pqm1(jl,klev,jb))
+      pcptgz(jl,klev,jb) = pghf(jl,klev,jb)*grav+ptm1(jl,klev,jb)*cpd!+(cpv-cpd)*pqm1(jl,klev,jb))
 
       ! Potential temperature
       ztheta(jl,klev,jb) = ptm1(jl,klev,jb)*(p0ref/papm1(jl,klev,jb))**rd_o_cpd
@@ -429,7 +429,7 @@ CONTAINS
           zqts = pqsat_tile(js,jb,jsfc)                                              ! q_total at non-land surface
         END IF
 
-        pcpt_tile(js,jb,jsfc) = ptsfc(js,jb,jsfc) * (cpd + (cpv - cpd) * zqts)
+        pcpt_tile(js,jb,jsfc) = ptsfc(js,jb,jsfc) * cpd ! (cpd + (cpv - cpd) * zqts)
 
         !Surface roughness length
         IF ( pz0m(js,jb,jsfc) .GT. 0.0_wp ) THEN
