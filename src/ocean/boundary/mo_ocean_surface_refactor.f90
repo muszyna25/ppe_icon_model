@@ -990,6 +990,8 @@ CONTAINS
     IF (surface_flux_type .EQ. 10) CALL apply_surface_fluxes_zstar_v10(p_patch_3D, p_os, p_ice, p_oce_sfc, eta_c, stretch_c)
     IF (surface_flux_type .EQ. 11) CALL apply_surface_fluxes_zstar_v11(p_patch_3D, p_os, p_ice, p_oce_sfc, eta_c, stretch_c)
     IF (surface_flux_type .EQ. 12) CALL apply_surface_fluxes_zstar_v12(p_patch_3D, p_os, p_ice, p_oce_sfc, eta_c, stretch_c)
+    IF (surface_flux_type .EQ. 14) CALL apply_surface_fluxes_zstar_v14(p_patch_3D, p_os, p_ice, p_oce_sfc, eta_c, stretch_c)
+    IF (surface_flux_type .EQ. 15) CALL apply_surface_fluxes_zstar_v15(p_patch_3D, p_os, p_ice, p_oce_sfc, eta_c, stretch_c)
 
 !   apply subsurface heating
     IF ( lswr_jerlov ) THEN
@@ -1994,6 +1996,267 @@ CONTAINS
 
   END SUBROUTINE apply_surface_fluxes_zstar_v12
 
+
+  
+  !>
+  !! Apply Thermodynamic Equations for Thermal and Haline Boundary Conditions
+  !!
+  !! Scale salinity and temperature.  
+  !
+  SUBROUTINE apply_surface_fluxes_zstar_v14(p_patch_3D, p_os, p_ice, p_oce_sfc, eta_c, stretch_c)
+
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
+    TYPE(t_hydro_ocean_state)                   :: p_os
+    TYPE(t_sea_ice)                             :: p_ice
+    TYPE(t_ocean_surface)                       :: p_oce_sfc
+    !
+    REAL(wp), INTENT(INOUT) :: eta_c(nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! sfc ht 
+    REAL(wp), INTENT(IN   ) :: stretch_c(nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+ 
+    ! local variables
+    INTEGER               :: jc, jb
+    INTEGER               :: i_startidx_c, i_endidx_c
+    REAL(wp)              :: sss_inter(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp)              :: sst_inter(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp)              :: zunderice_old
+    REAL(wp)              :: zUnderIceIni(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+
+    REAL(wp) :: h_old_test, h_new_test
+    
+    REAL(wp) :: temp_eta, min_h
+    REAL(wp) :: temp_stretch(nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    
+    INTEGER  :: bt_lev, jk, adj_lev
+    REAL(wp) :: d_c, dz_old, dz_new, extra_salt_in_col
+    REAL(wp) :: dz_ratio, adj_lev_ht
+    
+    REAL(wp) :: old_sss, new_s1, new_s2, new_sss, thresh_sss
+    INTEGER  :: flag 
+
+    REAL(wp)  :: heatflux_surface_layer ! heatflux into the surface layer
+    
+    TYPE(t_patch), POINTER:: p_patch
+    TYPE(t_subset_range), POINTER :: all_cells
+    
+    CHARACTER(LEN=max_char_length), PARAMETER :: str_module = 'ocean_sfc_refactor_zstar'
+    
+    !-----------------------------------------------------------------------
+    p_patch         => p_patch_3D%p_patch_2D(1)
+    all_cells       => p_patch%cells%all
+    !-----------------------------------------------------------------------
+    sst_inter(:,:)    = p_oce_sfc%sst(:,:)
+    sss_inter(:,:)    = p_oce_sfc%sss(:,:)
+    zUnderIceIni(:,:) = p_oce_sfc%cellThicknessUnderIce (:,:)
+
+    CALL dbg_print('UpdSfcSTART: oce_sfc%SST ',p_oce_sfc%SST, str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcSTART: oce_sfc%SSS ',p_oce_sfc%SSS, str_module, 2, in_subset=p_patch%cells%owned)
+
+    !!  Provide total ocean forcing:
+    !    - total heat fluxes are aggregated for ice/ocean in ice thermodynamics
+    !    - total internal salt flux p_oce_sfc%FrshFlux_TotalIce is calculated in sea ice model
+    !    - total freshwater volume forcing
+    p_oce_sfc%FrshFlux_VolumeTotal(:,:) = p_oce_sfc%FrshFlux_Runoff    (:,:) &
+      &                                 + p_oce_sfc%FrshFlux_VolumeIce (:,:) &
+      &                                 + p_oce_sfc%FrshFlux_TotalOcean(:,:) &
+      &                                 + p_oce_sfc%FrshFlux_Relax     (:,:)
+    ! provide total salinity forcing flux for diagnostics only
+    p_oce_sfc%FrshFlux_TotalSalt(:,:)   = p_oce_sfc%FrshFlux_Runoff    (:,:) &
+      &                                 + p_oce_sfc%FrshFlux_TotalIce  (:,:) &
+      &                                 + p_oce_sfc%FrshFlux_TotalOcean(:,:)
+
+    
+    CALL dbg_print('UpdSfc: eta-old', eta_c,    str_module, 1, in_subset=p_patch%cells%owned)
+    ! apply volume flux to surface elevation
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+
+      DO jc = i_startidx_c, i_endidx_c
+        IF (p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) > 0) THEN
+
+          bt_lev = p_patch_3d%p_patch_1d(1)%dolic_c(jc, jb)      
+          d_c    = p_patch_3d%p_patch_1d(1)%depth_CellInterface(jc, bt_lev + 1, jb)
+
+          !! We are using variable name zUnderIce but here it only refers
+          !! to top level thickness
+
+          temp_eta     = eta_c(jc,jb)              
+
+          eta_c(jc,jb) = eta_c(jc,jb)               &
+            &           + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb)*dtime &
+            &           + p_oce_sfc%FrshFlux_TotalIce(jc, jb)*dtime  
+
+          !! Only change the stretching parameter if it is above a certain threshold
+          !! This avoids divide by 0 
+          temp_stretch(jc, jb) = stretch_c(jc, jb)
+          min_h                = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)
+          
+          !! Update only if height is atleast dz
+          if ( d_c  .GT.  min_h ) &
+            & temp_stretch(jc, jb) = ( eta_c(jc, jb) + d_c)/( d_c )
+ 
+          !! update zunderice
+          p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * temp_stretch(jc, jb) 
+    
+          DO jk = 1, bt_lev 
+            dz_old = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
+              & * stretch_c(jc, jb) 
+            dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
+              & * temp_stretch(jc, jb) 
+ 
+            !! Scale temperature 
+            p_os%p_prog(nold(1))%tracer(jc, jk, jb, 1) = & 
+              & p_os%p_prog(nold(1))%tracer(jc, jk, jb, 1) * (dz_old / dz_new)
+           
+            !! Scale salinity
+            p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) = & 
+              & p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) * (dz_old / dz_new)
+  
+            !! Add salt flux from ice
+            if (jk .EQ. 1) THEN
+              p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) = p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) &
+                &  +  p_oce_sfc%FrshFlux_IceSalt(jc,jb) * dtime/dz_new  
+            END IF
+  
+          END DO
+ 
+        ENDIF  !  dolic>0
+      END DO
+    END DO
+          
+    IF (no_tracer > 0) THEN
+
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
+
+            ! substract the fraction of heatflux used for subsurface heating
+            heatflux_surface_layer=p_oce_sfc%HeatFlux_Total(jc,jb)-p_os%p_diag%heatabs(jc,jb)
+            p_oce_sfc%sst(jc,jb) = p_oce_sfc%sst(jc,jb) + &
+              &                    heatflux_surface_layer*dtime/(clw*rho_ref*p_ice%zUnderIce(jc,jb))
+
+          ENDIF
+        ENDDO
+      ENDDO
+
+    END IF
+
+    !! set correct cell thickness under ice
+    p_oce_sfc%cellThicknessUnderIce   (:,:) = p_ice%zUnderIce(:,:)
+
+    CALL dbg_print('UpdSfcEND: oce_sfc%SST ',p_oce_sfc%SST, str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEND: oce_sfc%SSS ',p_oce_sfc%SSS, str_module, 2, in_subset=p_patch%cells%owned)
+
+  END SUBROUTINE apply_surface_fluxes_zstar_v14
+
+
+  !>
+  !! Apply Thermodynamic Equations for Thermal and Haline Boundary Conditions
+  !!
+  !! Update fluxes to apply as boundary condition  
+  !
+  SUBROUTINE apply_surface_fluxes_zstar_v15(p_patch_3D, p_os, p_ice, p_oce_sfc, eta_c, stretch_c)
+
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
+    TYPE(t_hydro_ocean_state)                   :: p_os
+    TYPE(t_sea_ice)                             :: p_ice
+    TYPE(t_ocean_surface)                       :: p_oce_sfc
+    !
+    REAL(wp), INTENT(INOUT) :: eta_c(nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! sfc ht 
+    REAL(wp), INTENT(IN   ) :: stretch_c(nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+ 
+    ! local variables
+    INTEGER               :: jc, jb
+    INTEGER               :: i_startidx_c, i_endidx_c
+    REAL(wp)              :: sss_inter(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp)              :: sst_inter(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp)              :: zunderice_old
+    REAL(wp)              :: zUnderIceIni(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+
+    REAL(wp) :: h_old_test, h_new_test
+    
+    REAL(wp) :: temp_eta, min_h
+    REAL(wp) :: temp_stretch(nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    
+    INTEGER  :: bt_lev, jk, adj_lev
+    REAL(wp) :: d_c, dz_old, dz_new, extra_salt_in_col
+    REAL(wp) :: dz_ratio, adj_lev_ht
+    
+    REAL(wp) :: old_sss, new_s1, new_s2, new_sss, thresh_sss
+    INTEGER  :: flag 
+
+    REAL(wp)  :: heatflux_surface_layer ! heatflux into the surface layer
+    
+    TYPE(t_patch), POINTER:: p_patch
+    TYPE(t_subset_range), POINTER :: all_cells
+    
+    CHARACTER(LEN=max_char_length), PARAMETER :: str_module = 'ocean_sfc_refactor_zstar'
+    
+    !-----------------------------------------------------------------------
+    p_patch         => p_patch_3D%p_patch_2D(1)
+    all_cells       => p_patch%cells%all
+    !-----------------------------------------------------------------------
+    sst_inter(:,:)    = p_oce_sfc%sst(:,:)
+    sss_inter(:,:)    = p_oce_sfc%sss(:,:)
+    zUnderIceIni(:,:) = p_oce_sfc%cellThicknessUnderIce (:,:)
+
+    CALL dbg_print('UpdSfcSTART: oce_sfc%SST ',p_oce_sfc%SST, str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcSTART: oce_sfc%SSS ',p_oce_sfc%SSS, str_module, 2, in_subset=p_patch%cells%owned)
+
+    !!  Provide total ocean forcing:
+    !    - total heat fluxes are aggregated for ice/ocean in ice thermodynamics
+    !    - total internal salt flux p_oce_sfc%FrshFlux_TotalIce is calculated in sea ice model
+    !    - total freshwater volume forcing
+    p_oce_sfc%FrshFlux_VolumeTotal(:,:) = p_oce_sfc%FrshFlux_Runoff    (:,:) &
+      &                                 + p_oce_sfc%FrshFlux_VolumeIce (:,:) &
+      &                                 + p_oce_sfc%FrshFlux_TotalOcean(:,:) &
+      &                                 + p_oce_sfc%FrshFlux_Relax     (:,:)
+    ! provide total salinity forcing flux for diagnostics only
+    p_oce_sfc%FrshFlux_TotalSalt(:,:)   = p_oce_sfc%FrshFlux_Runoff    (:,:) &
+      &                                 + p_oce_sfc%FrshFlux_TotalIce  (:,:) &
+      &                                 + p_oce_sfc%FrshFlux_TotalOcean(:,:)
+
+    
+    CALL dbg_print('UpdSfc: eta-old', eta_c,    str_module, 1, in_subset=p_patch%cells%owned)
+    ! apply volume flux to surface elevation
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+
+      DO jc = i_startidx_c, i_endidx_c
+        IF (p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) > 0) THEN
+
+          !! update zunderice
+          p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * stretch_c(jc, jb) 
+    
+        ENDIF  !  dolic>0
+      END DO
+    END DO
+          
+    IF (no_tracer > 0) THEN
+
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
+
+            ! substract the fraction of heatflux used for subsurface heating
+            heatflux_surface_layer=p_oce_sfc%HeatFlux_Total(jc,jb)-p_os%p_diag%heatabs(jc,jb)
+            p_oce_sfc%sst(jc,jb) = p_oce_sfc%sst(jc,jb) + &
+              &                    heatflux_surface_layer*dtime/(clw*rho_ref*p_ice%zUnderIce(jc,jb))
+
+          ENDIF
+        ENDDO
+      ENDDO
+
+    END IF
+
+    !! set correct cell thickness under ice
+    p_oce_sfc%cellThicknessUnderIce   (:,:) = p_ice%zUnderIce(:,:)
+
+    CALL dbg_print('UpdSfcEND: oce_sfc%SST ',p_oce_sfc%SST, str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEND: oce_sfc%SSS ',p_oce_sfc%SSS, str_module, 2, in_subset=p_patch%cells%owned)
+
+  END SUBROUTINE apply_surface_fluxes_zstar_v15
 
 
 

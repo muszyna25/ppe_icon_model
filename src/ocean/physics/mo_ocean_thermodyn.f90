@@ -54,7 +54,8 @@ MODULE mo_ocean_thermodyn
   PUBLIC :: calculate_density_onColumn
   PUBLIC :: calculate_density_mpiom_v
   PUBLIC :: calc_internal_press_grad
-  PUBLIC :: calc_internal_press_grad_zstar
+  PUBLIC :: calc_internal_press_grad_zstar 
+  PUBLIC :: calc_internal_press_grad_zstar_chain
   PUBLIC :: calculate_density_mpiom_onColumn, calculate_density_jmdwfg06_onColumn
   !each specific EOS comes as a sbr and as a function. The sbr version is private as it is
   !only used in "calc_internal_press", whilethe function version is used in mo_ocean_physics
