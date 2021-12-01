@@ -248,6 +248,7 @@ SUBROUTINE organize_lhn ( &
     pr_mod(nproma,pt_patch%nblks_c)     ,& ! total model precipitation rate              (kg/m2*s)
     pr_ref(nproma,pt_patch%nblks_c)     ,& ! total reference precipitation rate              (kg/m2*s)
     pr_ana(nproma,pt_patch%nblks_c)     ,& ! analyzed precipitation rate                 (kg/m2*s)
+    hzerocl(nproma,pt_patch%nblks_c)    ,& ! freezing level (m); use local variable because diagnostic differs from prm_diag%hzerocl
     pr_mod_nofilt(nproma,pt_patch%nblks_c),& !
     pr_obs_nofilt(nproma,pt_patch%nblks_c),& !
     z_pr_mod(nproma,1,pt_patch%nblks_c),& !
@@ -257,7 +258,7 @@ SUBROUTINE organize_lhn ( &
     z_nabla2_ttlh(nproma,pt_patch%nlev,pt_patch%nblks_c),& !
     wobs_space(nproma,pt_patch%nblks_c) ,& ! weights (spatial) for the precip obs          ( 1 )
     wobs_time(nproma,pt_patch%nblks_c)  ,& ! weights (temporal) for the precip obs         ( 1 )
-    lhn_diag(nproma,pt_patch%nlev-15:pt_patch%nlev,pt_patch%nblks_c)   ,& ! array for test output of diverse 2D fields
+    lhn_diag(nproma,pt_patch%nlev-16:pt_patch%nlev,pt_patch%nblks_c)   ,& ! array for test output of diverse 2D fields
     tt_lheat(nproma,pt_patch%nlev,pt_patch%nblks_c)   ,& ! tt_lheat
     qrsflux(nproma,pt_patch%nlev,pt_patch%nblks_c)    ,& ! qrsflux
     scale_diag(nproma,pt_patch%nblks_c)   ,& ! global distribution of scale_fac
@@ -310,11 +311,11 @@ SUBROUTINE organize_lhn ( &
 !$ACC ENTER DATA COPYIN(kstart_moist(jg), assimilation_config(jg))
 !$ACC UPDATE DEVICE(lhn_fields%brightband, radar_data%radar_ct%blacklist, radar_data%radar_td%obs,  &
 !$ACC               radar_data%radar_td%radheight, radar_data%radar_td%spqual)
-!$ACC DATA PRESENT(prm_diag, prm_diag%hzerocl, pt_diag, pt_diag%temp, p_metrics, p_metrics%z_ifc,   &
+!$ACC DATA PRESENT(prm_diag, pt_diag, pt_diag%temp, p_metrics, p_metrics%z_ifc,                     &
 !$ACC              p_metrics%z_mc, lhn_fields, lhn_fields%ttend_lhn, lhn_fields%qvtend_lhn,         &
 !$ACC              kstart_moist(jg))                                                                &
 !$ACC      COPYOUT(pr_obs, pr_ana, wobs_space, wobs_time, lhn_diag, scale_diag, treat_diag,         &
-!$ACC              diag_out, scale_fac_index, pr_mod, pr_ref, tt_lheat)
+!$ACC              diag_out, scale_fac_index, pr_mod, pr_ref, tt_lheat, hzerocl)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb)
@@ -332,7 +333,7 @@ SUBROUTINE organize_lhn ( &
       scale_fac_index(jc,jb) =.FALSE.
     END DO
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-    DO jk = nlev-15, nlev
+    DO jk = nlev-16, nlev
       DO jc = 1, nproma
         lhn_diag(jc,jk,jb) = -99.0_wp
       END DO
@@ -371,7 +372,7 @@ SUBROUTINE organize_lhn ( &
 !$ACC END PARALLEL
 !$OMP END DO
 
-  ! diagnose freezing level - this is otherwise done only at output times
+  ! diagnose freezing level - this is done locally because the calculation differs from the global output field prm_diag%hzerocl
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -379,7 +380,7 @@ SUBROUTINE organize_lhn ( &
 
 !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE)
     DO jc = i_startidx, i_endidx
-      prm_diag%hzerocl(jc,jb) = p_metrics%z_ifc(jc,nlev+1,jb)
+      hzerocl(jc,jb) = p_metrics%z_ifc(jc,nlev+1,jb)
     END DO
 
 !$ACC PARALLEL DEFAULT(NONE)
@@ -387,10 +388,10 @@ SUBROUTINE organize_lhn ( &
     DO jk = kstart_moist(jg)+1, nlev
 !$ACC LOOP GANG VECTOR
       DO jc = i_startidx, i_endidx 
-        IF ( prm_diag%hzerocl(jc,jb) /= p_metrics%z_ifc(jc,nlev+1,jb)) THEN ! freezing level found
+        IF (hzerocl(jc,jb) /= p_metrics%z_ifc(jc,nlev+1,jb)) THEN ! freezing level found
           CYCLE
         ELSE IF (pt_diag%temp(jc,jk-1,jb) < tmelt .AND. pt_diag%temp(jc,jk,jb) >= tmelt) THEN
-          prm_diag%hzerocl(jc,jb) = p_metrics%z_mc(jc,jk-1,jb) -            &
+          hzerocl(jc,jb) = p_metrics%z_mc(jc,jk-1,jb) -                     &
          &      ( p_metrics%z_mc(jc,jk-1,jb) - p_metrics%z_mc(jc,jk,jb) )*  &
          &      (    pt_diag%temp(jc,jk-1,jb) - tmelt ) /                   &
          &      (    pt_diag%temp(jc,jk-1,jb) - pt_diag%temp(jc,jk,jb) )
@@ -400,8 +401,8 @@ SUBROUTINE organize_lhn ( &
 !$ACC LOOP GANG VECTOR
     ! Extrapolate freezing level below ground if none has been found, assuming a gradient of -6.5K/km
     DO jc = i_startidx, i_endidx
-      IF (prm_diag%hzerocl(jc,jb) == p_metrics%z_ifc(jc,nlev+1,jb)) THEN
-        prm_diag%hzerocl(jc,jb) = MAX(0._wp, p_metrics%z_mc(jc,nlev,jb) + (pt_diag%temp(jc,nlev,jb)-tmelt)/6.5e-3_wp)
+      IF (hzerocl(jc,jb) == p_metrics%z_ifc(jc,nlev+1,jb)) THEN
+        hzerocl(jc,jb) = MAX(0._wp, p_metrics%z_mc(jc,nlev,jb) + (pt_diag%temp(jc,nlev,jb)-tmelt)/6.5e-3_wp)
       ENDIF
     END DO
 !$ACC END PARALLEL
@@ -440,7 +441,7 @@ SUBROUTINE organize_lhn ( &
 !               (includes interpolation in time between consecutive obs)
 !-------------------------------------------------------------------------------
 
-     CALL lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs(:,:),wobs_space(:,:),wobs_time(:,:), &
+     CALL lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs(:,:),hzerocl(:,:),wobs_space(:,:),wobs_time(:,:), &
        &                ltoyoung,ltoold,datetime_current)
 
 !$ACC END DATA
@@ -966,7 +967,7 @@ SUBROUTINE organize_lhn ( &
      lhn_diag(jc,nlev-9,jb) = MERGE(0._wp,1._wp,ttmin(jc)==0._wp .AND. ttmax(jc)==0._wp)
    ENDDO
 !$ACC PARALLEL LOOP GANG VECTOR COLLAPSE(2) DEFAULT(NONE)
-   DO jk = nlev-15, nlev
+   DO jk = nlev-16, nlev
      DO jc = i_startidx, i_endidx
        prm_diag%lhn_diag(jc,jk,jb) = lhn_diag(jc,jk,jb)
      END DO
@@ -1014,7 +1015,7 @@ END SUBROUTINE organize_lhn
 !+ Module procedure in "lheat_nudge" preparing radar precip data for lhn
 !-------------------------------------------------------------------------------
 
-SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
+SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs,hzerocl, &
                       &  wobs_space, wobs_time, ltoyoung,ltoold,datetime_current)
 
 !-------------------------------------------------------------------------------
@@ -1052,6 +1053,8 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
 
   REAL (KIND=wp), DIMENSION(nproma,pt_patch%nblks_c),INTENT(OUT)    :: &
     wobs_time, wobs_space, pr_obs
+
+  REAL (KIND=wp), DIMENSION(nproma,pt_patch%nblks_c),INTENT(IN)    :: hzerocl
 
   LOGICAL, INTENT(OUT) :: ltoyoung, ltoold
   TYPE (datetime),INTENT(in) :: datetime_current
@@ -1272,7 +1275,7 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
 !$ACC ENTER DATA CREATE(num_t_obs)
 !$ACC DATA PRESENT(pt_patch, prm_diag, lhn_fields, lhn_fields%brightband, radar_data,                  &
 !$ACC              radar_data%radar_ct%blacklist, radar_data%radar_td%obs, radar_data%radar_td%spqual, &
-!$ACC              wobs_time, wobs_space, pr_obs, num_t_obs, assimilation_config(jg))                  &
+!$ACC              wobs_time, wobs_space, pr_obs, hzerocl, num_t_obs, assimilation_config(jg))         &
 !$ACC      COPYIN(td_in_min) CREATE(obs_sum, obs_ratio, bbllim, obs_cnt)
 
 
@@ -1366,11 +1369,11 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
       DO jb = 1, pt_patch%nblks_c
         DO jc = 1, nproma
           lhn_fields%brightband(jc,jb) = 0.0_wp
-          bbllim(jc,jb)= MAX(MIN(1000._wp,assimilation_config(jg)%hzerolim - prm_diag%hzerocl(jc,jb)),-100._wp)
+          bbllim(jc,jb)= MAX(MIN(1000._wp,assimilation_config(jg)%hzerolim - hzerocl(jc,jb)),-100._wp)
         END DO
       END DO
 
-      CALL detect_bright_band (pt_patch,radar_data,prm_diag,lhn_fields,obs_ratio,bbllim)
+      CALL detect_bright_band (pt_patch,radar_data,prm_diag,lhn_fields,obs_ratio,bbllim,hzerocl)
  
   ENDIF
 
@@ -1824,7 +1827,7 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
 
 END SUBROUTINE lhn_obs_prep
 
-SUBROUTINE detect_bright_band(pt_patch,radar_data,prm_diag,lhn_fields,sumrad,bbllim)
+SUBROUTINE detect_bright_band(pt_patch,radar_data,prm_diag,lhn_fields,sumrad,bbllim,hzerocl)
 !-------------------------------------------------------------------------------
 !
 ! Description:
@@ -1839,7 +1842,7 @@ SUBROUTINE detect_bright_band(pt_patch,radar_data,prm_diag,lhn_fields,sumrad,bbl
   TYPE(t_lhn_diag),        INTENT(inout)    :: lhn_fields
 
   REAL (KIND=wp), DIMENSION(nproma,pt_patch%nblks_c),INTENT(IN)    :: &
-     sumrad, bbllim
+     sumrad, bbllim, hzerocl
 
   INTEGER (KIND=i4) :: &
     jc,jb,nh,jg,nbright,nbrightg
@@ -1870,9 +1873,9 @@ SUBROUTINE detect_bright_band(pt_patch,radar_data,prm_diag,lhn_fields,sumrad,bbl
    nbright    = 0
    nbrightg    = 0
 
-!$ACC DATA PRESENT(pt_patch, prm_diag, prm_diag%hzerocl, lhn_fields, lhn_fields%brightband,  &
+!$ACC DATA PRESENT(pt_patch, prm_diag, lhn_fields, lhn_fields%brightband,                    &
 !$ACC              radar_data, radar_data%radar_ct%blacklist, radar_data%radar_td%radheight, &
-!$ACC              sumrad, bbllim, assimilation_config(jg))
+!$ACC              sumrad, bbllim, hzerocl, assimilation_config(jg))
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,nh) ICON_OMP_GUIDED_SCHEDULE
 
@@ -1887,8 +1890,8 @@ SUBROUTINE detect_bright_band(pt_patch,radar_data,prm_diag,lhn_fields,sumrad,bbl
 !$ACC LOOP SEQ
               DO nh=1,assimilation_config(jg)%nradar
                  IF  ( radar_data%radar_td%radheight(jc,jb,nh) > 0.0_wp                   &
-               .AND.  (prm_diag%hzerocl(jc,jb)-radar_data%radar_td%radheight(jc,jb,nh)) >= -100_wp &
-               .AND.  (prm_diag%hzerocl(jc,jb)-radar_data%radar_td%radheight(jc,jb,nh)) <= bbllim(jc,jb) &
+               .AND.  (hzerocl(jc,jb)-radar_data%radar_td%radheight(jc,jb,nh)) >= -100_wp &
+               .AND.  (hzerocl(jc,jb)-radar_data%radar_td%radheight(jc,jb,nh)) <= bbllim(jc,jb) &
                .AND.  sumrad(jc,jb) > 1.0_wp) THEN
                        lhn_fields%brightband(jc,jb)=1.0_wp
                        EXIT
