@@ -2,6 +2,7 @@ switch_for_module ()
 {
   [[ ! -f modules.env ]] ||  rm modules.env
   echo "source /cluster/apps/local/env2lmod.sh" > modules.env
+  echo 'export OMPI_MCA_osc="^rdma" ' >> modules.env
   for sfm_module in "$@"; do
     sfm_module_full=
     sfm_module_short=

@@ -453,7 +453,7 @@ CONTAINS
       ENDIF
 
       !
-      ! Initialize tracers fields jt=iqt to jt=ntracer, which are not available in the analysis file,
+      ! Initialize tracers which are not available in the analysis file,
       ! but may be used with ECHAM physics, for real cases or test cases.
       !
       IF (iforcing == iecham ) THEN
@@ -512,40 +512,6 @@ CONTAINS
       END DO
       !
     END IF
-
-
-    ! Copy prognostic variables, for which no tendencies are computed,
-    ! from time level "now" to time level "new", so that they are correctly set
-    ! at odd and even time steps.
-    !
-    IF (.NOT.ldynamics)  THEN ! copy prognostic variables of the dynamics
-      DO jg = 1,n_dom
-         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-         n_now = nnow(jg)
-         n_new = nnew(jg)
-!$OMP PARALLEL
-         CALL copy(p_nh_state(jg)%prog(n_now)%vn     , p_nh_state(jg)%prog(n_new)%vn     )
-         CALL copy(p_nh_state(jg)%prog(n_now)%w      , p_nh_state(jg)%prog(n_new)%w      )
-         CALL copy(p_nh_state(jg)%prog(n_now)%theta_v, p_nh_state(jg)%prog(n_new)%theta_v)
-         CALL copy(p_nh_state(jg)%prog(n_now)%exner  , p_nh_state(jg)%prog(n_new)%exner  )
-         CALL copy(p_nh_state(jg)%prog(n_now)%rho    , p_nh_state(jg)%prog(n_new)%rho    )
-!$OMP END PARALLEL
-      END DO
-    END IF
-
-    IF (.NOT.ltransport) THEN ! copy prognostic variables of the transport
-      DO jg = 1,n_dom
-         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-         n_now_rcf = nnow_rcf(jg)
-         n_new_rcf = nnew_rcf(jg)
-         DO jt = 1,ntracer
-!$OMP PARALLEL
-            CALL copy(p_nh_state(jg)%prog(n_now_rcf)%tracer(:,:,:,jt), p_nh_state(jg)%prog(n_new_rcf)%tracer(:,:,:,jt) )
-!$OMP END PARALLEL
-         END DO
-      END DO
-    END IF
-
 
     !------------------------------------------------------------------
     ! Asynchronous pre-fetching

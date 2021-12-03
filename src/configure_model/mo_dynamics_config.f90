@@ -23,6 +23,7 @@
 !!
 MODULE mo_dynamics_config
 
+  USE mo_exception,             ONLY: message, print_value
   USE mo_kind,                  ONLY: wp
   USE mo_impl_constants,        ONLY: MAX_DOM
   USE mo_restart_nml_and_att,   ONLY: getAttributesForRestarting
@@ -71,9 +72,10 @@ MODULE mo_dynamics_config
 CONTAINS
   !>
   !!
-  SUBROUTINE configure_dynamics( ndom )
+  SUBROUTINE configure_dynamics( ndom, ldynamics, ltransport )
 
     INTEGER,INTENT(IN) :: ndom
+    LOGICAL,INTENT(IN) :: ldynamics, ltransport
 
     INTEGER :: jdom
     CHARACTER(2) :: sdom
@@ -83,30 +85,94 @@ CONTAINS
     !------------------------
     ! Set time level indices
 
+    CALL message(routine,'Set time level indices')
+
     CALL getAttributesForRestarting(restartAttributes)
     IF (restartAttributes%is_init) THEN
       ! Read time level indices from restart file.
       ! NOTE: this part will be modified later for a proper handling
       ! of multiple domains!!!
-
       DO jdom = 1,ndom
         WRITE (sdom, "(i2.2)") jdom
         CALL restartAttributes%get('nold_DOM'//sdom, nold(jdom))
         CALL restartAttributes%get('nnow_DOM'//sdom, nnow(jdom))
-        CALL restartAttributes%get('nnew_DOM'//sdom, nnew(jdom))
+        IF (ldynamics) THEN
+           ! This run is  with dynamics --> nnew must be different from nnow
+           CALL restartAttributes%get('nnew_DOM'//sdom, nnew(jdom))
+           IF (nnew(jdom) == nnow(jdom)) THEN
+              ! previous run was with ldynamics = .FALSE. and therefore nnew was the same as nnow
+              ! but this run is  with ldynamics = .TRUE.  and therefore nnew must be different from nnow
+              IF (nnow(jdom) == 1) nnew(jdom) = 2
+              IF (nnow(jdom) == 2) nnew(jdom) = 1
+           END IF
+        ELSE
+           ! This run is  without dynamics --> nnew takes the same value as nnow
+           nnew(jdom) = nnow(jdom)
+        END IF
         CALL restartAttributes%get('nnow_rcf_DOM'//sdom, nnow_rcf(jdom))
-        CALL restartAttributes%get('nnew_rcf_DOM'//sdom, nnew_rcf(jdom))
+        IF (ltransport) THEN
+           ! This run is  with transport --> nnew_rcf must be different from nnow_rcf
+           CALL restartAttributes%get('nnew_rcf_DOM'//sdom, nnew_rcf(jdom))
+           IF (nnew_rcf(jdom) == nnow_rcf(jdom)) THEN
+              ! previous run was with ltransport = .FALSE. and therefore nnew_rcf was the same as nnow_rcf
+              ! but this run is  with ltransport = .TRUE.  and therefore nnew_rcf must be different from nnow_rcf
+              IF (nnow_rcf(jdom) == 1) nnew_rcf(jdom) = 2
+              IF (nnow_rcf(jdom) == 2) nnew_rcf(jdom) = 1
+           END IF
+        ELSE
+           ! This run is  without transport --> nnew_rcf takes the same value as nnow_rcf
+           nnew_rcf(jdom) = nnow_rcf(jdom)
+        END IF
       END DO
 
     ELSE ! not isRestart
 
-      nnow(:) = 1
-      nnew(:) = 2
-      nold(:) = 3
-      nnow_rcf(:) = 1
-      nnew_rcf(:) = 2
+      ! time level indices for prognostic fields of the dynamical core
+      IF (ldynamics) THEN
+         ! if dynamics is active, then all necessary time levels are needed and
+         ! the time level indices are swapped before the end of each time step
+         nnow(:) = 1
+         nnew(:) = 2
+         nold(:) = 3
+      ELSE
+         ! if dynamics is not used, then use only a single time level
+         nnow(:) = 1
+         nnew(:) = 1
+         nold(:) = 1
+      END IF
+
+      ! time level indices for prognostic fields of the transport scheme
+      IF (ltransport) THEN
+         ! if transport is active, then time levels "now" and "new" are needed and
+         ! the time level indices are swapped before the end of each time step
+         nnow_rcf(:) = 1
+         nnew_rcf(:) = 2
+      ELSE
+         ! if transport is not used, then use only a single time level
+         nnow_rcf(:) = 1
+         nnew_rcf(:) = 1
+      END IF
 
     END IF
+
+    IF (ldynamics) THEN
+       CALL message('ldynamics  =  .TRUE.','2 time levels used for progn. dynamics  variables -> nnew /= nnow')
+    ELSE
+       CALL message('ldynamics  = .FALSE.','1 time level  used for progn. dynamics  variables -> nnew = nnow')
+    END IF
+    IF (ltransport) THEN
+       CALL message('ltransport =  .TRUE.','2 time levels used for progn. transport variables -> nnew_rcf /= nnow_rcf')
+    ELSE
+       CALL message('ltransport = .FALSE.','1 time level  used for progn. transport variables -> nnew_rcf = nnow_rcf')
+    END IF
+    DO jdom = 1,ndom
+      WRITE (sdom, "(i2.2)") jdom
+      CALL print_value('nnow    ('//sdom//')', nnow(jdom))
+      CALL print_value('nnew    ('//sdom//')', nnew(jdom))
+      CALL print_value('nold    ('//sdom//')', nold(jdom))
+      CALL print_value('nnow_rcf('//sdom//')', nnow_rcf(jdom))
+      CALL print_value('nnew_rcf('//sdom//')', nnew_rcf(jdom))
+    END DO
 
     nsav1(:) = 0
     nsav2(:) = 4
