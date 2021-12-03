@@ -852,11 +852,10 @@ if a Fortran source file contains a declaration of a binding to a function
 defined in a C source file, the dependency of the respective object files must
 be reflected in the recipe for target `c_binding.d` of the
 [icon.mk.in](./icon.mk.in) template. The second type of undetectable
-dependencies is associated with Fortran external procedures: if a Fortran source
+dependencies is associated with Fortran external procedures: when a Fortran source
 file contains a call to an external procedure, i.e. a function or a subroutine
-that is not part of any Fortran module, the dependency of the respective object
-files must be specified in the recipe for target `extra_f90.d` of the
-[icon.mk.in](./icon.mk.in) template.
+that is not part of any Fortran module. Dependencies of the second type are not
+supported.
 
 The [dependency listing script](./utils/mkhelper/deplist.py) reads the
 dependency makefiles, builds a source dependency graph and traverses it starting
