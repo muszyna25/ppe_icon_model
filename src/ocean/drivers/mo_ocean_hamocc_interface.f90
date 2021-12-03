@@ -284,6 +284,12 @@ CONTAINS
    
     hamocc_to_ocean_state%co2_flux           => p_as%co2flx
     hamocc_to_ocean_state%swr_fraction       => ocean_state%p_diag%swr_frac
+
+    ! Variables for zstar calculations
+    ocean_to_hamocc_state%eta_c              => ocean_state%p_prog(nold(1))%eta_c
+    ocean_to_hamocc_state%stretch_c          => ocean_state%p_prog(nold(1))%stretch_c
+    ocean_to_hamocc_state%stretch_c_new      => ocean_state%p_prog(nnew(1))%stretch_c
+    ocean_to_hamocc_state%draftave           => sea_ice%draftave    
     
   END SUBROUTINE fill_ocean_to_hamocc_interface
   !------------------------------------------------------------------------

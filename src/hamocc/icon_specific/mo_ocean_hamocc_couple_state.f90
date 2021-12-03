@@ -54,6 +54,10 @@ MODULE mo_ocean_hamocc_couple_state
   !----------------------------------------------
   TYPE t_ocean_to_hamocc_state
     onCells_2D :: top_dilution_coeff
+    onCells_2D :: eta_c
+    onCells_2D :: stretch_c
+    onCells_2D :: stretch_c_new
+    onCells_2D :: draftave
     onCells_2D :: h_old
     onCells_2D :: h_new
     onCells_2D :: h_old_withIce
@@ -168,6 +172,40 @@ CONTAINS
       & ldims=(/nproma,alloc_cell_blocks/),&
       & in_group=groups("hamocc_ocean_state"))
     ocean_transport_state%h_new = 0.0_wp
+
+
+    ! zstar variables
+    CALL add_var(hamocc_ocean_state_list, 'eta_c', hamocc_ocean_state%ocean_to_hamocc_state%eta_c , &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
+      & t_cf_var('eta_c', 'm', 'eta_c', datatype_flt,'eta_c'),&
+      & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),&
+      & in_group=groups("hamocc_ocean_state"))
+    hamocc_ocean_state%ocean_to_hamocc_state%eta_c = 0.0_wp
+
+    CALL add_var(hamocc_ocean_state_list, 'stretch_c', hamocc_ocean_state%ocean_to_hamocc_state%stretch_c , &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
+      & t_cf_var('stretch_c', 'unitless', 'stretch_c', datatype_flt,'stretch_c'),&
+      & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),&
+      & in_group=groups("hamocc_ocean_state"))
+    hamocc_ocean_state%ocean_to_hamocc_state%stretch_c = 0.0_wp
+
+    CALL add_var(hamocc_ocean_state_list, 'stretch_c_new', hamocc_ocean_state%ocean_to_hamocc_state%stretch_c_new , &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
+      & t_cf_var('stretch_c_new', 'unitless', 'stretch_c_new', datatype_flt,'stretch_c_new'),&
+      & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),&
+      & in_group=groups("hamocc_ocean_state"))
+    hamocc_ocean_state%ocean_to_hamocc_state%stretch_c_new = 0.0_wp
+
+    CALL add_var(hamocc_ocean_state_list, 'draftave', hamocc_ocean_state%ocean_to_hamocc_state%draftave , &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
+      & t_cf_var('draftave', 'm', 'draftave', datatype_flt,'draftave'),&
+      & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),&
+      & in_group=groups("hamocc_ocean_state"))
+    hamocc_ocean_state%ocean_to_hamocc_state%draftave = 0.0_wp
 
     CALL add_var(hamocc_ocean_state_list, 'h_old_withIce', hamocc_ocean_state%ocean_to_hamocc_state%h_old_withIce , &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
