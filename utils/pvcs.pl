@@ -68,6 +68,7 @@ pod2usage(-exitstatus => 1) if $help;
 my $remote_url = '';
 my $branch = '';
 my $revision = '';
+my $git_tag = '';
 
 my $art_branch = '';
 my $art_revision = '';
@@ -103,23 +104,28 @@ if ( -d $srcdir."/.svn" ) {
     $revision = $revisions[0];
     $revision =~ s/commit *//;
     $revision =~ s/ *\n//;
-		if ( -d $srcdir."/externals/art/.git" ) {
-    		my @art_remote_urls = `git --git-dir $srcdir/externals/art/.git remote -v`;
-    		@art_remote_urls = grep(/fetch/, @art_remote_urls);
-			$art_remote_url = $art_remote_urls[0];
-    		$art_remote_url =~ s/^origin[ \t]*//;
-    		$art_remote_url =~ s/ *\(fetch\) *\n//;
-    		my @art_branches = `git --git-dir $srcdir//externals/art/.git branch`;	
-    		@art_branches = grep(/^\*/, @art_branches); 
-    		$art_branch = $art_branches[0];
-    		$art_branch =~ s/\* *//;
-    		$art_branch =~ s/ *\n//;
-    		my @art_revisions = `git --git-dir $srcdir/externals/art/.git --no-pager log --max-count=1`; 
-    		@art_revisions = grep(/commit/, @art_revisions);
-    		$art_revision = $art_revisions[0];
-    		$art_revision =~ s/commit *//;
-    		$art_revision =~ s/ *\n//;
-		}
+    if ( -d $srcdir."/externals/art/.git" ) {
+        my @art_remote_urls = `git --git-dir $srcdir/externals/art/.git remote -v`;
+        @art_remote_urls = grep(/fetch/, @art_remote_urls);
+        $art_remote_url = $art_remote_urls[0];
+        $art_remote_url =~ s/^origin[ \t]*//;
+        $art_remote_url =~ s/ *\(fetch\) *\n//;
+        my @art_branches = `git --git-dir $srcdir//externals/art/.git branch`;	
+        @art_branches = grep(/^\*/, @art_branches); 
+        $art_branch = $art_branches[0];
+        $art_branch =~ s/\* *//;
+        $art_branch =~ s/ *\n//;
+        my @art_revisions = `git --git-dir $srcdir/externals/art/.git --no-pager log --max-count=1`; 
+        @art_revisions = grep(/commit/, @art_revisions);
+        $art_revision = $art_revisions[0];
+        $art_revision =~ s/commit *//;
+        $art_revision =~ s/ *\n//;
+    }
+    $git_tag = `git describe --tags --abbrev=0 --exact-match 2>&1`; 
+    $git_tag =~ s/ *\n//;
+    if ($git_tag =~ m/^fatal:/) {
+        $git_tag = '';
+    }
 } else {
     print "Unknown repository type or no working copy/repository: no support will be given.\n";
     $remote_url = "Unknown";
@@ -148,6 +154,7 @@ print $version_c "\n";
 print $version_c "const char remote_url[] = \"$remote_url\";\n";
 print $version_c "const char branch[] = \"$branch\";\n";
 print $version_c "const char revision[] = \"$revision\";\n"; 
+print $version_c "const char git_tag[] = \"$git_tag\";\n"; 
 print $version_c "const char art_remote_url[] = \"$art_remote_url\";\n";
 print $version_c "const char art_branch[] = \"$art_branch\";\n";
 print $version_c "const char art_revision[] = \"$art_revision\";\n"; 
@@ -191,6 +198,21 @@ print $version_c "    }\n";
 print $version_c "  else\n";
 print $version_c "    {\n";
 print $version_c "      strcpy(name, revision);\n";
+print $version_c "      *actual_len = strlen(name);\n";
+print $version_c "    }\n";
+print $version_c "\n";
+print $version_c "  return;\n";
+print $version_c "}\n";
+print $version_c "\n";
+print $version_c "void git_tag_name(char *name, int *actual_len)\n";
+print $version_c "{\n";
+print $version_c "  if (strlen(git_tag) > *actual_len)\n";
+print $version_c "    {\n";
+print $version_c "      *actual_len = 0;\n";
+print $version_c "    }\n";
+print $version_c "  else\n";
+print $version_c "    {\n";
+print $version_c "      strcpy(name, git_tag);\n";
 print $version_c "      *actual_len = strlen(name);\n";
 print $version_c "    }\n";
 print $version_c "\n";
