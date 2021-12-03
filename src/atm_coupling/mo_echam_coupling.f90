@@ -14,8 +14,6 @@
 !! headers of the routines.
 !!
 
-#ifdef YAC_coupling
-
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
@@ -959,34 +957,3 @@ CONTAINS
   
 END MODULE mo_echam_coupling
 
-#else
-
-MODULE mo_echam_coupling
-
-  USE mo_model_domain,    ONLY: t_patch
-  USE mo_nonhydro_types,  ONLY: t_nh_diag
-  USE mo_exception,       ONLY: finish
-  USE mo_coupling_config, ONLY: is_coupled_run
-
-  PUBLIC :: interface_echam_ocean
-
-CONTAINS
-
-  SUBROUTINE interface_echam_ocean ( p_patch , pt_diag )
-
-    ! Arguments
-
-    TYPE(t_patch), TARGET, INTENT(INOUT)    :: p_patch
-    TYPE(t_nh_diag), TARGET, INTENT(INOUT)  :: pt_diag
-
-    IF ( is_coupled_run() ) THEN
-       CALL finish('interface_echam_ocean: unintentionally called. Check your source code and configure.')
-    ELSE
-       RETURN
-    ENDIF
-
-  END SUBROUTINE interface_echam_ocean
-
-END MODULE mo_echam_coupling
-
-#endif

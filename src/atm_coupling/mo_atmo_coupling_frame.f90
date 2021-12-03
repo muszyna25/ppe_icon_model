@@ -10,8 +10,6 @@
 !! headers of the routines.
 !!
 
-#ifdef YAC_coupling
-
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
@@ -458,41 +456,3 @@ CONTAINS
   
 END MODULE mo_atmo_coupling_frame
 
-#else
-
-MODULE mo_atmo_coupling_frame
-
-  USE mo_model_domain,    ONLY: t_patch
-  USE mo_nonhydro_types,  ONLY: t_nh_diag
-  USE mo_exception,       ONLY: finish
-  USE mo_coupling_config, ONLY: is_coupled_run
-
-  PUBLIC :: construct_atmo_coupling, destruct_atmo_coupling
-
-CONTAINS
-
-  SUBROUTINE construct_atmo_coupling (p_patch)
-
-    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch(:)
-
-    IF ( is_coupled_run() ) THEN
-       CALL finish('construct_atmo_coupling: unintentionally called. Check your source code and configure.')
-    ELSE
-       RETURN
-    ENDIF
-
-  END SUBROUTINE construct_atmo_coupling
-
-  SUBROUTINE destruct_atmo_coupling
-
-    IF ( is_coupled_run() ) THEN
-       CALL finish('destruct_atmo_coupling: unintentionally called. Check your source code and configure.')
-    ELSE
-       RETURN
-    ENDIF
-
-  END SUBROUTINE destruct_atmo_coupling
-
-END MODULE mo_atmo_coupling_frame
-
-#endif
