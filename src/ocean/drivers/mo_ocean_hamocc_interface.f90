@@ -25,7 +25,6 @@ MODULE mo_ocean_hamocc_interface
   USE mo_impl_constants,         ONLY: max_char_length, success
   USE mo_parallel_config,        ONLY: nproma
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d
-  USE mo_coupling_config,        ONLY: is_coupled_run
   USE mo_ocean_nml,              ONLY: n_zlev, no_tracer, lhamocc, &
     &  Cartesian_Mixing, GMRedi_configuration
   USE mo_dynamics_config,        ONLY: nold, nnew
