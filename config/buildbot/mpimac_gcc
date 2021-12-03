@@ -1,0 +1,19 @@
+#!/bin/bash
+
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
+
+# We want to generate runscripts similar to what Mac users @MPI-M normally get
+# and they usually do not have static domain names assigned to their machines
+# (in contrast to the machine the BuildBot runs this test on). Instead, they
+# get dynamic domain names according to the following patterns:
+#   - d14[6,7]-nnn.mpimet.mpg.de for dynamic LAN clients;
+#   - w14[8,9]-nnn.mpimet.mpg.de for WLAN clients.
+# The patterns are accounted for in '../../run/collect.set-up.info.in'.
+# Here, we override the check for the domain name run by the configure script
+# with a value that matches one of the patterns above.
+
+${ICON_DIR}/config/generic/gcc acx_cv_host_fqdn='w149-95.mpimet.mpg.de'
+
+MAKE_PROCS=4
+make -j ${MAKE_PROCS}

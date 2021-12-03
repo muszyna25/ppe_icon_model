@@ -35,6 +35,8 @@ machine=mistral
 
 ./addbuilder MISTRAL_pgi_cpu        --machine $machine       --build_script="./config/buildbot/mistral_pgi_cpu"          --configureflags="--with-mpi --without-openmp"          --builderflags="Inactive"  --list $list
 ./addbuilder MISTRAL_pgi_gpu        --machine $machine       --build_script="./config/buildbot/mistral_pgi_gpu"          --configureflags="--with-mpi --without-openmp"          --builderflags="Inactive"  --list $list
+
+./addbuilder MPIMAC_gcc             --machine $machine       --build_script="./config/buildbot/mpimac_gcc"               --configureflags="--with-mpi --with-openmp"             --builderflags="build_only"  --list $list
 # testing for CDI-PIO
 
 # breeze builders
