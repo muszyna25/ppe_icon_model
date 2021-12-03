@@ -167,6 +167,13 @@ run_scripts_submit()
 
     if [ -r $EXP_FILE ]
     then 
+        if [[ "other" = "${batch_system}" ]]
+        then
+          # we assume there is not batch system at all, hence LOG files must be
+          # created manually so that buildbot can find them
+          run_command="${run_command} > LOG.${EXP_FILE}.o 2>&1"
+        fi
+
         echo "---------------------------------------------------------"
         echo " Submit new Script: ${EXP_FILE} at $(date)"
         echo " $run_command "
