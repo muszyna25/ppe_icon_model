@@ -2313,6 +2313,7 @@ CONTAINS
       IF (i_sea_ice >= 1) THEN ! sea ice is on
 
           CALL calc_omip_budgets_ice(                            &
+            &                        p_patch_3d,                                     &  !  input parameter
             &                        p_patch%cells%center(:,:)%lat,                  &  !  input parameter
             &                        p_as%tafo(:,:), p_as%ftdew(:,:)-tmelt,          &  !  input parameter
             &                        p_as%fu10(:,:), p_as%fclou(:,:), p_as%pao(:,:), &  !  input parameter
