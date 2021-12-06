@@ -32,7 +32,7 @@ MODULE mo_bgc_icon
   USE mo_dynamics_config,     ONLY: nold 
   USE mo_hamocc_nml,          ONLY: i_settling, l_cyadyn,l_bgc_check,io_stdo_bgc,l_implsed, &
        &                            l_dynamic_pi, l_pdm_settling 
-  USE mo_ocean_nml,           ONLY: lsediment_only, vert_cor_type
+  USE mo_ocean_nml,           ONLY: lsediment_only
   USE mo_control_bgc,         ONLY: ndtdaybgc,  &
        &                        ldtrunbgc, bgc_nproma, bgc_zlevs
 
@@ -69,7 +69,7 @@ MODULE mo_bgc_icon
 
 CONTAINS
 
-SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)  
+SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state, ssh, pddpo, ptiestu)  
 
   IMPLICIT NONE
 
@@ -81,6 +81,10 @@ SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)
   TYPE(t_aggregates_memory), POINTER :: local_aggregate_memory
   INTEGER :: local_memory_idx, test_memory_copies
 
+  REAL(wp), INTENT(IN) :: pddpo(bgc_nproma, bgc_zlevs, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_c)
+  REAL(wp), INTENT(IN) :: ptiestu(bgc_nproma, bgc_zlevs, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_c)
+  REAL(wp), INTENT(IN) :: ssh(bgc_nproma, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_c)
+
   ! Local variables
   INTEGER ::  jb
   INTEGER :: start_index, end_index
@@ -88,9 +92,7 @@ SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)
   !INTEGER, POINTER :: levels(:)
   INTEGER :: levels(bgc_nproma)
 
-  REAL(wp) :: pddpo(bgc_nproma, bgc_zlevs, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_c)
-  REAL(wp) :: ptiestu(bgc_nproma, bgc_zlevs, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_c)
-  REAL(wp) :: ssh(bgc_nproma, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_c)
+
 
   TYPE(t_subset_range), POINTER :: all_cells
   INTEGER :: alloc_cell_blocks
@@ -118,28 +120,6 @@ SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)
 !   owned_cells => p_patch%cells%owned
 
 
-  !----------------------------------------------------------------------
-
-  IF (vert_cor_type == 1) THEN ! z* coordinate
-    ! Adapt levels to changed stretching factors
-    do jk = 1,bgc_zlevs
-      pddpo(:,jk,:) = p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,jk,:) * &
-          &           ocean_to_hamocc_state%stretch_c(:,:)
-      
-      ! Shouldn't this rather be depth_cellMiddle??
-      ptiestu(:,jk,:) = p_patch_3D%p_patch_1d(1)%depth_CellInterface(:,jk,:) * &
-          &           ocean_to_hamocc_state%stretch_c(:,:) + ocean_to_hamocc_state%draftave(:,:)
-    enddo
-
-    ! ssh is included in the adapted level thickness and depth
-    ssh(:,:) = 0.0_wp
-
-  ELSE
-    pddpo(:,:,:) = p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:)
-    ! Shouldn't this rather be depth_cellMiddle??
-    ptiestu(:,:,:) = p_patch_3D%p_patch_1d(1)%depth_CellInterface(:,:,:)
-    ssh(:,:) = ocean_to_hamocc_state%h_old(:,:)
-  ENDIF
 
   !----------------------------------------------------------------------
 
