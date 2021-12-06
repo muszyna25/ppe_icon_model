@@ -12,6 +12,7 @@
     &                                          timer_bgc_tracer_ab, timer_bgc_tot,&
     &                                          timers_level
     USE mo_ocean_tracer,                 ONLY: advect_ocean_tracers
+    USE mo_ocean_tracer_zstar,           ONLY: advect_ocean_tracers_zstar
 !    USE mo_ocean_tracer_GMRedi,          ONLY: advect_ocean_tracers_GMRedi
     USE mo_ocean_types,                  ONLY: t_hydro_ocean_state, &
     &                                          t_operator_coeff
@@ -39,7 +40,7 @@
     USE mo_bgc_icon, ONLY: bgc_icon
     
     ! only temporary solution
-    USE mo_ocean_tracer_dev,       ONLY: advect_ocean_tracers_dev
+    USE mo_ocean_tracer_dev,       ONLY: advect_ocean_tracers_dev, advect_ocean_tracers_GMRedi_zstar
     USE mo_ocean_physics_types,    ONLY: v_params
     USE mo_ocean_state,            ONLY: ocean_state
  
@@ -50,11 +51,13 @@
 
     CONTAINS
 
-  SUBROUTINE tracer_biochemistry_transport(hamocc_ocean_state, operators_coefficients, current_time)
+  SUBROUTINE tracer_biochemistry_transport(hamocc_ocean_state, operators_coefficients, current_time, stretch_e)
 
     TYPE(t_hamocc_ocean_state), TARGET               :: hamocc_ocean_state
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     TYPE(datetime), POINTER, INTENT(in)              :: current_time
+    REAL(wp), INTENT(IN), OPTIONAL :: stretch_e(nproma, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_e)
+
     
     TYPE(t_tracer_collection) , POINTER              :: old_tracer_collection, new_tracer_collection
     TYPE(t_ocean_to_hamocc_state), POINTER           :: ocean_to_hamocc_state
@@ -143,19 +146,40 @@
     start_timer(timer_bgc_tracer_ab,1)
     hamocc_state_prog => hamocc_state%p_prog(nnew(1))
 
-    
-    IF (GMRedi_configuration == Cartesian_Mixing) THEN
-      CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
-    ELSE
-      IF (my_process_is_hamocc() ) THEN
-        CALL finish("concurrent HAMOCC", "GMRedi is not possible at present")
+    IF (vert_cor_type == 1) THEN ! zstar transport routines
+      IF (PRESENT(stretch_e)) THEN
+        IF (GMRedi_configuration == Cartesian_Mixing) THEN
+          !! Note that zstar has no horizontal diffusion
+          CALL advect_ocean_tracers_zstar(old_tracer_collection, new_tracer_collection, &
+                 &  transport_state, operators_coefficients, stretch_e, ocean_to_hamocc_state%stretch_c, &
+                 &  ocean_to_hamocc_state%stretch_c_new)
+        ELSE
+          IF (my_process_is_hamocc() ) THEN
+            CALL finish("concurrent HAMOCC", "GMRedi is not possible at present")
+          ELSE
+            CALL  advect_ocean_tracers_GMRedi_zstar(old_tracer_collection, new_tracer_collection, &
+                 &  ocean_state(1), transport_state, v_params, operators_coefficients, &
+                 &  ocean_to_hamocc_state%stretch_c, stretch_e, ocean_to_hamocc_state%stretch_c_new)
+          ENDIF
+        ENDIF
       ELSE
-        CALL  advect_ocean_tracers_dev(old_tracer_collection, new_tracer_collection, &
-          &  ocean_state(1), transport_state, v_params, operators_coefficients)
+        CALL finish("HAMOCC transport", "zstar transport needs stretch_e variable!")
+      ENDIF
+    ELSE
+      IF (GMRedi_configuration == Cartesian_Mixing) THEN
+        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
+      ELSE
+        IF (my_process_is_hamocc() ) THEN
+          CALL finish("concurrent HAMOCC", "GMRedi is not possible at present")
+        ELSE
+          CALL  advect_ocean_tracers_dev(old_tracer_collection, new_tracer_collection, &
+            &  ocean_state(1), transport_state, v_params, operators_coefficients)
+        ENDIF
       ENDIF
     ENDIF
-    
-     stop_timer(timer_bgc_tracer_ab,1)
+    stop_timer(timer_bgc_tracer_ab,1)
+
+
 
     IF (l_bgc_check) THEN
       CALL message('4. after transport', 'inventories', io_stdo_bgc)
