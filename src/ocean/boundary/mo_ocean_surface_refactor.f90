@@ -1800,6 +1800,8 @@ CONTAINS
 !
 !          END IF !! FLAG = 2
 
+          p_oce_sfc%top_dilution_coeff(jc,jb) = stretch_c(jc,jb)/temp_stretch(jc,jb)
+
 
         ENDIF  !  dolic>0
       END DO
@@ -2093,6 +2095,9 @@ CONTAINS
           !! Update only if height is atleast dz
           if ( d_c  .GT.  min_h ) &
             & temp_stretch(jc, jb) = ( eta_c(jc, jb) + d_c)/( d_c )
+
+          !! set dilution coefficient for HAMOCC
+          p_oce_sfc%top_dilution_coeff(jc,jb) = stretch_c(jc,jb)/temp_stretch(jc,jb)
  
           !! update zunderice
           p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * temp_stretch(jc, jb) 

@@ -68,8 +68,10 @@
 
     ! Local variables
     REAL(wp) :: pddpo(bgc_nproma, bgc_zlevs, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_c)
+    REAL(wp) :: pddpo_new(bgc_nproma, bgc_zlevs, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_c)
     REAL(wp) :: ptiestu(bgc_nproma, bgc_zlevs, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_c)
     REAL(wp) :: ssh(bgc_nproma, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_c)
+    REAL(wp) :: ssh_new(bgc_nproma, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_c)
 
     INTEGER :: i, jk
     
@@ -86,6 +88,8 @@
       do jk = 1,bgc_zlevs
         pddpo(:,jk,:) = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,jk,:) * &
               &           ocean_to_hamocc_state%stretch_c(:,:)
+        pddpo_new(:,jk,:) = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,jk,:) * &
+              &           ocean_to_hamocc_state%stretch_c_new(:,:)
       
         ! Shouldn't this rather be depth_cellMiddle??
         ptiestu(:,jk,:) = patch_3d%p_patch_1d(1)%depth_CellInterface(:,jk,:) * &
@@ -94,12 +98,15 @@
 
       ! ssh is included in the adapted level thickness and depth
       ssh(:,:) = 0.0_wp
+      ssh_new(:,:) = 0.0_wp
 
     ELSE
       pddpo(:,:,:) = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:)
+      pddpo_new(:,:,:) = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:)
       ! Shouldn't this rather be depth_cellMiddle??
       ptiestu(:,:,:) = patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,:)
       ssh(:,:) = ocean_to_hamocc_state%h_old(:,:)
+      ssh_new(:,:) = ocean_to_hamocc_state%h_new(:,:)
     ENDIF
 
 
@@ -127,7 +134,7 @@
 
     IF (l_bgc_check) THEN
       CALL message('3. after bgc + fluxes and weathering', 'inventories', io_stdo_bgc)
-      CALL get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, patch_3d, 0._wp, 0._wp)
+      CALL get_inventories(hamocc_state, ssh, pddpo, hamocc_state%p_prog(nold(1))%tracer, patch_3d, 0._wp, 0._wp)
     ENDIF
 
 
@@ -183,11 +190,11 @@
 
     IF (l_bgc_check) THEN
       CALL message('4. after transport', 'inventories', io_stdo_bgc)
-      CALL get_inventories(hamocc_state, ocean_to_hamocc_state%h_new, hamocc_state%p_prog(nnew(1))%tracer, patch_3d, 0._wp, 0._wp)
+      CALL get_inventories(hamocc_state, ssh_new, pddpo_new, hamocc_state%p_prog(nnew(1))%tracer, patch_3d, 0._wp, 0._wp)
     ENDIF
     !------------------------------------------------------------------------
     
-     CALL get_monitoring( hamocc_state, hamocc_state%p_prog(nnew(1))%tracer, ocean_to_hamocc_state%h_new, patch_3d)
+     CALL get_monitoring( hamocc_state, hamocc_state%p_prog(nnew(1))%tracer, ssh_new, pddpo_new, patch_3d)
     !------------------------------------------------------------------------
 
     END SUBROUTINE tracer_biochemistry_transport

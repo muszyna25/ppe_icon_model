@@ -81,9 +81,9 @@ SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state, ssh, pddpo, ptiestu)
   TYPE(t_aggregates_memory), POINTER :: local_aggregate_memory
   INTEGER :: local_memory_idx, test_memory_copies
 
-  REAL(wp), INTENT(IN) :: pddpo(bgc_nproma, bgc_zlevs, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_c)
-  REAL(wp), INTENT(IN) :: ptiestu(bgc_nproma, bgc_zlevs, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_c)
-  REAL(wp), INTENT(IN) :: ssh(bgc_nproma, hamocc_ocean_state%ocean_transport_state%patch_3d%p_patch_2d(1)%nblks_c)
+  REAL(wp), INTENT(IN) :: pddpo(bgc_nproma, bgc_zlevs, p_patch_3d%p_patch_2d(1)%nblks_c)
+  REAL(wp), INTENT(IN) :: ptiestu(bgc_nproma, bgc_zlevs, p_patch_3d%p_patch_2d(1)%nblks_c)
+  REAL(wp), INTENT(IN) :: ssh(bgc_nproma, p_patch_3d%p_patch_2d(1)%nblks_c)
 
   ! Local variables
   INTEGER ::  jb
@@ -151,7 +151,7 @@ SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state, ssh, pddpo, ptiestu)
  
 IF(l_bgc_check)THEN
  call message('1. before bgc','inventories',io_stdo_bgc)
- call get_inventories(hamocc_state, ssh, hamocc_state%p_prog(nold(1))%tracer, p_patch_3d, 0._wp, 0._wp) 
+ call get_inventories(hamocc_state, ssh, pddpo, hamocc_state%p_prog(nold(1))%tracer, p_patch_3d, 0._wp, 0._wp) 
 ENDIF
 
 IF (.not. lsediment_only) THEN
@@ -369,7 +369,7 @@ IF (test_memory_copies /= bgc_memory_copies) &
 !ICON_OMP_END_PARALLEL
 #endif
 ! O2 min depth & value diagnostics
-CALL get_omz(hamocc_state,ssh,p_patch_3d)
+CALL get_omz(hamocc_state,p_patch_3d,pddpo,ssh)
 
 ELSE
 ! offline sediment
@@ -445,7 +445,7 @@ ENDIF  ! lsediment_only
 
   IF(l_bgc_check)THEN
    call message('2. after bgc','inventories',io_stdo_bgc)
-   call get_inventories(hamocc_state, ssh, hamocc_state%p_prog(nold(1))%tracer, p_patch_3d, 1._wp, 1._wp) 
+   call get_inventories(hamocc_state, ssh, pddpo, hamocc_state%p_prog(nold(1))%tracer, p_patch_3d, 1._wp, 1._wp) 
   ENDIF
   
 
