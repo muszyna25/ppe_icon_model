@@ -1400,17 +1400,20 @@ CONTAINS
   !!
   !! Adapted for zstar
   !!
-  SUBROUTINE balance_elevation_zstar (p_patch_3D, eta_c)
+  SUBROUTINE balance_elevation_zstar (p_patch_3D, eta_c, p_oce_sfc, stretch_c)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
     REAL(wp), INTENT(INOUT) :: eta_c(nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! sfc ht 
+    TYPE(t_ocean_surface) , INTENT(INOUT)   :: p_oce_sfc
+    REAL(wp), INTENT(IN) :: stretch_c(nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! sfc ht 
+
 
     TYPE(t_patch), POINTER                  :: p_patch
     TYPE(t_subset_range), POINTER           :: all_cells
 
     INTEGER  :: i_startidx_c, i_endidx_c
-    INTEGER  :: jc, jb
-    REAL(wp) :: ocean_are, glob_slev, corr_slev
+    INTEGER  :: jc, jb, bt_lev
+    REAL(wp) :: ocean_are, glob_slev, corr_slev, temp_stretch, d_c
     INTEGER  :: idt_src       
 
     p_patch         => p_patch_3D%p_patch_2D(1)
@@ -1431,6 +1434,15 @@ CONTAINS
         IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
           ! subtract or scale?
           eta_c(jc,jb) = eta_c(jc,jb) - corr_slev
+
+          bt_lev = p_patch_3d%p_patch_1d(1)%dolic_c(jc, jb)      
+          d_c    = p_patch_3d%p_patch_1d(1)%depth_CellInterface(jc, bt_lev + 1, jb)
+          temp_stretch = (eta_c(jc,jb) + d_c) / d_c
+
+          ! for hamocc tracers dilution dilution=stretch_old/stretch_new *dilution(old from surface fluxes)
+          p_oce_sfc%top_dilution_coeff(jc,jb) = stretch_c(jc,jb) / temp_stretch 
+
+
         END IF
       END DO
     END DO

@@ -1010,7 +1010,7 @@ CONTAINS
     dsec  = REAL(getNoOfSecondsElapsedInDayDateTime(this_datetime), wp)
     ! event at end of first timestep of day - tbd: use mtime
     IF (limit_elevation .AND. (dsec-dtime)<0.1 ) THEN
-      CALL balance_elevation_zstar(p_patch_3D, eta_c)
+      CALL balance_elevation_zstar(p_patch_3D, eta_c, p_oce_sfc, stretch_c)
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       CALL dbg_print('UpdSfc: h-old+BalElev', eta_c, routine, 2, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------

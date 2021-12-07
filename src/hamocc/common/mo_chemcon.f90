@@ -79,7 +79,7 @@ SUBROUTINE CHEMCON (local_bgc_mem, start_idx, end_idx, klevs, psao, ptho,  &
  
  DO jc = start_idx, end_idx
 
-       IF (pddpo(jc, 1) > 0.5_wp) THEN           ! wet cell
+       IF (pddpo(jc, 1) > EPSILON(0.5_wp)) THEN           ! wet cell
               !
               !*        21.1 SET ABSOLUTE TEMPERATURE
               !              ------------------------
@@ -323,7 +323,7 @@ SUBROUTINE CHEMCON (local_bgc_mem, start_idx, end_idx, klevs, psao, ptho,  &
       DO k = 1, kpke
         p = 1.025e-1_wp * ptiestu(jc,k)   ! pressure
            IF(kpke.ne.0)THEN
-           IF (pddpo(jc, k) > 0.5_wp) THEN           ! wet cell
+           IF (pddpo(jc, k) > EPSILON(0.5_wp)) THEN           ! wet cell
            !
            !*    22.1 SET ABSOLUTE TEMPERATURE
            ! ----------------------------------------------------------------

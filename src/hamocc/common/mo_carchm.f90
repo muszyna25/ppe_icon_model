@@ -78,7 +78,7 @@ SUBROUTINE calc_dissol (local_bgc_mem, start_idx, end_idx, klevs, pddpo, psao,pt
         k=1
         iflag = 0
     
-        IF(pddpo(j,k) > 0.5_wp) THEN
+        IF(pddpo(j,k) > EPSILON(0.5_wp)) THEN
 
        
               local_bgc_mem%hi(j,k) = update_hi(local_bgc_mem%hi(j,k), local_bgc_mem%bgctra(j,k,isco212), local_bgc_mem%ak13(j,k) , &
@@ -111,7 +111,7 @@ SUBROUTINE calc_dissol (local_bgc_mem, start_idx, end_idx, klevs, pddpo, psao,pt
     
         DO k = 2, kpke
 
-           IF(pddpo(j,k) > 0.5_wp) THEN
+           IF(pddpo(j,k) > EPSILON(0.5_wp)) THEN
 
        
               local_bgc_mem%hi(j,k) = update_hi(local_bgc_mem%hi(j,k), local_bgc_mem%bgctra(j,k,isco212), local_bgc_mem%ak13(j,k) , &

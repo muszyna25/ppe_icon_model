@@ -84,7 +84,7 @@ SUBROUTINE DIPOWA (local_bgc_mem, local_sediment_mem, start_idx,end_idx)
 
   DO j = start_idx, end_idx
         
-    if(local_bgc_mem%bolay(j) > 0.5_wp)then
+    if(local_bgc_mem%bolay(j) > EPSILON(0.5_wp))then
         k = 0
 
         tredsy(k,1) = zcoefsu(k)

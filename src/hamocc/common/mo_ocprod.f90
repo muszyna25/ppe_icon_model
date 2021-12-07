@@ -100,7 +100,7 @@ SUBROUTINE ocprod (local_bgc_mem, klev,start_idx,end_idx, ptho,pddpo, za,ptiestu
  
      DO k = 1, kpke
 
-      IF(pddpo(j,k) > 0.5_wp) then
+      IF(pddpo(j,k) > EPSILON(0.5_wp)) then
 
        surface_height = MERGE(za(j), 0._wp, k==1) 
 

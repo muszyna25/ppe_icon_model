@@ -67,7 +67,7 @@ CONTAINS
         kpke=klev(j)        
 
         IF(kpke > 0)THEN
-        IF(pddpo(j,1) > 0.5_wp)THEN
+        IF(pddpo(j,1) >EPSILON(0.5_wp))THEN
 
          if(kpke>=n90depth)then
            local_bgc_mem%bgcflux(j,kcoex90)  = local_bgc_mem%bgctra(j,n90depth,idet)* &
@@ -117,7 +117,7 @@ CONTAINS
           ENDIF
 
          DO k=2,kpke
-          IF(pddpo(j,k) > 0.5_wp)THEN
+          IF(pddpo(j,k) > EPSILON(0.5_wp))THEN
           ! water column
               local_bgc_mem%bgctra(j,k,idet)  = (local_bgc_mem%bgctra(j,k  ,idet)*pddpo(j,k)    &
                    &        +  local_bgc_mem%bgctra(j,k-1,idet)*local_bgc_mem%wpoc(j,k-1))/  &
@@ -141,7 +141,7 @@ CONTAINS
           ENDIF
          ENDDO
 
-        IF(pddpo(j,kbo(j)) > 0.5_wp)THEN
+        IF(pddpo(j,kbo(j)) > EPSILON(0.5_wp))THEN
  
            ! sediment fluxes at the bottom
             local_sediment_mem%prorca(j) = local_bgc_mem%bgctra(j,kbo(j),idet )*local_bgc_mem%wpoc(j,kbo(j))
@@ -217,7 +217,7 @@ CONTAINS
         kpke=klev(j)        
 
         IF(kpke > 0)THEN
-        IF(pddpo(j,1) > 0.5_wp)THEN
+        IF(pddpo(j,1) > EPSILON(0.5_wp))THEN
         
          DO k = 1,kpke + 1
 
@@ -363,7 +363,7 @@ CONTAINS
            local_bgc_mem%bgcflux(j,kcalex2000) = calc_flux(n2000depth+1)*inv_dtbgc    
          ENDIF
 
-         IF (pddpo(j,1) > 0.5_wp) THEN
+         IF (pddpo(j,1) > EPSILON(0.5_wp)) THEN
 
            local_sediment_mem%prorca(j) = det_flux(kbo(j)+1)
            local_sediment_mem%prcaca(j) = calc_flux(kbo(j)+1)

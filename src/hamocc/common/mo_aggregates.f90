@@ -161,7 +161,7 @@ MODULE mo_aggregates
      DO j = start_idx, end_idx
         kpke=klev(j)
         DO k = 1,kpke
-           IF(pddpo(j,k) > 0.5_wp)THEN
+           IF(pddpo(j,k) > EPSILON(0.5_wp))THEN
 
 !              aggdiag(j,k,kwsagg)    = ws_agg(j,k) * 86400._wp / dtbgc ! conversion  m/time_step   to  m/d for output
 !              aggdiag(j,k,kdynvis)   = dynvis(j,k)
@@ -237,7 +237,7 @@ MODULE mo_aggregates
 
         DO k = 1,kpke
 
-         IF(pddpo(j,k) > 0.5_wp)THEN
+         IF(pddpo(j,k) > EPSILON(0.5_wp))THEN
 
               n_det   = 0._wp ! number of primary particles
               n_opal  = 0._wp
@@ -416,7 +416,7 @@ MODULE mo_aggregates
 
         DO k = 1,kpke
 
-         IF(pddpo(j,k) > 0.5_wp)THEN
+         IF(pddpo(j,k) > EPSILON(0.5_wp))THEN
 
              ! mass factor  ! mm: only used to calculate number of aggregates n_agg; see unmodularized MAGO version
 !             mf = mass_factor(av_dp(j,k), df_agg(j,k), av_rho_p(j,k))
@@ -494,7 +494,7 @@ MODULE mo_aggregates
         kpke=klev(j)
         IF(kpke > 0)THEN
         DO k = 1,kpke
-           IF(pddpo(j,k) > 0.5_wp)THEN
+           IF(pddpo(j,k) > EPSILON(0.5_wp))THEN
               ! ws_Re is a function
               aggr_mem%ws_agg(j,k) = ws_Re(aggr_mem,j,k)
            ENDIF
@@ -671,7 +671,7 @@ MODULE mo_aggregates
 
         DO k = 1,kpke
 
-           IF(pddpo(j,k) > 0.5_wp)THEN
+           IF(pddpo(j,k) > EPSILON(0.5_wp))THEN
 
 ! ori:
 !              Lmax_agg(j,k) = ((agg_Re_crit * 18._wp *  dynvis(j,k) * dynvis(j,k) / rhoref_water)&
@@ -767,7 +767,7 @@ MODULE mo_aggregates
 
         DO k = 1,kpke
 
-           IF(pddpo(j,k) > 0.5_wp)THEN
+           IF(pddpo(j,k) > EPSILON(0.5_wp))THEN
 
 !              press_val = ppo(j,k) * rhoref_water * 1.e-5_wp ! Pascal/rho -> dbar
               press_val = ppo(j,k) * rhoref_water/g * 1.e-4_wp ! mm

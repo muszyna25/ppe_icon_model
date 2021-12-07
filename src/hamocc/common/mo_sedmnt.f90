@@ -143,7 +143,7 @@ SUBROUTINE  ini_bottom(local_bgc_mem, start_idx,end_idx,klevs,pddpo)
         local_bgc_mem%kbo(j) = 1
         local_bgc_mem%bolay(j) = 0._wp
         IF(k.gt.0)THEN
-        IF ( pddpo(j,k) > 0.5_wp ) THEN
+        IF ( pddpo(j,k) > EPSILON(0.5_wp) ) THEN
            local_bgc_mem%bolay(j) = pddpo(j,k)
            local_bgc_mem%kbo(j) = k
         ENDIF
@@ -160,7 +160,7 @@ SUBROUTINE  ini_bottom(local_bgc_mem, start_idx,end_idx,klevs,pddpo)
    kpke=klevs(j)
    IF(kpke>0)THEN ! always valid for MPIOM
    DO k = kpke-1, 1, -1
-      IF ( pddpo(j,k) > 0.5_wp .AND. pddpo(j,k+1) <= 0.5_wp ) THEN
+      IF ( pddpo(j,k) > EPSILON(0.5_wp) .AND. pddpo(j,k+1) <= EPSILON(0.5_wp) ) THEN
          local_bgc_mem%bolay(j) = pddpo(j,k) ! local thickness of bottom layer
          local_bgc_mem%kbo(j) = k
 !          bolaymin = MIN(bolaymin,local_bgc_mem%bolay(j))

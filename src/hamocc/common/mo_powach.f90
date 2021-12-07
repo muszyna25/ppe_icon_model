@@ -523,7 +523,7 @@ CONTAINS
 
       DO k = 1, ks
 
-         IF((local_bgc_mem%bolay(j).GT.0._wp).and.(pddpo(j,1)>0.5_wp)) THEN
+         IF((local_bgc_mem%bolay(j).GT.0._wp).and.(pddpo(j,1)>EPSILON(0.5_wp))) THEN
                local_sediment_mem%sedhpl(j,k)= update_hi(local_sediment_mem%sedhpl(j,k),local_sediment_mem%powtra(j,k,ipowaic),local_bgc_mem%ak13(j,kbo(j)),&
         &                             local_bgc_mem%ak23(j,kbo(j)),local_bgc_mem%akw3(j,kbo(j)),local_bgc_mem%aks3(j,kbo(j)),&
         &                             local_bgc_mem%akf3(j,kbo(j)),local_bgc_mem%aksi3(j,kbo(j)),local_bgc_mem%ak1p3(j,kbo(j)),&
@@ -551,7 +551,7 @@ CONTAINS
 ! This also includes gains from aerobic and anaerobic decomposition.
 
       DO  k=1,ks
-         IF((local_bgc_mem%bolay(j).GT.0._wp).and.(pddpo(j,1)>0.5_wp)) THEN
+         IF((local_bgc_mem%bolay(j).GT.0._wp).and.(pddpo(j,1)>EPSILON(0.5_wp))) THEN
 
             satlev=local_bgc_mem%aksp(j,kbo(j))/calcon
 !in oversaturated ( wrt calcite, powcar> satlev) water the "undersaturation" is negativ.

@@ -40,11 +40,11 @@ SUBROUTINE update_linage (local_bgc_mem, klev,start_idx,end_idx, pddpo)
   DO jc = start_idx, end_idx
      kpke=klev(jc)
      DO k = 2, kpke
-      if(pddpo(jc,k) > 0.5_wp) then
+      if(pddpo(jc,k) > EPSILON(0.5_wp)) then
          local_bgc_mem%bgctra(jc,k,iagesc) = local_bgc_mem%bgctra(jc,k,iagesc) + fac001
       endif
      ENDDO
-     if(pddpo(jc,1) > 0.5_wp) local_bgc_mem%bgctra(jc,1,iagesc) = 0._wp
+     if(pddpo(jc,1) > EPSILON(0.5_wp)) local_bgc_mem%bgctra(jc,1,iagesc) = 0._wp
   ENDDO
 
 
@@ -72,7 +72,7 @@ SUBROUTINE update_weathering (local_bgc_mem, start_idx,end_idx, pddpo, za)
 
   DO jc = start_idx, end_idx
 
-  if(pddpo(jc,1) > 0.5_wp) then
+  if(pddpo(jc,1) > EPSILON(0.5_wp)) then
 
     local_bgc_mem%bgctra(jc,1,idoc) = local_bgc_mem%bgctra(jc,1,idoc) + orginp / (pddpo(jc,1) + za(jc))
     local_bgc_mem%bgctra(jc,1,isco212) = local_bgc_mem%bgctra(jc,1,isco212) + calcinp / (pddpo(jc,1) + za(jc))
@@ -111,7 +111,7 @@ SUBROUTINE nitrogen_deposition (local_bgc_mem, start_idx,end_idx, pddpo,za,nitin
 
   DO jc = start_idx, end_idx
 
-  if(pddpo(jc,1) > 0.5_wp) then
+  if(pddpo(jc,1) > EPSILON(0.5_wp)) then
 
       ! ndepo : CCMI wet+dry dep of NHx and NOy in kg (N) m-2 s-1
        ninp = nitinput(jc) / rmnit* dtbgc/(pddpo(jc,1)+za(jc)) ! kmol N m-3 time_step-1
@@ -151,7 +151,7 @@ SUBROUTINE dust_deposition (local_bgc_mem, start_idx,end_idx, pddpo,za,dustinp)
 
   DO jc = start_idx, end_idx
 
-  if(pddpo(jc,1) > 0.5_wp) then
+  if(pddpo(jc,1) > EPSILON(0.5_wp)) then
 
    local_bgc_mem%bgctra(jc,1,iiron) = local_bgc_mem%bgctra(jc,1,iiron) + dustinp(jc)*dtb/365._wp/(pddpo(jc,1)+za(jc)) *perc_diron 
 
@@ -225,7 +225,7 @@ SUBROUTINE gasex (local_bgc_mem, start_idx,end_idx, pddpo, za, ptho, psao,  &
   DO j = start_idx, end_idx
 
 
-        IF (pddpo(j, 1) .GT. 0.5_wp) THEN
+        IF (pddpo(j, 1) .GT. EPSILON(0.5_wp)) THEN
 
          
            !*********************************************************************

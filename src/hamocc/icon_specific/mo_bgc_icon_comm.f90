@@ -101,7 +101,7 @@
  
       DO jc=start_idx,end_idx 
         kpke=klevs(jc)
-        IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
+        IF (pddpo(jc, 1) .GT. EPSILON(0.5_wp)) THEN
           pco2flx(jc)=local_bgc_mem%bgcflux(jc,kcflux) * molw_co2
         DO jk =1,kpke
           DO itrac=1,n_bgctra
@@ -151,7 +151,7 @@
 
       DO jc=start_index,end_index 
         kpke=klevs(jc)
-        IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
+        IF (pddpo(jc, 1) .GT. EPSILON(0.5_wp)) THEN
           if(l_cpl_co2)local_bgc_mem%atm(jc,iatmco2) = pco2mr(jc)
           local_bgc_mem%satn2(jc)  = p_tend%satn2(jc,jb)    
           local_bgc_mem%satn2o(jc) = p_tend%satn2o(jc,jb)    
@@ -273,7 +273,7 @@
 
  
       DO jc=start_idx,end_idx 
-        IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
+        IF (pddpo(jc, 1) .GT. EPSILON(0.5_wp)) THEN
         p_tend%co2mr(jc,jb) = local_bgc_mem%atm(jc,iatmco2)
         p_tend%cflux(jc,jb) = local_bgc_mem%bgcflux(jc,kcflux)
         p_tend%pco2(jc,jb)  = local_bgc_mem%bgcflux(jc,kpco2)
@@ -470,7 +470,7 @@
       INTEGER :: jc, jk
 
       DO jc=start_idx,end_idx 
-        IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
+        IF (pddpo(jc, 1) .GT. EPSILON(0.5_wp)) THEN
         p_tend%prcaca(jc,jb) = ext_data_bgc%prcaca(jc,jb)
         p_tend%prorca(jc,jb) = ext_data_bgc%prorca(jc,jb)
         p_tend%silpro(jc,jb) = ext_data_bgc%silpro(jc,jb)
@@ -571,7 +571,7 @@
  
       DO jc=start_index,end_index 
         kpke=klevs(jc)
-        IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
+        IF (pddpo(jc, 1) .GT. EPSILON(0.5_wp)) THEN
          if(l_cpl_co2)pco2flux(jc)=local_bgc_mem%bgcflux(jc,kcflux) * molw_co2
         DO jk =1,kpke
           DO itrac=1,n_bgctra

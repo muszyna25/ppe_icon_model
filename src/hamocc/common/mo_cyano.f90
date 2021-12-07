@@ -54,7 +54,7 @@ SUBROUTINE cyano (local_bgc_mem, start_idx,end_idx,pddpo, za )
   !
      DO j = start_idx, end_idx
 
-        IF (pddpo(j,1) > 0.5_wp) THEN
+        IF (pddpo(j,1) > EPSILON(0.5_wp)) THEN
            IF (local_bgc_mem%bgctra(j,1,iano3) < (rnit*local_bgc_mem%bgctra(j,1,iphosph))) THEN
 
               oldnitrate = local_bgc_mem%bgctra(j,1,iano3)
@@ -151,7 +151,7 @@ SUBROUTINE cyadyn(local_bgc_mem, klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,
 
       DO k=1, kpke                     
 
-            IF( pddpo(j,k) .GT. 0.5_wp ) THEN
+            IF( pddpo(j,k) .GT. EPSILON(0.5_wp) ) THEN
                    
 
               avcyabac = MAX(1.e-11_wp,local_bgc_mem%bgctra(j,k,icya))                !available cyanobacteria
@@ -324,7 +324,7 @@ SUBROUTINE cyadyn(local_bgc_mem, klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,
  DO j=start_idx,end_idx
     kpke=klevs(j)
     IF (kpke > 0)THEN
-    IF(pddpo(j,kpke).GT.0.5_wp) THEN
+    IF(pddpo(j,kpke).GT.EPSILON(0.5_wp)) THEN
            local_bgc_mem%bgctra(j,kpke,icya)  = (local_bgc_mem%bgctra(j,kpke,icya)*pddpo(j,kpke))      &
                    &              / (pddpo(j,kpke)+wcya)
              
@@ -332,7 +332,7 @@ SUBROUTINE cyadyn(local_bgc_mem, klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,
 
     do k=(kpke-1),2,-1  
          ! water column
-        if(pddpo(j,k+1).LE.0.5_wp)then ! last wet cell
+        if(pddpo(j,k+1).LE.EPSILON(0.5_wp))then ! last wet cell
               local_bgc_mem%bgctra(j,k,icya)  = (local_bgc_mem%bgctra(j,k,icya)*pddpo(j,k))      &
                    &              / (pddpo(j,k)+wcya)
 
@@ -344,7 +344,7 @@ SUBROUTINE cyadyn(local_bgc_mem, klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,
     
    ENDDO
     k=1
-    IF((pddpo(j,k).GT.0.5_wp) .and. (pddpo(j,k+1).GT.0.5_wp) )then ! only if next cell also wet
+    IF((pddpo(j,k).GT.EPSILON(0.5_wp)) .and. (pddpo(j,k+1).GT.EPSILON(0.5_wp)) )then ! only if next cell also wet
          local_bgc_mem%bgctra(j,k,icya)  =  local_bgc_mem%bgctra(j,k,icya) + (wcya*local_bgc_mem%bgctra(j,k+1,icya))/(pddpo(j,k)+za(j))
     endif   
    ENDIF
