@@ -279,7 +279,7 @@ radiation_grid_filename = ${radiation_grid_filename}
 &nwp_phy_nml
  inwp_gscp         = 1
  inwp_convection   = 1
- inwp_radiation    = 4 ! 1 - rttov, 4 - ECRad
+ inwp_radiation    = 4 ! 1 - rrtm, 4 - ECRad
  inwp_cldcover     = 1
  inwp_turb         = 1
  inwp_satad        = 1

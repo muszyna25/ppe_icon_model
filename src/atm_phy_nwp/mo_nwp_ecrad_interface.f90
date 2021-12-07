@@ -106,7 +106,7 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER:: routine = modname//'::nwp_ecrad_radiation'
 
-    TYPE(datetime),          INTENT(in)    :: current_datetime !< Current date and time
+    TYPE(datetime), POINTER, INTENT(in)    :: current_datetime !< Current date and time
 
     TYPE(t_patch), TARGET,   INTENT(in)    :: pt_patch         !< Current domain info
     TYPE(t_external_data),   INTENT(in)    :: ext_data         !< External data container
@@ -142,8 +142,8 @@ CONTAINS
       &  ecrad_cloud                       !< ecRad cloud information (input)
     TYPE(t_ecrad_flux_type)           :: &
       &  ecrad_flux                        !< ecRad flux information (output)
-    TYPE(t_opt_ptrs),ALLOCATABLE :: opt_ptrs_lw(:)
-    TYPE(t_opt_ptrs),ALLOCATABLE :: opt_ptrs_sw(:)
+    TYPE(t_opt_ptrs),ALLOCATABLE      :: &
+      &  opt_ptrs_lw(:), opt_ptrs_sw(:)    !< Contains pointers to aerosol optical properties
     REAL(wp)                 :: &
       &  fact_reffc               !< Factor in the calculation of cloud droplet effective radius
     INTEGER                  :: &
@@ -196,15 +196,27 @@ CONTAINS
 
     fact_reffc = (3.0e-9_wp/(4.0_wp*pi*rhoh2o))**(1.0_wp/3.0_wp)
 
-    
+    IF (msg_level >= 7) &
+      &       CALL message(routine, 'ecrad radiation on full grid')
+
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_block(rl_start)
+    i_endblk   = pt_patch%cells%end_block(rl_end)
+
+!$OMP PARALLEL PRIVATE(cosmu0mask, opt_ptrs_lw, opt_ptrs_sw, jw,                     &
+!$OMP                  zlwflx_up,     zlwflx_dn,     zswflx_up,     zswflx_dn,       &
+!$OMP                  zlwflx_up_clr, zlwflx_dn_clr, zswflx_up_clr, zswflx_dn_clr,   &
+!$OMP                  ecrad_aerosol,ecrad_single_level, ecrad_thermodynamics,       &
+!$OMP                  ecrad_gas, ecrad_cloud, ecrad_flux)
+
     ALLOCATE( cosmu0mask   (nproma_rad)     )
     ALLOCATE( zlwflx_up    (nproma_rad,nlevp1), zlwflx_dn    (nproma_rad,nlevp1) )
     ALLOCATE( zswflx_up    (nproma_rad,nlevp1), zswflx_dn    (nproma_rad,nlevp1) )
     ALLOCATE( zlwflx_up_clr(nproma_rad,nlevp1), zlwflx_dn_clr(nproma_rad,nlevp1) )
     ALLOCATE( zswflx_up_clr(nproma_rad,nlevp1), zswflx_dn_clr(nproma_rad,nlevp1) )
-
-    IF (msg_level >= 7) &
-      &       CALL message(routine, 'ecrad radiation on full grid')
+    ALLOCATE( opt_ptrs_lw(ecrad_conf%n_bands_lw), opt_ptrs_sw(ecrad_conf%n_bands_sw) )
 
     CALL ecrad_single_level%allocate(nproma_rad, 2, 1, .true.) !< use_sw_albedo_direct, 2 bands
     ecrad_single_level%solar_irradiance = 1._wp            !< Obtain normalized fluxes which corresponds to the 
@@ -231,23 +243,13 @@ CONTAINS
 
     CALL ecrad_flux%allocate(ecrad_conf, 1, nproma_rad, nlev)
 
-    rl_start = grf_bdywidth_c+1
-    rl_end   = min_rlcell_int
-
-    i_startblk = pt_patch%cells%start_block(rl_start)
-    i_endblk   = pt_patch%cells%end_block(rl_end)
-
-!$OMP PARALLEL PRIVATE(jb,jc,i_startidx,i_endidx,cosmu0mask,                              &
-!$OMP                       ptr_acdnc,ptr_fr_land,ptr_fr_glac, ptr_reff_qc, ptr_reff_qi,  &
-!$OMP                       ptr_qr, ptr_reff_qr, ptr_qs, ptr_reff_qs,                     &
-!$OMP                       ptr_qg, ptr_reff_qg,                                          &
-!$OMP                       zlwflx_up,     zlwflx_dn,     zswflx_up,     zswflx_dn,       &
-!$OMP                       zlwflx_up_clr, zlwflx_dn_clr, zswflx_up_clr, zswflx_dn_clr,   &
-!$OMP                       jb_rad, jcs, jce, i_startidx_sub, i_endidx_sub,               &
-!$OMP                       i_startidx_rad, i_endidx_rad)                                 &
-!$OMP          FIRSTPRIVATE(ecrad_aerosol,ecrad_single_level, ecrad_thermodynamics,       &
-!$OMP                       ecrad_gas, ecrad_cloud,ecrad_flux)                            
-!$OMP DO ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb, jc, i_startidx, i_endidx,                   &
+!$OMP            jb_rad, jcs, jce, i_startidx_sub, i_endidx_sub, &
+!$OMP            i_startidx_rad, i_endidx_rad,                   &
+!$OMP            ptr_acdnc, ptr_fr_land, ptr_fr_glac,            &
+!$OMP            ptr_reff_qc, ptr_reff_qi, ptr_qr, ptr_reff_qr,  &
+!$OMP            ptr_qs, ptr_reff_qs, ptr_qg, ptr_reff_qg),      &
+!$OMP ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
@@ -351,8 +353,6 @@ CONTAINS
               &                         ecrad_conf, ecrad_aerosol)
             CALL finish(routine, 'irad_aero = 9 not yet fully implemented for ecRad')
           CASE(13)
-            ALLOCATE(opt_ptrs_lw(ecrad_conf%n_bands_lw))
-            ALLOCATE(opt_ptrs_sw(ecrad_conf%n_bands_sw))
             DO jw = 1, ecrad_conf%n_bands_lw
               opt_ptrs_lw(jw)%ptr_od  => od_lw(jcs:jce,:,jb,jw)
             ENDDO
@@ -413,8 +413,7 @@ CONTAINS
 
       ENDDO ! jb_rad
     ENDDO ! jb
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!$OMP END DO
 
 ! CLEANUP
     CALL ecrad_single_level%deallocate
@@ -423,9 +422,17 @@ CONTAINS
     CALL ecrad_cloud%deallocate
     IF ( ecrad_conf%use_aerosols ) CALL ecrad_aerosol%deallocate
     CALL ecrad_flux%deallocate
-    DEALLOCATE(cosmu0mask)
+    DEALLOCATE( cosmu0mask )
     DEALLOCATE( zlwflx_up,     zlwflx_dn,     zswflx_up,    zswflx_dn     )
     DEALLOCATE( zlwflx_up_clr, zlwflx_dn_clr, zswflx_up_clr,zswflx_dn_clr )
+    DO jw = 1, ecrad_conf%n_bands_lw
+      CALL opt_ptrs_lw(jw)%finalize()
+    ENDDO
+    DO jw = 1, ecrad_conf%n_bands_sw
+      CALL opt_ptrs_sw(jw)%finalize()
+    ENDDO
+    DEALLOCATE( opt_ptrs_lw, opt_ptrs_sw )
+!$OMP END PARALLEL
 
   END SUBROUTINE nwp_ecrad_radiation
   !---------------------------------------------------------------------------------------
@@ -451,7 +458,7 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: &
       &  routine = modname//'::nwp_ecrad_radiation_reduced'
 
-    TYPE(datetime),          INTENT(in)    :: current_datetime !< Current date and time
+    TYPE(datetime), POINTER, INTENT(in)    :: current_datetime !< Current date and time
 
     TYPE(t_patch), TARGET,   INTENT(in)    :: pt_patch         !< Current domain info
     TYPE(t_patch), TARGET,   INTENT(in)    :: pt_par_patch     !< Parent domain info
@@ -571,8 +578,8 @@ CONTAINS
       &  ptr_reff_qc => NULL(), ptr_reff_qi => NULL(), ptr_reff_qr => NULL(), &
       &  ptr_reff_qs => NULL(), ptr_reff_qg => NULL()
 
-    TYPE(t_opt_ptrs),ALLOCATABLE :: opt_ptrs_lw(:)
-    TYPE(t_opt_ptrs),ALLOCATABLE :: opt_ptrs_sw(:)
+    TYPE(t_opt_ptrs),ALLOCATABLE      :: &
+      &  opt_ptrs_lw(:), opt_ptrs_sw(:)    !< Contains pointers to aerosol optical properties
 
     REAL(wp), DIMENSION(:),    POINTER :: &
       &  ptr_fr_glac => NULL(), ptr_fr_land => NULL()
@@ -629,34 +636,6 @@ CONTAINS
     ENDIF
     nlev_rgp1 = nlev_rg+1
 
-
-    CALL ecrad_single_level%allocate(nproma_rad, 2, 1, .true.) !< use_sw_albedo_direct, 2 bands
-    ecrad_single_level%solar_irradiance = 1._wp            !< Obtain normalized fluxes which corresponds to the 
-                                                           !< transmissivity needed in the following
-
-    IF (ecrad_conf%use_spectral_solar_scaling) THEN
-      ALLOCATE(ecrad_single_level%spectral_solar_scaling(ecrad_conf%n_bands_sw))
-      ecrad_single_level%spectral_solar_scaling = (/  1.0_wp, 1.0_wp, 1.0_wp, 1.0478_wp, 1.0404_wp, 1.0317_wp, &
-         &   1.0231_wp, 1.0054_wp, 0.98413_wp, 0.99863_wp, 0.99907_wp, 0.90589_wp, 0.92213_wp, 1.0_wp /)
-    ENDIF
-
-    CALL ecrad_thermodynamics%allocate(nproma_rad, nlev_rg, use_h2o_sat=.false., rrtm_pass_temppres_fl=.true.)
-
-    CALL ecrad_gas%allocate(nproma_rad, nlev_rg)
-    
-    CALL ecrad_cloud%allocate(nproma_rad, nlev_rg)
-    ! Currently hardcoded values for FSD
-    CALL ecrad_cloud%create_fractional_std(nproma_rad, nlev_rg, 1._wp)
-
-    IF ( ecrad_conf%use_aerosols ) THEN
-      ! Allocate aerosol container
-      CALL ecrad_aerosol%allocate_direct(ecrad_conf, nproma_rad, 1, nlev_rg)
-    ENDIF
-
-    CALL ecrad_flux%allocate(ecrad_conf, 1, nproma_rad, nlev_rg)
-
-    ALLOCATE(cosmu0mask(nproma_rad))
-
     ! Allocate for reduced radiation grid
     ALLOCATE(zrg_cosmu0           (nproma,nblks_par_c),     &
       &      zrg_tsfc             (nproma,nblks_par_c),     &
@@ -674,10 +653,6 @@ CONTAINS
       &      zrg_trsol_clr_sfc    (nproma,nblks_par_c),     &
       &      zrg_lwflx_clr_sfc    (nproma,nblks_par_c),     &
       &      aclcov               (nproma,pt_patch%nblks_c))
-    IF (ANY( irad_aero == (/13/) )) THEN
-      ALLOCATE(opt_ptrs_lw(ecrad_conf%n_bands_lw))
-      ALLOCATE(opt_ptrs_sw(ecrad_conf%n_bands_sw))
-    END IF
       
     ! Set dimensions for 3D radiative flux variables
     IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN
@@ -789,7 +764,7 @@ CONTAINS
     i_startblk = pt_patch%cells%start_block(rl_start)
     i_endblk   = pt_patch%cells%end_block(rl_end)
 
-!$OMP PARALLEL PRIVATE(jb,i_startidx,i_endidx)
+!$OMP PARALLEL
 
     ! Initialize output fields
     CALL init(zrg_trsolall(:,:,:), 0._wp)
@@ -814,7 +789,7 @@ CONTAINS
       CALL init(zrg_swflx_dn_clr(:,:,:), 0._wp)
     END IF
 
-!$OMP DO ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx), ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         &                       i_startidx, i_endidx, rl_start, rl_end)
@@ -858,13 +833,46 @@ CONTAINS
     i_startblk = ptr_pp%cells%start_block(rl_start)
     i_endblk   = ptr_pp%cells%end_block(rl_end)
 
-!$OMP PARALLEL PRIVATE(jb, jc, jf, i_startidx, i_endidx, cosmu0mask,                      &
-!$OMP                  jb_rad,jcs,jce,jnps,jnpe,i_startidx_rad,i_endidx_rad,              &
-!$OMP                  ptr_acdnc, ptr_fr_land, ptr_fr_glac, ptr_reff_qc, ptr_reff_qi,     &
-!$OMP                  ptr_qr, ptr_reff_qr, ptr_qs, ptr_reff_qs, ptr_qg, ptr_reff_qg)     &
-!$OMP          FIRSTPRIVATE(ecrad_aerosol, ecrad_single_level, ecrad_thermodynamics,      &
-!$OMP                       ecrad_gas, ecrad_cloud, ecrad_flux)
-!$OMP DO ICON_OMP_GUIDED_SCHEDULE
+!$OMP PARALLEL PRIVATE(cosmu0mask, opt_ptrs_lw, opt_ptrs_sw, jw,                &
+!$OMP                  ecrad_aerosol, ecrad_single_level, ecrad_thermodynamics, &
+!$OMP                  ecrad_gas, ecrad_cloud, ecrad_flux)
+
+    CALL ecrad_single_level%allocate(nproma_rad, 2, 1, .true.) !< use_sw_albedo_direct, 2 bands
+    ecrad_single_level%solar_irradiance = 1._wp            !< Obtain normalized fluxes which corresponds to the 
+                                                           !< transmissivity needed in the following
+
+    IF (ecrad_conf%use_spectral_solar_scaling) THEN
+      ALLOCATE(ecrad_single_level%spectral_solar_scaling(ecrad_conf%n_bands_sw))
+      ecrad_single_level%spectral_solar_scaling = (/  1.0_wp, 1.0_wp, 1.0_wp, 1.0478_wp, 1.0404_wp, 1.0317_wp, &
+         &   1.0231_wp, 1.0054_wp, 0.98413_wp, 0.99863_wp, 0.99907_wp, 0.90589_wp, 0.92213_wp, 1.0_wp /)
+    ENDIF
+
+    CALL ecrad_thermodynamics%allocate(nproma_rad, nlev_rg, use_h2o_sat=.false., rrtm_pass_temppres_fl=.true.)
+
+    CALL ecrad_gas%allocate(nproma_rad, nlev_rg)
+    
+    CALL ecrad_cloud%allocate(nproma_rad, nlev_rg)
+    ! Currently hardcoded values for FSD
+    CALL ecrad_cloud%create_fractional_std(nproma_rad, nlev_rg, 1._wp)
+
+    IF ( ecrad_conf%use_aerosols ) THEN
+      ! Allocate aerosol container
+      CALL ecrad_aerosol%allocate_direct(ecrad_conf, nproma_rad, 1, nlev_rg)
+    ENDIF
+
+    CALL ecrad_flux%allocate(ecrad_conf, 1, nproma_rad, nlev_rg)
+
+    ALLOCATE(cosmu0mask(nproma_rad))
+    ALLOCATE(opt_ptrs_lw(ecrad_conf%n_bands_lw))
+    ALLOCATE(opt_ptrs_sw(ecrad_conf%n_bands_sw))
+
+!$OMP DO PRIVATE(jb, jc, jf, i_startidx, i_endidx,              &
+!$OMP            jb_rad, jcs, jce, jnps, jnpe,                  &
+!$OMP            i_startidx_rad,i_endidx_rad,                   &
+!$OMP            ptr_acdnc, ptr_fr_land, ptr_fr_glac,           &
+!$OMP            ptr_reff_qc, ptr_reff_qi, ptr_qr, ptr_reff_qr, &
+!$OMP            ptr_qs, ptr_reff_qs, ptr_qg, ptr_reff_qg),     &
+!$OMP ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
@@ -1083,7 +1091,23 @@ CONTAINS
 
       ENDDO !jb_rad
     ENDDO !jb
-!$OMP END DO NOWAIT
+!$OMP END DO
+
+! CLEANUP
+    CALL ecrad_single_level%deallocate
+    CALL ecrad_thermodynamics%deallocate
+    CALL ecrad_gas%deallocate
+    CALL ecrad_cloud%deallocate
+    IF ( ecrad_conf%use_aerosols ) CALL ecrad_aerosol%deallocate
+    CALL ecrad_flux%deallocate
+    DEALLOCATE( cosmu0mask )
+    DO jw = 1, ecrad_conf%n_bands_lw
+      CALL opt_ptrs_lw(jw)%finalize()
+    ENDDO
+    DO jw = 1, ecrad_conf%n_bands_sw
+      CALL opt_ptrs_sw(jw)%finalize()
+    ENDDO
+    DEALLOCATE( opt_ptrs_lw, opt_ptrs_sw )
 !$OMP END PARALLEL
 
 ! Downscale radiative fluxes from reduced radiation grid to full grid
@@ -1100,13 +1124,6 @@ CONTAINS
       &  prm_diag%lwflx_up    , prm_diag%lwflx_dn    , prm_diag%swflx_up    , prm_diag%swflx_dn,    &
       &  prm_diag%lwflx_up_clr, prm_diag%lwflx_dn_clr, prm_diag%swflx_up_clr, prm_diag%swflx_dn_clr )
 
-! CLEANUP
-    CALL ecrad_single_level%deallocate
-    CALL ecrad_thermodynamics%deallocate
-    CALL ecrad_gas%deallocate
-    CALL ecrad_cloud%deallocate
-    IF ( ecrad_conf%use_aerosols ) CALL ecrad_aerosol%deallocate
-    CALL ecrad_flux%deallocate
 
     DEALLOCATE (zrg_cosmu0, zrg_tsfc, zrg_emis_rad, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif,   &
       &         zrg_albnirdif, zrg_pres_ifc, zrg_o3, zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_clc,        &
@@ -1127,8 +1144,6 @@ CONTAINS
     CALL input_extra_flds%destruct()
     CALL input_extra_2D%destruct()
     CALL input_extra_reff%destruct()
-    
-    DEALLOCATE(cosmu0mask)
 
   END SUBROUTINE nwp_ecrad_radiation_reduced
   !---------------------------------------------------------------------------------------

@@ -91,7 +91,7 @@ CONTAINS
 
     TYPE(t_ecrad_single_level_type), INTENT(inout) :: &
       &  ecrad_single_level       !< ecRad single level information
-    TYPE(datetime), INTENT(in) :: &
+    TYPE(datetime), POINTER, INTENT(in) :: &
       &  current_datetime         !< Current date and time
     TYPE(t_geographical_coordinates), INTENT(in), TARGET :: &
       &  cell_center(:)           !< lon/lat information of cell centers
@@ -644,7 +644,7 @@ CONTAINS
     ! In:
     REAL(wp),       INTENT(in) :: &
       &  lon, lat             !< Longitude and Latitude value (radian)
-    TYPE(datetime), INTENT(in) :: &
+    TYPE(datetime), POINTER, INTENT(in) :: &
       &  current_datetime     !< Current date and time
     ! Out:
     INTEGER              :: &

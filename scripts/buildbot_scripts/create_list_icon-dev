@@ -125,6 +125,7 @@ done
 $addexp checksuite.rcnl.dwd.de/exp.run_ICON_09_R2B6N7_oper_EPS.run               --builders DWD_nec --list $listname
 # DWD_nec_hybrid
 $addexp checksuite.rcnl.dwd.de/exp.run_ICON_11_R3B08_lam_initmode7_restarttest.run --builders DWD_nec_hybrid --list $listname
+$addexp checksuite.rcnl.dwd.de/exp.run_ICON_14_R2B6N7_oper_IAU_and_restarttest.run --builders DWD_nec_hybrid --list $listname
 
 #-----------------------------------------------------------
 # Ruby0 coupled tests, only with mpi

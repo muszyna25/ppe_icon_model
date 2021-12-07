@@ -107,23 +107,34 @@ MODULE mo_ecrad
   INTEGER            :: iband_par_ecrad(100)
   REAL(KIND=wp)      :: weight_par_ecrad(100)
 
-! pointers to aerosol optical properties
+! Pointers to aerosol optical properties
   TYPE t_opt_ptrs
     REAL(wp), POINTER, DIMENSION(:,:) :: &
       &  ptr_od   => NULL(), &
       &  ptr_ssa  => NULL(), &
       &  ptr_g    => NULL()
     CONTAINS
-      final :: t_opt_ptrs_Del
+      PROCEDURE :: finalize => del_opt_ptrs
   END TYPE t_opt_ptrs
   
-  CONTAINS
-  subroutine t_opt_ptrs_Del(self)
-    type(t_opt_ptrs),intent(inout) :: self
-    if(associated(self%ptr_od)) deallocate(self%ptr_od)
-    if(associated(self%ptr_ssa))deallocate(self%ptr_ssa)
-    if(associated(self%ptr_g))  deallocate(self%ptr_g)
-  end subroutine t_opt_ptrs_Del
+CONTAINS
+
+  SUBROUTINE del_opt_ptrs(self)
+    CLASS(t_opt_ptrs),INTENT(inout) :: self
+
+    IF (ASSOCIATED(self%ptr_od) ) THEN
+      DEALLOCATE(self%ptr_od)
+      NULLIFY(self%ptr_od)
+    ENDIF
+    IF (ASSOCIATED(self%ptr_ssa) ) THEN
+      DEALLOCATE(self%ptr_ssa)
+      NULLIFY(self%ptr_ssa)
+    ENDIF
+    IF (ASSOCIATED(self%ptr_g) ) THEN
+      DEALLOCATE(self%ptr_g)
+      NULLIFY(self%ptr_g)
+    ENDIF
+  END SUBROUTINE del_opt_ptrs
 
 #endif
 
