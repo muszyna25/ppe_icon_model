@@ -64,7 +64,7 @@ start_header()
     cat >> $output_script << EOF
 #=============================================================================
 set +x
-$(test x"${use_ulimit-yes}" != xyes || printf 'ulimit -s unlimited')
+$(test x"${use_ulimit}" = xno || printf 'ulimit -s unlimited')
 #=============================================================================
 #
 # ICON run script:
