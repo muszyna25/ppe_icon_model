@@ -63,6 +63,8 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_grid_config,            ONLY: l_scm_mode
   USE mo_scm_nml,                ONLY: scm_sfc_mom, scm_sfc_temp ,scm_sfc_qv
   USE mo_nh_torus_exp,           ONLY: set_scm_bnd
+  USE mo_timer
+  USE mo_run_config,           ONLY: timers_level
 
   IMPLICIT NONE
 
@@ -253,7 +255,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       !
       ! convert TKE to the turbulence velocity scale SQRT(2*TKE) as required by turbdiff
       ! INPUT to turbdiff is timestep now
-      !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+      !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
       !$ACC LOOP GANG
       DO jk=1, nlevp1
         !$ACC LOOP VECTOR
@@ -270,7 +272,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         ! Note that both the advective TKE tendency and ddt_tke actually carry time tendencies
         ! of tvs; attempts to horizontally advect TKE failed because of numerical instability
         !
-        !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+        !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
         !$ACC LOOP GANG
         DO jk=2, nlev
           !$ACC LOOP VECTOR
@@ -287,7 +289,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         ENDDO  ! jk
         !$ACC END PARALLEL
         !
-        !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+        !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
         !$ACC LOOP GANG VECTOR
         DO jc=i_startidx, i_endidx
 
@@ -302,7 +304,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
       !KF tendencies  have to be set to zero
       !GZ: this should be replaced by an appropriate switch in turbdiff
-      !$ACC KERNELS ASYNC DEFAULT(PRESENT)
+      !$ACC KERNELS ASYNC(1) DEFAULT(PRESENT)
       prm_nwp_tend%ddt_u_turb(:,:,jb) = 0._wp
       prm_nwp_tend%ddt_v_turb(:,:,jb) = 0._wp
       prm_nwp_tend%ddt_temp_turb(:,:,jb) = 0._wp
@@ -316,7 +318,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       IF (ltwomoment) THEN
         ! register cloud droplet number for turbulent diffusion
         ncloud_offset = ncloud_offset+1
-        !$ACC KERNELS ASYNC DEFAULT(PRESENT)
+        !$ACC KERNELS ASYNC(1) DEFAULT(PRESENT)
         ddt_turb_qnc(:,:) = 0.0_wp
         !$ACC END KERNELS
         ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqnc)
@@ -327,7 +329,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       IF (turbdiff_config(jg)%ldiff_qi) THEN
         ! register cloud ice for turbulent diffusion
         ncloud_offset = ncloud_offset + 1
-        !$ACC KERNELS ASYNC DEFAULT(PRESENT)
+        !$ACC KERNELS ASYNC(1) DEFAULT(PRESENT)
         prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi) = 0.0_wp
         !$ACC END KERNELS
         ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqi)
@@ -336,7 +338,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         IF (ltwomoment) THEN
           ! register cloud ice number for turbulent diffusion
           ncloud_offset = ncloud_offset + 1
-          !$ACC KERNELS ASYNC DEFAULT(PRESENT)
+          !$ACC KERNELS ASYNC(1) DEFAULT(PRESENT)
           ddt_turb_qni(:,:) = 0.0_wp
           !$ACC END KERNELS
           ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqni)
@@ -348,7 +350,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       IF (turbdiff_config(jg)%ldiff_qs) THEN
         ! register snow mass for turbulent diffusion
         ncloud_offset = ncloud_offset + 1
-        !$ACC KERNELS ASYNC DEFAULT(PRESENT)
+        !$ACC KERNELS ASYNC(1) DEFAULT(PRESENT)
         ddt_turb_qs (:,:) = 0.0_wp
         !$ACC END KERNELS
         ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqs )
@@ -357,7 +359,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         IF (ltwomoment) THEN
           ! register snow number for turbulent diffusion
           ncloud_offset = ncloud_offset + 1
-          !$ACC KERNELS ASYNC DEFAULT(PRESENT)
+          !$ACC KERNELS ASYNC(1) DEFAULT(PRESENT)
           ddt_turb_qns(:,:) = 0.0_wp
           !$ACC END KERNELS
           ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqns)
@@ -413,6 +415,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       vt_sso(:,:)=REAL(prm_nwp_tend%ddt_v_sso(:,:,jb), wp)
       !$ACC END KERNELS
 
+      IF (timers_level > 9) CALL timer_start(timer_nwp_turbdiff)
 
       ! turbdiff
       CALL turbdiff( &
@@ -483,6 +486,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  liq_flux=liq_flux,                                      & !out
         &  l_3d_turb_fluxes=atm_phy_nwp_config(jg)%l_3d_turb_fluxes)                    !in
 
+      IF (timers_level > 9) CALL timer_stop(timer_nwp_turbdiff)
+
       ! vertdiff
       CALL vertdiff( &
 
@@ -546,7 +551,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
        !       being treated analogous to qhfl_s. I.e. they should also be passed to 
        !       the soil/surface scheme TERRA.
        !
-       !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+       !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
        !$ACC LOOP GANG VECTOR
        DO jc = i_startidx, i_endidx
          tempv_sfc(jc) = lnd_prog_now%t_g(jc,jb) * (1._wp + vtmpc1*lnd_diag%qv_s(jc,jb))
@@ -555,7 +560,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       ENDDO
       !$ACC END PARALLEL
       IF (turbdiff_config(jg)%ldiff_qi) THEN
-        !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+        !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
         !$ACC LOOP GANG VECTOR
         DO jc = i_startidx, i_endidx
           prm_diag%qifl_s(jc,jb) = rho_sfc(jc) * prm_diag%tvh(jc,jb) * p_prog_rcf%tracer(jc,nlev,jb,iqi)
@@ -586,7 +591,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
       ! preparation for concentration boundary condition. Usually inactive for standard ICON runs.
       IF ( .NOT. lsflcnd ) THEN
-        !$ACC KERNELS ASYNC DEFAULT(PRESENT)
+        !$ACC KERNELS ASYNC(1) DEFAULT(PRESENT)
         prm_diag%lhfl_s(i_startidx:i_endidx,jb) = &
           &  prm_diag%qhfl_s(i_startidx:i_endidx,jb) * alv
         !$ACC END KERNELS
@@ -602,7 +607,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
       ! transform updated turbulent velocity scale back to TKE
       ! Note: ddt_tke is purely diagnostic and has already been added to z_tvs
-      !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+      !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
       !$ACC LOOP GANG
       DO jk=1, nlevp1
         !$ACC LOOP VECTOR
@@ -617,7 +622,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       ! Note that TKE at lowest main level is re-computed in nwp_turbtrans, after surface TKE
       ! has been updated.
       IF (advection_config(jg)%iadv_tke > 0) THEN
-        !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+        !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
         !$ACC LOOP GANG
         DO jk=1, nlev
           !$ACC LOOP VECTOR
@@ -635,7 +640,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 !-------------------------------------------------------------------------
 
 #ifdef _OPENACC
-      CALL warning('GPU:mo_nwp_turbdiff_interface:nwp_turbdiff', 'iedmf unsupported. Only cosmo turbulence is supported on GPU!')
+      CALL finish('GPU:mo_nwp_turbdiff_interface:nwp_turbdiff', 'iedmf unsupported. Only cosmo turbulence is supported on GPU!')
 #endif
 
 !     Calculate vertical velocity in p-system
@@ -809,7 +814,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 !-------------------------------------------------------------------------
 
 #ifdef _OPENACC
-      CALL warning('GPU:mo_nwp_turbdiff_interface:nwp_turbdiff', 'igme unsupported. Only cosmo turbulence is supported on GPU!')
+      CALL finish('GPU:mo_nwp_turbdiff_interface:nwp_turbdiff', 'igme unsupported. Only cosmo turbulence is supported on GPU!')
 #endif
 
       ! turbulent diffusion coefficients in atmosphere
@@ -865,7 +870,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
     ! at the end of the NWP interface by first interpolating the u/v tendencies to the 
     ! velocity points (in order to minimize interpolation errors) and then adding the tendencies
     ! to vn (for efficiency reasons)
-    !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+    !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = 1, nlev
 !DIR$ IVDEP
@@ -887,7 +892,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
     !$ACC END PARALLEL
 
     ! QC is updated only in that part of the model domain where moisture physics is active
-    !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+    !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
@@ -900,7 +905,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
     IF (ltwomoment) THEN
       ! QNC update
-      !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+      !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
@@ -914,7 +919,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
     ENDIF ! ltwomoment
 
     IF (turbdiff_config(jg)%ldiff_qi) THEN
-      !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+      !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
@@ -927,7 +932,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       !$ACC END PARALLEL
       IF (ltwomoment) THEN
         ! QNI update
-        !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+        !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
@@ -943,7 +948,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
     IF (turbdiff_config(jg)%ldiff_qs) THEN
       ! QS update
-      !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+      !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
@@ -956,7 +961,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       !$ACC END PARALLEL
       IF (ltwomoment) THEN
         ! QNS update
-        !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+        !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
@@ -972,7 +977,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
     ! EDMF: diagnostic clouds are same as prognostic clouds
     IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
-      !$ACC PARALLEL ASYNC DEFAULT(PRESENT)
+      !$ACC PARALLEL ASYNC(1) DEFAULT(PRESENT)
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1, nlev
 !DIR$ IVDEP
@@ -989,6 +994,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
   ENDDO ! jb
   !$acc wait
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 

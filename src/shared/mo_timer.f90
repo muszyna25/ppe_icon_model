@@ -111,6 +111,8 @@ MODULE mo_timer
   PUBLIC :: timer_phys_exner
   PUBLIC :: timer_phys_u_v
   PUBLIC :: timer_nwp_turbulence, timer_nwp_surface
+  PUBLIC :: timer_nwp_turbtrans
+  PUBLIC :: timer_nwp_turbdiff    
   PUBLIC :: timer_nwp_microphysics
   PUBLIC :: timer_phys_sync_patch
   PUBLIC :: timer_fast_phys
@@ -278,6 +280,8 @@ MODULE mo_timer
   INTEGER :: timer_phys_exner
   INTEGER :: timer_phys_u_v
   INTEGER :: timer_nwp_turbulence, timer_nwp_surface
+  INTEGER :: timer_nwp_turbtrans
+  INTEGER :: timer_nwp_turbdiff
   INTEGER :: timer_nwp_microphysics
   INTEGER :: timer_phys_sync_patch
   INTEGER :: timer_fast_phys
@@ -726,6 +730,8 @@ CONTAINS
     timer_satad_v_3D = new_timer("satad")
     timer_phys_u_v = new_timer("phys_u_v")
     timer_nwp_turbulence = new_timer("nwp_turbulence")
+    timer_nwp_turbtrans = new_timer("nwp_turbtrans")
+    timer_nwp_turbdiff = new_timer("nwp_turbdiff")
     timer_nwp_surface = new_timer("nwp_surface")
     timer_nwp_microphysics = new_timer("nwp_microphysics")
     timer_phys_sync_patch = new_timer("phys_sync_patch")

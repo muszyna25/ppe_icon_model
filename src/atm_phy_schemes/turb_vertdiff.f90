@@ -577,11 +577,6 @@ INTEGER :: my_cart_id, my_thrd_id
 
   !Begin of GPU data region
   !$ACC data                                                            &
-  !$ACC present(hhl, dp0, zvari, r_air, ps, qv_s, t_g, u, v, t, qv, qc, &
-  !$ACC         prs, rhoh, epr, rhon, impl_weight)                      &
-  !!$ACC present(ptr) if(ASSOCIATED(ptr))                                &
-  !$ACC present(tvm, tvh, tkvm, tkvh, u_tens, v_tens, t_tens, qv_tens,  &
-  !$ACC         qc_tens, qv_conv, shfl_s, qvfl_s, umfl_s, vmfl_s)       &
 #ifdef ALLOC_WKARR
   !$ACC present(len_scale, frh, frm, eprs, dicke, hlp, zaux, tinc)            &
 #else
@@ -767,7 +762,7 @@ enddo
       
 !        Berechnung der Luftdichte und des Exner-Faktors am Unterrand:
 !DIR$ IVDEP
-         !$acc parallel
+         !$acc parallel default(present)
          !$acc loop gang vector private(virt)
          DO i=ivstart, ivend
             virt=z1+rvd_m_o*qv_s(i) !virtueller Faktor
@@ -886,7 +881,7 @@ enddo
                vtyp_tkv => vtyp(ivtype)%tkv
                dvar_sv  => dvar(n)%sv
 !DIR$ IVDEP
-               !$acc parallel async 
+               !$acc parallel async default(present) 
                !$acc loop gang vector
                DO i=ivstart, ivend
                   zvari(i,ke1,m)=dvar_sv(i)/(rhon(i,ke1)*vtyp_tkv(i,ke1))
@@ -894,7 +889,8 @@ enddo
                !$acc end parallel
                IF (n.EQ.tem) THEN !flux density is that of sensible heat
 !DIR$ IVDEP
-                  !$acc parallel async 
+                  !$acc parallel async default(present) 
+                  !$acc loop gang vector
                   DO i=ivstart, ivend
                      zvari(i,ke1,m)=zvari(i,ke1,m)/(cp_d*eprs(i,ke1))
                   END DO
@@ -916,10 +912,10 @@ enddo
             cur_prof => hlp
             dvar_av => dvar(n)%av    ! OpenACC issue with derived type
 
-            !$acc parallel async present(cur_prof,dvar_av)
+            !$acc parallel async default(present)
+            !$acc loop gang vector collapse(2)
             DO k=kstart_vdiff,ke
 !DIR$ IVDEP
-              !$acc loop gang vector
                DO i=ivstart, ivend
                   cur_prof(i,k)=dvar_av(i,k)
                END DO
@@ -929,8 +925,8 @@ enddo
             IF (ASSOCIATED(dvar(n)%sv)) THEN !surface variable is present
               dvar_sv=>dvar(n)%sv !XL_CHANGE: OpenACC issue with derived type
 !DIR$ IVDEP
-              !$acc parallel async present(cur_prof,dvar_sv)
-              !$acc loop gang vector 
+               !$acc parallel async default(present)
+               !$acc loop gang vector 
                DO i=ivstart, ivend
                   cur_prof(i,ke1)=dvar_sv(i)
                END DO
@@ -938,16 +934,16 @@ enddo
             ELSEIF (n.LE.nvel .OR. ilow_def_cond.EQ.2) THEN
                !No-slip-condition for momentum or zero-concentr.-condition as a default:
 !DIR$ IVDEP
-              !$acc parallel async present(cur_prof)
-              !$acc loop gang vector 
+               !$acc parallel async default(present)
+               !$acc loop gang vector 
                DO i=ivstart, ivend
                   cur_prof(i,ke1)=z0
                END DO
                !$acc end parallel
             ELSE !enforce a zero flux condition as a default
 !DIR$ IVDEP
-              !$acc parallel async present(cur_prof)
-              !$acc loop gang vector 
+               !$acc parallel async default(present)
+               !$acc loop gang vector 
                DO i=ivstart, ivend
                   cur_prof(i,ke1)=cur_prof(i,ke)
                END DO
@@ -956,10 +952,10 @@ enddo
 
             IF (itndcon.GT.0) THEN !explicit tendencies have to be considered
               dvar_at => dvar(n)%at
-              !$acc parallel async present(dvar_at)
+               !$acc parallel async default(present)
+               !$acc loop gang vector collapse(2)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
-                 !$acc loop gang vector
                   DO i=ivstart, ivend
                      dicke(i,k)=dvar_at(i,k)
                   END DO
@@ -968,11 +964,11 @@ enddo
             END IF
 
             IF (n.EQ.tem) THEN !temperature needs to be transformed
-              !$acc parallel async present(cur_prof)
+               !$acc parallel async default(present)
+               !$acc loop gang vector collapse(2)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
 !$NEC ivdep
-                 !$acc loop gang vector
                   DO i=ivstart, ivend
                      cur_prof(i,k)=cur_prof(i,k)/epr(i,k) !potential temperature
                   END DO
@@ -980,17 +976,17 @@ enddo
                !$acc end parallel
 !DIR$ IVDEP
 !$NEC ivdep
-               !$acc parallel async present(cur_prof)
+               !$acc parallel async default(present)
                !$acc loop gang vector 
                DO i=ivstart, ivend
                   cur_prof(i,ke1)=cur_prof(i,ke1)/eprs(i,ke1)
                END DO
                !$acc end parallel
                IF (itndcon.GT.0) THEN !explicit tendencies to be considered
-                 !$acc parallel async
+                  !$acc parallel async default(present)
+                  !$acc loop gang vector collapse(2)
                   DO k=kstart_vdiff,ke
 !DIR$ IVDEP
-                    !$acc loop gang vector
                      DO i=ivstart, ivend
                         dicke(i,k)=dicke(i,k)/epr(i,k)
                      END DO
@@ -1055,11 +1051,11 @@ enddo
 
             IF (n.EQ.tem) THEN
               dvar_at => dvar(n)%at
-              !$acc parallel async present(dvar_at)
+               !$acc parallel async default(present)
+               !$acc loop gang vector collapse(2)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
 !$NEC ivdep
-                 !$acc loop gang vector
                   DO i=ivstart, ivend
                      dvar_at(i,k)=dvar_at(i,k)+epr(i,k)*dicke(i,k)*tinc(n)
                   END DO
@@ -1067,11 +1063,11 @@ enddo
                !$acc end parallel
             ELSE
               dvar_at => dvar(n)%at
-              !$acc parallel async present(dvar_at)
+               !$acc parallel async default(present)
+               !$acc loop gang vector collapse(2)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
 !$NEC ivdep
-                 !$acc loop gang vector
                   DO i=ivstart, ivend
                      dvar_at(i,k)=dvar_at(i,k)+dicke(i,k)*tinc(n)
                   END DO
@@ -1081,24 +1077,28 @@ enddo
 
             IF (n.EQ.vap .AND. PRESENT(qv_conv)) THEN
                !qv-flux-convergence (always a tendency) needs to be adapted:
-              !$acc parallel async
-               DO k=kstart_vdiff,ke
                   IF (lqvcrst) THEN 
                      !by initializing 'qv_conv' with vertical qv-diffusion:
+                  !$acc parallel async default(present)
+                  !$acc loop gang vector collapse(2)
+                  DO k=kstart_vdiff,ke
 !DIR$ IVDEP
-                    !$acc loop gang vector
                      DO i=ivstart, ivend
                         qv_conv(i,k)=dicke(i,k)
                      END DO 
+                  END DO
+                  !$acc end parallel
                   ELSE !by adding vertical qv-diffusion to 'qv_conv':
+                  !$acc parallel async default(present)
+                  !$acc loop gang vector collapse(2)
+                  DO k=kstart_vdiff,ke
 !DIR$ IVDEP
-                    !$acc loop gang vector
                      DO i=ivstart, ivend
                         qv_conv(i,k)=qv_conv(i,k)+dicke(i,k)
                      END DO
-                  END IF
                END DO
                !$acc end parallel
+            END IF       
             END IF       
                     
          END IF !diffusion calculation requested
@@ -1118,8 +1118,8 @@ enddo
 
             IF (PRESENT(shfl_s) .OR. lrunscm) THEN
 !DIR$ IVDEP
-              !$acc parallel async 
-              !$acc loop gang vector
+               !$acc parallel async default(present) 
+               !$acc loop gang vector
                DO i=ivstart, ivend
                   shfl_s(i)=eprs(i,ke1)*cp_d*zvari(i,ke1,tet)
                END DO
@@ -1127,8 +1127,8 @@ enddo
             END IF
             IF (PRESENT(qvfl_s) .OR. lrunscm) THEN
 !DIR$ IVDEP
-              !$acc parallel async 
-              !$acc loop gang vector
+               !$acc parallel async default(present) 
+               !$acc loop gang vector
                DO i=ivstart, ivend
                   qvfl_s(i)=zvari(i,ke1,vap)
                END DO
@@ -1161,8 +1161,8 @@ enddo
 
          IF (lum_dif .AND. PRESENT(umfl_s)) THEN
 !DIR$ IVDEP
-           !$acc parallel async 
-           !$acc loop gang vector
+            !$acc parallel async default(present) 
+            !$acc loop gang vector
             DO i=ivstart, ivend
                umfl_s(i)=zvari(i,ke1,u_m)
             END DO
@@ -1170,8 +1170,8 @@ enddo
          END IF
          IF (lvm_dif .AND. PRESENT(vmfl_s)) THEN
 !DIR$ IVDEP
-           !$acc parallel async 
-           !$acc loop gang vector
+            !$acc parallel async default(present) 
+            !$acc loop gang vector
             DO i=ivstart, ivend
                vmfl_s(i)=zvari(i,ke1,v_m)
             END DO
