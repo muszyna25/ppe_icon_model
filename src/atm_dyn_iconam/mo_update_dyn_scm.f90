@@ -202,7 +202,7 @@ CONTAINS
 !! for the RBF interpolation.  As a random choice the first point is taken (i_startidx,i_startblk).
 !!
 !! @par Revision History
-!! Initial revision by Martin Köhler, DWD (2019-12-09)
+!! Initial revision by Martin Koehler, DWD (2019-12-09)
 !! 
 
   SUBROUTINE rbf_coeff_scm( ptr_patch, ptr_int )
