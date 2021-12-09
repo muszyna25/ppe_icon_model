@@ -46,6 +46,8 @@ MODULE mo_parallel_nml
     & config_itype_comm          => itype_comm,          &
     & config_iorder_sendrecv     => iorder_sendrecv,     &
     & set_nproma, &
+    & config_nblocks_c           => nblocks_c,             &
+    & config_use_nblocks_c       => ignore_nproma_use_nblocks_c,     &
     & config_use_icon_comm       => use_icon_comm,        &
     & config_icon_comm_debug     => icon_comm_debug,        &
     & div_geometric, check_parallel_configuration,          &
@@ -169,6 +171,7 @@ MODULE mo_parallel_nml
     INTEGER :: iorder_sendrecv
 
     INTEGER :: nproma    ! inner loop length/vector length
+    INTEGER :: nblocks_c   ! inner loop number of blocks used for cells
 
     LOGICAL :: use_dp_mpi2io
 
@@ -201,7 +204,7 @@ MODULE mo_parallel_nml
       & num_io_procs,      pio_type,            &
       & num_io_procs_radar, &
       & itype_comm,        iorder_sendrecv,     &
-      & nproma,                                 &
+      & nproma, nblocks_c,                      &
       & use_icon_comm, &
       & icon_comm_debug, max_send_recv_buffer_size, &
       & division_file_name, use_dycore_barrier, &
@@ -299,6 +302,7 @@ MODULE mo_parallel_nml
 
     ! inner loop length/vector length
     nproma = 1
+    nblocks_c = 0
 
     ! MPI gather to output processes in DOUBLE PRECISION
     use_dp_mpi2io = .FALSE.
@@ -377,6 +381,8 @@ MODULE mo_parallel_nml
     config_use_omp_input       = use_omp_input
     config_itype_comm          = itype_comm
     config_iorder_sendrecv     = iorder_sendrecv
+    config_nblocks_c           = nblocks_c
+    config_use_nblocks_c       = (nblocks_c > 0) ! Only use nblocks_c if it has a reasonable value
     CALL set_nproma(nproma)
 
     config_use_icon_comm       = use_icon_comm

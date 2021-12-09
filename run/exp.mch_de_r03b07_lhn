@@ -154,6 +154,7 @@ done
 cat > ${atmo_namelist} << EOF
 &parallel_nml
  nproma            = ${nproma}
+ nblocks_c         = ${nblocks_c}     ! loop number of cell blocks
  p_test_run        = .false.
  l_test_openmp     = .true.
  l_log_checks      = .true.

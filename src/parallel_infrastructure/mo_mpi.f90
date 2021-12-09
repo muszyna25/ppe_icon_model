@@ -10054,7 +10054,6 @@ CONTAINS
     INTEGER,           INTENT(in)    :: p_dest
     INTEGER,           INTENT(in)    :: comm
 
-     ! FIXME: this should probably use comm instead of p_comm_work
 #if !defined(NOMPI)
     CHARACTER(*), PARAMETER :: routine = modname//"::p_gatherv_int2D1D"
     INTEGER :: p_error

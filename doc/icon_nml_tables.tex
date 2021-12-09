@@ -6264,7 +6264,13 @@ variable rather than the name of the corresponding tile container (i.e.\ in the 
 %\hline
 \textbf{nproma} &
 I & 1& &
-chunk length. nproma can also be set to a negative value. In that case, the negative number is interpreted as the number of chunks. &
+chunk length. &
+\tabularnewline
+
+%\hline
+\textbf{nblocks\_c} &
+I & 0& &
+Number of looping chunks used for cells. For values <= 0 this is ignored. For bigger values, this overwrites \textbf{nproma}. &
 \tabularnewline
 
 %\hline
