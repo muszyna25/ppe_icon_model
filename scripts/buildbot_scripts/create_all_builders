@@ -31,13 +31,10 @@ machine=mistral
 ./addbuilder MISTRAL_ocean_intel17  --machine $machine       --build_script="./config/buildbot/mistral_intel17_ocean"        --configureflags="--with-openmp --with-mpi" --builderflags="build_only"  --list $list
 ./addbuilder MISTRAL_ocean_intel18  --machine $machine       --build_script="./config/buildbot/mistral_intel18_ocean"        --configureflags="--with-openmp --with-mpi" --builderflags="build_only"  --list $list
 #---------------------------------------------------------------
+# testing for CDI-PIO
 ./addbuilder MISTRAL_intel18_pio    --machine $machine       --build_script="./config/buildbot/mistral_intel18_pio"          --configureflags="--with-mpi --without-openmp"      --builderflags="Inactive"  --list $list
 
-./addbuilder MISTRAL_pgi_cpu        --machine $machine       --build_script="./config/buildbot/mistral_pgi_cpu"          --configureflags="--with-mpi --without-openmp"          --builderflags="Inactive"  --list $list
-./addbuilder MISTRAL_pgi_gpu        --machine $machine       --build_script="./config/buildbot/mistral_pgi_gpu"          --configureflags="--with-mpi --without-openmp"          --builderflags="Inactive"  --list $list
-
 ./addbuilder MPIMAC_gcc             --machine $machine       --build_script="./config/buildbot/mpimac_gcc"               --configureflags="--with-mpi --with-openmp"             --builderflags="build_only"  --list $list
-# testing for CDI-PIO
 
 # breeze builders
 machine=breeze

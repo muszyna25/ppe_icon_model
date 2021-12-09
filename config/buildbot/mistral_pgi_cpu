@@ -1,9 +1,0 @@
-#!/bin/bash
-
-MY_DIR=$(cd "$(dirname "$0")"; pwd)
-ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
-
-${ICON_DIR}/config/dkrz/mistral.pgi --disable-openmp --disable-mpi-checks
-
-MAKE_PROCS=8
-make -j ${MAKE_PROCS}
