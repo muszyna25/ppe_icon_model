@@ -1262,13 +1262,27 @@ interface of YAXT library: either disable the YAXT data exchange dnl
 (--disable-cdi-pio) or use the bundled version of YAXT library dnl
 (--without-external-yaxt), or set FCFLAGS, LDFLAGS and LIBS accordingly])])])],
 dnl
-  [icon_bundled_yaxt_needed=no
+  [icon_bundled_yaxt_fc=no
+   icon_bundled_yaxt_c=no
    AS_IF(
      [test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes],
-     [icon_bundled_yaxt_needed=direct_fortran],
+     [icon_bundled_yaxt_fc=direct],
      [test x"$enable_coupling" = xyes && test x"$with_external_yac" = xno],
-     [icon_bundled_yaxt_needed=transitive_c])
-   AS_IF([test x"$icon_bundled_yaxt_needed" != xno],
+     [icon_bundled_yaxt_c=transitive])
+dnl Ensure consistency:
+   AS_CASE(["$icon_bundled_yaxt_fc"],
+dnl Promote icon_bundled_yaxt_c (if it's not higher yet) to transitive if we
+dnl need to link to the Fortran libraries (this is correct because we link
+dnl statically):
+     [direct|transitive],
+     [AS_IF([test x"$icon_bundled_yaxt_c" != xdirect],
+        [icon_bundled_yaxt_c=transitive])],
+dnl Promote icon_bundled_yaxt_c (if it's not higher yet) to dummy if we need the
+dnl Fortran interface:
+     [dummy],
+     [AS_VAR_IF([icon_bundled_yaxt_c], [no],
+        [icon_bundled_yaxt_c=dummy])])
+   AS_IF([test x"$icon_bundled_yaxt_c" != xno],
      [icon_subdir_srcdir="$srcdir/externals/yaxt"
       icon_subdir_unique_file="src/xt_idxlist.c"
       AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
@@ -1324,16 +1338,25 @@ dnl FC instead of CFLAGS and FCFLAGS. As a temporary solution we unset BUILD_CC
 dnl and BUILD_FC here (and hope that they will not be unexpectedly set anywhere
 dnl below) since it should not affect any other bundled libraries.
       AS_UNSET([BUILD_CC]); AS_UNSET([BUILD_FC])
-      AS_CASE(["$icon_bundled_yaxt_needed"],
-        [direct_fortran],
+      AS_CASE([$icon_bundled_yaxt_c],
+        [direct],
+        [dnl TODO: extend CPPFLAGS when this becomes a real case
+         AS_VAR_SET([BUNDLED_LIBFILES],
+           ["externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES"])],
+        [transitive],
+        [AS_VAR_SET([BUNDLED_LIBFILES],
+           ["externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES"])])
+      AS_CASE([$icon_bundled_yaxt_fc],
+        [direct],
         [AS_VAR_APPEND([bundled_includes],
            ["${FC_MOD_IN}externals/yaxt/inst_headers/f90 "])
-         BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a dnl
-externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES"],
-        [transitive_c],
-        [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yaxt], [[FC=no]])
-         BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt_c.a dnl
-$BUNDLED_LIBFILES"])])])
+         AS_VAR_SET([BUNDLED_LIBFILES],
+           ["externals/yaxt/src/.libs/libyaxt.a $BUNDLED_LIBFILES"])],
+        [transitive],
+        [AS_VAR_SET([BUNDLED_LIBFILES],
+           ["externals/yaxt/src/.libs/libyaxt.a $BUNDLED_LIBFILES"])],
+        [no],
+        [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yaxt], [[FC=no]])])])])
 
 AS_VAR_IF([enable_emvorado], [yes],
   [AC_CACHE_CHECK([whether the Fortran 90 interfaces of ECCODES library is dnl
@@ -1668,9 +1691,10 @@ version of YAC library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_YAC_CFLAGS=${ICON_YAC_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/yac],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*],
-         [MPI_CFLAGS=*|MPI_CLIBS=*|MPI_FCFLAGS=*|MPI_FCLIBS=*|YAXT_CFLAGS=*],
-         [YAXT_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*|XML2_CFLAGS=*],
-         [XML2_CLIBS=*|MTIME_CFLAGS=*|MTIME_CLIBS=*|FORTRAN_LAPACK_CLIBS=*],
+         [MPI_CFLAGS=*|MPI_CLIBS=*|MPI_FCFLAGS=*|MPI_FCLIBS=*],
+         [YAXT_CFLAGS=*|YAXT_CLIBS=*|YAXT_FCFLAGS=*|YAXT_FCLIBS=*],
+         [NETCDF_CFLAGS=*|NETCDF_CLIBS=*|XML2_CFLAGS=*|XML2_CLIBS=*],
+         [MTIME_CFLAGS=*|MTIME_CLIBS=*|FORTRAN_LAPACK_CLIBS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([lib-only])],
@@ -1680,8 +1704,8 @@ version of YAC library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
         [[CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS"],
          [FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS"],
          [MPI_CFLAGS=], [MPI_CLIBS=], [MPI_FCFLAGS=], [MPI_FCLIBS=],
-         [YAXT_CLIBS=], [NETCDF_CFLAGS=], [NETCDF_CLIBS=], [XML2_CFLAGS=],
-         [XML2_CLIBS=], [MTIME_CLIBS=], [FORTRAN_LAPACK_CLIBS=],
+         [YAXT_CLIBS=], [YAXT_FCLIBS=], [NETCDF_CFLAGS=], [NETCDF_CLIBS=],
+         [XML2_CFLAGS=], [XML2_CLIBS=], [MTIME_CLIBS=], [FORTRAN_LAPACK_CLIBS=],
          [--enable-silent-rules="$enable_silent_rules"],
          [--disable-maintainer-mode], [--enable-lib-only], [--enable-netcdf],
          [--with-external-lapack=fortran], [--with-external-mtime]])
@@ -1690,13 +1714,23 @@ version of YAC library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
            [[MPI_LAUNCH="$MPI_LAUNCH"]])])
       AS_VAR_IF([with_external_yaxt], [yes],
         [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yac],
-           [[YAXT_CFLAGS=]])],
+           [[YAXT_CFLAGS=], [YAXT_FCFLAGS=]])],
         [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yac],
            [[YAXT_CFLAGS=dnl
 "-I${icon_abs_top_builddir}/externals/yaxt/inst_headers"],
             [ac_cv_header_yaxt_h=yes],
             [acx_cv_c_lib_func_xt_initialized=dnl
-"${icon_abs_top_builddir}/externals/yaxt/src/.libs/libyaxt_c.a"]])])
+"${icon_abs_top_builddir}/externals/yaxt/src/.libs/libyaxt_c.a"]])
+         AS_IF([test x"${icon_bundled_yaxt_fc-no}" != xno],
+           [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yac],
+              [[YAXT_FCFLAGS=dnl
+"${FC_MOD_IN}${icon_abs_top_builddir}/externals/yaxt/inst_headers/f90"],
+               [acx_cv_fc_module_YAXT=yes],
+               [acx_cv_fc_lib_func_XT_INITIALIZED=dnl
+"${icon_abs_top_builddir}/externals/yaxt/src/.libs/libyaxt.a dnl
+${icon_abs_top_builddir}/externals/yaxt/src/.libs/libyaxt_c.a"]])],
+           [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yac],
+              [[YAXT_FCFLAGS=]])])])
       AS_VAR_IF([with_external_mtime], [yes],
         [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yac],
            [[MTIME_CFLAGS=]])],

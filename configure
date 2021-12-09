@@ -7169,13 +7169,26 @@ ${icon_usr_note}" "$LINENO" 5; }
 fi
 fi
 else
-    icon_bundled_yaxt_needed=no
+    icon_bundled_yaxt_fc=no
+   icon_bundled_yaxt_c=no
    if test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes; then :
-  icon_bundled_yaxt_needed=direct_fortran
+  icon_bundled_yaxt_fc=direct
 elif test x"$enable_coupling" = xyes && test x"$with_external_yac" = xno; then :
-  icon_bundled_yaxt_needed=transitive_c
+  icon_bundled_yaxt_c=transitive
 fi
-   if test x"$icon_bundled_yaxt_needed" != xno; then :
+   case "$icon_bundled_yaxt_fc" in #(
+       direct|transitive) :
+    if test x"$icon_bundled_yaxt_c" != xdirect; then :
+  icon_bundled_yaxt_c=transitive
+fi ;; #(
+       dummy) :
+    if test "x$icon_bundled_yaxt_c" = xno; then :
+  icon_bundled_yaxt_c=dummy
+fi ;; #(
+  *) :
+     ;;
+esac
+   if test x"$icon_bundled_yaxt_c" != xno; then :
   icon_subdir_srcdir="$srcdir/externals/yaxt"
       icon_subdir_unique_file="src/xt_idxlist.c"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
@@ -7259,11 +7272,21 @@ esac
       done
       as_fn_append subdirs_extra " externals/yaxt"
       { BUILD_CC=; unset BUILD_CC;}; { BUILD_FC=; unset BUILD_FC;}
-      case "$icon_bundled_yaxt_needed" in #(
-  direct_fortran) :
+      case $icon_bundled_yaxt_c in #(
+  direct) :
+             BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES" ;; #(
+  transitive) :
+    BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES" ;; #(
+  *) :
+     ;;
+esac
+      case $icon_bundled_yaxt_fc in #(
+  direct) :
     as_fn_append bundled_includes "${FC_MOD_IN}externals/yaxt/inst_headers/f90 "
-         BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES" ;; #(
-  transitive_c) :
+         BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a $BUNDLED_LIBFILES" ;; #(
+  transitive) :
+    BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a $BUNDLED_LIBFILES" ;; #(
+  no) :
           set dummy FC=no ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
@@ -7274,8 +7297,7 @@ esac
 esac
         as_fn_append acx_config_subdir_args_externals_yaxt " '$acx_config_subdir_arg'"
       done
-
-         BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES" ;; #(
+    ;; #(
   *) :
      ;;
 esac
@@ -7775,11 +7797,13 @@ fi
      ;; #(
   BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*) :
      ;; #(
-  MPI_CFLAGS=*|MPI_CLIBS=*|MPI_FCFLAGS=*|MPI_FCLIBS=*|YAXT_CFLAGS=*) :
+  MPI_CFLAGS=*|MPI_CLIBS=*|MPI_FCFLAGS=*|MPI_FCLIBS=*) :
      ;; #(
-  YAXT_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*|XML2_CFLAGS=*) :
+  YAXT_CFLAGS=*|YAXT_CLIBS=*|YAXT_FCFLAGS=*|YAXT_FCLIBS=*) :
      ;; #(
-  XML2_CLIBS=*|MTIME_CFLAGS=*|MTIME_CLIBS=*|FORTRAN_LAPACK_CLIBS=*) :
+  NETCDF_CFLAGS=*|NETCDF_CLIBS=*|XML2_CFLAGS=*|XML2_CLIBS=*) :
+     ;; #(
+  MTIME_CFLAGS=*|MTIME_CLIBS=*|FORTRAN_LAPACK_CLIBS=*) :
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
@@ -7807,7 +7831,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-         set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= YAXT_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MTIME_CLIBS= FORTRAN_LAPACK_CLIBS= --enable-silent-rules="$enable_silent_rules" --disable-maintainer-mode --enable-lib-only --enable-netcdf --with-external-lapack=fortran --with-external-mtime ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= YAXT_CLIBS= YAXT_FCLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MTIME_CLIBS= FORTRAN_LAPACK_CLIBS= --enable-silent-rules="$enable_silent_rules" --disable-maintainer-mode --enable-lib-only --enable-netcdf --with-external-lapack=fortran --with-external-mtime ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7832,7 +7856,7 @@ esac
 
 fi
       if test "x$with_external_yaxt" = xyes; then :
-        set dummy YAXT_CFLAGS= ; shift
+        set dummy YAXT_CFLAGS= YAXT_FCFLAGS= ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7855,6 +7879,31 @@ esac
         as_fn_append acx_config_subdir_args_externals_yac " '$acx_config_subdir_arg'"
       done
 
+         if test x"${icon_bundled_yaxt_fc-no}" != xno; then :
+        set dummy YAXT_FCFLAGS="${FC_MOD_IN}${icon_abs_top_builddir}/externals/yaxt/inst_headers/f90" acx_cv_fc_module_YAXT=yes acx_cv_fc_lib_func_XT_INITIALIZED="${icon_abs_top_builddir}/externals/yaxt/src/.libs/libyaxt.a ${icon_abs_top_builddir}/externals/yaxt/src/.libs/libyaxt_c.a" ; shift
+      for acx_config_subdir_arg; do
+        case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+        as_fn_append acx_config_subdir_args_externals_yac " '$acx_config_subdir_arg'"
+      done
+
+else
+        set dummy YAXT_FCFLAGS= ; shift
+      for acx_config_subdir_arg; do
+        case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+        as_fn_append acx_config_subdir_args_externals_yac " '$acx_config_subdir_arg'"
+      done
+
+fi
 fi
       if test "x$with_external_mtime" = xyes; then :
         set dummy MTIME_CFLAGS= ; shift
