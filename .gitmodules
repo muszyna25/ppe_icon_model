@@ -4,6 +4,7 @@
 [submodule "externals/jsbach"]
         path = externals/jsbach
 	url = git@gitlab.dkrz.de:jsbach/jsbach.git
+	ignore = untracked
 [submodule "externals/yac"]
         path = externals/yac
 	url = git@gitlab.dkrz.de:dkrz-sw/YAC.git
@@ -34,12 +35,15 @@
 [submodule "externals/dace_icon"]
 	path = externals/dace_icon
 	url = git@gitlab.dkrz.de:dwd-sw/dace-icon-interface.git
+	ignore = untracked
 [submodule "externals/emvorado"]
 	path = externals/emvorado
 	url = git@gitlab.dkrz.de:dwd-sw/emvorado-for-icon.git
+	ignore = untracked
 [submodule "utils/mkexp"]
 	path = utils/mkexp
 	url = https://git.mpimet.mpg.de/public/mkexp
 [submodule "externals/art"]
 	path = externals/art
 	url = git@gitlab.dkrz.de:art/art.git
+	ignore = untracked

@@ -494,6 +494,11 @@ AC_ARG_VAR([ICON_OCEAN_FCFLAGS],
   [Fortran compiler flags to be appended to FCFLAGS instead of ICON_FCFLAGS when
 compiling the ocean component of ICON @<:@default=$ICON_FCFLAGS@:>@])dnl
 ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
+AC_ARG_VAR([ICON_DACE_FCFLAGS],
+  [Fortran compiler flags to be appended to FCFLAGS instead of ICON_FCFLAGS when
+compiling the DACE modules for data assimilation
+@<:@default=$ICON_FCFLAGS@:>@])dnl
+ICON_DACE_FCFLAGS=${ICON_DACE_FCFLAGS-$ICON_FCFLAGS}
 AC_ARG_VAR([ICON_BUNDLED_FCFLAGS],
   [Fortran compiler flags to be appended to FCFLAGS when configuring the bundled
 libraries @<:@default=$ICON_FCFLAGS@:>@])dnl

@@ -644,6 +644,7 @@ FC_VERSION
 FC_VENDOR
 FCFLAGS_f90
 ICON_BUNDLED_FCFLAGS
+ICON_DACE_FCFLAGS
 ICON_OCEAN_FCFLAGS
 ICON_LDFLAGS
 ICON_FCFLAGS
@@ -770,6 +771,7 @@ LIBS
 ICON_FCFLAGS
 ICON_LDFLAGS
 ICON_OCEAN_FCFLAGS
+ICON_DACE_FCFLAGS
 ICON_BUNDLED_FCFLAGS
 CC
 CFLAGS
@@ -1527,6 +1529,10 @@ Some influential environment variables:
               Fortran compiler flags to be appended to FCFLAGS instead of
               ICON_FCFLAGS when compiling the ocean component of ICON
               [default=$ICON_FCFLAGS]
+  ICON_DACE_FCFLAGS
+              Fortran compiler flags to be appended to FCFLAGS instead of
+              ICON_FCFLAGS when compiling the DACE modules for data
+              assimilation [default=$ICON_FCFLAGS]
   ICON_BUNDLED_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when
               configuring the bundled libraries [default=$ICON_FCFLAGS]
@@ -3528,6 +3534,7 @@ ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
 
 ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
+ICON_DACE_FCFLAGS=${ICON_DACE_FCFLAGS-$ICON_FCFLAGS}
 ICON_BUNDLED_FCFLAGS=${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}
 
 
