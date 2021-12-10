@@ -153,6 +153,12 @@ for builder in MISTRAL_intel18_pio; do
   $addexp checksuite.infrastructure/output/exp.hamocc_omip_10days  --builder ${builder} --list $listname
 done
 
+# activate experiments for the Mac builder
+./set_builder_flags Active --builders MPIMAC_gcc --list $listname
+$addexp exp.atm_amip_test --builders MPIMAC_gcc --list $listname
+$addexp checksuite.ocean_internal/technical/exp.test_ocean_omip_technical --builders MPIMAC_gcc --list $listname
+
+
 # add tests for checking yaxt and yac stand-alone; this needs yaxt/yac to be enabled
 $addexp  checksuite.infrastructure/checkExternals/exp.check_externals_MISTRAL.run --builders MISTRAL_gcc --list ${listname}
 $addexp  checksuite.infrastructure/checkExternals/exp.check_externals_DWD.run --builders DWD_nec_yac2 --list ${listname}

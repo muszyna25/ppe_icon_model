@@ -114,7 +114,7 @@ pp_files:=
 
 # Dependency files
 # (this finalizes the list of files eligible for compilation):
-dep_files:= $(addsuffix .d,$(f90_files) $(c_files) $(cu_files)) c_binding.d extra_f90.d
+dep_files:= $(addsuffix .d,$(f90_files) $(c_files) $(cu_files)) c_binding.d
 
 ########################### BUILDING TOOLS AND FLAGS ###########################
 
@@ -467,14 +467,6 @@ c_binding.d: icon.mk
 	} >$@
 @ART_ENABLED@	$(silent_none)echo '$(call get_obj_names,src/art/shared/mo_art_util_vcs.f90):| version.@OBJEXT@' >>$@
 @GPU_ENABLED@	$(silent_none)echo '$(call get_obj_names,src/shared/mo_index_list.f90):| src/shared_cuda/index_list_cuda.@OBJEXT@' >>$@
-
-# Dependency generation rule for undetectable Fortran dependencies:
-extra_f90.d: icon.mk
-	$(silent_DEPGEN):;{ \
-	  echo '$(call get_obj_names,src/atm_chem_cariolle/lcariolle_do3dt.f90):| $(call get_obj_names,src/atm_chem_cariolle/lcariolle_o3_column.f90)'; \
-	  echo '$(call get_obj_names,src/atm_phy_echam/mo_echam_phy_init.f90):| $(call get_obj_names,src/atm_chem_cariolle/lcariolle_init.f90 src/atm_chem_cariolle/lcariolle_init_o3.f90)'; \
-	  echo '$(call get_obj_names,src/atm_phy_echam/mo_interface_echam_car.f90):| $(call get_obj_names,src/atm_chem_cariolle/lcariolle_do3dt.f90 src/atm_chem_cariolle/lcariolle_lat_intp_li.f90 src/atm_chem_cariolle/lcariolle_pres_intp_li.f90)'; \
-	} >$@
 
 # Dummy dependency file generation rule (called by config.status):
 dummy-depend: | $(dir_files)

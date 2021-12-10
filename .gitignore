@@ -21,7 +21,6 @@
 /depgen.c.config
 /depgen.f90.config
 /deplist.config
-/extra_f90.d
 /icon.mk
 
 # Build stage files:
