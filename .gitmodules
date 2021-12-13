@@ -4,7 +4,6 @@
 [submodule "externals/jsbach"]
         path = externals/jsbach
 	url = git@gitlab.dkrz.de:jsbach/jsbach.git
-	ignore = untracked
 [submodule "externals/yac"]
         path = externals/yac
 	url = git@gitlab.dkrz.de:dkrz-sw/YAC.git
