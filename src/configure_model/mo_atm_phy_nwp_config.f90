@@ -262,6 +262,8 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
+    !$ACC ENTER DATA CREATE(atm_phy_nwp_config)
+
     ! for each fast physics process the time interval is set 
     ! equal to the time interval for advection.
     DO jg = 1,n_dom
@@ -564,6 +566,7 @@ CONTAINS
     ! o3clim_tuned = o3clim*(1.+fac_ozone*shapefunc_ozone)
     DO jg = 1, n_dom
       atm_phy_nwp_config(jg)%ozone_maxinc = tune_ozone_maxinc
+      !$ACC UPDATE DEVICE(atm_phy_nwp_config(jg)%ozone_maxinc)
       ALLOCATE(atm_phy_nwp_config(jg)%fac_ozone(p_patch(jg)%nlev), &
                atm_phy_nwp_config(jg)%shapefunc_ozone(nproma,p_patch(jg)%nblks_c) )
       ! Vertical profile function
@@ -584,6 +587,7 @@ CONTAINS
           atm_phy_nwp_config(jg)%fac_ozone(jk) = 0.0_wp
         ENDIF
       ENDDO
+      !$ACC ENTER DATA COPYIN(atm_phy_nwp_config(jg)%fac_ozone)
       ! Horizontal profile function for fac_ozone
       DO jb = 1, p_patch(jg)%nblks_c
         DO jc = 1, nproma          
@@ -606,6 +610,7 @@ CONTAINS
           END IF
         ENDDO
       ENDDO
+      !$ACC ENTER DATA COPYIN(atm_phy_nwp_config(jg)%shapefunc_ozone)
     ENDDO
 
 
@@ -1238,8 +1243,14 @@ CONTAINS
   !-----------------------------------------------------------------
 
     IF (ALLOCATED(me%lcall_phy))          DEALLOCATE(me%lcall_phy) 
-    IF (ALLOCATED(me%fac_ozone))          DEALLOCATE(me%fac_ozone)
-    IF (ALLOCATED(me%shapefunc_ozone))    DEALLOCATE(me%shapefunc_ozone)
+    IF (ALLOCATED(me%fac_ozone)) THEN
+      !$ACC EXIT DATA DELETE(me%fac_ozone)
+      DEALLOCATE(me%fac_ozone)
+    ENDIF
+    IF (ALLOCATED(me%shapefunc_ozone)) THEN
+      !$ACC EXIT DATA DELETE(me%shapefunc_ozone)
+      DEALLOCATE(me%shapefunc_ozone)
+    ENDIF
 
     CALL me%phyProcs%finalize()
 

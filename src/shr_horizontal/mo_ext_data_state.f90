@@ -151,6 +151,7 @@ CONTAINS
     ! Build external data list for time-dependent fields
     IF (iforcing > 1 ) THEN ! further distinction is made inside
       DO jg = 1, n_dom
+        !$ACC ENTER DATA COPYIN(ext_data(jg)%atm_td)
         WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_D',jg
         CALL new_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td,       &
           &                           ext_data(jg)%atm_td_list, TRIM(listname))
@@ -369,7 +370,8 @@ CONTAINS
       grib2_desc = grib2_var( 0, 14, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'o3', p_ext_atm%o3,                      &
         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,              &
-        &           grib2_desc, ldims=shape3d_c, loutput=.TRUE. )
+        &           grib2_desc, ldims=shape3d_c, loutput=.TRUE., lopenacc=.TRUE. )
+      __acc_attach(p_ext_atm%o3)
 
       ! external parameter for NWP forcing
 
@@ -434,7 +436,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'fr_land_smt', p_ext_atm%fr_land_smt, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,         &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+      __acc_attach(p_ext_atm%fr_land_smt)
 
 
       ! glacier area fraction (smoothed)
@@ -445,7 +448,9 @@ CONTAINS
       grib2_desc = grib2_var( 2, 0, 192, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'fr_glac_smt', p_ext_atm%fr_glac_smt, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,         &
+        &           lopenacc=.TRUE. )
+      __acc_attach(p_ext_atm%fr_glac_smt)
 
       ! roughness length
       !
@@ -1320,7 +1325,8 @@ CONTAINS
     CALL add_var( p_ext_atm_td_list, 'aer_bc', p_ext_atm_td%aer_bc, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
       &           grib2_desc, ldims=shape3d_c, loutput=.FALSE.,     &
-      &           isteptype=TSTEP_AVG )  ! Meta info constituentType missing
+      &           isteptype=TSTEP_AVG, lopenacc=.TRUE. )  ! Meta info constituentType missing
+    __acc_attach(p_ext_atm_td%aer_bc)
 
 
     ! Dust aerosol
@@ -1333,8 +1339,8 @@ CONTAINS
     CALL add_var( p_ext_atm_td_list, 'aer_dust', p_ext_atm_td%aer_dust, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
       &           ldims=shape3d_c, loutput=.FALSE.,                        &
-      &           isteptype=TSTEP_AVG )  ! Meta info constituentType missing
-
+      &           isteptype=TSTEP_AVG, lopenacc=.TRUE. )  ! Meta info constituentType missing
+    __acc_attach(p_ext_atm_td%aer_dust)
 
     ! Organic aerosol
     !
@@ -1346,7 +1352,8 @@ CONTAINS
     CALL add_var( p_ext_atm_td_list, 'aer_org', p_ext_atm_td%aer_org,     &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
       &           ldims=shape3d_c, loutput=.FALSE.,                       &
-      &           isteptype=TSTEP_AVG )  ! Meta info constituentType missing
+      &           isteptype=TSTEP_AVG, lopenacc=.TRUE. )  ! Meta info constituentType missing
+    __acc_attach(p_ext_atm_td%aer_org)
 
 
     ! Sulfate aerosol
@@ -1359,7 +1366,8 @@ CONTAINS
     CALL add_var( p_ext_atm_td_list, 'aer_so4', p_ext_atm_td%aer_so4, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
       &           ldims=shape3d_c, loutput=.FALSE.,                       &
-      &           isteptype=TSTEP_AVG )  ! Meta info constituentType missing
+      &           isteptype=TSTEP_AVG, lopenacc=.TRUE. )  ! Meta info constituentType missing
+    __acc_attach(p_ext_atm_td%aer_so4)
 
 
     ! Seasalt aerosol
@@ -1372,7 +1380,9 @@ CONTAINS
     CALL add_var( p_ext_atm_td_list, 'aer_ss', p_ext_atm_td%aer_ss, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
       &           ldims=shape3d_c, loutput=.FALSE.,                       &
-      &           isteptype=TSTEP_AVG )  ! Meta info constituentType missing
+      &           isteptype=TSTEP_AVG, lopenacc=.TRUE. )  ! Meta info constituentType missing
+    __acc_attach(p_ext_atm_td%aer_ss)
+
 
 
     !--------------------------------

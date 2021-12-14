@@ -1144,7 +1144,8 @@ __acc_attach(diag%clct)
     CALL add_var( diag_list, 'acdnc', diag%acdnc,                             &
       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,               &
       & ldims=shape3d, lrestart=.FALSE.,                                      &
-      & isteptype=TSTEP_CONSTANT )
+      & isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+    __acc_attach(diag%acdnc)
 
     IF (ldass_lhn) THEN
       ! &      diag%tt_lheat(nproma,nlev,nblks_c)
@@ -2040,14 +2041,16 @@ __acc_attach(diag%clct_avg)
     grib2_desc = grib2_var(0, 14, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'vio3', diag%vio3,                           &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-      & ldims=shape2d, lrestart=.FALSE. )
+      & ldims=shape2d, lrestart=.FALSE., lopenacc=.TRUE. )
+    __acc_attach(diag%vio3)
 
     ! &      diag%hmo3(nproma,nblks_c)
     cf_desc    = t_cf_var('hmo3', 'Pa', 'height of O3 maximum (Pa)', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'hmo3', diag%hmo3,                           &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-      & ldims=shape2d, lrestart=.FALSE. )
+      & ldims=shape2d, lrestart=.FALSE., lopenacc=.TRUE. )
+    __acc_attach(diag%hmo3)
 
     ! Reference pressure used for vertical distribution of aerosol optical depths
     ! &      diag%pref_aerdis(nproma,nblks_c)
@@ -2057,7 +2060,8 @@ __acc_attach(diag%clct_avg)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'pref_aerdis', diag%pref_aerdis,              &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-      & ldims=shape2d, lrestart=.FALSE. ) 
+      & ldims=shape2d, lrestart=.FALSE., lopenacc=.TRUE. ) 
+    __acc_attach(diag%pref_aerdis)
 
 
     IF (irad_aero == 5) THEN 
@@ -2068,21 +2072,24 @@ __acc_attach(diag%clct_avg)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'aersea', diag%aersea,                       &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-        & ldims=shape2d, lrestart=.FALSE. ) 
+        & ldims=shape2d, lrestart=.FALSE., lopenacc=.TRUE. )
+      __acc_attach(diag%aersea)
 
       ! &      diag%aerlan(nproma,nblks_c)
       cf_desc    = t_cf_var('aerlan', '', '', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'aerlan', diag%aerlan,                       &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-        & ldims=shape2d, lrestart=.FALSE. ) 
-    
+        & ldims=shape2d, lrestart=.FALSE., lopenacc=.TRUE.  )
+      __acc_attach(diag%aerlan)
+
       ! &      diag%aerurb(nproma,nblks_c)
       cf_desc    = t_cf_var('aerurb', '', '', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'aerurb', diag%aerurb,                       &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-        & ldims=shape2d, lrestart=.FALSE. ) 
+        & ldims=shape2d, lrestart=.FALSE., lopenacc=.TRUE. )
+      __acc_attach(diag%aerurb)
 
     
       ! &      diag%aerdes(nproma,nblks_c)
@@ -2090,7 +2097,8 @@ __acc_attach(diag%clct_avg)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'aerdes', diag%aerdes,                       &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-        & ldims=shape2d, lrestart=.FALSE. ) 
+        & ldims=shape2d, lrestart=.FALSE., lopenacc=.TRUE. ) 
+      __acc_attach(diag%aerdes)
 
     ELSE IF (irad_aero == 6 .OR. irad_aero == 9) THEN ! Tegen aerosol climatology, time-interpolated values 
                                   ! (needed as state fields for coupling with microphysics and convection)
@@ -2105,42 +2113,49 @@ __acc_attach(diag%clct_avg)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'aercl_ss', diag%aercl_ss,                       &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-        & ldims=shape2d, lrestart=lrestart ) 
+        & ldims=shape2d, lrestart=lrestart, lopenacc=.TRUE. )
+      __acc_attach(diag%aercl_ss)
 
       ! &      diag%aercl_or(nproma,nblks_c)
       cf_desc    = t_cf_var('aercl_or', '', 'organic aerosol climatology', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'aercl_or', diag%aercl_or,                       &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-        & ldims=shape2d, lrestart=lrestart ) 
+        & ldims=shape2d, lrestart=lrestart, lopenacc=.TRUE. )
+      __acc_attach(diag%aercl_or)
 
       ! &      diag%aercl_bc(nproma,nblks_c)
       cf_desc    = t_cf_var('aercl_bc', '', 'black carbon aerosol climatology', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'aercl_bc', diag%aercl_bc,                       &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-        & ldims=shape2d, lrestart=lrestart ) 
+        & ldims=shape2d, lrestart=lrestart, lopenacc=.TRUE. )
+      __acc_attach(diag%aercl_bc) 
 
       ! &      diag%aercl_su(nproma,nblks_c)
       cf_desc    = t_cf_var('aercl_su', '', 'total sulfate aerosol climatology', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'aercl_su', diag%aercl_su,                       &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-        & ldims=shape2d, lrestart=lrestart ) 
+        & ldims=shape2d, lrestart=lrestart, lopenacc=.TRUE. )
+      __acc_attach(diag%aercl_su) 
 
       ! &      diag%aercl_du(nproma,nblks_c)
       cf_desc    = t_cf_var('aercl_du', '', 'total soil dust aerosol climatology', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'aercl_du', diag%aercl_du,                       &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-        & ldims=shape2d, lrestart=lrestart ) 
+        & ldims=shape2d, lrestart=lrestart, lopenacc=.TRUE. )
+      __acc_attach(diag%aercl_du) 
 
       ! &      diag%aerosol(nproma,nclass_aero,nblks_c)
       cf_desc    = t_cf_var('aerosol', '', '', DATATYPE_FLT32)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'aerosol', diag%aerosol,                     &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-        & ldims=shape3d_aero, lrestart=.FALSE., lcontainer=.TRUE., loutput=.FALSE. ) 
+        & ldims=shape3d_aero, lrestart=.FALSE., lcontainer=.TRUE., loutput=.FALSE., &
+        & lopenacc=.TRUE. )
+      __acc_attach(diag%aerosol)
 
       ALLOCATE(diag%aerosol_ptr(nclass_aero))
       DO k = 1, nclass_aero
@@ -2244,49 +2259,65 @@ __acc_attach(diag%clct_avg)
     cf_desc    = t_cf_var('lwflx_up', 'W m-2 ', 'longwave upward flux', datatype_flt)
     grib2_desc = grib2_var(255, 255, 201, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'lwflx_up', diag%lwflx_up,                   &
-      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
-  
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux, &
+      & lopenacc=.TRUE. )
+    __acc_attach(diag%lwflx_up)
+
     ! &      diag%lwflx_dn(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('lwflx_dn', 'W m-2 ', 'longwave downward flux', datatype_flt)
     grib2_desc = grib2_var(255, 255, 202, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'lwflx_dn', diag%lwflx_dn,                   &
-      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux, &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%lwflx_dn)
   
     ! &      diag%swflx_up(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('swflx_up', 'W m-2 ', 'shortwave upward flux', datatype_flt)
     grib2_desc = grib2_var(255, 255, 203, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'swflx_up', diag%swflx_up,                   &
-      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux, &
+      & lopenacc=.TRUE.)
+      __acc_attach(diag%swflx_up)
   
     ! &      diag%swflx_dn(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('swflx_dn', 'W m-2 ', 'shortwave downward flux', datatype_flt)
     grib2_desc = grib2_var(255, 255, 204, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'swflx_dn', diag%swflx_dn,                   &
-      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
-  
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux, &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%swflx_dn)
+
     ! &      diag%lwflx_up_clr(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('lwflx_up_clr', 'W m-2 ', 'longwave upward clear-sky flux', datatype_flt)
     grib2_desc = grib2_var(255, 255, 205, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'lwflx_up_clr', diag%lwflx_up_clr,           &
-      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux, &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%lwflx_up_clr)
  
     ! &      diag%lwflx_dn_clr(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('lwflx_dn_clr', 'W m-2 ', 'longwave downward clear-sky flux', datatype_flt)
     grib2_desc = grib2_var(255, 255, 206, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'lwflx_dn_clr', diag%lwflx_dn_clr,           &
-      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux, &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%lwflx_dn_clr)
   
     ! &      diag%swflx_up_clr(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('swflx_up_clr', 'W m-2 ', 'shortave upward clear-sky flux', datatype_flt)
     grib2_desc = grib2_var(255, 255, 207, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'swflx_up_clr', diag%swflx_up_clr,           &
-      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux, &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%swflx_up_clr)
   
     ! &      diag%swflx_dn_clr(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('swflx_dn_clr', 'W m-2 ', 'shortave downward clear-sky flux', datatype_flt)
     grib2_desc = grib2_var(255, 255, 208, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'swflx_dn_clr', diag%swflx_dn_clr,           &
-      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux, &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%swflx_dn_clr)
 
 
     !------------------
@@ -2458,7 +2489,10 @@ __acc_attach(diag%clct_avg)
         &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,                   &
         &             lower_limit=0._wp ),                                      &
         & hor_interp=create_hor_interp_metadata(                                &
-        &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB)) 
+        &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB),            &
+        & lopenacc=.TRUE.                                                       )
+      __acc_attach(diag%reff_qc) 
+
 
       cf_desc      = t_cf_var('reff_qi', 'm',  'effective radius of cloud ice', datatype_flt)
       grib2_desc   = grib2_var(0, 1, 131, ibits, GRID_UNSTRUCTURED, GRID_CELL)    ! Corresponds to REICE
@@ -2473,7 +2507,9 @@ __acc_attach(diag%clct_avg)
         &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,                   &
         &             lower_limit=0._wp ),                                      &
         & hor_interp=create_hor_interp_metadata(                                &
-        &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB)) 
+        &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB),            &
+        & lopenacc=.TRUE.                                                       )
+      __acc_attach(diag%reff_qi) 
 
 
       cf_desc      = t_cf_var('reff_qr', 'm',  'effective radius of rain droplets', datatype_flt)
@@ -2489,7 +2525,9 @@ __acc_attach(diag%clct_avg)
         &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,                   &
         &             lower_limit=0._wp ),                                      &
         & hor_interp=create_hor_interp_metadata(                                &
-        &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB)) 
+        &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB),            &
+        & lopenacc=.TRUE.                                                       )
+      __acc_attach(diag%reff_qr)
 
       IF (iqs > 0) THEN
         cf_desc      = t_cf_var('reff_qs', 'm',  'effective radius of snow', datatype_flt)
@@ -2505,7 +2543,10 @@ __acc_attach(diag%clct_avg)
           &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,                   &
           &             lower_limit=0._wp ),                                      &
           & hor_interp=create_hor_interp_metadata(                                &
-          &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB)) 
+          &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB),            &
+          & lopenacc=.TRUE.                                                       )
+        __acc_attach(diag%reff_qs)
+
       ENDIF
 
       IF (iqg > 0) THEN
@@ -2522,7 +2563,9 @@ __acc_attach(diag%clct_avg)
           &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,                   &
           &             lower_limit=0._wp ),                                      &
           & hor_interp=create_hor_interp_metadata(                                &
-          &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB)) 
+          &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB),            &
+          & lopenacc=.TRUE.                                                       )
+        __acc_attach(diag%reff_qg)
       END IF
 
       IF (iqh > 0) THEN

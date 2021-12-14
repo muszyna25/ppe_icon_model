@@ -265,6 +265,10 @@ MODULE mo_nwp_rad_interface
     !-------------------------------------------------------------------------
     !
 
+    !$ACC DATA CREATE(zaeq1, zaeq2, zaeq3, zaeq4, zaeq5) IF(lacc)
+    SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
+    CASE (1) ! RRTM
+
 #ifdef _OPENACC
     IF(lacc) THEN
       CALL message('mo_nh_interface_nwp', 'Device to host copy before Radiation. This needs to be removed once port is finished!')
@@ -272,9 +276,6 @@ MODULE mo_nwp_rad_interface
       i_am_accel_node = .FALSE.
     ENDIF
 #endif
-    SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
-    CASE (1) ! RRTM
-
       CALL nwp_ozon_aerosol ( p_sim_time, mtime_datetime, pt_patch, ext_data, &
         & pt_diag, prm_diag, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 )
     
@@ -294,8 +295,18 @@ MODULE mo_nwp_rad_interface
 
     CASE (4) ! ecRad
 #ifdef __ECRAD
+      !$ACC WAIT
       CALL nwp_ozon_aerosol ( p_sim_time, mtime_datetime, pt_patch, ext_data, &
-        & pt_diag, prm_diag, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 )
+        & pt_diag, prm_diag, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, use_acc=lacc )
+
+#if defined(_OPENACC) && !defined(__ECRAD_ACC)
+    IF(lacc) THEN
+      CALL message('mo_nh_interface_nwp', 'Device to host copy before Radiation. This needs to be removed once port is finished!')
+      CALL gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data)
+      !$ACC UPDATE HOST(zaeq1, zaeq2, zaeq3, zaeq4, zaeq5) IF(lacc)
+      i_am_accel_node = .FALSE.
+    ENDIF
+#endif
 
       IF (.NOT. lredgrid) THEN
         CALL nwp_ecRad_radiation ( mtime_datetime, pt_patch, ext_data,      &
@@ -326,6 +337,8 @@ MODULE mo_nwp_rad_interface
       i_am_accel_node = my_process_is_work()
     ENDIF
 #endif
+
+    !$ACC END DATA
 
     IF( ALLOCATED(od_lw) ) THEN
       DEALLOCATE(od_lw, STAT=istat)

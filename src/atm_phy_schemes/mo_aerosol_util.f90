@@ -89,7 +89,7 @@ CONTAINS
   !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-02-28)
   !! Transferred to mo_aerosol_util Sophia Schaefer, DWD (2021-06-21)
    
-  SUBROUTINE aerdis ( klevp1, kbdim, jcs, jce, petah,  pvdaes, pvdael, pvdaeu, pvdaed )
+  SUBROUTINE aerdis ( klevp1, kbdim, jcs, jce, petah,  pvdaes, pvdael, pvdaeu, pvdaed, lacc )
     
     !------------------------------------------------------------------------------
     !
@@ -135,6 +135,8 @@ CONTAINS
     REAL    (wp), INTENT (IN) ::  &
       petah(kbdim,klevp1)    ! normalized vertical coordinate at half levels
 
+    LOGICAL, OPTIONAL, INTENT(IN) :: lacc
+
     ! Output data
     ! -----------
     REAL    (wp), INTENT (OUT) ::  &
@@ -153,6 +155,7 @@ CONTAINS
 
     INTEGER :: jc,jk
     REAL(wp) :: log_eta
+    LOGICAL :: lzacc
 
     !- End of header
     !==============================================================================
@@ -161,12 +164,23 @@ CONTAINS
     ! Begin Subroutine aerdis              
     !------------------------------------------------------------------------------
 
+    IF(PRESENT(lacc)) THEN
+        lzacc = lacc
+    ELSE
+        lzacc = .FALSE.
+    ENDIF
+    !$acc data present(petah,pvdaes,pvdael,pvdaeu,pvdaed) if (lzacc)
+
+    ! default data present
+    !$acc parallel default(none) ASYNC(1) if (lzacc)
+    !$acc loop gang vector
     DO jc=jcs,jce
       pvdaes(jc,1) = 0.0_wp
       pvdael(jc,1) = 0.0_wp
       pvdaeu(jc,1) = 0.0_wp
       pvdaed(jc,1) = 0.0_wp
     ENDDO
+    !$acc end parallel
 
 !!$  IF(petah(1).NE.0._wp) THEN
 !!$     pvdaes(1) = petah(1)**zhss
@@ -175,6 +189,8 @@ CONTAINS
 !!$     pvdaed(1) = petah(1)**zhsd
 !!$  END IF
 
+    !$acc parallel default(none) ASYNC(1) if (lzacc)
+    !$acc loop gang vector collapse(2) PRIVATE(log_eta)
     DO jk=2,klevp1
       DO jc=jcs,jce
         log_eta       = LOG(petah(jc,jk))
@@ -184,6 +200,9 @@ CONTAINS
         pvdaed(jc,jk) = EXP(zhsd*log_eta) ! petah(jc,jk)**zhsd
       ENDDO
     ENDDO
+    !$acc end parallel
+
+    !$acc end data
 
   END SUBROUTINE aerdis
 

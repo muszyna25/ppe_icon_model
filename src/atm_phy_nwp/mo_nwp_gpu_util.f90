@@ -74,6 +74,7 @@ MODULE mo_nwp_gpu_util
     CALL gpu_update_var_list('lnd_diag_of_domain_', .false., domain=jg)
     CALL gpu_update_var_list('wtr_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnow(jg))
     CALL gpu_update_var_list('wtr_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnew(jg))
+    CALL gpu_update_var_list('ext_data_atm_td_D',.false.,domain=jg)
     CALL gpu_update_var_list('ext_data_atm_D', .false., domain=jg)
 
     IF(ldass_lhn) THEN
@@ -156,6 +157,7 @@ MODULE mo_nwp_gpu_util
     CALL gpu_update_var_list('wtr_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnow(jg))
     CALL gpu_update_var_list('wtr_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnew(jg))
     CALL gpu_update_var_list('lnd_diag_of_domain_', .true., domain=jg)
+    CALL gpu_update_var_list('ext_data_atm_td_D',.true.,domain=jg)
     CALL gpu_update_var_list('ext_data_atm_D', .true., domain=jg)
 
     IF(ldass_lhn) THEN
