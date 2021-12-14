@@ -152,7 +152,7 @@ MODULE mo_nwp_rad_interface
     !-------------------------------------------------------------------------
 
 #ifdef __ECRAD
-    IF (ANY( irad_aero == (/13/) )) THEN
+    IF (ANY( irad_aero == (/12,13/) )) THEN
 
       ALLOCATE(od_lw_vr (nproma,pt_patch%nlev,ecrad_conf%n_bands_lw)                   , &
       &        od_sw_vr (nproma,pt_patch%nlev,ecrad_conf%n_bands_sw)                   , &
@@ -180,7 +180,7 @@ MODULE mo_nwp_rad_interface
         g_sw_vr (:,:,:)  = 0.0_wp
 
         SELECT CASE (irad_aero)
-        CASE (13)
+        CASE (12,13)
           CALL set_bc_aeropt_kinne(mtime_datetime, jg, 1, i_endidx, &
             & nproma, pt_patch%nlev, jb, ecrad_conf%n_bands_sw,     &
             & ecrad_conf%n_bands_lw, zf(:,:,jb), dz(:,:,jb),        &

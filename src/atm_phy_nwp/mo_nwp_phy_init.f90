@@ -876,7 +876,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     SELECT CASE ( irad_aero )
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
-    CASE (0,2,6,9,13)
+    CASE (0,2,6,9,12,13)
       !ok
     CASE (5)
       !ok for RRTM and captured in mo_nml_crosscheck for ecRad

@@ -129,7 +129,7 @@ CONTAINS
     SELECT CASE (irad_aero)
       CASE (0) ! No aerosol
         ecrad_conf%use_aerosols = .false.
-      CASE (2,5,6,13) ! Constant, Tanre, Tegen, Kinne
+      CASE (2,5,6,12,13) ! Constant, Tanre, Tegen, constant Kinne aerosol, Kinne
         ecrad_conf%use_aerosols = .true.
       CASE DEFAULT
         CALL finish(routine, 'irad_aero not valid for ecRad')
@@ -252,7 +252,9 @@ CONTAINS
     SELECT CASE (irad_aero)
       CASE(6) ! Tegen aerosol
         CALL init_aerosol_props_tegen_ecrad(ecrad_conf%n_bands_sw, ecrad_conf%n_bands_lw, l_rrtm_gas_model)
-      CASE(13)      
+      CASE(12)
+        CALL read_bc_aeropt_kinne(ini_date, p_patch, .false.)
+      CASE(13)
         CALL read_bc_aeropt_kinne(ini_date, p_patch, .true.)
     END SELECT
 
