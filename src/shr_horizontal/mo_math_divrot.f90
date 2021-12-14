@@ -113,7 +113,7 @@ USE mo_grid_config,         ONLY: l_limited_area
 USE mo_parallel_config,     ONLY: nproma
 USE mo_exception,           ONLY: finish
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-USE mo_fortran_tools,       ONLY: init, copy
+USE mo_fortran_tools,       ONLY: init
 #ifdef _OPENACC
 USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
@@ -2325,13 +2325,42 @@ IF (l_limited_area .OR. ptr_patch%id > 1) THEN
 
   i_startblk = ptr_patch%cells%start_blk(rl_start,1)
   i_endblk   = ptr_patch%cells%end_blk(rl_start_l2,1)
-!
-  CALL copy(aux_c (:,:,i_startblk:i_endblk), &
-       div_vec_c(:,:,i_startblk:i_endblk))
-  IF (l2fields) &
-       CALL copy(aux_c2(:,:,i_startblk:i_endblk), &
-       &         opt_out2 (:,:,i_startblk:i_endblk))
-!$OMP BARRIER
+
+  !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
+  DO jb = i_startblk, i_endblk ! like copy(aux_c, div_vec_c)
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, rl_start, rl_start_l2)
+
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
+    DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+        div_vec_c(jc,jk,jb) = aux_c(jc,jk,jb)
+      END DO
+    END DO
+    !$ACC END PARALLEL
+  END DO
+  !$OMP END DO
+
+  IF (l2fields) THEN
+    !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk ! like copy(aux_c2, opt_out2)
+
+      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_start_l2)
+
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+          opt_out2(jc,jk,jb) = aux_c2(jc,jk,jb)
+        END DO
+      END DO
+    !$ACC END PARALLEL
+    END DO
+  !$OMP END DO
+  ENDIF
 ENDIF
 
 !

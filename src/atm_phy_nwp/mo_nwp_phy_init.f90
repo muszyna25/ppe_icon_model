@@ -1330,7 +1330,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     ALLOCATE( turbdiff_config(jg)%impl_weight(nlevp1), &
               STAT=istatus )
     ! note that impl_weight => turbdiff_config(jg)%impl_weight
-    !$ACC ENTER DATA CREATE(turbdiff_config(jg))
+    !$ACC ENTER DATA CREATE(turbdiff_config(jg:jg))
     !$ACC ENTER DATA CREATE(turbdiff_config(jg)%impl_weight)
     IF(istatus/=SUCCESS)THEN
       CALL finish(routine, &

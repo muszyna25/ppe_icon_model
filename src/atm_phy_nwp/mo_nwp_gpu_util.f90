@@ -4,13 +4,9 @@ MODULE mo_nwp_gpu_util
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag
   USE mo_model_domain,            ONLY: t_patch
   USE mo_dynamics_config,         ONLY: nnow, nnew, nnow_rcf, nnew_rcf
-  USE mo_turbdiff_config,         ONLY: turbdiff_config
   USE mo_intp_data_strc,          ONLY: t_int_state
-  USE mo_grf_intp_data_strc,      ONLY: t_gridref_state, t_gridref_single_state
   USE mo_nwp_parameters,          ONLY: t_phy_params
   USE mo_nonhydrostatic_config,   ONLY: kstart_moist, kstart_tracer
-  USE mo_grid_config,             ONLY: n_dom
-  USE mo_nwp_phy_state,           ONLY: phy_params
   USE mo_run_config,              ONLY: ldass_lhn
 
 #ifdef _OPENACC
@@ -25,14 +21,13 @@ MODULE mo_nwp_gpu_util
 
   CONTAINS
 
-  SUBROUTINE gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data, p_int, p_grf, p_grf_single)
+  SUBROUTINE gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data, p_int, phy_params)
 
     TYPE(t_patch), TARGET, INTENT(in) :: pt_patch
     TYPE(t_nwp_phy_diag), INTENT(inout) :: prm_diag
     TYPE(t_external_data), OPTIONAL, INTENT(inout):: ext_data
     TYPE(t_int_state), OPTIONAL, INTENT(inout) :: p_int
-    TYPE(t_gridref_state), OPTIONAL, INTENT(inout) :: p_grf
-    TYPE(t_gridref_single_state), OPTIONAL, INTENT(inout) :: p_grf_single
+    TYPE(t_phy_params), OPTIONAL, INTENT(inout) :: phy_params
 
     INTEGER :: jg
 
@@ -43,7 +38,7 @@ MODULE mo_nwp_gpu_util
     !$ACC             ext_data%atm%list_seawtr%ncount, ext_data%atm%list_seawtr%idx, ext_data%atm%emis_rad, &
     !$ACC             ext_data%atm%z0_lcc, ext_data%atm%z0_lcc_min, ext_data%atm%plcovmax_lcc, &
     !$ACC             ext_data%atm%laimax_lcc, ext_data%atm%rootdmax_lcc, ext_data%atm%stomresmin_lcc, &
-    !$ACC             ext_data%atm%snowalb_lcc, ext_data%atm%snowtile_lcc ) &
+    !$ACC             ext_data%atm%snowalb_lcc, ext_data%atm%snowtile_lcc, ext_data%atm%t_cl ) &
     !$acc        IF(PRESENT(ext_data))
 
     !$ACC UPDATE HOST(p_int%lsq_high, p_int%lsq_lin, &
@@ -60,28 +55,13 @@ MODULE mo_nwp_gpu_util
     !$ACC             p_int%lsq_lin%lsq_moments, p_int%lsq_lin%lsq_moments_hat, &
     !$ACC             p_int%lsq_lin%lsq_pseudoinv, p_int%lsq_lin%lsq_qtmat_c, &
     !$ACC             p_int%lsq_lin%lsq_rmat_utri_c, p_int%lsq_lin%lsq_weights_c, &
-    !$ACC             p_int%nudgecoeff_e, p_int%pos_on_tplane_e, &
+    !$ACC             p_int%nudgecoeff_c, p_int%nudgecoeff_e, p_int%pos_on_tplane_e, &
     !$ACC             p_int%rbf_c2grad_blk, p_int%rbf_c2grad_idx, p_int%rbf_c2grad_coeff, &
     !$ACC             p_int%rbf_vec_blk_c, p_int%rbf_vec_idx_c, p_int%rbf_vec_coeff_c, &
     !$ACC             p_int%rbf_vec_blk_e, p_int%rbf_vec_idx_e, p_int%rbf_vec_coeff_e, &
     !$ACC             p_int%rbf_vec_blk_v, p_int%rbf_vec_idx_v, p_int%rbf_vec_coeff_v, &
     !$ACC             p_int%verts_aw_cells) &
     !$ACC        IF(PRESENT(p_int))        
-
-    !$ACC UPDATE HOST(p_grf%fbk_wgt_aw, p_grf%fbk_wgt_bln, p_grf%fbk_wgt_e, p_grf%fbk_dom_area, &
-    !$ACC             p_grf%mask_ovlp_c, p_grf%mask_ovlp_ch, p_grf%mask_ovlp_e, p_grf%mask_ovlp_v, &
-    !$ACC             p_grf%idxlist_bdyintp_src_c, p_grf%idxlist_bdyintp_src_e, p_grf%blklist_bdyintp_src_c, &
-    !$ACC             p_grf%blklist_bdyintp_src_e,p_grf%p_dom)  &
-    !$ACC        IF(PRESENT(p_grf))    
-
-    !$ACC UPDATE HOST(p_grf_single%grf_dist_pc2cc, p_grf_single%grf_dist_pe2ce, p_grf_single%idxlist_bdyintp_c, &
-    !$ACC             p_grf_single%idxlist_bdyintp_e, p_grf_single%idxlist_ubcintp_c, p_grf_single%idxlist_ubcintp_e, p_grf_single%blklist_bdyintp_c, &
-    !$ACC             p_grf_single%blklist_bdyintp_e, p_grf_single%blklist_ubcintp_c, p_grf_single%blklist_ubcintp_e, p_grf_single%idxlist_rbfintp_v, &
-    !$ACC             p_grf_single%blklist_rbfintp_v, p_grf_single%edge_vert_idx, p_grf_single%coeff_bdyintp_c, p_grf_single%coeff_ubcintp_c, &
-    !$ACC             p_grf_single%dist_pc2cc_bdy, p_grf_single%dist_pc2cc_ubc, p_grf_single%prim_norm, p_grf_single%coeff_bdyintp_e12, &
-    !$ACC             p_grf_single%coeff_bdyintp_e34, p_grf_single%dist_pe2ce, p_grf_single%coeff_ubcintp_e12, p_grf_single%coeff_ubcintp_e34, &
-    !$ACC             p_grf_single%coeff_rbf_v ) &
-    !$ACC        IF(PRESENT(p_grf_single))        
 
 #ifdef _OPENACC
     jg = pt_patch%id
@@ -105,26 +85,30 @@ MODULE mo_nwp_gpu_util
     ! Update dynamics fields
     CALL gpu_update_var_list('nh_state_metrics_of_domain_', .false., domain=jg)
     CALL gpu_update_var_list('nh_state_diag_of_domain_', .false., domain=jg)
+    CALL gpu_update_var_list('nh_state_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnow(jg))
     CALL gpu_update_var_list('nh_state_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnew(jg)) !p_prog
     CALL gpu_update_var_list('nh_state_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg)) !p_prog_now_rcf
     CALL gpu_update_var_list('nh_state_prog_of_domain_', .false., domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg)) !p_prog_rcf
     CALL gpu_update_var_list('prepadv_of_domain_', .false., domain=jg)
 #endif
 
+    IF (PRESENT(phy_params)) THEN
+      ! This is save as long as all t_phy_params components are scalars.
+      !$ACC UPDATE HOST(phy_params) 
+    END IF
+
   END SUBROUTINE gpu_d2h_nh_nwp
 
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
 
-  SUBROUTINE gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data, p_int, p_grf, p_grf_single)
+  SUBROUTINE gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data, p_int, phy_params)
 
     TYPE(t_patch), TARGET, INTENT(in) :: pt_patch
     TYPE(t_nwp_phy_diag), INTENT(inout) :: prm_diag
     TYPE(t_external_data), OPTIONAL, INTENT(inout):: ext_data
     TYPE(t_int_state), OPTIONAL, INTENT(inout) :: p_int
-    TYPE(t_gridref_state), OPTIONAL, INTENT(inout) :: p_grf
-    TYPE(t_gridref_single_state), OPTIONAL, INTENT(inout) :: p_grf_single
-
+    TYPE(t_phy_params), OPTIONAL, INTENT(inout) :: phy_params
 
     INTEGER :: jg
 
@@ -135,7 +119,7 @@ MODULE mo_nwp_gpu_util
     !$ACC               ext_data%atm%list_seawtr%ncount, ext_data%atm%list_seawtr%idx, ext_data%atm%emis_rad, &
     !$ACC               ext_data%atm%z0_lcc, ext_data%atm%z0_lcc_min, ext_data%atm%plcovmax_lcc, &
     !$ACC               ext_data%atm%laimax_lcc, ext_data%atm%rootdmax_lcc, ext_data%atm%stomresmin_lcc, &
-    !$ACC               ext_data%atm%snowalb_lcc, ext_data%atm%snowtile_lcc ) &
+    !$ACC               ext_data%atm%snowalb_lcc, ext_data%atm%snowtile_lcc, ext_data%atm%t_cl ) &
     !$acc        IF(PRESENT(ext_data))
 
     !$ACC UPDATE DEVICE(p_int%lsq_high, p_int%lsq_lin, &
@@ -152,28 +136,13 @@ MODULE mo_nwp_gpu_util
     !$ACC               p_int%lsq_lin%lsq_moments, p_int%lsq_lin%lsq_moments_hat, &
     !$ACC               p_int%lsq_lin%lsq_pseudoinv, p_int%lsq_lin%lsq_qtmat_c, &
     !$ACC               p_int%lsq_lin%lsq_rmat_utri_c, p_int%lsq_lin%lsq_weights_c, &
-    !$ACC               p_int%nudgecoeff_e, p_int%pos_on_tplane_e, &
+    !$ACC               p_int%nudgecoeff_c, p_int%nudgecoeff_e, p_int%pos_on_tplane_e, &
     !$ACC               p_int%rbf_c2grad_blk, p_int%rbf_c2grad_idx, p_int%rbf_c2grad_coeff, &
     !$ACC               p_int%rbf_vec_blk_c, p_int%rbf_vec_idx_c, p_int%rbf_vec_coeff_c, &
     !$ACC               p_int%rbf_vec_blk_e, p_int%rbf_vec_idx_e, p_int%rbf_vec_coeff_e, &
     !$ACC               p_int%rbf_vec_blk_v, p_int%rbf_vec_idx_v, p_int%rbf_vec_coeff_v, &
     !$ACC               p_int%verts_aw_cells) &
     !$ACC        IF(PRESENT(p_int))        
-
-    !$ACC UPDATE DEVICE(p_grf%fbk_wgt_aw, p_grf%fbk_wgt_bln, p_grf%fbk_wgt_e, p_grf%fbk_dom_area, &
-    !$ACC               p_grf%mask_ovlp_c, p_grf%mask_ovlp_ch, p_grf%mask_ovlp_e, p_grf%mask_ovlp_v, &
-    !$ACC               p_grf%idxlist_bdyintp_src_c, p_grf%idxlist_bdyintp_src_e, p_grf%blklist_bdyintp_src_c, &
-    !$ACC               p_grf%blklist_bdyintp_src_e,p_grf%p_dom)  &
-    !$ACC        IF(PRESENT(p_grf))    
-
-    !$ACC UPDATE DEVICE(p_grf_single%grf_dist_pc2cc, p_grf_single%grf_dist_pe2ce, p_grf_single%idxlist_bdyintp_c, &
-    !$ACC               p_grf_single%idxlist_bdyintp_e, p_grf_single%idxlist_ubcintp_c, p_grf_single%idxlist_ubcintp_e, p_grf_single%blklist_bdyintp_c, &
-    !$ACC               p_grf_single%blklist_bdyintp_e, p_grf_single%blklist_ubcintp_c, p_grf_single%blklist_ubcintp_e, p_grf_single%idxlist_rbfintp_v, &
-    !$ACC               p_grf_single%blklist_rbfintp_v, p_grf_single%edge_vert_idx, p_grf_single%coeff_bdyintp_c, p_grf_single%coeff_ubcintp_c, &
-    !$ACC               p_grf_single%dist_pc2cc_bdy, p_grf_single%dist_pc2cc_ubc, p_grf_single%prim_norm, p_grf_single%coeff_bdyintp_e12, &
-    !$ACC               p_grf_single%coeff_bdyintp_e34, p_grf_single%dist_pe2ce, p_grf_single%coeff_ubcintp_e12, p_grf_single%coeff_ubcintp_e34, &
-    !$ACC               p_grf_single%coeff_rbf_v ) &
-    !$ACC        IF(PRESENT(p_grf_single))        
     
 #ifdef _OPENACC
     jg = pt_patch%id
@@ -198,17 +167,21 @@ MODULE mo_nwp_gpu_util
     ! Update dynamics fields
     CALL gpu_update_var_list('nh_state_metrics_of_domain_', .true., domain=jg)
     CALL gpu_update_var_list('nh_state_diag_of_domain_', .true., domain=jg)
+    CALL gpu_update_var_list('nh_state_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnow(jg))
     CALL gpu_update_var_list('nh_state_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnew(jg)) !p_prog
     CALL gpu_update_var_list('nh_state_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg)) !p_prog_now_rcf
     CALL gpu_update_var_list('nh_state_prog_of_domain_', .true., domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg)) !p_prog_new_rcf
     CALL gpu_update_var_list('prepadv_of_domain_', .true., domain=jg)
 #endif
 
+    IF (PRESENT(phy_params)) THEN
+      ! This is save as long as all t_phy_params components are scalars.
+      !$ACC UPDATE DEVICE(phy_params) 
+    END IF
+
   END SUBROUTINE gpu_h2d_nh_nwp
 
   SUBROUTINE devcpy_nwp()
-
-    !$ACC UPDATE DEVICE(phy_params)
 
     !$ACC ENTER DATA COPYIN(kstart_moist, kstart_tracer)
 

@@ -597,6 +597,12 @@ CONTAINS
         & max_vn, max_vn_level, max_vn_process, &
         & max_w, max_w_level, max_w_process )
 
+#ifdef _OPENACC
+    IF (msg_level >= 13) THEN
+      CALL printGPUMem("print_maxwinds")
+    END IF
+#endif
+
     !--- Get max over all PEs
     IF (msg_level >= 7) THEN
 
@@ -608,9 +614,6 @@ CONTAINS
         WRITE(message_text,'(a,i3,a,2(e18.10,a,i5,a,i3,a))') 'MAXABS VN, W in domain', patch%id, ':', &
           & max_vn, " (on proc #", max_vn_process, ", level ", max_vn_level, "), ", &
           & max_w,  " (on proc #", max_w_process,  ", level ", max_w_level,  "), "
-#ifdef _OPENACC
-        CALL printGPUMem("GPU mem usage")
-#endif
       ELSE
         WRITE(message_text,'(a,i3,a,2(e18.10,a,i3,a))') 'MAXABS VN, W in domain', patch%id, ':', &
           & max_vn, " at level ",  max_vn_level, ", ", &

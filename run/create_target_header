@@ -1076,6 +1076,14 @@ set_run_target_daint_gpu()
 	SBATCH_ntasks_per_node=""
     else
     use_nodes=4
+
+	# dirty hack to make sure, that mch_opr_r04b07_nest.run is run with 3 nodes
+	case $job_name in
+	    *mch_opr_r04b07_nest.run)
+		use_nodes=3
+	    ;;
+	esac
+
 	job_type=parallel
 	tasks_per_node=$use_mpi_procs_pernode
 	SBATCH_nodes="SBATCH --nodes=$use_nodes"
@@ -1459,6 +1467,11 @@ create_target_header()
             use_nodes=1
             use_mpi_procs_pernode=2
             use_nproma=4250
+            ;;
+        *mch_opr_r04b07_nest.run)
+            use_nodes=3
+            use_mpi_procs_pernode=1
+            use_nproma=1600
             ;;
 	    *mch_*)
 	        use_nodes=3

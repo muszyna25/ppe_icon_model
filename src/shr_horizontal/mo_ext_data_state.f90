@@ -1059,7 +1059,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 't_cl', p_ext_atm%t_cl,           &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
-        &           isteptype=TSTEP_AVG )
+        &           isteptype=TSTEP_AVG, lopenacc=.TRUE. )
+        __acc_attach(p_ext_atm%t_cl)
 
       IF (itype_vegetation_cycle > 1) THEN
         ! t2m_clim         p_ext_atm%t2m_clim(nproma,nblks_c)

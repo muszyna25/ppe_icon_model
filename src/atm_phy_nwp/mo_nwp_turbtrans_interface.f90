@@ -450,43 +450,40 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &  vmfl_s=prm_diag%vmfl_s_t(:,jb,1),                                         & !out
           &  lacc=lzacc                                                                 ) !in
 
+
         IF (timers_level > 9) CALL timer_stop(timer_nwp_turbtrans)
 
-        !$acc kernels async(1) default(present) if(lzacc)
-        prm_diag%lhfl_s_t(i_startidx:i_endidx,jb,1) = &
-          &  prm_diag%qhfl_s_t(i_startidx:i_endidx,jb,1) * lh_v
-        !$acc end kernels
-
-        ! fix latent heat flux over seaice
         !$acc parallel async(1) default(present) if(lzacc)
         !$acc loop gang vector
         DO jc = i_startidx, i_endidx
+          prm_diag%lhfl_s_t(jc,jb,1) = &
+            &  prm_diag%qhfl_s_t(jc,jb,1) * lh_v
+
+          ! fix latent heat flux over seaice
           IF (wtr_prog_new%h_ice(jc,jb) > 0._wp ) THEN
             prm_diag%lhfl_s_t(jc,jb,1) = (lh_s/lh_v) * prm_diag%lhfl_s_t(jc,jb,1)
           ENDIF
+
+          ! copy
+          prm_diag%gz0(jc,jb)   = prm_diag%gz0_t(jc,jb,1)
+          prm_diag%tcm(jc,jb)   = prm_diag%tcm_t(jc,jb,1)
+          prm_diag%tch(jc,jb)   = prm_diag%tch_t(jc,jb,1)
+          prm_diag%tfv(jc,jb)   = prm_diag%tfv_t(jc,jb,1)
+          prm_diag%tvm(jc,jb)   = prm_diag%tvm_t(jc,jb,1)
+          prm_diag%tvh(jc,jb)   = prm_diag%tvh_t(jc,jb,1)
+          prm_diag%tkr(jc,jb)   = prm_diag%tkr_t(jc,jb,1)
+          prm_diag%u_10m(jc,jb) = prm_diag%u_10m_t(jc,jb,1)
+          prm_diag%v_10m(jc,jb) = prm_diag%v_10m_t(jc,jb,1)
+
+          ! instantaneous max/min 2m temperature over tiles (trivial operation for 1 tile)
+          prm_diag%t_tilemax_inst_2m(jc,jb) = prm_diag%t_2m(jc,jb)
+          prm_diag%t_tilemin_inst_2m(jc,jb) = prm_diag%t_2m(jc,jb)
+          prm_diag%tmax_2m(jc,jb) = MAX(prm_diag%t_2m(jc,jb), &
+            &                                        prm_diag%tmax_2m(jc,jb) )
+          prm_diag%tmin_2m(jc,jb) = MIN(prm_diag%t_2m(jc,jb), &
+            &                                        prm_diag%tmin_2m(jc,jb) )
         ENDDO
         !$acc end parallel
-
-        ! copy
-        !$acc kernels async(1) default(present) if(lzacc)
-        prm_diag%gz0(i_startidx:i_endidx,jb)   = prm_diag%gz0_t(i_startidx:i_endidx,jb,1)
-        prm_diag%tcm(i_startidx:i_endidx,jb)   = prm_diag%tcm_t(i_startidx:i_endidx,jb,1)
-        prm_diag%tch(i_startidx:i_endidx,jb)   = prm_diag%tch_t(i_startidx:i_endidx,jb,1)
-        prm_diag%tfv(i_startidx:i_endidx,jb)   = prm_diag%tfv_t(i_startidx:i_endidx,jb,1)
-        prm_diag%tvm(i_startidx:i_endidx,jb)   = prm_diag%tvm_t(i_startidx:i_endidx,jb,1)
-        prm_diag%tvh(i_startidx:i_endidx,jb)   = prm_diag%tvh_t(i_startidx:i_endidx,jb,1)
-        prm_diag%tkr(i_startidx:i_endidx,jb)   = prm_diag%tkr_t(i_startidx:i_endidx,jb,1)
-        prm_diag%u_10m(i_startidx:i_endidx,jb) = prm_diag%u_10m_t(i_startidx:i_endidx,jb,1)
-        prm_diag%v_10m(i_startidx:i_endidx,jb) = prm_diag%v_10m_t(i_startidx:i_endidx,jb,1)
-
-        ! instantaneous max/min 2m temperature over tiles (trivial operation for 1 tile)
-        prm_diag%t_tilemax_inst_2m(i_startidx:i_endidx,jb) = prm_diag%t_2m(i_startidx:i_endidx,jb)
-        prm_diag%t_tilemin_inst_2m(i_startidx:i_endidx,jb) = prm_diag%t_2m(i_startidx:i_endidx,jb)
-        prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
-          &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )
-        prm_diag%tmin_2m(i_startidx:i_endidx,jb) = MIN(prm_diag%t_2m(i_startidx:i_endidx,jb), &
-          &                                        prm_diag%tmin_2m(i_startidx:i_endidx,jb) )
-        !$acc end kernels
 
       ELSE ! tile approach used
 

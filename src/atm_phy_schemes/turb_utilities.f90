@@ -1588,7 +1588,7 @@ LOGICAL :: add_adv_inc, lvar_fcd, rogh_lay, alt_gama, corr
 
         w1=stbsmot; w2=1.0_wp-stbsmot
 
-        !$acc loop gang(static:1) vector                                 &
+        !$acc loop gang(static:1) vector                       &
         !$acc private(d0,d1,d2,d3,d4,d5,d6,d1_rec,d2_rec)      &
         !$acc private(gam0,gama,corr,sm,sh,det,tim2,gh,gm)     &
         !$acc private(be1,be2,a11,a12,a21,a22,wert)            &

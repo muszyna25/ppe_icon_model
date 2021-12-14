@@ -351,6 +351,9 @@ function tolerance_check
         *atm*ape*)
             FILE_IDS="atm_3d"
             ;;
+        *mch_*nest*)
+            FILE_IDS="atm_3d_DOM01,atm_3d_DOM02"
+            ;;
         *mch_*)
             FILE_IDS="atm_3d"
             ;;

@@ -308,12 +308,12 @@ SUBROUTINE organize_lhn ( &
   i_startblk = pt_patch%cells%start_block(i_rlstart)
   i_endblk   = pt_patch%cells%end_block(i_rlend)
 
-!$ACC ENTER DATA COPYIN(kstart_moist(jg), assimilation_config(jg))
+!$ACC ENTER DATA COPYIN(kstart_moist(jg:jg), assimilation_config(jg:jg))
 !$ACC UPDATE DEVICE(lhn_fields%brightband, radar_data%radar_ct%blacklist, radar_data%radar_td%obs,  &
 !$ACC               radar_data%radar_td%radheight, radar_data%radar_td%spqual)
 !$ACC DATA PRESENT(prm_diag, pt_diag, pt_diag%temp, p_metrics, p_metrics%z_ifc,                     &
 !$ACC              p_metrics%z_mc, lhn_fields, lhn_fields%ttend_lhn, lhn_fields%qvtend_lhn,         &
-!$ACC              kstart_moist(jg))                                                                &
+!$ACC              kstart_moist(jg:jg))                                                                &
 !$ACC      COPYOUT(pr_obs, pr_ana, wobs_space, wobs_time, lhn_diag, scale_diag, treat_diag,         &
 !$ACC              diag_out, scale_fac_index, pr_mod, pr_ref, tt_lheat, hzerocl)
 
@@ -464,7 +464,7 @@ SUBROUTINE organize_lhn ( &
 !$ACC              prm_diag%qvtend_lhn, prm_diag%lhn_diag, prm_nwp_tend, prm_nwp_tend%ddt_temp_pconv,   &
 !$ACC              p_metrics, p_metrics%z_ifc, pt_patch, pt_patch%cells%area,                           &
 !$ACC              lhn_fields, lhn_fields%pr_obs_sum, lhn_fields%pr_mod_sum, lhn_fields%pr_ref_sum,     &
-!$ACC              lhn_fields%brightband, kstart_moist(jg), assimilation_config(jg), zprmod)            &
+!$ACC              lhn_fields%brightband, kstart_moist(jg:jg), assimilation_config(jg:jg), zprmod)            &
 !$ACC      COPYIN(tt_lheat, wobs_space, wobs_time, pr_ana, pr_obs, pr_mod, pr_ref,                      &
 !$ACC             treat_diag, scale_diag, lhn_diag, scale_fac_index)                                    &
 !$ACC      CREATE(ttmin, ttmax, qrsflux, qrsgmax, qrsgthres, z_pr_obs, z_pr_mod,                        &
@@ -981,7 +981,7 @@ SUBROUTINE organize_lhn ( &
 !$ACC END DATA
 !$ACC UPDATE HOST(lhn_fields%pr_obs_sum, lhn_fields%pr_mod_sum, lhn_fields%pr_ref_sum, &
 !$ACC             lhn_fields%ttend_lhn, lhn_fields%qvtend_lhn)
-!$ACC EXIT DATA DELETE(kstart_moist(jg), assimilation_config(jg))
+!$ACC EXIT DATA DELETE(kstart_moist(jg:jg), assimilation_config(jg:jg))
 
    IF (datetime_current%time%minute  == 0) THEN
       IF (ltlhnverif) THEN
@@ -1275,9 +1275,8 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs,hzerocl,
 !$ACC ENTER DATA CREATE(num_t_obs)
 !$ACC DATA PRESENT(pt_patch, prm_diag, lhn_fields, lhn_fields%brightband, radar_data,                  &
 !$ACC              radar_data%radar_ct%blacklist, radar_data%radar_td%obs, radar_data%radar_td%spqual, &
-!$ACC              wobs_time, wobs_space, pr_obs, hzerocl, num_t_obs, assimilation_config(jg))         &
+!$ACC              wobs_time, wobs_space, pr_obs, hzerocl, num_t_obs, assimilation_config(jg:jg))         &
 !$ACC      COPYIN(td_in_min) CREATE(obs_sum, obs_ratio, bbllim, obs_cnt)
-
 
   IF (assimilation_config(jg)%lhn_bright .AND. &
    & ( (MOD(datetime_current%time%minute,5)  == 0 .AND. datetime_current%time%second < 10 ) &
@@ -1875,7 +1874,7 @@ SUBROUTINE detect_bright_band(pt_patch,radar_data,prm_diag,lhn_fields,sumrad,bbl
 
 !$ACC DATA PRESENT(pt_patch, prm_diag, lhn_fields, lhn_fields%brightband,                    &
 !$ACC              radar_data, radar_data%radar_ct%blacklist, radar_data%radar_td%radheight, &
-!$ACC              sumrad, bbllim, hzerocl, assimilation_config(jg))
+!$ACC              sumrad, bbllim, hzerocl, assimilation_config(jg:jg))
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,nh) ICON_OMP_GUIDED_SCHEDULE
 
@@ -2072,7 +2071,7 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
 
 !$ACC DATA PRESENT(wobs_time, wobs_space, pr_obs, pr_mod, tt_lheat, zlev,      &
 !$ACC              ttend_lhn, treat_diag, pr_ana, scale_diag, scale_fac_index, &
-!$ACC              u, v, k850, k950, k700, assimilation_config(jg))            &
+!$ACC              u, v, k850, k950, k700, assimilation_config(jg:jg))            &
 !$ACC      CREATE(treat_list, tt_artif, abs_lim_prof, wind_corr)
 
 ! set temperature increments to be determined to zero
@@ -2554,7 +2553,7 @@ SUBROUTINE lhn_q_inc(i_startidx,i_endidx,jg,zdt,ke,t,ttend_lhn,p,qv,qc,qi, &
   zt = tau_nudge * zdt
 
 !$ACC DATA PRESENT(t, p, qc, qi, qv, scale_fac_index, qvtend_lhn,    &
-!$ACC              ttend_lhn, assimilation_config(jg))               &
+!$ACC              ttend_lhn, assimilation_config(jg:jg))               &
 !$ACC      CREATE(qv_new)
 !$ACC PARALLEL DEFAULT(NONE)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)                                   &

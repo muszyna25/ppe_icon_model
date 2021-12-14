@@ -39,7 +39,9 @@ USE mo_parallel_config,     ONLY: nproma, cpu_min_nproma
 USE mo_communication,       ONLY: exchange_data_grf
 
 USE mo_grf_intp_data_strc
-
+#ifdef _OPENACC
+  USE mo_mpi,               ONLY: i_am_accel_node
+#endif
 
 IMPLICIT NONE
 
@@ -96,12 +98,16 @@ SUBROUTINE interpol_vec_ubc(p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
     npromz_ubcintp = nproma_ubcintp
   ENDIF
 
+  !$ACC DATA CREATE(vn_aux) IF(i_am_accel_node)
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE (jb,je,nlen,nshift) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_ubcintp
     nlen = MERGE(nproma_ubcintp, npromz_ubcintp, jb /= nblks_ubcintp)
     nshift = (jb-1)*nproma_ubcintp
 
+    !$ACC PARALLEL DEFAULT(PRESENT) PRESENT(p_pp%edges%refin_ctrl) IF(i_am_accel_node)
+    !$ACC LOOP GANG VECTOR
     DO je = nshift+1, nshift+nlen
 
       ! child edge 1
@@ -158,6 +164,8 @@ SUBROUTINE interpol_vec_ubc(p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
         p_vn_in(iidx(9,je),iblk(9,je)) 
 
     ENDDO
+    !$ACC END PARALLEL
+
   ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -166,6 +174,8 @@ SUBROUTINE interpol_vec_ubc(p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
 
   CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_vec_ubc,1,1, &
     &                    RECV1=p_vn_out,SEND1=vn_aux)
+
+  !$ACC END DATA
 
 END SUBROUTINE interpol_vec_ubc
 
@@ -241,6 +251,7 @@ SUBROUTINE interpol_scal_ubc(p_pc, p_grf, nfields, f3din, f3dout, llimit_nneg)
   iidx => p_grf%idxlist_ubcintp_c
   iblk => p_grf%blklist_ubcintp_c
 
+  !$ACC DATA CREATE(grad_x, grad_y, maxval_neighb, minval_neighb, val_ctr, h_aux) IF(i_am_accel_node)
 !$OMP PARALLEL
 
 !$OMP DO PRIVATE (jb,nlen,nshift,jn,jc,limfac1,limfac2,limfac,min_expval,max_expval, &
@@ -253,6 +264,8 @@ SUBROUTINE interpol_scal_ubc(p_pc, p_grf, nfields, f3din, f3dout, llimit_nneg)
     ENDIF
     nshift = (jb-1)*nproma_ubcintp
 
+    !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
+    !$ACC LOOP GANG(STATIC:1) VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = nshift+1, nshift+nlen
       DO jn = 1, nfields
@@ -310,6 +323,8 @@ SUBROUTINE interpol_scal_ubc(p_pc, p_grf, nfields, f3din, f3dout, llimit_nneg)
       ENDDO
     ENDDO
 
+    !$ACC LOOP GANG(STATIC:1) VECTOR COLLAPSE(2) PRIVATE(min_expval, max_expval, &
+    !$ACC      limfac1, limfac2, relaxed_minval, relaxed_maxval, limfac1, limfac2, limfac)
 #ifdef __LOOP_EXCHANGE
     DO jc = nshift+1, nshift+nlen
       DO jn = 1, nfields
@@ -366,6 +381,7 @@ SUBROUTINE interpol_scal_ubc(p_pc, p_grf, nfields, f3din, f3dout, llimit_nneg)
     ENDDO
 
     IF (l_limit_nneg) THEN
+      !$ACC LOOP GANG(STATIC:1) VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = nshift+1, nshift+nlen
         DO jn = 1, nfields
@@ -391,6 +407,7 @@ SUBROUTINE interpol_scal_ubc(p_pc, p_grf, nfields, f3din, f3dout, llimit_nneg)
         ENDDO
       ENDDO
         ELSE
+      !$ACC LOOP GANG(STATIC:1) VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = nshift+1, nshift+nlen
         DO jn = 1, nfields
@@ -416,6 +433,7 @@ SUBROUTINE interpol_scal_ubc(p_pc, p_grf, nfields, f3din, f3dout, llimit_nneg)
         ENDDO
       ENDDO
     ENDIF
+    !$ACC END PARALLEL
 
   ENDDO ! blocks
 !$OMP END DO
@@ -425,6 +443,8 @@ SUBROUTINE interpol_scal_ubc(p_pc, p_grf, nfields, f3din, f3dout, llimit_nneg)
 
   CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_scal_ubc,1,nfields, &
     &                    RECV1=f3dout,SEND1=h_aux)
+
+  !$ACC END DATA
 
 END SUBROUTINE interpol_scal_ubc
 

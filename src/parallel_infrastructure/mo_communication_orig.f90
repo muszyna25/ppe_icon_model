@@ -1003,7 +1003,7 @@ CONTAINS
     ENDIF
 
     IF (ndim2 == 1) THEN
-!$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(send_ptr) IF (use_gpu)
 !$ACC LOOP GANG VECTOR
       DO i = 1, p_pat%n_send
         send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i))
@@ -1487,8 +1487,9 @@ CONTAINS
     !       array_out( recv_dst_idx(i), recv_dst_blk(i) ) = recv_buf(recv_src(i))
     !     END DO
 
+!ACC: explicit PRESENT is required to circumvent a 'partially present error' with PGI 20.9
     IF(PRESENT(add)) THEN
-!$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
+!$ACC PARALLEL PRESENT(recv, send) DEFAULT(PRESENT) IF (use_gpu) 
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO k=1,ndim2
         DO i=1,p_pat%n_pnts
@@ -1501,7 +1502,7 @@ CONTAINS
       ENDDO
 !$ACC END PARALLEL
     ELSE
-!$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
+!$ACC PARALLEL PRESENT(recv, send) DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO k=1,ndim2
         DO i=1,p_pat%n_pnts
@@ -2900,7 +2901,7 @@ CONTAINS
       jl = send_src_idx(i)
       IF ( lsend ) THEN
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
+!$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(koffset)
         DO k = 1, ndim2
           DO n = 1, nfields
             koffset = (k-1)*nfields
@@ -2910,7 +2911,7 @@ CONTAINS
 !$ACC END PARALLEL
       ELSE
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
+!$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(koffset)
         DO k = 1, ndim2
           DO n = 1, nfields
             koffset = (k-1)*nfields
@@ -3000,7 +3001,7 @@ CONTAINS
       jb = recv_dst_blk(i)
       jl = recv_dst_idx(i)
       ik  = recv_src(i)
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2) PRIVATE(koffset)
       DO k = 1, ndim2
         DO n = 1, nfields
           koffset = (k-1)*nfields
@@ -3199,18 +3200,15 @@ CONTAINS
 !$ACC              p_recv_dst_idx, p_recv_dst_blk ) IF (use_gpu)
 
 #ifdef _OPENACC
-     DO n = 1, nfields
-       DO np = 1, npats
-!$ACC ENTER DATA ATTACH( send(np+(n-1)*npats)%p )
-       ENDDO
-!$ACC ENTER DATA ATTACH( recv(n)%p )
-     ENDDO
+    DO n = 1, nfields
+!$ACC ENTER DATA ATTACH( send(n)%p, recv(n)%p ) IF (use_gpu)
+    ENDDO
 
-     DO np = 1, npats
+    DO np = 1, npats
 !$ACC ENTER DATA ATTACH( p_send_src_idx(np)%p, p_send_src_blk(np)%p, &
 !$ACC                    p_recv_dst_idx(np)%p, p_recv_dst_blk(np)%p, &
 !$ACC                    p_recv_src(np)%p ) IF (use_gpu)
-     ENDDO
+    ENDDO
 #endif
 
     IF (my_process_is_mpi_seq()) THEN
@@ -3265,9 +3263,9 @@ CONTAINS
 #if defined( __SX__ ) || defined( _OPENACC )
 
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR COLLAPSE(2) 
+! ACC: We cannot collapse over k and i due to n and np dependency
       DO n = 1, nfields
-!$ACC LOOP VECTOR
         DO np = 1, npats
 !$NEC novector
           DO k = 1, ndim2(n)
@@ -3483,10 +3481,10 @@ CONTAINS
 
 #if defined( __SX__ ) || defined( _OPENACC )
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO n = 1, nfields
         DO np = 1, npats
-!$ACC LOOP VECTOR
+! ACC: We cannot collapse over k and i due to n and np dependency
 !$NEC novector
           DO k = 1, ndim2(n)
             DO i = 1, n_pnts(np)
@@ -3526,18 +3524,15 @@ CONTAINS
     ENDIF  ! .NOT. my_process_is_mpi_seq()
 
 #ifdef _OPENACC
-     DO n = 1, nfields
-!$ACC EXIT DATA DETACH( recv(n)%p ) IF (use_gpu)
-       DO np = 1, npats
-!$ACC EXIT DATA DETACH( send(np+(n-1)*npats)%p ) IF (use_gpu)
-       ENDDO
-     ENDDO
+    DO n = 1, nfields
+!$ACC EXIT DATA DETACH( recv(n)%p, send(n)%p ) IF (use_gpu)
+    ENDDO
 
-     DO np = 1, npats
+    DO np = 1, npats
 !$ACC EXIT DATA DETACH( p_send_src_idx(np)%p, p_send_src_blk(np)%p, &
 !$ACC                   p_recv_dst_idx(np)%p, p_recv_dst_blk(np)%p, &
 !$ACC                   p_recv_src(np)%p ) IF (use_gpu)
-     ENDDO
+    ENDDO
 #endif
 
 !$ACC END DATA

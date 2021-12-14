@@ -24,7 +24,7 @@ MODULE mo_phys_nest_utilities
 !
 !
 USE mo_kind,                ONLY: wp
-USE mo_exception,           ONLY: message_text, message
+USE mo_exception,           ONLY: message_text, message, finish
 USE mo_model_domain,        ONLY: t_patch, t_grid_cells, p_patch_local_parent, p_patch
 USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent
 USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, t_gridref_single_state, &
@@ -59,6 +59,9 @@ USE sfc_flake,              ONLY: flake_coldinit
 USE sfc_flake_data,         ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
 USE mo_fortran_tools,       ONLY: init, copy
 USE mo_io_config,           ONLY: var_in_output
+#ifdef _OPENACC
+USE mo_mpi,                 ONLY: i_am_accel_node
+#endif
 
 IMPLICIT NONE
 
@@ -279,6 +282,10 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, emis_rad,                   &
   REAL(wp), DIMENSION(:,:,:), POINTER :: p_q, p_reff ! For improving code readability in reff calculation
 
   !-----------------------------------------------------------------------
+#ifdef _OPENACC
+  if(i_am_accel_node) &
+    CALL finish('mo_phys_nest_utilities:upscale_rad_input', 'openACC is not implemented')
+#endif
 
   n2d_upsc = 9 ! Number of 2D fields to upscale (9 + extra_2D fields)
 
@@ -1086,6 +1093,10 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg, rg_aclcov, rg_lwflxall,   &
 
   LOGICAL :: l_limit(3)
 !-----------------------------------------------------------------------
+#ifdef _OPENACC
+  if(i_am_accel_node) &
+    CALL finish('mo_phys_nest_utilities:downscale_rad_output', 'openACC is not implemented')
+#endif
 
   IF (msg_level >= 10) THEN
     WRITE(message_text,'(a,i2,a,i2)') 'Downscaling of radiation output fields',&
@@ -1775,6 +1786,11 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
     &         z_aux3dsn_p(nproma,5*nlev_snow,p_patch(jg)%nblks_c),      &  ! 3D land state fields for multi-layer snow
     &         z_aux3dsn_c(nproma,5*nlev_snow,p_patch(jgc)%nblks_c)         ! (used if lmulti_snow = true))
 
+#ifdef _OPENACC
+  if(i_am_accel_node) &
+    CALL finish('mo_phys_nest_utilities:interpol_phys_grf', 'openACC is not implemented')
+#endif
+
   ! set pointers
   ptr_pp  => p_patch(jg)
   ptr_pc  => p_patch(jgc)
@@ -2321,8 +2337,13 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
   ptr_lprogc_t1 => p_lnd_state(jgc)%prog_lnd(1)
   ptr_lprogc_t2 => p_lnd_state(jgc)%prog_lnd(2)
 
+  !$ACC DATA CREATE(z_aux3d_p, z_aux3d_c) PRESENT(ptr_lprogp, prm_diagp, &
+  !$ACC      ptr_lprogc_t1, ptr_lprogc_t2, prm_diagc) IF(i_am_accel_node)
+
   IF (p_test_run) THEN
+    !$ACC SERIAL DEFAULT(NONE) IF(i_am_accel_node)
      z_aux3d_p(:,:,:) = 0._wp
+    !$ACC END SERIAL
   ENDIF
 
   i_startblk = ptr_pp%cells%start_blk(1,1)
@@ -2334,6 +2355,8 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1)
 
+    !$ACC PARALLEL DEFAULT(NONE) IF(i_am_accel_node)
+    !$ACC LOOP GANG VECTOR
     DO jc = i_startidx, i_endidx
 
       z_aux3d_p(jc,1,jb) = ptr_lprogp%t_g(jc,jb)
@@ -2341,6 +2364,8 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
       z_aux3d_p(jc,3,jb) = prm_diagp%albvisdif(jc,jb)
       z_aux3d_p(jc,4,jb) = prm_diagp%albnirdif(jc,jb)
     ENDDO
+    !$ACC END PARALLEL
+
   ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -2368,6 +2393,8 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
     CALL get_indices_c(ptr_pc, jb, i_startblk, i_endblk,        &
                        i_startidx, i_endidx, 1, grf_bdywidth_c)
 
+    !$ACC PARALLEL DEFAULT(NONE) IF(i_am_accel_node)
+    !$ACC LOOP GANG VECTOR
     DO jc = i_startidx, i_endidx
 
       ptr_lprogc_t1%t_g(jc,jb)     = z_aux3d_c(jc,1,jb)
@@ -2376,9 +2403,12 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
       prm_diagc%albvisdif(jc,jb)   = z_aux3d_c(jc,3,jb)
       prm_diagc%albnirdif(jc,jb)   = z_aux3d_c(jc,4,jb)
     ENDDO
+    !$ACC END PARALLEL
   ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+  !$ACC END DATA
 
 END SUBROUTINE interpol_rrg_grf
 
@@ -2439,6 +2469,10 @@ SUBROUTINE feedback_phys_diag(jg, jgp)
   REAL(wp), ALLOCATABLE, TARGET :: z_aux3d_lp(:,:,:), z_aux3d_par(:,:,:)
 
   !-----------------------------------------------------------------------
+#ifdef _OPENACC
+  if(i_am_accel_node) &
+    CALL finish('mo_phys_nest_utilities:feedback_phys_diag', 'openACC is not implemented')
+#endif
 
   IF (msg_level >= 10) THEN
     WRITE(message_text,'(a,i2,a,i2)') 'Feedback of diagnostic physics fields',&

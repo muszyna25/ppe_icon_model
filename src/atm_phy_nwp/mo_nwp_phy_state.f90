@@ -231,7 +231,6 @@ SUBROUTINE destruct_nwp_phy_state()
     CALL vlr_del(prm_nwp_diag_list(jg))
     CALL vlr_del(prm_nwp_tend_list(jg))
 
-    IF (ASSOCIATED(prm_diag(jg)%buffer_rttov))  DEALLOCATE(prm_diag(jg)%buffer_rttov)  
     IF (ALLOCATED(prm_diag(jg)%synsat_image))   DEALLOCATE(prm_diag(jg)%synsat_image)
     IF (ASSOCIATED(prm_diag(jg)%qrs_flux) .AND. .NOT. ldass_lhn) THEN
       !$ACC EXIT DATA DELETE(prm_diag(jg)%qrs_flux)
@@ -4292,14 +4291,25 @@ __acc_attach(diag%clct_avg)
 
     ! buffer field needed for the combination of vertical nesting with a reduced radiation grid
     IF (k_jg > n_dom_start) THEN
-      ALLOCATE(diag%buffer_rrg(nproma, 3*nexlevs_rrg_vnest, p_patch_local_parent(k_jg)%nblks_c))
+      cf_desc    = t_cf_var('buffer_rrg', '', 'buffer_rrg', datatype_flt)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'buffer_rrg', diag%buffer_rrg,            &
+                  & GRID_UNSTRUCTURED_CELL, -1, cf_desc, grib2_desc,     & ! use -1 as hackish default value for vgrid
+                  & ldims=(/nproma, 3*nexlevs_rrg_vnest, p_patch_local_parent(k_jg)%nblks_c/), &
+                  & lrestart=.FALSE., loutput=.FALSE., lopenacc=.TRUE. )
+      __acc_attach(diag%buffer_rrg)
     ENDIF
 
     ! buffer field needed for the combination of vertical nesting with a reduced radiation grid
     diag%buffer_rttov => NULL()
     IF (lsynsat(k_jg)) THEN
       IF  ((k_jg > n_dom_start) .AND. (p_patch(k_jg)%nshift > 0)) THEN
-        ALLOCATE(diag%buffer_rttov(nproma, 5*p_patch(k_jg)%nshift, p_patch_local_parent(k_jg)%nblks_c))
+        cf_desc    = t_cf_var('buffer_rttov', '', 'buffer_rttov', datatype_flt)
+        grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_var( diag_list, 'buffer_rttov', diag%buffer_rttov,        &
+                    & GRID_UNSTRUCTURED_CELL, -1, cf_desc, grib2_desc,     & ! use -1 as hackish default value for vgrid
+                    & ldims=(/nproma, 5*p_patch(k_jg)%nshift, p_patch_local_parent(k_jg)%nblks_c/), &
+                    & lrestart=.FALSE., loutput=.FALSE.)
       ENDIF
       
       shape3d_synsat = (/nproma, num_images, p_patch(k_jg)%nblks_c /)

@@ -1128,7 +1128,7 @@ CONTAINS
 
   !------------------------------------------------------------------------------
   !>
-  ! If is mpi all parallel
+  ! If is mpi all sequential
   LOGICAL FUNCTION my_process_is_mpi_all_seq()
     my_process_is_mpi_all_seq = (process_mpi_all_size <= 1)
   END FUNCTION my_process_is_mpi_all_seq

@@ -39,18 +39,13 @@ USE mo_parallel_config,     ONLY: nproma, p_test_run, cpu_min_nproma
 USE mo_communication,       ONLY: exchange_data_grf
 
 USE mo_grf_intp_data_strc
-
 #ifdef _OPENACC
-  USE openacc
   USE mo_mpi,               ONLY: i_am_accel_node
 #endif
 
 IMPLICIT NONE
 
 PRIVATE
-
-  LOGICAL, PARAMETER ::  acc_on = .TRUE.
-
 PUBLIC :: interpol_vec_grf, interpol2_vec_grf, interpol_scal_grf
 
 
@@ -87,7 +82,6 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
   ! reconstructed edge-normal wind component
   REAL(wp),INTENT(INOUT) :: p_vn_out(:,:,:) ! dim: (nproma,nlev_c,nblks_e)
 
-
   INTEGER :: jb, jk, je                ! loop indices
   INTEGER :: js                        ! shift parameter
   INTEGER :: nproma_bdyintp, nblks_bdyintp, npromz_bdyintp, nlen, nshift
@@ -99,14 +93,7 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
 
   INTEGER :: nlev_c       !< number of vertical full levels (child domain)
 
-  LOGICAL :: use_acc
   !-----------------------------------------------------------------------
-
-#ifdef _OPENACC
-  use_acc = acc_on ! .AND. i_am_accel_node
-#else
-  use_acc = .FALSE.
-#endif
 
   ! Set pointers to index lists
   iidx    => p_grf%idxlist_bdyintp_e
@@ -128,8 +115,7 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
   ! upper boundary of child domain (in terms of vertical levels)
   js = p_pc%nshift
 
-!$ACC DATA CREATE( vn_aux ), PCOPYIN(p_vn_in),    &
-!$ACC     PRESENT( p_pp, p_pc, p_grf),  IF ( use_acc )
+  !$ACC DATA CREATE( vn_aux ) IF ( i_am_accel_node )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE (jb,jk,je,nlen,nshift) ICON_OMP_DEFAULT_SCHEDULE
@@ -141,9 +127,9 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
     ENDIF
     nshift = (jb-1)*nproma_bdyintp
 
-!$ACC PARALLEL IF( use_acc )
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
-
+    ! PRESENT(p_pp%edges%refin_ctrl) is required, as PGI 20.9 can not find this variable otherwise.
+    !$ACC PARALLEL DEFAULT(PRESENT) PRESENT(p_pp%edges%refin_ctrl) IF( i_am_accel_node )
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO je = nshift+1, nshift+nlen
       DO jk = 1, nlev_c
 
@@ -202,18 +188,16 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
 
       ENDDO
     ENDDO
-!$ACC END PARALLEL
+    !$ACC END PARALLEL
 
   ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
   ! Store results in p_vn_out
-!$ACC UPDATE HOST (vn_aux),  IF ( use_acc )
-!$ACC END DATA
-
   CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_vec_grf,1,nlev_c, &
     RECV1=p_vn_out,SEND1=vn_aux)
+  !$ACC END DATA ! vn_aux
 
 END SUBROUTINE interpol_vec_grf
 
@@ -245,7 +229,6 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
   ! reconstructed edge-normal vector component; dim: (nproma,nlev_c,nblks_e)
   REAL(wp), INTENT(INOUT), DIMENSION(:,:,:), OPTIONAL :: f3dout1, f3dout2, f3dout3, f3dout4
 
-
   INTEGER :: jb, jk, je, jv, jn        ! loop indices
   INTEGER :: js                        ! shift parameter
 
@@ -269,15 +252,9 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
   END TYPE t_fieldptr
   TYPE(t_fieldptr) :: p_in(nfields)
 
-  INTEGER :: nlev_c       !< number of vertical full levels (child domain)
-  LOGICAL :: use_acc
-  !-----------------------------------------------------------------------
+  INTEGER :: nlev_c        !< number of vertical full levels (child domain)
 
-#ifdef _OPENACC
-  use_acc = acc_on ! .AND. i_am_accel_node
-#else
-  use_acc = .FALSE.
-#endif
+  !-----------------------------------------------------------------------
 
   IF (p_test_run) vn_aux=0._wp
 
@@ -324,14 +301,11 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
   ! upper boundary of child domain (in terms of vertical levels
   js = p_pc%nshift
 
-!$ACC DATA CREATE( vn_aux,u_vert,v_vert ), COPYIN(p_in), &
-!$ACC   PRESENT( p_pp, p_pc, p_grf),  IF ( use_acc )
+  !$ACC DATA CREATE( vn_aux,u_vert,v_vert ) COPYIN(p_in) IF ( i_am_accel_node )
 
   DO jn = 1, nfields
-!$ACC ENTER DATA COPYIN (p_in(jn)%fld) IF ( use_acc )
-! in case the input field is registered as present, it will need to be updated as long as not all of
-! the code is ported to GPUs
-!$ACC UPDATE DEVICE (p_in(jn)%fld)  IF (use_acc)
+    ! Make sure that all fields in p_in are available from gpu via p_in(jn)%fld.
+    !$ACC ENTER DATA ATTACH(p_in(jn)%fld) IF ( i_am_accel_node)
   ENDDO
 
 !$OMP PARALLEL
@@ -345,9 +319,8 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
     ENDIF
     nshift = (jb-1)*nproma_bdyintp
 
-!$ACC PARALLEL IF( use_acc )
-!$ACC LOOP GANG VECTOR COLLAPSE(3)
-
+    !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node )
+    !$ACC LOOP GANG VECTOR COLLAPSE(3)
     DO jv = nshift+1, nshift+nlen
       DO jn = 1, nfields
         DO jk = 1, nlev_c
@@ -370,7 +343,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
         ENDDO
       ENDDO
     ENDDO
-!$ACC END PARALLEL
+    !$ACC END PARALLEL
 
   ENDDO
 !$OMP END DO
@@ -384,9 +357,9 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
     ENDIF
     nshift = (jb-1)*nproma_bdyintp
 
-!$ACC PARALLEL IF( use_acc )
-!$ACC LOOP GANG VECTOR COLLAPSE(3), PRIVATE(dvn_tang)
-
+    ! PRESENT(p_grf, iblk, iidx) is necessary to help PGI_20_9 with address-not-mapped errors
+    !$ACC PARALLEL DEFAULT(PRESENT) PRESENT(p_grf, iblk, iidx) IF( i_am_accel_node ) 
+    !$ACC LOOP GANG VECTOR COLLAPSE(3) PRIVATE(dvn_tang)
     DO je = nshift+1, nshift+nlen
       DO jn = 1, nfields
 !DIR$ IVDEP
@@ -432,22 +405,17 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
         ENDDO
       ENDDO
     ENDDO
-!$ACC END PARALLEL
+    !$ACC END PARALLEL
 
   ENDDO ! blocks
 !$OMP END DO
 !$OMP END PARALLEL
 
-! the subsequent exchange_data_grf routine looks OpenACC parallelized but produces obviously incorrect results;
-! for the time being, we switch to the CPU here.
+  DO jn = 1, nfields
+    !$ACC EXIT DATA DETACH(p_in(jn)%fld) IF ( i_am_accel_node )
+  ENDDO
 
-!$ACC UPDATE HOST (vn_aux) IF ( use_acc )
 
-DO jn = 1, nfields
-!$ACC EXIT DATA DELETE (p_in(jn)%fld)  IF ( use_acc )
-ENDDO
-
-!$ACC END DATA
 
   IF (nfields == 1) THEN
     nlevtot = nlev_c
@@ -474,6 +442,7 @@ ENDDO
       RECV4=f3dout4,SEND4=vn_aux(:,:,:,4) )
   ENDIF
 
+  !$ACC END DATA ! CREATE( vn_aux,u_vert,v_vert ) COPYIN(p_in)
 
 END SUBROUTINE interpol2_vec_grf
 
@@ -491,7 +460,7 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
                               f3din1, f3dout1, f3din2, f3dout2, f3din3, f3dout3, &
                               f3din4, f3dout4, f3din5, f3dout5, f3din6, f3dout6, &
                               f4din1, f4dout1, f4din2, f4dout2,                  &
-                              llimit_nneg, lnoshift )
+                              llimit_nneg, lnoshift)
   !
   TYPE(t_patch), TARGET, INTENT(in) :: p_pp
   TYPE(t_patch), TARGET, INTENT(inout) :: p_pc
@@ -548,17 +517,7 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
   END TYPE t_fieldptr
   TYPE(t_fieldptr) :: p_in(nfields), p_out(nfields)
 
-  LOGICAL :: use_acc
   !-----------------------------------------------------------------------
-
-#ifdef _OPENACC
-  use_acc = acc_on ! .AND. i_am_accel_node
-
-! This is needed because this routine is already called in the setup phase (before the GPU preparations are executed)
-!$ACC  IF (.NOT. acc_is_present(p_grf,1) ) use_acc = .FALSE.
-#else
-  use_acc = .FALSE.
-#endif
 
   IF (PRESENT(f4din1) .AND. .NOT. PRESENT(f4din2)) THEN
     DO n = 1, nfields
@@ -645,18 +604,17 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
     js = p_pc%nshift
   ENDIF
 
-  IF (p_test_run) h_aux = 0._wp
+  !$ACC DATA CREATE( grad_x, grad_y, maxval_neighb, minval_neighb, val_ctr, h_aux ) &
+  !$ACC      COPYIN(p_in) IF ( i_am_accel_node )
 
-!$ACC DATA CREATE( grad_x, grad_y, maxval_neighb, minval_neighb, val_ctr, h_aux ), COPYIN(p_in, l_limit_nneg), &
-!$ACC PRESENT( p_pp, p_pc, p_grf),  IF ( use_acc )
+  !$ACC SERIAL
+  IF (p_test_run) h_aux(:,:,:,:) = 0._wp
+  !$ACC END SERIAL
 
   DO jn = 1, nfields
-!$ACC ENTER DATA COPYIN (p_in(jn)%fld) IF ( use_acc )
-! in case the input field is registered as present, it will need to be updated as long as not all of
-! the code is ported to GPUs
-!$ACC UPDATE DEVICE (p_in(jn)%fld),  IF ( use_acc )
+    ! Make sure that all fields in p_in are available from gpu via p_in(jn)%fld.
+    !$ACC ENTER DATA ATTACH(p_in(jn)%fld) IF ( i_am_accel_node )
   ENDDO
-
 
 #ifndef __PGI
 ! FIXME: PGI runs into deadlock on loop exit (?), if OMP-parallelized. Compiler bug suspected
@@ -672,9 +630,8 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
       DO jn = 1, nfields
         elev   = UBOUND(p_out(jn)%fld,2)
 
-!$ACC PARALLEL IF( use_acc )
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
-
+        !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jc = nshift+1, nshift+nlen
           DO jk = 1, elev
 
@@ -725,11 +682,11 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
                   p_in(jn)%fld(iidx(10,jc),jk+js,iblk(10,jc)))
           ENDDO
         ENDDO
-!$ACC END PARALLEL
+        !$ACC END PARALLEL
 
-!$ACC PARALLEL IF( use_acc )
-!$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(min_expval,max_expval,relaxed_minval,relaxed_maxval,limfac,limfac1,limfac2)
-
+        !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(min_expval, max_expval, &
+        !$ACC      relaxed_minval, relaxed_maxval, limfac1, limfac2, limfac)
         DO jc = nshift+1, nshift+nlen
           DO jk = 1, elev
 
@@ -770,12 +727,12 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 
           ENDDO
         ENDDO
-!$ACC END PARALLEL
+        !$ACC END PARALLEL
 
-!$ACC PARALLEL IF( use_acc )
         IF (l_limit_nneg(jn)) THEN
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
 
+          !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jc = nshift+1, nshift+nlen
             DO jk = 1, elev
 
@@ -794,9 +751,12 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 
             ENDDO
           ENDDO
+          !$ACC END PARALLEL
+        
         ELSE
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
 
+          !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node ) 
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jc = nshift+1, nshift+nlen
             DO jk = 1, elev
 
@@ -815,20 +775,18 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 
             ENDDO
           ENDDO
+          !$ACC END PARALLEL
         ENDIF
-!$ACC END PARALLEL
 
       ENDDO ! fields
     ENDDO ! blocks
 
 ! -------------------------------------
-!$ACC UPDATE HOST (h_aux),  IF ( use_acc )
 
-DO jn = 1, nfields
-!$ACC EXIT DATA DELETE (p_in(jn)%fld),  IF ( use_acc )
-ENDDO
+  DO jn = 1, nfields
+    !$ACC EXIT DATA DETACH(p_in(jn)%fld) IF ( i_am_accel_node)
+  ENDDO
 
-!$ACC END DATA
 
   ! Store results in p_out
 
@@ -890,7 +848,7 @@ ENDDO
 
     ENDIF
   ENDIF
-
+  !$ACC END DATA
 END SUBROUTINE interpol_scal_grf
 
 !-------------------------------------------------------------------------

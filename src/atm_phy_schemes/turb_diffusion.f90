@@ -1160,7 +1160,7 @@ LOGICAL :: lzacc
   !$acc present(shv,frh,frm,ftm,prss,tmps,vaps,liqs,dicke)               &
   !$acc present(hlp,zaux,can,lay,lays,src,dzsm,dzsh,grad,hig,lev)        &
 #else
-  !$acc create(diss_tar,c_big,c_sml,r_air)                              &
+  !$acc create(diss_tar) present(c_big,c_sml,r_air)                              &
   !$acc create(len_scale,hor_scale,xri,l_scal,fc_min,ediss)             &
   !$acc create(shv,frh,frm,ftm,prss,tmps,vaps,liqs,dicke)               &
   !$acc create(hlp,zaux,can,lay,lays,src,dzsm,dzsh,grad,hig,lev)        &
