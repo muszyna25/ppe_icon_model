@@ -28,6 +28,8 @@ MODULE mo_hamocc_diagnostics
 &                           iammo, iano2
 
    USE mo_name_list_output_init, ONLY: isRegistered
+   USE mo_statistics, ONLY: levels_horizontal_mean
+
 
 IMPLICIT NONE
 
@@ -42,8 +44,8 @@ SUBROUTINE get_omz(hamocc_state, p_patch_3d, pddpo, ssh)
 
 TYPE(t_hamocc_state) :: hamocc_state
 TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
-REAL(wp), INTENT(IN) :: pddpo(bgc_nproma, bgc_zlevs, p_patch_3d%p_patch_2d(1)%nblks_c)
-REAL(wp), INTENT(IN) :: ssh(bgc_nproma, p_patch_3d%p_patch_2d(1)%nblks_c)
+REAL(wp), INTENT(IN) :: pddpo(:,:,:)
+REAL(wp), INTENT(IN) :: ssh(:,:)
 
 ! Local variables
 INTEGER :: jc,  jb
@@ -113,7 +115,13 @@ END SUBROUTINE get_omz
     REAL(wp), INTENT(IN) :: tracer(:,:,:,:)
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
 
-    REAL(wp) :: glob_n2b, glob_pwn2b
+    REAL(wp) :: glob_n2b, glob_pwn2b, glob_srf_thick
+
+    TYPE(t_patch), POINTER :: patch_2d
+    TYPE(t_subset_range), POINTER :: owned_cells
+
+    patch_2d => p_patch_3d%p_patch_2d(1)
+    owned_cells    => patch_2d%cells%owned
 
     glob_n2b = 0.0_wp
     glob_pwn2b = 0.0_wp
@@ -305,25 +313,33 @@ END SUBROUTINE get_omz
       CALL calc_inventory2d(p_patch_3d, &
         &                   tracer(:,1,:,ialkali), &
         &                   hamocc_state%p_tend%monitor%sfalk(1), &
-        &                   -2)
+        &                   1, &
+        &                   ssh, &
+        &                   pddpo)
     ENDIF
     IF (isRegistered('global_surface_dic')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   tracer(:,1,:,isco212), &
         &                   hamocc_state%p_tend%monitor%sfdic(1), &
-        &                   -2)
+        &                   1, &
+        &                   ssh, &
+        &                   pddpo)
     ENDIF
     IF (isRegistered('global_surface_phosphate')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   tracer(:,1,:,iphosph), &
         &                   hamocc_state%p_tend%monitor%sfphos(1), &
-        &                   -2)
+        &                   1, &
+        &                   ssh, &
+        &                   pddpo)
     ENDIF
     IF (isRegistered('global_surface_silicate')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   tracer(:,1,:,isilica), &
         &                   hamocc_state%p_tend%monitor%sfsil(1), &
-        &                   -2)
+        &                   1, &
+        &                   ssh, &
+        &                   pddpo)
     ENDIF
 
     IF (isRegistered('global_zalkn2')) THEN
@@ -375,7 +391,9 @@ END SUBROUTINE get_omz
         CALL calc_inventory2d(p_patch_3d, &
           &                   tracer(:,1,:,iammo), &
           &                    hamocc_state%p_tend%monitor%sfnh4(1), &
-          &                   -2)
+          &                   1, &
+          &                   ssh, &
+          &                   pddpo)
       ENDIF
 
       IF (isRegistered('WC_nitri_no2')) THEN
@@ -445,11 +463,13 @@ END SUBROUTINE get_omz
     hamocc_state%p_tend%monitor%cyaldoc(1)      = hamocc_state%p_tend%monitor%cyaldet(1) * p2gtc * doccya_fac
     hamocc_state%p_tend%monitor%cyaldet(1)      = hamocc_state%p_tend%monitor%cyaldet(1) * p2gtc *(1._wp - doccya_fac)
 
+    CALL levels_horizontal_mean(pddpo(:,1,:), patch_2d%cells%area(:,:), owned_cells, glob_srf_thick)
+
     ! mean values of surface concentrations
-    hamocc_state%p_tend%monitor%sfalk(1)        = hamocc_state%p_tend%monitor%sfalk(1)/totalarea
-    hamocc_state%p_tend%monitor%sfdic(1)        = hamocc_state%p_tend%monitor%sfdic(1)/totalarea
-    hamocc_state%p_tend%monitor%sfsil(1)        = hamocc_state%p_tend%monitor%sfsil(1)/totalarea
-    hamocc_state%p_tend%monitor%sfphos(1)       = hamocc_state%p_tend%monitor%sfphos(1)/totalarea
+    hamocc_state%p_tend%monitor%sfalk(1)        = hamocc_state%p_tend%monitor%sfalk(1)/totalarea/glob_srf_thick
+    hamocc_state%p_tend%monitor%sfdic(1)        = hamocc_state%p_tend%monitor%sfdic(1)/totalarea/glob_srf_thick
+    hamocc_state%p_tend%monitor%sfsil(1)        = hamocc_state%p_tend%monitor%sfsil(1)/totalarea/glob_srf_thick
+    hamocc_state%p_tend%monitor%sfphos(1)       = hamocc_state%p_tend%monitor%sfphos(1)/totalarea/glob_srf_thick
     hamocc_state%p_tend%monitor%zalkn2(1)       = glob_n2b + glob_pwn2b
 
     IF (.not. l_N_cycle) THEN
@@ -461,7 +481,7 @@ END SUBROUTINE get_omz
 
       hamocc_state%p_tend%monitor%phosy_nh4(1)        = hamocc_state%p_tend%monitor%phosy_nh4(1) * p2gtc
       hamocc_state%p_tend%monitor%phosy_cya_nh4(1)    = hamocc_state%p_tend%monitor%phosy_cya_nh4(1) * p2gtc
-      hamocc_state%p_tend%monitor%sfnh4(1)            = hamocc_state%p_tend%monitor%sfnh4(1)/totalarea
+      hamocc_state%p_tend%monitor%sfnh4(1)            = hamocc_state%p_tend%monitor%sfnh4(1)/totalarea/glob_srf_thick
       hamocc_state%p_tend%monitor%net_nh3_flux(1)     = hamocc_state%p_tend%monitor%net_nh3_flux(1) * n2tgn
 
       ! LR: should be in N units, but check
