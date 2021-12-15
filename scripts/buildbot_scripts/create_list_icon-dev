@@ -148,15 +148,11 @@ for builder in MISTRAL_intel18_pio; do
 done
 
 # activate experiments for the Mac builder and breeze
-for builder in MPIMAC_gcc BREEZE_gcc BREEZE_intel; do
+for builder in MPIMAC_gcc BREEZE_gcc BREEZE_nag BREEZE_intel; do
   ./set_builder_flags Active --builders ${builder}  --list $listname
-  $addexp exp.atm_amip_test --builders ${builder} --list $listname
-  $addexp checksuite.ocean_internal/technical/exp.test_ocean_omip_technical --builders ${builder} --list $listname
+  $addexp exp.atm_amip_test --builders ${builder} --list $listname --runflags "mpi_procs_pernode=4"
+  $addexp checksuite.ocean_internal/omip/exp.ocean_omip_short_r2b4 --builders ${builder} --list $listname --runflags "mpi_procs_pernode=4"
 done
-# it takes too long for BREEZE_nag to run exp.test_ocean_omip_technical,
-# therefore, we currently run exp.atm_amip_test only
-./set_builder_flags Active --builders BREEZE_nag  --list $listname
-$addexp exp.atm_amip_test --builders BREEZE_nag --list $listname
 
 
 # add tests for checking yaxt and yac stand-alone; this needs yaxt/yac to be enabled
