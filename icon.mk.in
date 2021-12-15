@@ -191,30 +191,87 @@ lib_files:=
 # returns a space-separated list of paths to their prerequisite objects. The
 # input paths are excluded from the output.
 get_prereq_objs= $(filter-out $(1),$(filter %.@OBJEXT@, \
-                     $(shell $(DEPLIST) @deplist.config -t $(1) -f $(dep_files))))
+                     $(shell $(DEPLIST) --inc-oo @deplist.config -t $(1) -f $(dep_files))))
 
 
 # Common convenience library (holds prerequisite objects of the generated
 # executables):
 common_lib_file:= $(libdir)/libicon.a
 common_lib_prog_obj_files:= $(ICON_prog_obj_file)
-common_lib_member_files:= $(call get_prereq_objs,$(common_lib_prog_obj_files))
+common_lib_obj_files:= $(call get_prereq_objs,$(common_lib_prog_obj_files))
 lib_files+= $(common_lib_file)
 
 # Stamp files of the building subdirectories
 # (this finalizes the list of generated files):
 dir_files:= $(filter-out ./.dirstamp,$(addsuffix .dirstamp,$(sort $(dir $(dep_files) $(pp_files) $(exec_files) $(lib_files))) $(moddir)/))
 
+########################## PGI/NVIDIA INLINE LIBRARY ###########################
+
+# Name of the inline library (a directory):
+@PGI_INLIB_ENABLED@pgi_inlib_name:= $(libdir)/icon.il
+
+# Additional PGI/NVIDIA Fortran compiler flags enabling the inline library
+# generation and usage:
+@PGI_INLIB_ENABLED@pgi_inlib_ex_FCFLAGS= -Mextract=lib:$(pgi_inlib_name)
+@PGI_INLIB_ENABLED@pgi_inlib_in_FCFLAGS= -Minline=lib:$(pgi_inlib_name)
+
+# List of original Fortran '.f90' files containing functions that need to be
+# inlined:
+@PGI_INLIB_ENABLED@pgi_inlib_f90_files:=
+
+########################################
+
+# Get object file names that correspond to the source files in $(pgi_inlib_f90_files):
+@PGI_INLIB_ENABLED@pgi_inlib_obj_files:= $(call get_obj_names,$(pgi_inlib_f90_files))
+
+# List of objects that are generated using the inline library:
+@PGI_INLIB_ENABLED@pgi_inlib_target_obj_files:= \
+@PGI_INLIB_ENABLED@  $(filter %.@OBJEXT@, \
+@PGI_INLIB_ENABLED@    $(shell $(DEPLIST) --inc-oo -p $(pgi_inlib_obj_files) -f $(dep_files)))
+
+# To avoid circular dependencies, we need to account for situations when we
+# have a dependency A -> B -> C, where A and C belong to $(pgi_inlib_obj_files)
+# but B does not. In order to get all such B files and include them into
+# $(pgi_inlib_obj_files), we find the intersection of two sets: dependencies
+# (prerequisites) and dependents (targets) of $(pgi_inlib_obj_files):
+@PGI_INLIB_ENABLED@pgi_inlib_obj_files:= \
+@PGI_INLIB_ENABLED@  $(filter $(pgi_inlib_target_obj_files), \
+@PGI_INLIB_ENABLED@    $(shell $(DEPLIST) --inc-oo -t $(pgi_inlib_obj_files) -f $(dep_files)))
+
+# Now we need to create a list of Fortran module files that must be created
+# before any of the object files $(pgi_inlib_obj_files) gets generated. First,
+# we need a subset of dependency files that correspond to
+# $(pgi_inlib_obj_files):
+@PGI_INLIB_ENABLED@pgi_inlib_dep_files:= $(pgi_inlib_obj_files:.@OBJEXT@=.f90.d)
+
+# List of Fortran module files that at least on element of
+# $(pgi_inlib_obj_files) depends on:
+@PGI_INLIB_ENABLED@pgi_inlib_mod_files:= \
+@PGI_INLIB_ENABLED@  $(filter %.@FC_MOD_FILE_EXT@.proxy, \
+@PGI_INLIB_ENABLED@    $(shell $(DEPLIST) --inc-oo -f $(pgi_inlib_dep_files)))
+
+# List of Fortran modules declared in source files that correspond to
+# $(pgi_inlib_obj_files):
+@PGI_INLIB_ENABLED@pgi_inlib_internal_mod_files:= \
+@PGI_INLIB_ENABLED@  $(filter %.@FC_MOD_FILE_EXT@.proxy, \
+@PGI_INLIB_ENABLED@    $(shell $(DEPLIST) --inc-oo -p $(pgi_inlib_obj_files) -f $(pgi_inlib_dep_files)))
+
+# List of Fortran modules that must be created before the inline library:
+@PGI_INLIB_ENABLED@pgi_inlib_prereq_mod_files:= \
+@PGI_INLIB_ENABLED@  $(filter-out $(pgi_inlib_internal_mod_files),$(pgi_inlib_mod_files))
+
 ############################### MAKEFILE TWEAKS ################################
 
 # Silent rule prefixes:
 V= @DEFAULT_VERBOSITY@
 ifeq ($(V),0)
+silent_AR=      @echo "  AR      " $@;
 silent_CC=      @echo "  CC      " $@;
-silent_AR=	@echo "  AR      " $@;
 silent_DEPGEN=  @echo "  DEPGEN  " $@;
 silent_DSL4JSB= @echo "  DSL4JSB " $@;
 silent_FC=      @echo "  FC      " $@;
+silent_FCEX=    @echo "  FC (EX) " $@;
+silent_FCIL=    @echo "  FC (IL) " $@;
 silent_FCLD=    @echo "  FCLD    " $@;
 silent_FPP=     @echo "  FPP     " $@;
 silent_GEN=     @echo "  GEN     " $@;
@@ -264,6 +321,7 @@ mostlyclean: $(bundled_subdirs)
 @CLAW_ENABLED@	test -f claw.mk && $(MAKE) -f claw.mk $(MAKECMDGOALS) || test xdistclean = x$(filter distclean,$(MAKECMDGOALS))
 	rm -f $(exec_files) $(lib_files) $(addsuffix .@OBJEXT@,$(basename $(f90_files) $(c_files) $(cu_files))) version.@OBJEXT@
 	rm -f $(moddir)/*.@FC_MOD_FILE_EXT@ $(moddir)/*.@FC_MOD_FILE_EXT@.proxy
+@PGI_INLIB_ENABLED@	rm -rf $(pgi_inlib_name)
 
 # Delete files generated at the building stage:
 #   Note that the value of the variable $(pp_files) can be very long, which
@@ -303,7 +361,7 @@ install: all
 # Generate a list of files that are going to be compiled in the current
 # configuration:
 srclist: $(dep_files)
-	$(silent_GEN)$(DEPLIST) @deplist.config -t $(ICON_prog_obj_file) -f $^ 2>/dev/null | sed '/\(\.@OBJEXT@\|\.@FC_MOD_FILE_EXT@\.proxy\)$$/d' | sort > $@
+	$(silent_GEN)$(DEPLIST) --inc-oo -t $(ICON_prog_obj_file) -f $^ 2>/dev/null | sed '/\(\.@OBJEXT@\|\.@FC_MOD_FILE_EXT@\.proxy\)$$/d' | sort > $@
 
 # Check rule:
 check: all check-bundled
@@ -331,29 +389,45 @@ $(exec_files): | $(dir_files)
 	$(silent_FCLD)$(FC) -o $@ $(make_FCFLAGS) $(FCFLAGS) $(spec_FCFLAGS) $(LDFLAGS) $+ $(LIBS)
 
 # Dependencies of the common convenience library:
-$(common_lib_file): $(common_lib_member_files)
+$(common_lib_file): $(common_lib_obj_files)
 
 # Common archive generation rule:
 $(lib_files): | $(dir_files)
 	$(silent_AR)rm -f $@ && $(AR) $(ARFLAGS) $@ $^ && $(RANLIB) $@
 
+# Pattern- and target-specific assignments are propagated to the prerequisites
+# and override the global assignments. Therefore, we introduce the following
+# match-anything pattern assignments to prevent that:
+%: spec_silent_FC= $(silent_FC)
+%: spec_FCFLAGS= $(ICON_FCFLAGS)
+
 # Pattern-specific Fortran compiler flags:
 #   Note the difference in how older versions of GNU Make (at least up to 3.81)
 #   treat pattern-specific variable ASSIGNMENTS and pattern RULES: the last
 #   matching ASSIGNMENT and the first matching RULE win. Newer versions of GNU
-#   Make (at least starting 4.1) give preference to the most specialized
-#   pattern in both cases. This means that, as long as we support older version
-#   of GNU Make, we have to declare the most general ASSIGNMENTS first and the
-#   most general RULES last. Also, pattern-specific assignments propagate the
-#   value to the prerequsites and override the global assignments. That is why
-#   we have to have a match-anything pattern ASSIGNMENT at all.
-%: spec_FCFLAGS= $(ICON_FCFLAGS)
+#   Make (starting at least 4.1) give preference to the most specialized pattern
+#   in both cases. This means that, as long as we support older version of GNU
+#   Make, we have to declare the most general ASSIGNMENTS first and the most
+#   general RULES last.
 src/hamocc/% src/ocean/% src/sea_ice/%: spec_FCFLAGS= $(ICON_OCEAN_FCFLAGS)
 @DACE_ENABLED_OR_NEEDED@$(DACE_subdir)/%: spec_FCFLAGS= $(ICON_DACE_FCFLAGS)
 
+# Target-specific variables enabling the PGI/NVIDIA inlining during compilation:
+@PGI_INLIB_ENABLED@$(pgi_inlib_target_obj_files): spec_silent_FC= $(silent_FCIL)
+@PGI_INLIB_ENABLED@$(pgi_inlib_target_obj_files): spec_FCFLAGS += $(pgi_inlib_in_FCFLAGS)
+
+# All object that can be built with the inline library depend on it:
+@PGI_INLIB_ENABLED@$(pgi_inlib_target_obj_files): $(pgi_inlib_name)
+
+# PGI/NVIDIA inline library generation rule (note that the source files are
+# provided to the compiler in the topological order and we also have to delete
+# the partially generated library if the compiler fails):
+@PGI_INLIB_ENABLED@$(pgi_inlib_name): $(pgi_inlib_prereq_mod_files) $(pgi_inlib_obj_files:.@OBJEXT@=.f90) | $(dir_files)
+@PGI_INLIB_ENABLED@	$(silent_FCEX)rm -rf $@ && $(FC) $(make_FCFLAGS) $(FCFLAGS) $(spec_FCFLAGS) $(pgi_inlib_ex_FCFLAGS) @FCFLAGS_f90@ $(filter-out $(pgi_inlib_prereq_mod_files),$^) || (ec=$$?; rm -rf $@; exit $$ec)
+
 # Fortran compilation rule:
 %.@OBJEXT@: %.f90 | $(dir_files) $(bundled_subdirs)
-	$(silent_FC)$(FC) -o $@ -c $(make_FCFLAGS) $(FCFLAGS) $(spec_FCFLAGS) @FCFLAGS_f90@ $<
+	$(spec_silent_FC)$(FC) -o $@ -c $(make_FCFLAGS) $(FCFLAGS) $(spec_FCFLAGS) @FCFLAGS_f90@ $<
 
 # Fortran module file rule:
 $(moddir)/%.@FC_MOD_FILE_EXT@.proxy:| sanitize-mod-proxies
