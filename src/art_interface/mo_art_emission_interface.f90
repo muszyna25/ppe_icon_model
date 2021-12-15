@@ -97,6 +97,11 @@ MODULE mo_art_emission_interface
 
   USE mo_art_diagnostics,               ONLY: art_save_aerosol_emission
   USE mo_art_read_extdata,              ONLY: art_read_sdes_ambrosia
+
+  ! OEM
+  USE mo_art_oem_emission,              ONLY: art_oem_compute_emissions
+  USE mo_art_oem_types,                 ONLY: p_art_oem_data,  &
+                                          &   t_art_oem_config
 #endif
 
   IMPLICIT NONE
@@ -151,6 +156,11 @@ CONTAINS
   TYPE(t_art_atmo), POINTER :: &
     &  art_atmo                !< pointer to ART atmo fields
 
+  ! OEM
+  TYPE(t_art_oem_config), POINTER :: &
+    &  oem_config    !< OEM data structure -> config
+  CHARACTER (LEN= 255) :: yerrmsg
+
 
   ! --- Get the loop indizes
   jg         = p_patch%id
@@ -191,6 +201,18 @@ CONTAINS
                                     &  dtime,                                   &
                                     &  current_date)
       ENDIF
+
+      ! --------------------------------------------
+      ! ---------  online emission module ----------
+      ! --------------------------------------------
+      oem_config => p_art_oem_data%configure
+      IF (oem_config%emis_tracer>0) THEN
+        CALL art_oem_compute_emissions(tracer,p_patch,dtime,current_date,ierror,yerrmsg)
+        IF (ierror /= 0) THEN
+          CALL finish ('art_emission_interface', yerrmsg)
+        ENDIF
+      ENDIF
+
     ENDIF
 
     IF (art_config(jg)%lart_aerosol) THEN

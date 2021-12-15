@@ -61,6 +61,7 @@ MODULE mo_art_init_interface
                                           &   art_open_xml_file,              &
                                           &   art_close_xml_file,             &
                                           &   t_xml_file
+
 #endif
   
   IMPLICIT NONE
@@ -447,6 +448,7 @@ SUBROUTINE art_init_atmo_tracers_nwp(jg, mtime_current, p_nh_state, ext_data, &
     IF ((start_time(jg) <= 0.0_wp) .AND. (.NOT. isRestart())) THEN
       CALL art_init_tracer_values_nwp(jg, tracer, mtime_current, p_prog_list)
     END IF
+
   END IF
 #endif
 

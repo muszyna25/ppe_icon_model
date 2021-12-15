@@ -88,6 +88,9 @@ MODULE mo_read_namelists
   USE mo_upatmo_nml          ,ONLY: read_upatmo_namelist
   USE mo_ser_nml             ,ONLY: read_ser_namelist
 
+  !OEM
+  USE mo_oem_nml             ,ONLY: read_oemctrl_namelist
+
   IMPLICIT NONE
 
   PRIVATE
@@ -229,6 +232,9 @@ CONTAINS
 
     ! Assimilation
     CALL read_assimilation_namelist   (atm_namelist_filename(1:tlen))
+
+    !OEM
+    CALL read_oemctrl_namelist        (atm_namelist_filename(1:tlen))
 
     ! Serialization
     !$ser verbatim CALL read_ser_namelist(atm_namelist_filename(1:tlen))
