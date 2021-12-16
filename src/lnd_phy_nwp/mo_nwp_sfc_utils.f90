@@ -1931,22 +1931,19 @@ CONTAINS
         lzacc = .FALSE.
     ENDIF
 
-   !$acc data                                                              &
-   !$acc present(lc_class, t_snow, t_soiltop, w_snow, rho_snow, freshsnow, &
-   !$acc         sso_sigma, z0, meltrate, snowfrac, t_g, snowfrac_u) if(lzacc)
+   !$acc data no_create(lc_class, t_snow, t_soiltop, w_snow, rho_snow, freshsnow, &
+   !$acc              sso_sigma, z0, meltrate, snowfrac, t_g, snowfrac_u)
 
+    !$acc parallel default(none) async(1) if(lzacc)
     SELECT CASE (idiag_snowfrac)
     CASE (1) ! old parameterization depending on SWE only
-      !$acc parallel if(lzacc)
-      !$acc loop gang vector
+      !$acc loop gang(static:1) vector
       DO ic = istart, iend
         snowfrac(ic) = MIN(1.0_wp, w_snow(ic)/cf_snow)
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
-      !$acc end parallel
     CASE (2, 20) ! more advanced parameterization depending on snow depth, accounts also for vegetation and SSO
-      !$acc parallel if(lzacc)
-      !$acc loop gang vector private(h_snow,sso_fac,snowdepth_fac,lc_fac,lc_limit)
+      !$acc loop gang(static:1) vector private(h_snow,sso_fac,snowdepth_fac,lc_fac,lc_limit)
       DO ic = istart, iend
         IF (w_snow(ic) <= 1.e-6_wp) THEN
           snowfrac(ic) = 0._wp
@@ -1964,27 +1961,22 @@ CONTAINS
         ENDIF
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
-      !$acc end parallel
     END SELECT
 
     ! For the single-layer scheme, t_soiltop represents the weighted average between the snow-covered
     ! part and the snow-free part in the case of melting snow concurrent with above-freezing soil temperatures
     IF (.NOT. lmulti_snow) THEN
-      !$acc parallel if(lzacc)
-      !$acc loop gang vector
+      !$acc loop gang(static:1) vector
       DO ic = istart, iend
         IF (t_soiltop(ic) > tmelt .AND. t_snow(ic) >= tmelt - dbl_eps) t_g(ic) = t_soiltop(ic)
       ENDDO
-      !$acc end parallel
     ENDIF
  
     IF (PRESENT(snowfrac_u)) THEN
-      !$acc parallel if(lzacc)
-      !$acc loop gang vector
+      !$acc loop gang(static:1) vector
       DO ic = istart, iend
        snowfrac_u(ic) = snowfrac(ic) ! save unmodified snow-cover fraction
       ENDDO
-      !$acc end parallel
     ENDIF
 
     SELECT CASE (idiag_snowfrac)
@@ -1992,14 +1984,13 @@ CONTAINS
       ! Artificially reduce snow-cover fraction in case of melting snow in order to reduce the ubiquitous
       ! cold bias in such situations
       IF (PRESENT(meltrate)) THEN
-        !$acc parallel if(lzacc)
-        !$acc loop gang vector
+        !$acc loop gang(static:1) vector
         DO ic = istart, iend
           snowfrac(ic) = MIN(snowfrac(ic),MAX(tune_minsnowfrac,1._wp-20000._wp*MAX(0._wp,z0(ic)-0.02_wp)*meltrate(ic)))
         ENDDO
-        !$acc end parallel
       ENDIF
     END SELECT
+    !$acc end parallel
     !$acc end data
   END SUBROUTINE diag_snowfrac_tg
 
@@ -2086,7 +2077,7 @@ CONTAINS
     icount_snow = 0
 
 !$NEC ivdep
-    !$acc parallel if(lzacc)
+    !$acc parallel async(1) if(lzacc)
     !$acc loop gang vector private(jc)
     DO ic = 1, lp_count
       jc = idx_lst_lp(ic)
@@ -2129,19 +2120,19 @@ CONTAINS
 
     CALL generate_index_list(cond2, idx_lst, 1, lp_count, icount, 1,lacc=lzacc)
 
-    !$acc parallel if(lzacc)
-    !$acc loop gang vector
+    !$acc parallel async(1) if(lzacc)
+    !$acc loop gang(static:1) vector
     DO ic = 1,icount_snow
       idx_lst_snow(ic) = idx_lst_lp(idx_lst_snow(ic))
     ENDDO
-    !$acc end parallel
 
-    !$acc parallel if(lzacc)
-    !$acc loop gang vector
+    !$acc loop gang(static:1) vector
     DO ic = 1,icount
       idx_lst(ic) = idx_lst_lp(idx_lst(ic))
     ENDDO
     !$acc end parallel
+
+    !$acc wait
 
     gp_count = icount
     gp_count_snow = icount_snow

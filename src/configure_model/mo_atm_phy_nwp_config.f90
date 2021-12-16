@@ -262,6 +262,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
+
     !$ACC ENTER DATA CREATE(atm_phy_nwp_config)
 
     ! for each fast physics process the time interval is set 
@@ -338,6 +339,8 @@ CONTAINS
       atm_phy_nwp_config(jg)%lhydrom_read_from_fg(:) = .FALSE.
       atm_phy_nwp_config(jg)%lhydrom_read_from_ana(:) = .FALSE.
 
+      !$acc enter data copyin(atm_phy_nwp_config(jg)%lhydrom_read_from_fg, atm_phy_nwp_config(jg)%lhydrom_read_from_ana)
+
       ! check for contradicting convection settings
       IF (atm_phy_nwp_config(jg)%lshallowconv_only .AND. atm_phy_nwp_config(jg)%lgrayzone_deepconv) THEN
         CALL finish('configure_atm_phy_nwp', "lshallowconv_only and lgrayzone_deepconv are mutually exclusive")
@@ -377,6 +380,7 @@ CONTAINS
 
       ENDIF ! is_les_phy
 
+      !$acc enter data copyin(atm_phy_nwp_config(jg)%lenabled)
 
       ! Check, whether the user-defined slow-physics timesteps adhere 
       ! to ICON-internal rules. If not, adapt the timesteps accordingly.
@@ -613,6 +617,8 @@ CONTAINS
       !$ACC ENTER DATA COPYIN(atm_phy_nwp_config(jg)%shapefunc_ozone)
     ENDDO
 
+    !$acc enter data copyin(atm_phy_nwp_config(jg)%fac_ozone, atm_phy_nwp_config(jg)%shapefunc_ozone)
+
 
 
     !
@@ -705,6 +711,8 @@ CONTAINS
 
       ! initialize lcall_phy (will be updated by mo_phy_events:mtime_ctrl_physics)
       atm_phy_nwp_config(jg)%lcall_phy(:) = .FALSE.
+
+      !$acc enter data copyin(atm_phy_nwp_config(jg)%lcall_phy)
 
 
       ! 3d radiative flux output: only allocate and write variable if at least one is requested as output
@@ -1242,6 +1250,9 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//":t_atm_phy_nwp_config_finalize"
   !-----------------------------------------------------------------
 
+    !$acc exit data delete(me%lcall_phy) if(ALLOCATED(me%lcall_phy))
+    !$acc exit data delete(me%fac_ozone) if(ALLOCATED(me%fac_ozone))
+    !$acc exit data delete(me%shapefunc_ozone) if(ALLOCATED(me%shapefunc_ozone))
     IF (ALLOCATED(me%lcall_phy))          DEALLOCATE(me%lcall_phy) 
     IF (ALLOCATED(me%fac_ozone)) THEN
       !$ACC EXIT DATA DELETE(me%fac_ozone)

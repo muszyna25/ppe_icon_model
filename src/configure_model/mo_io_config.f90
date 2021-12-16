@@ -210,6 +210,7 @@ CONTAINS
     INTEGER :: jg, jgr
 
     ALLOCATE(var_in_output(n_dom))
+    !$ACC ENTER DATA CREATE(var_in_output)
 
     DO jg=1,n_dom
       var_in_output(jg)%pres_msl = is_variable_in_output(var_name="pres_msl") .OR. &
@@ -280,6 +281,8 @@ CONTAINS
         END IF
       END DO
     END IF
+
+    !$ACC UPDATE DEVICE(var_in_output)
 
   END SUBROUTINE init_var_in_output
 
