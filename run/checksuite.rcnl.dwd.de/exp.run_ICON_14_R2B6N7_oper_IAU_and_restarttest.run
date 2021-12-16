@@ -32,10 +32,15 @@
 # I  ) forecast run with iterative IAU
 # II ) forecast run without iterative IAU, which writes a restart file
 # III) restart run, starting from the previously written restart file
+# IV ) nproma run: short (+2h) run without iterative IAU with a modified nproma
+# V* ) openmp run: short (+2h) run without iterative IAU, number of openmp threads is set to 2
+# *Only performed for nec_hybrid builder
 # By comparing the output files, this test case checks the correctness of
 #
 # - iterative IAU
 # - restart
+# - nproma bit identity
+# - openmp bit identity
 #
 
 date
@@ -164,7 +169,7 @@ EXP2="iterative_IAU"
 EXP3="restart"
 EXP4="nproma"
 # Perform additional iteration with different number of threads
-if [ ${BB_SLAVE} = 'nec_hybrid' ]; then
+if [[ ${BB_SLAVE} == 'nec_hybrid' ]]; then
   tot_iter=5
   EXP5="omp"
 else
@@ -857,7 +862,7 @@ OMP_NPR_DIFF_FILE_DOM02="NWP_omp_npr_diff_DOM02.out"
    echo "DOM02: EXP $EXP1 and EXP $EXP4 are identical"
  fi
 
- if [ ${BB_SLAVE} = 'nec_hybrid' ]; then
+if [[ ${BB_SLAVE} == 'nec_hybrid' ]]; then
  echo "=================================================================="
  echo "Check OMP"
  echo "=> Compare experiments:" $EXP1 $EXP5
@@ -937,7 +942,7 @@ OMP_NPR_DIFF_FILE_DOM02="NWP_omp_npr_diff_DOM02.out"
    echo "nproma test FAILED"
    echo " "
  fi
- if [ ${BB_SLAVE} = 'nec_hybrid' ]; then
+ if [[ ${BB_SLAVE} == 'nec_hybrid' ]]; then
  if [ $DIFF_STATUS_OMP == 0 ]; then
    echo " "
    echo "OMP test SUCESSFUL"
