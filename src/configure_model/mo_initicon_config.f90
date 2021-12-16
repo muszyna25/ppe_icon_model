@@ -59,7 +59,8 @@ MODULE mo_initicon_config
   PUBLIC :: qcana_mode, qiana_mode, qrsgana_mode, qnxana_2mom_mode
   PUBLIC :: ltile_coldstart
   PUBLIC :: ltile_init
-  PUBLIC :: icpl_da_sfcevap, dt_ana
+  PUBLIC :: icpl_da_sfcevap, icpl_da_skinc, icpl_da_snowalb, dt_ana
+  PUBLIC :: adjust_tso_tsnow
   PUBLIC :: lvert_remap_fg
   PUBLIC :: lcalc_avg_fg
   PUBLIC :: start_time_avg_fg
@@ -138,9 +139,15 @@ MODULE mo_initicon_config
 
   LOGICAL  :: ltile_init       ! If true, initialize tile-based surface fields from first guess without tiles
 
-  INTEGER  :: icpl_da_sfcevap  ! Type of coupling between data assimilation and medel parameters affecting surface evaporation (plants + bare soil)
+  INTEGER  :: icpl_da_sfcevap  ! Type of coupling between data assimilation and model parameters affecting surface evaporation (plants + bare soil)
+
+  INTEGER  :: icpl_da_skinc    ! Coupling between data assimilation and skin conductivity
+
+  INTEGER  :: icpl_da_snowalb  ! Coupling between data assimilation and snow albedo
 
   REAL(wp) :: dt_ana           ! Time interval of assimilation cycle [s] (relevant for icpl_da_sfcevap >= 2)
+
+  LOGICAL  :: adjust_tso_tsnow ! Apply T increments for lowest model level also to snow and upper soil layers
 
   LOGICAL  :: use_lakeiceana   ! If true, use ice fraction analysis data also over lakes (otherwise sea points only)
 

@@ -78,7 +78,7 @@ USE mo_model_domain,        ONLY: t_patch, p_patch, p_patch_local_parent
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
 USE turb_data,              ONLY: ltkecon
-USE mo_initicon_config,     ONLY: icpl_da_sfcevap
+USE mo_initicon_config,     ONLY: icpl_da_sfcevap, icpl_da_snowalb
 USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
@@ -1488,6 +1488,19 @@ __acc_attach(diag%clct_avg)
       &           lrestart=.TRUE., lopenacc=.TRUE.)
       __acc_attach(diag%lw_emiss)
 
+
+    IF (icpl_da_snowalb >= 1) THEN
+      ! Factor for adaptive snow albedo tuning
+      !
+      ! snowalb_fac     diag%snowalb_fac(nproma,nblks_c)
+      cf_desc    = t_cf_var('snowalb_fac', '-', 'tuning factor for snow albedo', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'snowalb_fac', diag%snowalb_fac,   &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
+        &           grib2_desc, ldims=shape2d, loutput=.TRUE.,    &
+        &           initval=1.0_wp, lrestart=.TRUE., lopenacc=.TRUE.)
+        __acc_attach(diag%snowalb_fac)
+    ENDIF
 
     ! These variables only make sense if the land-surface scheme is switched on.
     IF ( atm_phy_nwp_config(k_jg)%inwp_surface == 1 ) THEN

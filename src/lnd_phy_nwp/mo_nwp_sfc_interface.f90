@@ -44,6 +44,7 @@ MODULE mo_nwp_sfc_interface
     &                               isub_lake, itype_interception, l2lay_rho_snow,    &
     &                               lprog_albsi, itype_trvg, itype_snowevap, zml_soil
   USe mo_extpar_config,       ONLY: itype_vegetation_cycle
+  USE mo_initicon_config,     ONLY: icpl_da_sfcevap, dt_ana
   USE mo_ensemble_pert_config,ONLY: sst_pert_corrfac
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi, dqsatdT_ice
   USE sfc_terra,              ONLY: terra
@@ -686,6 +687,13 @@ CONTAINS
             tmp1 = 0.06_wp * sntunefac(jc) * sobs_t(ic) * (1._wp - MIN(1._wp,                     &
               (1._wp - (csalb_snow_min + freshsnow_t(ic)*(csalb_snow_max-csalb_snow_min))) /      &
               (1._wp - prm_diag%albdif_t(jc,jb,isubs)) )) * sntunefac2(jc,isubs)
+            IF (icpl_da_sfcevap >= 2) THEN  ! adjust tuning to RH bias inferred from assimilation increments
+              IF (p_diag%rh_avginc(jc,jb) <= 0._wp) THEN
+                tmp1 = tmp1*MAX(0._wp,1._wp-125._wp*10800._wp/dt_ana*p_diag%rh_avginc(jc,jb))
+              ELSE
+                tmp1 = tmp1*MAX(0._wp,1._wp/(1._wp+125._wp*10800._wp/dt_ana*p_diag%rh_avginc(jc,jb)))
+              ENDIF
+            ENDIF
             qsat1 = spec_humi(sat_pres_ice(t_snow_now_t(ic)),ps_t(ic) )
             dqsdt1 = dqsatdT_ice(qsat1,t_snow_now_t(ic))
             tmp2 = tmp1 * (0.1_wp + 1000._wp*MAX(0._wp,qsat1-qv_t(ic))) / (1._wp + tmp1*1000._wp*dqsdt1)

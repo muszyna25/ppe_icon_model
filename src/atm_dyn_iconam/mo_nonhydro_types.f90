@@ -138,6 +138,7 @@ MODULE mo_nonhydro_types
     &  t2m_bias (:,:),       & !! filtered T2M bias from surface analysis [K]
     &  rh_avginc(:,:),       & !! time-averaged/filtered RH increments from DA at lowest model level
     &  t_avginc(:,:),        & !! time-averaged/filtered T increments from DA at lowest model level
+    &  t_wgt_avginc(:,:),    & !! time-averaged/filtered T increments from DA at lowest model level, weighted with COS(local time)
     &  p_avginc(:,:),        & !! time-averaged/filtered P increments from DA at lowest model level
 
     !

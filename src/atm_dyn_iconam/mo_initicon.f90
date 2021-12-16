@@ -40,16 +40,18 @@ MODULE mo_initicon
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
     &                               niter_divdamp, niter_diffu, lanaread_tseasfc, qcana_mode, qiana_mode, &
     &                               qrsgana_mode, fgFilename, anaFilename, ana_varnames_map_file,         &
-    &                               icpl_da_sfcevap, dt_ana
+    &                               icpl_da_sfcevap, dt_ana, icpl_da_skinc, adjust_tso_tsnow
   USE mo_limarea_config,      ONLY: latbc_config
   USE mo_advection_config,    ONLY: advection_config
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
+  USE mo_time_config,         ONLY: time_config
   USE mo_impl_constants,      ONLY: SUCCESS, MODE_DWDANA, max_dom,   &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
     &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMO,       &
     &                               min_rlcell, INWP, min_rledge_int, grf_bdywidth_c, &
     &                               min_rlcell_int
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, rd_o_cpd, tmelt, tf_salt
+  USE mo_math_constants,      ONLY: pi2
   USE mo_exception,           ONLY: message, finish
   USE mo_grid_config,         ONLY: n_dom, l_limited_area
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
@@ -1718,7 +1720,7 @@ MODULE mo_initicon
 
     REAL(wp) :: h_snow_t_fg(nproma,ntiles_total)   ! intermediate storage of h_snow first guess
     REAL(wp) :: wso_inc(nproma,nlev_soil)          ! local copy of w_so increment
-    REAL(wp) :: snowfrac_lim, wfac, rh_inc, smival
+    REAL(wp) :: snowfrac_lim, wfac, rh_inc, smival, trh_avginc(nproma), localtime_fac
 
     REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value)
                                                    ! in order to avoid grib precision problems
@@ -1743,7 +1745,8 @@ MODULE mo_initicon
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist,wso_inc,wfac,rh_inc,smival)
+!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist,wso_inc,wfac,rh_inc,smival,&
+!$OMP            localtime_fac,trh_avginc)
       DO jb = 1, nblks_c
 
         ! (re)-initialize error flag
@@ -1956,6 +1959,41 @@ MODULE mo_initicon
             ENDIF
           ENDIF  ! icpl_da_sfcevap
 
+          IF (icpl_da_skinc >= 1) THEN
+            ! weighted T assimilation increment; this serves as a proxy for the bias in diurnal temperature amplitude
+            DO jc = i_startidx, i_endidx
+              localtime_fac = COS(p_patch(jg)%cells%center(jc,jb)%lon + pi2/86400._wp *                           &
+                (time_config%tc_exp_startdate%time%hour*3600._wp+time_config%tc_exp_startdate%time%minute*60._wp) )
+              p_diag%t_wgt_avginc(jc,jb) = p_diag%t_wgt_avginc(jc,jb) + &
+                dt_ana/216000._wp*(initicon(jg)%atm_inc%temp(jc,nlev,jb)*localtime_fac-p_diag%t_wgt_avginc(jc,jb))
+            ENDDO
+          ENDIF
+
+          IF (adjust_tso_tsnow) THEN
+            ! Apply T assimilation increment at lowest model level also to t_so and t_snow in order to improve the
+            ! adaptation of the near-surface air temperatures
+            DO jt = 1, ntiles_lnd
+!NEC$ ivdep
+              DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+                jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+                IF (lnd_diag%snowfrac_lc_t(jc,jb,jt) < 1._wp) THEN
+                  lnd_prog_now%t_so_t(jc,1:3,jb,jt) = lnd_prog_now%t_so_t(jc,1:3,jb,jt) + initicon(jg)%atm_inc%temp(jc,nlev,jb) ! 0-3 cm
+                  lnd_prog_now%t_so_t(jc,4,jb,jt) = lnd_prog_now%t_so_t(jc,4,jb,jt) + 0.5_wp*initicon(jg)%atm_inc%temp(jc,nlev,jb) ! 3-9 cm
+                ENDIF
+              ENDDO
+            ENDDO
+
+            DO jt = ntiles_lnd+1,ntiles_total
+!NEC$ ivdep
+              DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+                jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+                IF (lnd_diag%snowfrac_lc_t(jc,jb,jt) > 0._wp) THEN
+                  lnd_prog_now%t_snow_t(jc,jb,jt) = MIN(tmelt, lnd_prog_now%t_snow_t(jc,jb,jt) + initicon(jg)%atm_inc%temp(jc,nlev,jb))
+                ENDIF
+              ENDDO
+            ENDDO
+          ENDIF
+
           IF (icpl_da_sfcevap >= 2) THEN
             ! Calculate time-filtered RH assimilation increment at lowest model level (time scale 2.5 days);
             ! this serves as a proxy for the averaged RH2M bias
@@ -1963,10 +2001,21 @@ MODULE mo_initicon
               rh_inc = initicon(jg)%atm_inc%qv(jc,nlev,jb)/ &
                 spec_humi(sat_pres_water(p_diag%temp(jc,nlev,jb)),p_diag%pres_sfc(jc,jb))
               p_diag%rh_avginc(jc,jb) = p_diag%rh_avginc(jc,jb) + dt_ana/216000._wp*(rh_inc-p_diag%rh_avginc(jc,jb))
+              trh_avginc(jc) = p_diag%rh_avginc(jc,jb)
             ENDDO
 
-            ! Ensure that some useable soil moisture is available when a dry bias is present
-            ! Specifically, water is added to levels 3-5 when the SMI is below 0.2, and a possible negative w_so increment
+            IF (icpl_da_sfcevap >= 3) THEN
+              ! Calculate time-filtered T assimilation increment at lowest model level (time scale 2.5 days);
+              ! this serves as a proxy for the averaged T2M bias
+              DO jc = i_startidx, i_endidx
+                p_diag%t_avginc(jc,jb) = p_diag%t_avginc(jc,jb) + &
+                  dt_ana/216000._wp*(initicon(jg)%atm_inc%temp(jc,nlev,jb)-p_diag%t_avginc(jc,jb))
+                trh_avginc(jc) = p_diag%rh_avginc(jc,jb)-0.04_wp*MIN(0._wp,p_diag%t_avginc(jc,jb))
+              ENDDO
+            ENDIF
+
+            ! Ensure that some useable soil moisture is available when a dry/warm bias is present
+            ! Specifically, water is added to levels 3-5 when the SMI is below 0.25, and a possible negative w_so increment
             ! from the SMA is reverted
             DO jt = 1, ntiles_total
               DO jk = 3, 5
@@ -1976,28 +2025,18 @@ MODULE mo_initicon
                   ist = ext_data(jg)%atm%soiltyp(jc,jb)
                   SELECT CASE(ist)
                     CASE (3,4,5,6,7,8) ! soil types with non-zero water content
-                    smival = dzsoil_icon(jk)*(0.8_wp*cpwp(ist)+0.2_wp*cfcap(ist)) ! corresponds to SMI = 0.2
+                    smival = dzsoil_icon(jk)*(0.75_wp*cpwp(ist)+0.25_wp*cfcap(ist)) ! corresponds to SMI = 0.25
                     ! The relaxation time scale is taken to be 20 days for an averaged 3-hourly RH increment of 1%
                     ! The scaling factor is constant because it is assumed that the magnitude of rh_avginc is proportional to dt_ana
-                    IF (p_diag%rh_avginc(jc,jb) > 0._wp .AND. lnd_prog_now%w_so_t(jc,jk,jb,jt) <= smival) THEN
+                    IF (trh_avginc(jc) > 0._wp .AND. lnd_prog_now%w_so_t(jc,jk,jb,jt) <= smival) THEN
                       lnd_prog_now%w_so_t(jc,jk,jb,jt) = lnd_prog_now%w_so_t(jc,jk,jb,jt) - MIN(0._wp,wso_inc(jc,jk)) + &
-                        0.625_wp*p_diag%rh_avginc(jc,jb)*(smival-lnd_prog_now%w_so_t(jc,jk,jb,jt))
+                        0.625_wp*trh_avginc(jc)*(smival-lnd_prog_now%w_so_t(jc,jk,jb,jt))
                     ENDIF
                   END SELECT
                 ENDDO
               ENDDO
             ENDDO
           ENDIF  ! icpl_da_sfcevap
-
-          IF (icpl_da_sfcevap >= 3) THEN
-            ! Calculate time-filtered T assimilation increment at lowest model level (time scale 2.5 days);
-            ! this serves as a proxy for the averaged T2M bias
-            DO jc = i_startidx, i_endidx
-              p_diag%t_avginc(jc,jb) = p_diag%t_avginc(jc,jb) + &
-                dt_ana/216000._wp*(initicon(jg)%atm_inc%temp(jc,nlev,jb)-p_diag%t_avginc(jc,jb))
-            ENDDO
-          ENDIF  ! icpl_da_sfcevap
-
 
         ENDIF  ! MODE_IAU
 

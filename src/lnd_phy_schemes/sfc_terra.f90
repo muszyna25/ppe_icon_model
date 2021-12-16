@@ -1872,8 +1872,8 @@ ENDDO
 
       zrain_rate = prr_gsp(i)+prr_con(i)  ! [kg/m**2 s]
 
-      ! temperature-dependent aging timescale: 2 days at freezing point, 28 days below -15 deg C
-      ztau_snow = 86400._wp*MIN(28.0_wp,2._wp+1.733_wp*(t0_melt-MIN(t0_melt,t_snow_now(i))))
+      ! temperature-dependent aging timescale: 7 days at freezing point, 28 days below -15 deg C
+      ztau_snow = 86400._wp*MIN(28.0_wp,7._wp+1.4_wp*(t0_melt-MIN(t0_melt,t_snow_now(i))))
 
       ! wind-dependent snow aging: a thin snow cover tends to get broken under strong winds, which reduces the albedo
       ! an offset is added in order to ensure moderate aging for low snow depths

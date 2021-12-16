@@ -14,7 +14,7 @@ ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
 MODULE_SETTINGS=". ${MODULESHOME}/init/sh; module purge"
 
 
-MODULES='apps sx/default gcc/9.1.0 mpi/2.14.0 netcdf4/4.7.3-VH-gnu hdf5/1.10.5-VH-gnu eccodes/2.23.0-VH-gnu aec/1.0.3-VH-gnu aocl/2.1-VH-gnu szip/2.1.1-VH-gnu'
+MODULES='apps sx/default gcc/9.1.0 mpi/2.14.0 netcdf4/4.7.3-VH-gnu hdf5/1.10.5-VH-gnu eccodes/prerelease/2.23.0-VH-gnu aec/1.0.3-VH-gnu aocl/2.1-VH-gnu szip/2.1.1-VH-gnu'
 
 
 ### Libraries ###

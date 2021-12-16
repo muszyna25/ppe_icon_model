@@ -90,7 +90,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_sea_lists, &
     &                               aggregate_tg_qvs, copy_lnd_prog_now2new
-  USE mo_lnd_nwp_config,      ONLY: ntiles_total, lsnowtile, ntiles_water, &
+  USE mo_lnd_nwp_config,      ONLY: ntiles_total, lsnowtile, ntiles_water, ntiles_lnd, &
     &                               lseaice, zml_soil, itype_canopy, nlev_soil, dzsoil_icon => dzsoil
   USE sfc_terra_data,         ONLY: csalbw, cpwp, cfcap
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
@@ -102,7 +102,7 @@ MODULE mo_nwp_phy_init
   USE mo_master_config,       ONLY: isRestart
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
-  USE mo_initicon_config,     ONLY: init_mode, lread_tke, icpl_da_sfcevap, dt_ana
+  USE mo_initicon_config,     ONLY: init_mode, lread_tke, icpl_da_sfcevap, dt_ana, icpl_da_snowalb
 
   USE mo_nwp_tuning_config,   ONLY: tune_zceff_min, tune_v0snow, tune_zvz0i, tune_icesedi_exp
   USE mo_cuparameters,        ONLY: sugwd
@@ -375,10 +375,12 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     IF (itype_canopy == 2 .AND. icpl_da_sfcevap == 3) THEN
       DO jt = 1, ntiles_total + ntiles_water
         DO jc = i_startidx,i_endidx
-          IF (jt <= ntiles_total) THEN
-            prm_diag%rlamh_fac_t(jc,jb,jt) =                                                                              &
-              1._wp - 0.9_wp*MAX(0._wp,MIN(1._wp,(60._wp-ext_data%atm%skinc_t(jc,jb,jt))/30._wp)) *                       &
-              MAX(0._wp,MIN(1._wp,2.5_wp*(10800._wp/dt_ana*(100._wp*p_diag%rh_avginc(jc,jb)-4._wp*p_diag%t_avginc(jc,jb))-0.4_wp)))
+          IF (jt <= ntiles_lnd) THEN ! snow-free land points
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 1._wp - 0.9_wp*MAX(0._wp, MIN(1._wp,                              &
+              2.5_wp*(10800._wp/dt_ana*(100._wp*p_diag%rh_avginc(jc,jb)-4._wp*p_diag%t_avginc(jc,jb))-0.4_wp) ))
+          ELSE IF (jt <= ntiles_total) THEN ! snow-covered land points
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 1._wp - 0.9_wp*MAX(0._wp, MIN(1._wp, &
+              2.5_wp*(10800._wp/dt_ana*(MAX(0._wp,100._wp*p_diag%rh_avginc(jc,jb))-4._wp*p_diag%t_avginc(jc,jb))-0.4_wp) ))
           ELSE IF (jt == ntiles_total + ntiles_water) THEN ! seaice points
             prm_diag%rlamh_fac_t(jc,jb,jt) = 0.25_wp
           ELSE
@@ -402,6 +404,18 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       ENDDO
     ELSE
       prm_diag%rlamh_fac_t(:,jb,:) = 1._wp
+    ENDIF
+    IF (icpl_da_snowalb >= 1) THEN
+      ! Tuning factor for snow albedo
+      DO jc = i_startidx,i_endidx
+        IF (ANY(p_diag_lnd%h_snow_t(jc,jb,1:ntiles_total) > 0._wp)) THEN
+          IF (p_diag%t_avginc(jc,jb) > 0._wp) THEN
+            prm_diag%snowalb_fac(jc,jb) = MAX(0.75_wp,1._wp/(1._wp+10800._wp/dt_ana*0.8_wp*p_diag%t_avginc(jc,jb)))
+          ELSE
+            prm_diag%snowalb_fac(jc,jb) = MIN(4._wp/3._wp,1._wp-10800._wp/dt_ana*0.8_wp*p_diag%t_avginc(jc,jb))
+          ENDIF
+        ENDIF
+      ENDDO
     ENDIF
   ENDDO
 

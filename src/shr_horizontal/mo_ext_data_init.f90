@@ -53,7 +53,7 @@ MODULE mo_ext_data_init
     &                              generate_td_filename, extpar_varnames_map_file,       &
     &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext, &
     &                              itype_vegetation_cycle, read_nc_via_cdi, pp_glacier_sso
-  USE mo_initicon_config,    ONLY: icpl_da_sfcevap, dt_ana
+  USE mo_initicon_config,    ONLY: icpl_da_sfcevap, dt_ana, icpl_da_skinc
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
   USE mo_process_topo,       ONLY: smooth_topo_real_data, postproc_glacier_sso
   USE mo_model_domain,       ONLY: t_patch
@@ -889,13 +889,13 @@ CONTAINS
                  &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  0.60_wp, 1._wp,  30._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
                  &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  0.65_wp, 1._wp,  10._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
                  &   0.15_wp,  0.8_wp,  2.5_wp, 1.5_wp, 120.0_wp,  0.65_wp, 1._wp,  50._wp, & ! closed to open shrubland
-                 &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp,  40.0_wp,  0.82_wp, 1._wp,  30._wp, & ! closed to open herbaceous vegetation
+                 &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp,  40.0_wp,  0.76_wp, 1._wp,  30._wp, & ! closed to open herbaceous vegetation
                  &   0.05_wp,  0.5_wp,  0.6_wp, 0.3_wp,  40.0_wp,  0.76_wp, 1._wp,  10._wp, & ! sparse vegetation
                  &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  0.30_wp, 1._wp,  50._wp, & ! closed to open forest regulary flooded
                  &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  0.30_wp, 1._wp,  50._wp, & ! closed forest or shrubland permanently flooded
                  &   0.05_wp,  0.8_wp,  2.0_wp, 1.0_wp,  40.0_wp,  0.76_wp, 1._wp,  30._wp, & ! closed to open grassland regularly flooded
                  &   1.00_wp,  0.2_wp,  1.6_wp, 0.6_wp, 120.0_wp,  0.50_wp, 1._wp, 200._wp, & ! artificial surfaces
-                 &   0.05_wp,  0.05_wp, 0.6_wp, 0.3_wp, 120.0_wp,  0.82_wp, 1._wp, 200._wp, & ! bare areas
+                 &   0.05_wp,  0.05_wp, 0.6_wp, 0.3_wp, 120.0_wp,  0.76_wp, 1._wp, 200._wp, & ! bare areas
                  &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp,-1._wp, 200._wp, & ! water bodies
                  &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp, 1._wp, 200._wp, & ! permanent snow and ice
                  &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp, 200._wp  / ! undefined
@@ -914,13 +914,13 @@ CONTAINS
                    &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  0.60_wp, 1._wp,  30._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
                    &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  0.65_wp, 1._wp,  10._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
                    &   0.15_wp,  0.8_wp,  2.5_wp, 1.5_wp, 225.0_wp,  0.65_wp, 1._wp,  50._wp, & ! closed to open shrubland
-                   &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp, 100.0_wp,  0.82_wp, 1._wp,  30._wp, & ! closed to open herbaceous vegetation
+                   &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp, 100.0_wp,  0.76_wp, 1._wp,  30._wp, & ! closed to open herbaceous vegetation
                    &   0.05_wp,  0.5_wp,  0.6_wp, 0.3_wp,  80.0_wp,  0.76_wp, 1._wp,  10._wp, & ! sparse vegetation
                    &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  0.30_wp, 1._wp,  50._wp, & ! closed to open forest regulary flooded
                    &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  0.30_wp, 1._wp,  50._wp, & ! closed forest or shrubland permanently flooded
                    &   0.05_wp,  0.8_wp,  2.0_wp, 1.0_wp,  80.0_wp,  0.76_wp, 1._wp,  30._wp, & ! closed to open grassland regularly flooded
                    &   1.00_wp,  0.2_wp,  1.6_wp, 0.6_wp, 180.0_wp,  0.50_wp, 1._wp, 200._wp, & ! artificial surfaces
-                   &   0.05_wp,  0.05_wp, 0.6_wp, 0.3_wp, 200.0_wp,  0.82_wp, 1._wp, 200._wp, & ! bare areas
+                   &   0.05_wp,  0.05_wp, 0.6_wp, 0.3_wp, 200.0_wp,  0.76_wp, 1._wp, 200._wp, & ! bare areas
                    &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 150.0_wp,  -1.0_wp,-1._wp, 200._wp, & ! water bodies
                    &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp, 1._wp, 200._wp, & ! permanent snow and ice
                    &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp, 200._wp  / ! undefined
@@ -939,13 +939,13 @@ CONTAINS
                    &   0.20_wp,  0.8_wp,  2.5_wp, 0.8_wp, 200.0_wp,  0.60_wp, 1._wp,  30._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
                    &   0.20_wp,  0.8_wp,  2.5_wp, 0.6_wp, 200.0_wp,  0.65_wp, 1._wp,  10._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
                    &   0.15_wp,  0.8_wp,  2.5_wp, 0.9_wp, 265.0_wp,  0.65_wp, 1._wp,  50._wp, & ! closed to open shrubland
-                   &   0.03_wp,  0.9_wp,  3.1_wp, 0.4_wp, 140.0_wp,  0.82_wp, 1._wp,  30._wp, & ! closed to open herbaceous vegetation
+                   &   0.03_wp,  0.9_wp,  3.1_wp, 0.4_wp, 140.0_wp,  0.76_wp, 1._wp,  30._wp, & ! closed to open herbaceous vegetation
                    &   0.05_wp,  0.5_wp,  0.6_wp, 0.2_wp, 120.0_wp,  0.76_wp, 1._wp,  10._wp, & ! sparse vegetation
                    &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  0.30_wp, 1._wp,  50._wp, & ! closed to open forest regulary flooded
                    &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  0.30_wp, 1._wp,  50._wp, & ! closed forest or shrubland permanently flooded
                    &   0.05_wp,  0.8_wp,  2.0_wp, 0.7_wp, 120.0_wp,  0.76_wp, 1._wp,  30._wp, & ! closed to open grassland regularly flooded
                    &   1.00_wp,  0.2_wp,  1.6_wp, 0.2_wp, 300.0_wp,  0.50_wp, 1._wp, 200._wp, & ! artificial surfaces
-                   &   0.05_wp,  0.05_wp, 0.6_wp,0.05_wp, 300.0_wp,  0.82_wp, 1._wp, 200._wp, & ! bare areas
+                   &   0.05_wp,  0.05_wp, 0.6_wp,0.05_wp, 300.0_wp,  0.76_wp, 1._wp, 200._wp, & ! bare areas
                    &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 150.0_wp,  -1.0_wp,-1._wp, 200._wp, & ! water bodies
                    &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp, 1._wp, 200._wp, & ! permanent snow and ice
                    &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp, 200._wp  / ! undefined
@@ -964,13 +964,13 @@ CONTAINS
                    &   0.15_wp,  0.8_wp,  2.5_wp, 1.1_wp, 170.0_wp,  0.60_wp, 1._wp,  30._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
                    &   0.15_wp,  0.8_wp,  2.5_wp, 0.9_wp, 170.0_wp,  0.65_wp, 1._wp,  30._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
                    &   0.15_wp,  0.8_wp,  2.5_wp, 1.5_wp, 180.0_wp,  0.65_wp, 1._wp,  75._wp, & ! closed to open shrubland
-                   &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp, 100.0_wp,  0.82_wp, 1._wp,  70._wp, & ! closed to open herbaceous vegetation
+                   &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp, 100.0_wp,  0.76_wp, 1._wp,  70._wp, & ! closed to open herbaceous vegetation
                    &   0.05_wp,  0.5_wp,  0.6_wp, 0.3_wp, 140.0_wp,  0.76_wp, 1._wp,  15._wp, & ! sparse vegetation
                    &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  0.30_wp, 1._wp,  50._wp, & ! closed to open forest regulary flooded
                    &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  0.30_wp, 1._wp,  80._wp, & ! closed forest or shrubland permanently flooded
                    &   0.05_wp,  0.8_wp,  2.0_wp, 1.0_wp,  80.0_wp,  0.76_wp, 1._wp,  30._wp, & ! closed to open grassland regularly flooded
                    &   1.00_wp,  0.2_wp,  1.6_wp, 0.6_wp, 300.0_wp,  0.50_wp, 1._wp, 200._wp, & ! artificial surfaces
-                   &   0.02_wp,  0.01_wp, 0.2_wp, 0.3_wp, 300.0_wp,  0.82_wp, 1._wp, 200._wp, & ! bare areas
+                   &   0.02_wp,  0.01_wp, 0.2_wp, 0.3_wp, 300.0_wp,  0.76_wp, 1._wp, 200._wp, & ! bare areas
                    &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 150.0_wp,  -1.0_wp,-1._wp, 200._wp, & ! water bodies
                    &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp, 1._wp, 200._wp, & ! permanent snow and ice
                    &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp, 200._wp  / ! undefined
@@ -2352,7 +2352,7 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk,i_startidx, i_endidx
     INTEGER  :: i_count,ilu
 
-    REAL(wp) :: t2mclim_hc(nproma),t_asyfac(nproma),tdiff_norm,wfac,dtdz_clim,trans_width,trh_bias
+    REAL(wp) :: t2mclim_hc(nproma),t_asyfac(nproma),tdiff_norm,wfac,dtdz_clim,trans_width,trh_bias,skinc_fac,lat
     REAL(wp), DIMENSION(num_lcc) :: laimin,threshold_temp,temp_asymmetry,rd_fac
 
     INTEGER, PARAMETER :: nparam = 4  ! Number of parameters used in lookup table 
@@ -2415,7 +2415,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,ic,i_startidx,i_endidx,i_count,jc,ilu,t2mclim_hc,t_asyfac,tdiff_norm,wfac,trh_bias)
+!$OMP DO PRIVATE(jb,jt,ic,i_startidx,i_endidx,i_count,jc,ilu,t2mclim_hc,t_asyfac,tdiff_norm,wfac,trh_bias,skinc_fac,lat)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2426,7 +2426,7 @@ CONTAINS
         ext_data%atm%t2m_clim_hc(jc,jb) = ext_data%atm%t2m_clim(jc,jb) + dtdz_clim * &
           (ext_data%atm%topography_c(jc,jb) - ext_data%atm%topo_t2mclim(jc,jb))
 
-        t2mclim_hc(jc) = ext_data%atm%t2m_clim_hc(jc,jb) ! local copy needed for option 3
+        t2mclim_hc(jc) = ext_data%atm%t2m_clim_hc(jc,jb) ! local copy needed for DA coupling (icpl_da_sfcevap > 0)
         t_asyfac(jc)   = SIGN(MIN(1._wp,ABS(ext_data%atm%t2m_climgrad(jc,jb))/2.5_wp), &
                                  -1._wp*ext_data%atm%t2m_climgrad(jc,jb))
       ENDDO
@@ -2481,7 +2481,10 @@ CONTAINS
             ext_data%atm%rootdp_t(jc,jb,jt) = ext_data%atm%rootdp_t(jc,jb,jt)*(wfac + (1._wp-wfac)/rd_fac(ilu))
           ENDIF
 
-          IF (icpl_da_sfcevap >= 3) THEN
+          IF (icpl_da_sfcevap >= 3 .AND. icpl_da_skinc >= 1) THEN
+            trh_bias = 10800._wp/dt_ana*(125._wp*nh_diag%rh_avginc(jc,jb) - &
+              4._wp*(nh_diag%t_avginc(jc,jb)-0.5_wp*nh_diag%t_wgt_avginc(jc,jb)))
+          ELSE IF (icpl_da_sfcevap >= 3) THEN
             trh_bias = 10800._wp/dt_ana*(100._wp*nh_diag%rh_avginc(jc,jb)-4._wp*nh_diag%t_avginc(jc,jb))
           ELSE IF (icpl_da_sfcevap >= 2) THEN
             trh_bias = nh_diag%t2m_bias(jc,jb) + 100._wp*10800._wp/dt_ana*nh_diag%rh_avginc(jc,jb)
@@ -2503,6 +2506,23 @@ CONTAINS
             ENDIF
           ELSE
             ext_data%atm%rsmin2d_t(jc,jb,jt) = ext_data%atm%stomresmin_lcc(ilu)
+          ENDIF
+
+          ! Tuning factor for skin conductivity
+          IF (icpl_da_skinc >= 1) THEN
+            IF (nh_diag%t_wgt_avginc(jc,jb) < 0._wp) THEN
+              skinc_fac = MAX(0.1_wp,1._wp+10800._wp/dt_ana*4._wp*nh_diag%t_wgt_avginc(jc,jb))
+            ELSE
+              skinc_fac = 1._wp/MAX(0.1_wp,1._wp-10800._wp/dt_ana*4._wp*nh_diag%t_wgt_avginc(jc,jb))
+            ENDIF
+
+            lat = p_patch%cells%center(jc,jb)%lat*rad2deg
+            IF (itype_lndtbl == 4 .AND. lat > -10._wp .AND. lat < 42.5_wp) THEN
+              ext_data%atm%skinc_t(jc,jb,jt) = skinc_fac*MIN(200._wp,ext_data%atm%skinc_lcc(ilu)*          &
+                                               (1._wp+MIN(1._wp,0.4_wp*(42.5_wp-lat),0.4_wp*(lat+10._wp))) )
+            ELSE
+              ext_data%atm%skinc_t(jc,jb,jt) = skinc_fac*ext_data%atm%skinc_lcc(ilu)
+            ENDIF
           ENDIF
 
         ENDDO

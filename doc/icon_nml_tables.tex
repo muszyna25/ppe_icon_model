@@ -2530,6 +2530,33 @@ Choosing values $>$ 0 requires itype\_vegetation\_cycle=2 (in extpar\_nml) :\\
 init\_mode=5
 \tabularnewline
 
+icpl\_da\_snowalb&
+I & 0 & &
+Coupling between temperature bias inferred from data assimilation and snow albedo\\
+0: off \\
+1: on; requires assimilation of T2M and cycling of a time-filtered temperature increment at the lowest model level &
+init\_mode=5; icpl\_da\_sfcevap=3
+\tabularnewline
+
+
+icpl\_da\_skinc&
+I & 0 & &
+Coupling between bias of diurnal temperature amplitude inferred from data assimilation and skin conductivity\\
+0: off \\
+1: on; requires assimilation of T2M and cycling of a time-filtered weighted (with cosine of local time) 
+temperature increment at the lowest model level  &
+init\_mode=5
+\tabularnewline
+
+
+adjust\_tso\_tsnow&
+L & .FALSE. & &
+If .TRUE., apply T increments for lowest model level also to snow and upper soil layers (full to upper 3 cm, half to 3-9 cm layer).
+Requires assimilation of T2M to be meaningful &
+init\_mode=5
+\tabularnewline
+
+
 
 %\hline
 lconsistency\_checks&

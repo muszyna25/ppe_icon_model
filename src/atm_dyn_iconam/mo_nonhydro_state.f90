@@ -74,7 +74,7 @@ MODULE mo_nonhydro_state
   USE mo_turbdiff_config,      ONLY: turbdiff_config
   USE mo_initicon_config,      ONLY: init_mode, lcalc_avg_fg, iso8601_start_timedelta_avg_fg, &
     &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg, &
-    &                                qcana_mode, qiana_mode, qrsgana_mode, icpl_da_sfcevap
+    &                                qcana_mode, qiana_mode, qrsgana_mode, icpl_da_sfcevap, icpl_da_skinc
   USE mo_var_list, ONLY: add_var, find_list_element, add_ref, t_var_list_ptr
   USE mo_var_list_register, ONLY: vlr_add, vlr_del
   USE mo_var_list_register_utils, ONLY: vlr_add_vref
@@ -2900,6 +2900,20 @@ MODULE mo_nonhydro_state
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,     &
         &           ldims=shape2d_c, lrestart=.true.,                               &
         &           in_group=groups("mode_iau_fg_in","mode_dwd_fg_in","mode_combined_in") )
+    ENDIF
+
+    IF (icpl_da_skinc >= 1) THEN
+      !  Time-filtered near-surface level T increment from data assimilation, weighted with COS(local time)
+      cf_desc    = t_cf_var('t_wgt_avginc', 'K', 'Weighted filtered T increment', datatype_flt)
+      grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
+                 + t_grib2_int_key("typeOfGeneratingProcess", 208)     &
+                 + t_grib2_int_key("typeOfSecondFixedSurface", 1)      &
+                 + t_grib2_int_key("scaledValueOfFirstFixedSurface", 20)
+      CALL add_var( p_diag_list, 't_wgt_avginc', p_diag%t_wgt_avginc,               &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,     &
+        &           ldims=shape2d_c, lrestart=.true.,                               &
+        &           in_group=groups("mode_iau_fg_in","mode_dwd_fg_in","mode_combined_in") )
+
     ENDIF
 
     IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN

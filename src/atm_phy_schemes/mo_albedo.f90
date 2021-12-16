@@ -56,6 +56,7 @@ MODULE mo_albedo
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_impl_constants,       ONLY: min_rlcell_int
   USE sfc_seaice,              ONLY: alb_seaice_equil
+  USE mo_initicon_config,      ONLY: icpl_da_snowalb
 
   IMPLICIT NONE
 
@@ -770,6 +771,13 @@ CONTAINS
             ! Consider effects of aging on solar snow albedo
             !
             zsnow_alb(jc,jt) = zminsnow_alb + lnd_diag%freshsnow_t(jc,jb,jt)*(zmaxsnow_alb-zminsnow_alb)
+
+            ! Adaptive tuning of snow albedo if T2M is assimilated
+            ! The upper limit is set to csalb_snow_max rather than zmaxsnow_alb in order to allow larger corrections
+            ! in sparsely forested regions where the LU-based maximum albedo might be too low
+            IF (icpl_da_snowalb >= 1) THEN
+              zsnow_alb(jc,jt) = MAX(zminsnow_alb,MIN(zsnow_alb(jc,jt)*prm_diag%snowalb_fac(jc,jb),csalb_snow_max))
+            ENDIF
 
             IF (ntiles_lnd == 1) THEN
               ! special treatment for forests
