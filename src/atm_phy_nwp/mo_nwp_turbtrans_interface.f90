@@ -872,7 +872,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         &           tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),                     & !out
         &           gz0=prm_diag%gz0(:,jb),       shfl_s=prm_diag%shfl_s(:,jb),         & !inout, out
         &           lhfl_s=prm_diag%lhfl_s(:,jb), qhfl_s=prm_diag%qhfl_s(:,jb),         & !out, out
-        &           umfl_s=prm_diag%umfl_s_t(:,jb,1), vmfl_s=prm_diag%vmfl_s_t(:,jb,1))   !out, out
+        &           umfl_s=prm_diag%umfl_s(:,jb), vmfl_s=prm_diag%vmfl_s(:,jb))           !out, out
 
 
       !DR inside "nearsfc", lhfl_s is converted to qhfl_s via
@@ -887,7 +887,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         &           tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),                     & !in
         &           gz0=prm_diag%gz0(:,jb),                                             & !in
         &           shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb),         & !in
-        &           umfl_s=prm_diag%umfl_s_t(:,jb,1), vmfl_s=prm_diag%vmfl_s_t(:,jb,1), & !in
+        &           umfl_s=prm_diag%umfl_s(:,jb), vmfl_s=prm_diag%vmfl_s(:,jb),         & !in
         &           zsurf=p_metrics%z_ifc(:,nlevp1,jb),                                 & !in
         &           fr_land=ext_data%atm%fr_land(:,jb), pf1=p_diag%pres(:,nlev,jb),     & !in
         &           qv_s=lnd_diag%qv_s(:,jb), ie=nproma, ke=nlev,                       & !in
@@ -927,6 +927,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           prm_diag%shfl_s_t(jc,jb,jt) = prm_diag%shfl_s(jc,jb)
           prm_diag%lhfl_s_t(jc,jb,jt) = prm_diag%lhfl_s(jc,jb)
           prm_diag%qhfl_s_t(jc,jb,jt) = prm_diag%qhfl_s(jc,jb)
+
+          prm_diag%umfl_s_t(jc,jb,jt) = prm_diag%umfl_s(jc,jb)
+          prm_diag%vmfl_s_t(jc,jb,jt) = prm_diag%vmfl_s(jc,jb)
         ENDDO
       ENDDO
 
