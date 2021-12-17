@@ -177,7 +177,8 @@ MODULE mo_pp_scheduler
   USE mo_var_list,                ONLY: add_var, find_list_element, t_var_list_ptr
   USE mo_var_list_register,       ONLY: t_vl_register_iter
   USE mo_var, ONLY: t_var, level_type_ml, level_type_pl, level_type_hl, level_type_il
-  USE mo_var_metadata_types,      ONLY: t_var_metadata, t_var_metadata_dynamic, t_post_op_meta
+  USE mo_var_metadata_types,      ONLY: t_var_metadata, t_var_metadata_dynamic, t_post_op_meta, &
+    &                                   t_hor_interp_meta
   USE mo_var_metadata,            ONLY: create_hor_interp_metadata, vintp_type_id,          &
     &                                   get_timelevel_string, get_var_timelevel, get_var_name
   USE mo_intp_data_strc,          ONLY: p_int_state
@@ -313,6 +314,7 @@ CONTAINS
     TYPE (t_lon_lat_intp), POINTER:: ptr_int_lonlat
     CHARACTER(LEN=1)              :: prefix
     TYPE(t_vl_register_iter) :: vl_iter
+    TYPE(t_hor_interp_meta)  :: hor_interp_meta
 
     IF (dbg_level > 5)  CALL message(routine, "Enter")
     
@@ -377,25 +379,26 @@ CONTAINS
         cf      = elem_u%info%cf
         grib2   = elem_u%info%grib2
         post_op = elem_u%info%post_op
+        hor_interp_meta = elem_u%info%hor_interp
+        hor_interp_meta%lonlat_id  = ll_grid_id ! link to the lon-lat grid
         CALL add_var(dst_varlist, TRIM(vname), p_opt_field_r3d, GRID_REGULAR_LONLAT, &
           & info%vgrid, cf, grib2, ldims=shape3d_ll, lrestart=.FALSE.,               &
           & in_group=elem_u%info%in_group, new_element=new_elem, loutput=.TRUE.,     &
           & post_op=post_op, var_class=elem_u%info%var_class, lopenacc=.TRUE.,       &
-          & tlev_source=info%tlev_source, hor_interp=elem_u%info%hor_interp,         &
+          & tlev_source=info%tlev_source, hor_interp=hor_interp_meta,                &
           & vert_interp=elem_u%info%vert_interp)
         vname   = LONLAT_PREFIX//TRIM(get_var_name(elem_v%info))//suffix
         cf      = elem_v%info%cf
         grib2   = elem_v%info%grib2
         post_op = elem_v%info%post_op
+        hor_interp_meta = elem_v%info%hor_interp
+        hor_interp_meta%lonlat_id = ll_grid_id ! link to the lon-lat grid
         CALL add_var(dst_varlist, TRIM(vname), p_opt_field_r3d, GRID_REGULAR_LONLAT, &
           & info%vgrid, cf, grib2, ldims=shape3d_ll, lrestart=.FALSE.,               &
           & in_group=elem_v%info%in_group, new_element=new_elem2, loutput=.TRUE.,    &
           & post_op=post_op, var_class=elem_v%info%var_class, lopenacc=.TRUE.,       &
-          & tlev_source=info%tlev_source, hor_interp=elem_v%info%hor_interp,         &
+          & tlev_source=info%tlev_source, hor_interp=hor_interp_meta,                &
           & vert_interp=elem_v%info%vert_interp)
-        ! link these new variables to the lon-lat grid:
-        new_elem%info%hor_interp%lonlat_id  = ll_grid_id
-        new_elem2%info%hor_interp%lonlat_id = ll_grid_id
         !-- create and add post-processing task
         task => pp_task_insert(DEFAULT_PRIORITY4)
         WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", ",prefix//"-levels", ", DOM ",jg
@@ -446,6 +449,7 @@ CONTAINS
          uv_hrz_intp_levs(4*lonlat_grids%ngrids)
     CHARACTER(LEN=1)                      :: prefix
     TYPE(t_vl_register_iter) :: vl_iter
+    TYPE(t_hor_interp_meta)  :: hor_interp_meta
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
 
@@ -627,6 +631,10 @@ CONTAINS
             CALL finish(routine, "User tried to interpolate field with missing value!")
           END IF
 
+          hor_interp_meta=create_hor_interp_metadata(                &
+            &               hor_intp_type = HINTP_TYPE_NONE,         &
+            &               lonlat_id = ll_vargrid(ivar) )
+
           SELECT CASE (info%hgrid)
           CASE (GRID_UNSTRUCTURED_CELL)
             !--- REAL fields
@@ -637,8 +645,7 @@ CONTAINS
                 &           tracer_info=info_dyn%tracer,                          &
                 &           loutput=.TRUE., new_element=new_elem,              &
                 &           isteptype=info%isteptype,                             &
-                &           hor_interp=create_hor_interp_metadata(                &
-                &               hor_intp_type=HINTP_TYPE_NONE ),                  &
+                &           hor_interp=hor_interp_meta,                           &
                 &           vert_interp=info%vert_interp,                         &
                 &           post_op=info%post_op,                                 &
                 &           lmiss=info%lmiss,                                     &
@@ -652,8 +659,7 @@ CONTAINS
                 &           ldims=var_shape, lrestart=.FALSE.,                    &
                 &           loutput=.TRUE., new_element=new_elem,              &
                 &           isteptype=info%isteptype,                             &
-                &           hor_interp=create_hor_interp_metadata(                &
-                &               hor_intp_type=HINTP_TYPE_NONE ),                  &
+                &           hor_interp=hor_interp_meta,                           &
                 &           vert_interp=info%vert_interp,                         &
                 &           post_op=info%post_op,                                 &
                 &           lmiss=info%lmiss,                                     &
@@ -668,8 +674,7 @@ CONTAINS
                 &           tracer_info=info_dyn%tracer,                          &
                 &           loutput=.TRUE., new_element=new_elem,              &
                 &           isteptype=info%isteptype,                             &
-                &           hor_interp=create_hor_interp_metadata(                &
-                &               hor_intp_type=HINTP_TYPE_NONE ),                  &
+                &           hor_interp=hor_interp_meta,                           &
                 &           vert_interp=info%vert_interp,                         &
                 &           post_op=info%post_op,                                 &
                 &           lmiss=info%lmiss,                                     &
@@ -684,8 +689,6 @@ CONTAINS
           CASE DEFAULT
             CALL finish(routine, "Unsupported grid type!")
           END SELECT
-          ! link this new variable to the lon-lat grid:
-          new_elem%info%hor_interp%lonlat_id = ll_vargrid(ivar)
           ! If actions have been defined for the source field, we define those actions 
           ! for the target field (lat-lon-field) as well.
           ! Strictly speaking this is only necessary for the RESET action, but for the 
