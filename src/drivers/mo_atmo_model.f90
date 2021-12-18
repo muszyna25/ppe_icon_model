@@ -120,8 +120,10 @@ MODULE mo_atmo_model
   USE mo_intp_lonlat,             ONLY: compute_lonlat_intp_coeffs
 
   ! coupling
+#ifdef YAC_coupling
   USE mo_coupling_config,         ONLY: is_coupled_run
   USE mo_atmo_coupling_frame,     ONLY: construct_atmo_coupling, destruct_atmo_coupling
+#endif
 
   ! I/O
   USE mo_restart,                 ONLY: detachRestartProcs
@@ -181,9 +183,11 @@ CONTAINS
     !---------------------------------------------------------------------
     ! construct the coupler
     !
+#ifdef YAC_coupling
     IF ( is_coupled_run() ) THEN
       CALL construct_atmo_coupling(p_patch)
     ENDIF
+#endif
 
 
     !---------------------------------------------------------------------
@@ -223,9 +227,11 @@ CONTAINS
     !---------------------------------------------------------------------
     ! destruct the coupler
     !
+#ifdef YAC_coupling
     IF ( is_coupled_run() ) THEN
       CALL destruct_atmo_coupling ()
     ENDIF
+#endif
 
     !---------------------------------------------------------------------
     ! (optional:) write resident set size from OS

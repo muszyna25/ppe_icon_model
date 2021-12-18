@@ -1,4 +1,3 @@
---inc-oo
 --check-colour red
 # Check whether the dependency graph is acyclic:
 --check-cycles

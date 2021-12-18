@@ -197,6 +197,14 @@ FUNCTION MY_IS_CONTIGUOUS_DP_3D(array)
   INTEGER(KIND=p_address_kind) :: addr(2), type_size
   INTEGER :: ierror
 
+  ! In INTERPOL_SCAL_GRIEF, there is arrays with dim2 == 0.
+  ! Thomas Jahns found compilers to agree that arrays with one dim==0 are
+  ! contiguous.
+  IF (ANY(SHAPE(array) == 0)) THEN
+    MY_IS_CONTIGUOUS_DP_3D = .TRUE.
+    RETURN
+  ENDIF
+
   CALL MPI_Get_address(dummy(1), addr(1), ierror)
   CALL MPI_Get_address(dummy(2), addr(2), ierror)
   type_size = addr(2) - addr(1)
@@ -214,6 +222,12 @@ FUNCTION MY_IS_CONTIGUOUS_SP_3D(array)
   REAL(sp) :: dummy(2)
   INTEGER(KIND=p_address_kind) :: addr(2), type_size
   INTEGER :: ierror
+
+  ! same as in MY_IS_CONTIGUOUS_DP_3D
+  IF (ANY(SHAPE(array) == 0)) THEN
+    MY_IS_CONTIGUOUS_SP_3D = .TRUE.
+    RETURN
+  ENDIF
 
   CALL MPI_Get_address(dummy(1), addr(1), ierror)
   CALL MPI_Get_address(dummy(2), addr(2), ierror)
@@ -233,6 +247,12 @@ FUNCTION MY_IS_CONTIGUOUS_DP_4D(array)
   INTEGER(KIND=p_address_kind) :: addr(2), type_size
   INTEGER :: ierror
 
+  ! same as in MY_IS_CONTIGUOUS_DP_3D
+  IF (ANY(SHAPE(array) == 0)) THEN
+    MY_IS_CONTIGUOUS_DP_4D = .TRUE.
+    RETURN
+  ENDIF
+
   CALL MPI_Get_address(dummy(1), addr(1), ierror)
   CALL MPI_Get_address(dummy(2), addr(2), ierror)
   type_size = addr(2) - addr(1)
@@ -250,6 +270,12 @@ FUNCTION MY_IS_CONTIGUOUS_SP_4D(array)
   REAL(sp) :: dummy(2)
   INTEGER(KIND=p_address_kind) :: addr(2), type_size
   INTEGER :: ierror
+
+  ! same as in MY_IS_CONTIGUOUS_DP_3D
+  IF (ANY(SHAPE(array) == 0)) THEN
+    MY_IS_CONTIGUOUS_SP_4D = .TRUE.
+    RETURN
+  ENDIF
 
   CALL MPI_Get_address(dummy(1), addr(1), ierror)
   CALL MPI_Get_address(dummy(2), addr(2), ierror)
@@ -2533,6 +2559,7 @@ SUBROUTINE exchange_data_grf(p_pat_coll, nfields, ndim2tot, recv, send)
     END IF
 #endif
 #endif
+   cpy_size = 0
 
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN

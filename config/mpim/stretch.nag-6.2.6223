@@ -41,17 +41,20 @@ NETCDF_LIBS='-lnetcdf'
 NETCDFF_ROOT="${SPACK_SW_ROOT}/netcdf-fortran-4.4.4-insiw2u"
 NETCDFF_LIBS='-lnetcdff'
 
+BLAS_LAPACK_LIBS='-llapack -lblas'
+
 GRIBAPI_ROOT="${XAS_SW_ROOT}/grib_api/grib_api-1.21.0-gccsys"
 GRIBAPI_LIBS='-lgrib_api'
 
-BLAS_LAPACK_LIBS='-llapack -lblas'
+SERIALBOX2_ROOT="${SPACK_SW_ROOT}/serialbox-2.6.0-zedamgc"
+SERIALBOX2_LIBS='-lSerialboxFortran'
 
 XML2_ROOT='/usr'
 XML2_LIBS='-lxml2'
 
 ################################################################################
 
-BUILD_ENV=". /etc/profile.d/mpim.sh; . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${MPICH_ROOT}/lib:${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${GRIBAPI_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
+BUILD_ENV=". /etc/profile.d/mpim.sh; . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${MPICH_ROOT}/lib:${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${GRIBAPI_ROOT}/lib:${SERIALBOX2_ROOT}/lib\${LD_LIBRARY_PATH}\";"
 
 # We need the absolute path to 'gcc':
 set +eu
@@ -66,13 +69,13 @@ ICON_BUNDLED_CFLAGS='-O2'
 CPPFLAGS="-I${MPICH_ROOT}/include -I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${GRIBAPI_ROOT}/include -I${XML2_ROOT}/include/libxml2"
 
 FC='nagfor'
-FCFLAGS="-I${MPICH_ROOT}/include -I${NETCDFF_ROOT}/include -colour -f2008 -Wc=${GCC_PATH} -w=uep -O0 -Wc,-g -float-store -nan -gline -g"
+FCFLAGS="-I${MPICH_ROOT}/include -I${NETCDFF_ROOT}/include -I${SERIALBOX2_ROOT}/include -colour -f2008 -Wc=${GCC_PATH} -w=uep -O0 -Wc,-g -float-store -nan -gline -g"
 ICON_FCFLAGS='-Wc,-pipe -Wc,--param,max-vartrack-size=200000000 -Wc,-mno-fma -C=all -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_irecv,mpi_isend,mpi_pack,mpi_recv,mpi_reduce,mpi_rget,mpi_scatter,mpi_scatterv,mpi_send,mpi_sendrecv,mpi_unpack,mpi_win_create,nf_def_var,nf_get_att_double,nf_get_att_int,nf_get_vara_int,nf_put_att_double,nf_put_att_int,nf_put_vara_double,nf_put_vara_int'
 ICON_BUNDLED_FCFLAGS=''
 ICON_YAXT_FCFLAGS='-wmismatch=xt_slice_c_loc' # not needed starting YAXT 0.8.0
 
-LDFLAGS="-L${MPICH_ROOT}/lib -L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${GRIBAPI_ROOT}/lib"
-LIBS="${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${MPICH_LIBS}"
+LDFLAGS="-L${MPICH_ROOT}/lib -L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${GRIBAPI_ROOT}/lib -L${SERIALBOX2_ROOT}/lib"
+LIBS="${XML2_LIBS} ${SERIALBOX2_LIBS} ${GRIBAPI_LIBS} ${BLAS_LAPACK_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${MPICH_LIBS}"
 
 # In order to avoid redundant dependencies on the libraries (e.g. -lgrib_api is
 # not needed when GRIB2 support is disabled), we can use linker flag
@@ -89,6 +92,8 @@ ICON_LDFLAGS='-Wl,-Wl,,--as-needed'
 LIBS=$(echo "${LIBS}" | sed 's/\([ ]\|^\)-l/\1-Wl,-l/g')
 
 MPI_LAUNCH='mpiexec'
+
+SB2PP="${SERIALBOX2_ROOT}/python/pp_ser/pp_ser.py"
 
 EXTRA_CONFIG_ARGS=''
 
@@ -110,6 +115,7 @@ ICON_YAXT_FCFLAGS="${ICON_YAXT_FCFLAGS}" \
 LDFLAGS="${LDFLAGS}" \
 LIBS="${LIBS}" \
 MPI_LAUNCH="${MPI_LAUNCH}" \
+SB2PP="${SB2PP}" \
 ${EXTRA_CONFIG_ARGS} \
 "$@"
 

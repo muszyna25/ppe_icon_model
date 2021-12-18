@@ -79,6 +79,7 @@ CONTAINS
     INTEGER :: model_min_rank
     INTEGER :: model_max_rank
     INTEGER :: model_inc_rank
+    INTEGER :: model_rank_group_size
     
     CHARACTER(len=max_calendar_str_len) :: calendar                 = ''
     CHARACTER(len=max_datetime_str_len) :: experimentReferenceDate  = ''   
@@ -115,7 +116,8 @@ CONTAINS
          &    model_type,              &
          &    model_min_rank,          &
          &    model_max_rank,          &
-         &    model_inc_rank               
+         &    model_inc_rank,          &
+         &    model_rank_group_size
 
     INTEGER :: icalendar
     INTEGER :: istat
@@ -250,7 +252,8 @@ CONTAINS
       model_type              = -1
       model_min_rank          =  0
       model_max_rank          = -1 
-      model_inc_rank          =  1
+      model_inc_rank          = 1
+      model_rank_group_size   = 1
       
       IF (my_process_is_stdio()) THEN
         iunit = temp_defaults()
@@ -277,7 +280,8 @@ CONTAINS
       master_component_models(noOfModels())%model_min_rank = model_min_rank
       master_component_models(noOfModels())%model_max_rank = model_max_rank
       master_component_models(noOfModels())%model_inc_rank = model_inc_rank
-
+      master_component_models(noOfModels())%model_rank_group_size = model_rank_group_size
+     
     ENDDO
       
     CLOSE (nnml, IOSTAT=istat)

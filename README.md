@@ -367,6 +367,12 @@ i.e. the Fortran source files residing in subdirectories of the
 [src/hamocc](./src/hamocc), [src/ocean](./src/ocean), and
 [src/sea_ice](./src/sea_ice) directories (defaults to `ICON_FCFLAGS`, which can
 be overridden by setting the variable to an empty value: `ICON_OCEAN_FCFLAGS=`);
+- `ICON_DACE_FCFLAGS` &mdash; Fortran compiler flags to be appended to
+`FCFLAGS` instead of `ICON_FCFLAGS` when compiling the DACE modules for data
+assimilation, i.e. the Fortran source files residing in subdirectories of the
+[externals/dace_icon/src_for_icon](https://gitlab.dkrz.de/dwd-sw/dace-icon-interface/-/tree/master/src_for_icon)
+directory (defaults to `ICON_FCFLAGS`, which can be overridden by setting the
+variable to an empty value: `ICON_DACE_FCFLAGS=`);
 - `ICON_BUNDLED_FCFLAGS` &mdash; Fortran compiler flags to be appended to
 `FCFLAGS` when configuring the bundled libraries (defaults to `ICON_FCFLAGS`,
 which can be overridden by setting the variable to an empty value:
@@ -750,6 +756,10 @@ source files from the `./externals/jsbach/src`,
 the source files to the [src](./src) subdirectory of the source root directory
 of ICON.
 
+> **_NOTE:_** Files and directories with names starting with a dot (`.`), as
+well as files containing the common preprocessor infix `.pp-` (see section
+[Preprocessing](#preprocessing) for more details) in their names, are ignored.
+
 ## Preprocessing
 
 Depending on the configuration, Fortran source files undergo one or more of the
@@ -759,13 +769,13 @@ preprocessed with the
 [dsl4jsb.py](https://gitlab.dkrz.de/jsbach/jsbach/blob/master/scripts/dsl4jsb/dsl4jsb.py)
 script. This is done only if the JSBACH component has been enabled at the
 configuration stage (`--enable-jsbach`). Otherwise, the source files of the
-component are completely ignored. The result of this procedure is stored to the
-`./pp/dsl4jsb` subdirectory of the root build directory.
+component are completely ignored. The output files of this procedure have the
+same name as the input files plus an additional infix `.pp-jsb`.
 2. Depending on whether the *CLAW preprocessing* (`--enable-claw`) is enabled,
 the result of the previous step (currently, only JSBACH files are preprocessed
 at this step) are preprocessed with the [CLAW](https://claw-project.github.io/)
-compiler. The result of this procedure is stored to the `./pp/claw`
-subdirectory.
+compiler. The output files of this procedure have the same name as the input
+files plus an additional infix `.pp-clw`.
     > **_NOTE:_** Unlike the rest of the preprocessing steps, the instructions
 for CLAW preprocessing are moved to a separate makefile called `claw.mk`, which
 is generated based on the [claw.mk.in](./claw.mk.in) template. This is done to
@@ -773,31 +783,33 @@ enable an extra dependency generation step required for the preprocessing.
 3. Depending on whether the *explicit Fortran preprocessing* is enabled
 (`--enable-explicit-fpp`), the results of the **actual** previous preprocessing
 step, together with Fortran source files that have not been preprocessed yet,
-are preprocessed with the standard Fortran preprocessor. The result of this
-procedure is stored to the `./pp/fpp` subdirectory.
+are preprocessed with the standard Fortran preprocessor. The output files of
+this procedure have the same name as the input files plus an additional infix
+`.pp-fpp`.
 4. If the *Serialbox2 serialization* is enabled (`--enable-serialization`), the
 results of the **actual** previous preprocessing step, together with Fortran
 source files that have not been preprocessed yet, are preprocessed with the
 [corresponding script](https://github.com/GridTools/serialbox/blob/master/src/serialbox-python/pp_ser/pp_ser.py)
-of the [Serialbox2](https://gridtools.github.io/serialbox/) toolkit. The result
-of this procedure is stored to the `./pp/sb2` subdirectory.
+of the [Serialbox2](https://gridtools.github.io/serialbox/) toolkit. The output
+files of this procedure have the same name as the input files plus an additional
+infix `.pp-sb2`.
     > **_NOTE:_** The explicit Fortran preprocessing is enabled automatically
 when the Serialbox2 serialization is enabled. You can override this by disabling
 the preprocessing with the `--disable-explicit-fpp` option.
 
 The output directories of the preprocessing steps have the same layout as the
 directories containing their input files and the output files have the same
-basenames as the corresponding input files. For example if the original source
-file of JSBACH `./externals/jsbach/src/base/mo_jsb_base.f90`
-is preprocessed by each of the preprocessing steps, the corresponding output
-files are saved as follows:
-- `./pp/dsl4jsb/externals/jsbach/src/base/mo_jsb_base.f90` &mdash; JSBACH
+prefixes and suffixes (i.e. extensions) as the corresponding input files. For
+example, if the original source file of JSBACH
+`./externals/jsbach/src/base/mo_jsb_base.f90` is preprocessed by each of the
+preprocessing steps, the corresponding output files are saved as follows:
+- `./externals/jsbach/src/base/mo_jsb_base.pp-jsb.f90` &mdash; JSBACH
 preprocessing output;
-- `./pp/claw/pp/dsl4jsb/externals/jsbach/src/base/mo_jsb_base.f90` &mdash; CLAW
+- `./externals/jsbach/src/base/mo_jsb_base.pp-jsb.pp-clw.f90` &mdash; CLAW
 preprocessing output;
-- `./pp/fpp/pp/claw/pp/dsl4jsb/externals/jsbach/src/base/mo_jsb_base.f90`
-&mdash; explicit Fortran preprocessing output;
-- `./pp/sb2/pp/fpp/pp/claw/pp/dsl4jsb/externals/jsbach/src/base/mo_jsb_base.f90`
+- `./externals/jsbach/src/base/mo_jsb_base.pp-jsb.pp-clw.pp-fpp.f90` &mdash;
+explicit Fortran preprocessing output;
+- `./externals/jsbach/src/base/mo_jsb_base.pp-jsb.pp-clw.pp-fpp.pp-sb2.f90`
 &mdash; Serialbox2 preprocessing output.
 
 > **_NOTE:_** Source files are additionaly preprocessed with the corresponding
@@ -852,11 +864,10 @@ if a Fortran source file contains a declaration of a binding to a function
 defined in a C source file, the dependency of the respective object files must
 be reflected in the recipe for target `c_binding.d` of the
 [icon.mk.in](./icon.mk.in) template. The second type of undetectable
-dependencies is associated with Fortran external procedures: if a Fortran source
+dependencies is associated with Fortran external procedures: when a Fortran source
 file contains a call to an external procedure, i.e. a function or a subroutine
-that is not part of any Fortran module, the dependency of the respective object
-files must be specified in the recipe for target `extra_f90.d` of the
-[icon.mk.in](./icon.mk.in) template.
+that is not part of any Fortran module. Dependencies of the second type are not
+supported.
 
 The [dependency listing script](./utils/mkhelper/deplist.py) reads the
 dependency makefiles, builds a source dependency graph and traverses it starting

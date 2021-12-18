@@ -3,7 +3,7 @@
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
 
-${ICON_DIR}/config/mpim/stretch.gcc --disable-yaxt --disable-openmp --enable-rte-rrtmgp
+${ICON_DIR}/config/mpim/stretch.gcc --disable-yaxt --disable-openmp --disable-rte-rrtmgp --enable-art
 
 MAKE_PROCS=8
 make -j ${MAKE_PROCS}

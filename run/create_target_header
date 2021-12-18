@@ -17,18 +17,6 @@ set -eu
 
 BB_SYSTEM=${BB_SYSTEM:=""}
 
-use_host='@host_fqdn@'
-case "$use_host" in
-  unknown) ;;
-  wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
-  daint*|tave*|santis*|kesch*|tsa*|arolla*) use_site=cscs.ch ;;
-  uc2*|fh2*|hk*) use_site=kit.edu ;;
-  melian*) use_site=local.net ;;
-  *mpimet.mpg.de) use_site=mpg.de ;;
-  *euler*) use_site=ethz.ch ;;
-esac
-
-
 add_free_var()
 {
     varName=$1
@@ -64,7 +52,7 @@ start_header()
     cat >> $output_script << EOF
 #=============================================================================
 set +x
-ulimit -s unlimited
+$(test x"${use_ulimit}" = xno || printf 'ulimit -s unlimited')
 #=============================================================================
 #
 # ICON run script:
@@ -190,6 +178,7 @@ set_run_target_default()
 
     icon_data_rootFolder=${icon_data_rootFolder:=~/pool/data/ICON}
 
+    set_default use_ulimit no
     set_default use_nproma 48
     set_default use_nodes 1
 
