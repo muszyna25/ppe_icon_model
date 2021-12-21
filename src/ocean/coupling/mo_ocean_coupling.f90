@@ -10,8 +10,6 @@
 !! headers of the routines.
 !!
 
-#ifdef YAC_coupling
-
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
@@ -754,37 +752,3 @@ CONTAINS
 
 END MODULE mo_ocean_coupling
 
-#else
-
-MODULE mo_ocean_coupling
-
-  USE mo_model_domain,        ONLY: t_patch_3d
-  USE mo_ocean_types,         ONLY: t_hydro_ocean_state
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
-  USE mo_ocean_surface_types, ONLY: t_atmos_for_ocean
-  USE mo_coupling_config,     ONLY: is_coupled_run
-  USE mo_exception,           ONLY: finish
-
-  PUBLIC :: couple_ocean_toatmo_fluxes
-
-CONTAINS
-
-  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, atmos_forcing)
-
-    TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
-    TYPE(t_hydro_ocean_state)                   :: ocean_state
-    TYPE(t_sea_ice)                             :: ice
-    TYPE(t_atmos_fluxes)                        :: atmos_fluxes
-    TYPE(t_atmos_for_ocean)                     :: atmos_forcing
-
-    IF ( is_coupled_run() ) THEN
-       CALL finish('couple_ocean_toatmo_fluxes: unintentionally called. Check your source code and configure.')
-    ELSE
-       RETURN
-    ENDIF
-
-  END SUBROUTINE couple_ocean_toatmo_fluxes
-
-END MODULE mo_ocean_coupling
-
-#endif

@@ -50,7 +50,7 @@ CLEAN.include('*.run')
   :oceanAccumulation      => %w[exp.ocean_accumulation_hourly exp.ocean_accumulation_daily],
   :oceanPtestShort        => %w[exp.ocean_ptest_analytic_noforcing],
   :oceanPtestLong         => %w[exp.ocean_ptest_omip_160km_1year],
-  :oceanPtest             => %w[oceanPtestShort oceanPtestLong], 
+  :oceanPtest             => %w[oceanPtestShort oceanPtestLong],
   :oceanTechnical         => %w[exp.ocean_omip_ptest exp.test_ocean_numeric_tracerconservation],
   :oceanSurface           => %w[exp.oce_omip_testSurface],
   :oceanMonitor           => %w[exp.ocean_monitoring post.ocean_monitoring],
@@ -143,7 +143,7 @@ def checkFile4Variables(*args)
 end
 def varIsConstant(varname,filename)
   info = @cdo.sinfov(:input => "-selname,#{varname} #{filename}")
-  not info.grep(/ constant /).empty? 
+  not info.grep(/ constant /).empty?
 end
 def printHashManyKeys(hash,tag)
   hash.each {|k,v| puts "#{k.to_s.ljust(15,' ')}:#{v ? '   ' : 'NOT'.colorize(:red)} #{tag.to_s}" }
@@ -202,10 +202,10 @@ def makeRunTarget(sourceTemplate,setup={})
   # command line arguments may overwrite internal defaults
   # but dont change the resulting runscript name
   setupByEnv = {}
-  RUNSCRIPT_KEYS.each {|environmentKey| 
+  RUNSCRIPT_KEYS.each {|environmentKey|
     setupByEnv[environmentKey] = ENV[environmentKey] if ENV.has_key?(environmentKey)
   }
-  if setup.empty? 
+  if setup.empty?
     targetRunscript = "#{sourceTemplate}.run"
     setup = setupByEnv
   else
@@ -254,7 +254,7 @@ def processComponents
     :infratructure  => {:subDirPattern => 'infrastructure/**/exp.*'},
   }.each {|component,componentExperiments|
     componentTemplates[component] = {}
-    Dir.glob("./checksuite.#{componentExperiments[:subDirPattern]}").sort.each {|item| 
+    Dir.glob("./checksuite.#{componentExperiments[:subDirPattern]}").sort.each {|item|
       template = File.basename(item)
       if not File.directory?(item) and (['exp','post','check'].include?(template.split('.').first)) then
         componentTemplates[component][template] = item
@@ -357,7 +357,7 @@ task :showOcean do
   @testSuites.each {|name,experimentList|
     if /^ocean/.match(name.to_s) then
       puts name.to_s
-      experimentList.each {|experiment| 
+      experimentList.each {|experiment|
         puts experiment.kind_of?(String) ? "\t"+experiment : "\t"+experiment.join(' ')
       }
     end
@@ -400,7 +400,7 @@ end
              `hostname`.chomp.to_sym       : \
              `hostname -f`.chomp.split('.')[-2].to_sym
 @jobHost   = @hostname
-@jobSubmit = {:dkrz => "sbatch #{ICON_PROJECT_ID.nil? ? '' : ICON_PROJECT_ID.to_s}",:zmaw => 'sbatch'} 
+@jobSubmit = {:dkrz => "sbatch #{ICON_PROJECT_ID.nil? ? '' : ICON_PROJECT_ID.to_s}",:zmaw => 'sbatch'}
 @jobCancel = {:dkrz => 'scancel',:zmaw => 'scancel'}
 @jobStatus = {:dkrz => 'squeue', :zmaw => 'scancel'}
 # default is direct execution
@@ -409,7 +409,7 @@ end
 desc "Run named test or testsuite or TESTS='a,b,..'"
 task :run, :name do |t,args|
   testsGiven = getAllGivenTests(args,ENV)
-  
+
   if testsGiven.nil? then
     warn "Nothing to test!"
     exit 0
@@ -505,7 +505,7 @@ task :checkPerformance, :expname do |t,args|
   end
   # ---------------------------------------------------------------------------
   require 'date'
-  simulationLengthInYears = lambda {|timeinfo| 
+  simulationLengthInYears = lambda {|timeinfo|
     startinfo       = timeinfo.grep(/start_date/).map(&:chomp).map {|item| item.split('=').last.gsub(/\'|\"/,'')}.map {|t| Date.parse(t).to_time.to_i}
     endinfo         = timeinfo.grep(/end_date/).map(&:chomp).map {|item| item.split('=').last.gsub(/\'|\"/,'')}.map {|t| Date.parse(t).to_time.to_i}
     lengthInSeconds = endinfo[0]-startinfo[0]
@@ -559,10 +559,10 @@ task :checkPerformance, :expname do |t,args|
 end# }}}}}}
 
 #def hist(inputs)
-#  nbins = 1000 
-#  max = inputs[:y].abs.max   
-#  h = GSL::Histogram.alloc(nbins, [-max, max])                                                                                                                                                                                               
-#  h.fill(inputs[:y])         
+#  nbins = 1000
+#  max = inputs[:y].abs.max
+#  h = GSL::Histogram.alloc(nbins, [-max, max])
+#  h.fill(inputs[:y])
 #  GSL::graph(h)
 #
 #end# }}}
@@ -609,8 +609,8 @@ class Analyzer
     puts "\t #{@meanPeriod}".colorize(:color => :black, :background => :light_yellow)
   end
   def getVarlists
-    spotFileVarNames = @cdo.showname(input: "-seltimestep,1 #{@spotFile}",autoSplit: ' ')
-    #
+    spotFileVarNames = @cdo.showname(input: "-seltimestep,1 #{@spotFile}",autoSplit: ' ', options: '-s').flatten
+
     # loop over all input variables
     if @varname.nil? then
       varlist = spotFileVarNames
@@ -634,7 +634,7 @@ end
 module MeanAnalyzer
   def run
     varlist, spotFileVarNames = getVarlists
-    
+
     # exit if the selected variable is not in the model output
     return if ( 1 == varlist.size and not spotFileVarNames.include?(varlist.first) )
 
@@ -668,7 +668,7 @@ module MeanAnalyzer
           meanValueRange = "(%g)" % @cdo.timmean(input: "#{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",returnMaArray: varname).mean
 
           unless diff.empty? then
-            # compute the difference 
+            # compute the difference
             diffVal = @cdo.sub(input: [ "-timmean #{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",
                                         "         #{timeSelectionMean} #{delNans} -selname,#{varname} #{@meanFile}" ].join(' '),
                               :returnArray => varname,
@@ -704,18 +704,19 @@ class TimeAnalyser
       { :ref => '2,3,4,5', :time => '2'},
     ]
   } #}}}
-  OPERATIONS   = ['mean','max','min','square']
+  OPERATIONS   = ['mean','max','min','square','acc']
   OPERATORS = {
     'mean' => 'timmean',
     'min'  => 'timmin' ,
     'max'  => 'timmax',
+    'acc'  => 'timsum',
     'square' => ['timmean','pow,2']
   } #}}}
 
 # private
   def getTimeAndSpotFiles(dir,periods=@periodsFileTags) #{{{
     dir = '.' if dir.nil?
-   
+
     result = {}
 
     spotIDs = periods.values_at(*periods.keys.grep(/spot/))
@@ -772,10 +773,17 @@ class TimeAnalyser
   end
 
   public
-  def initialize(absolute_limit=nil)
+  def initialize(absolute_limit=nil,operator=nil)
+
+    unless OPERATIONS.include?(operator) then
+      warn "No such operator '#{operator}'"
+      exit(1)
+    end unless operator.nil?
+
     @periodsFileTags = {'spotEachTimeStep' => 'spot'}
     PERIODS.each_with_index {|period,pi|
       OPERATIONS.each {|op|
+        next if ( ( operator != op ) and ! operator.nil? )
         @periodsFileTags["#{op}|#{period}"] = "#{op}#{pi+1}TS"
       }
     }
@@ -805,7 +813,7 @@ class TimeAnalyser
         operator                  = OPERATORS[operation]
         spotFile, timeFile        = files[:spot], files[:time]
         varlist, spotFileVarNames = getVarlists(spotFile, variable)
- 
+
         # setup addition preprocessing if needed
         preproc = ''
         if operator.kind_of?(Array) then
@@ -832,6 +840,7 @@ class TimeAnalyser
 
 #       next if 'eachTimeStep' == period
         TIMES2COMPARE[period].each {|timeStepPair|# list of timestep relations
+          @cdo.gc
           s = "\tref tstep:#{timeStepPair[:ref]} | #{operation} tstep:#{timeStepPair[:time]}".colorize(:color => :black, :background => :yellow)
           puts ['#'+'-'*75,s].join("\n")
 
@@ -852,7 +861,7 @@ class TimeAnalyser
                                             returnMaArray: varname).mean
 
             unless diff.empty? then
-              # compute the difference 
+              # compute the difference
               diffVal = @cdo.sub(input: [ "-#{operator} #{timeSelectionRef}  #{delNans} -selname,#{varname} #{spotFile}",
                                               "         #{timeSelectionMean} #{delNans} -selname,#{varname} #{timeFile}" ].join(' '),
                                  :returnArray => varname, :options => '-L -s', :output => [period, varname, File.basename(spotFile)].map(&:to_s).join('_'))
@@ -863,6 +872,7 @@ class TimeAnalyser
               puts [varname.colorize(:green),valueRange.colorize(:blue)].join("\t")
             end
           }
+          @cdo.gc
         }
       }
     }
@@ -871,7 +881,7 @@ end
 module MaxAnalyser
   def run
     varlist, spotFileVarNames = getVarlists
-    
+
     # exit if the selected variable is not in the model output
     return if ( 1 == varlist.size and not spotFileVarNames.include?(varlist.first) )
 
@@ -905,7 +915,7 @@ module MaxAnalyser
           meanValueRange = "(%g)" % @cdo.timmax(input: "#{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",returnMaArray: varname).mean
 
           unless diff.empty? then
-            # compute the difference 
+            # compute the difference
             diffVal = @cdo.sub(input: [ "-timmax #{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",
                                         "         #{timeSelectionMean} #{delNans} -selname,#{varname} #{@meanFile}" ].join(' '),
                               :returnArray => varname,
@@ -922,12 +932,13 @@ module MaxAnalyser
         }
 #     }
     }
+    @cdo.gc
   end
 end
 
 def getMeanAndSpotFiles(dir,periods=@defaultPeriodsIDs)
   dir = '.' if dir.nil?
- 
+
   spotIDs = @defaultPeriodsIDs.values_at(*@defaultPeriodsIDs.keys.grep(/spot/))
   meanIDs = @defaultPeriodsIDs.values_at(*@defaultPeriodsIDs.keys.grep(/mean/))
 
@@ -979,9 +990,8 @@ task :checkMeanStream do |t,args|
 
 end
 desc "TEST"
-task :checkMVStream do |t,args|
-  t = TimeAnalyser.new('abslim=1.0E-200')
-  t.run
+task :checkMVStream, :operator do |t,args|
+  TimeAnalyser.new('abslim=1.0E-30',args.operator).run
 end
 task :check, :routine do |t,args|
   Module.module_eval(args.routine)
@@ -1058,7 +1068,7 @@ end
 desc "Run almost all targets"
 task :selfCheck do
   dbg(Rake::Task.tasks)
-  Rake::Task.tasks.each {|t| 
+  Rake::Task.tasks.each {|t|
     puts t.name
     t.invoke unless %w[check clean clobber].include?(t.name)
   }

@@ -59,12 +59,31 @@ MODULE mo_derived_variable_handling
     TYPE(t_derivate_event_alloctble), ALLOCATABLE :: events(:)
   END TYPE t_derivate_op
 
-  INTEGER, PARAMETER :: nops = 4
+  INTEGER, PARAMETER :: nops = 5
   TYPE(t_derivate_op), TARGET :: ops(nops)
   CHARACTER(*), PARAMETER :: dlim = '|'
+  ! operations interface level  - uniq values required
+  INTEGER, PARAMETER :: OP_MEAN                  = 11
+  INTEGER, PARAMETER :: OP_MAX                   = 22
+  INTEGER, PARAMETER :: OP_MIN                   = 33
+  INTEGER, PARAMETER :: OP_MEAN_SQUARE           = 44
+  INTEGER, PARAMETER :: OP_ACC                   = 55
+  INTEGER, PARAMETER :: opcodes(nops)            = [OP_MEAN, OP_MAX, OP_MIN, OP_MEAN_SQUARE, OP_ACC]
+  CHARACTER(*), PARAMETER :: opnames(nops)       = ["mean  ", "max   ", "min   ", "square", "acc   "]
+  INTEGER, PARAMETER :: oplen(nops)              = [4, 3, 3, 6, 3]
+  ! internal field processing functions - uniq values required
+  INTEGER, PARAMETER :: FUNC_ACCUMULATION        = 1100
+  INTEGER, PARAMETER :: FUNC_MAX                 = 2200
+  INTEGER, PARAMETER :: FUNC_MIN                 = 3300
+  INTEGER, PARAMETER :: FUNC_ACCUMULATION_SQUARE = 4400
+  INTEGER, PARAMETER :: FUNC_ASIGN               = 5500
+  INTEGER, PARAMETER :: FUNC_ASIGN_SQUARE        = 6600
+  INTEGER, PARAMETER :: FUNC_APPLY_WEIGHT        = 7700
+  INTEGER, PARAMETER :: FUNC_MASK_MISS           = 8800
+  ! internal processing rules: which function to use for which operator
+  INTEGER, PARAMETER :: opfuncs(nops) = [FUNC_ACCUMULATION, FUNC_MAX, FUNC_MIN, FUNC_ACCUMULATION_SQUARE, FUNC_ACCUMULATION]
+
   CHARACTER(*), PARAMETER :: modname = 'mo_derived_variable_handling'
-  CHARACTER(*), PARAMETER :: opnames(nops) = ["mean  ", "max   ", "min   ", "square"]
-  INTEGER, PARAMETER :: oplen(nops) = [4, 3, 3, 6]
 
 CONTAINS
 
@@ -265,10 +284,10 @@ CONTAINS
 
   END SUBROUTINE init_op
 
-  SUBROUTINE perform_op(src, dest, opcode, weight, miss, miss_s)
+  SUBROUTINE perform_op(src, dest, funccode, weight, miss, miss_s)
     TYPE(t_var), POINTER, INTENT(IN) :: src
     TYPE(t_var), POINTER, INTENT(INOUT) :: dest
-    INTEGER, INTENT(IN) :: opcode
+    INTEGER, INTENT(IN) :: funccode
     REAL(wp), INTENT(IN), OPTIONAL :: weight, miss
     REAL(sp), INTENT(IN), OPTIONAL :: miss_s
     REAL(wp) :: miss_src
@@ -277,19 +296,19 @@ CONTAINS
     REAL(sp), POINTER :: ss5d(:,:,:,:,:)
     CHARACTER(*), PARAMETER :: routine = modname//":perform_op"
 
-    IF (.NOT.PRESENT(weight) .AND. opcode .EQ. 7) THEN
+    IF (.NOT.PRESENT(weight) .AND. funccode .EQ. FUNC_APPLY_WEIGHT) THEN
       CALL finish(routine, "no weight factor provided")
-    ELSE IF (PRESENT(weight) .AND. opcode .NE. 7) THEN
+    ELSE IF (PRESENT(weight) .AND. funccode .NE. FUNC_APPLY_WEIGHT) THEN
       CALL finish(routine, "no weight factor allowed for this op")
     END IF
-    IF (opcode .EQ. 8 .AND. .NOT.(PRESENT(miss) .AND. PRESENT(miss_s))) THEN
+    IF (funccode .EQ. FUNC_MASK_MISS .AND. .NOT.(PRESENT(miss) .AND. PRESENT(miss_s))) THEN
       CALL finish(routine, "no missing values provided")
-    ELSE IF((PRESENT(miss) .OR. PRESENT(miss_s)) .AND. opcode .NE. 8) THEN
+    ELSE IF((PRESENT(miss) .OR. PRESENT(miss_s)) .AND. funccode .NE. FUNC_MASK_MISS) THEN
       CALL finish(routine, "no missing values allowed for this op")
     END IF
     br = 0
     NULLIFY(sd5d, ss5d)
-    IF (opcode .NE. 8) THEN
+    IF (funccode .NE. FUNC_MASK_MISS) THEN
       sb = dest%info%subset%start_block
       eb = dest%info%subset%end_block
       IF (src%info%lcontained) THEN
@@ -382,8 +401,8 @@ CONTAINS
     END IF
     tmp2 => dest%r_ptr
 !ICON_OMP PARALLEL PRIVATE(j,k,l,m,blk,lsi,lei)
-    SELECT CASE(opcode)
-    CASE(1)
+    SELECT CASE(funccode)
+    CASE(FUNC_ACCUMULATION)
 !ICON_OMP DO COLLAPSE(4)
 !!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
@@ -400,7 +419,7 @@ CONTAINS
         END DO
       END DO
 !ICON_OMP END DO NOWAIT
-    CASE(2)
+    CASE(FUNC_MAX)
 !ICON_OMP DO COLLAPSE(4)
 !!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
@@ -417,7 +436,7 @@ CONTAINS
         END DO
       END DO
 !ICON_OMP END DO NOWAIT
-    CASE(3)
+    CASE(FUNC_MIN)
 !ICON_OMP DO COLLAPSE(4)
 !!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
@@ -434,7 +453,7 @@ CONTAINS
         END DO
       END DO
 !ICON_OMP END DO NOWAIT
-    CASE(4)
+    CASE(FUNC_ACCUMULATION_SQUARE)
 !ICON_OMP DO COLLAPSE(4)
 !!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
@@ -451,7 +470,7 @@ CONTAINS
         END DO
       END DO
 !ICON_OMP END DO NOWAIT
-    CASE(5)
+    CASE(FUNC_ASIGN)
 !ICON_OMP DO COLLAPSE(4)
 !!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
@@ -467,7 +486,7 @@ CONTAINS
         END DO
       END DO
 !ICON_OMP END DO NOWAIT
-    CASE(6)
+    CASE(FUNC_ASIGN_SQUARE)
 !ICON_OMP DO COLLAPSE(4)
 !!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
       DO m = 1, SIZE(tmp1,5)
@@ -484,7 +503,7 @@ CONTAINS
         END DO
       END DO
 !ICON_OMP END DO NOWAIT
-    CASE(7)
+    CASE(FUNC_APPLY_WEIGHT)
       weight__ = weight
 !ICON_OMP DO COLLAPSE(4)
 !!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
@@ -502,7 +521,7 @@ CONTAINS
         END DO
       END DO
 !ICON_OMP END DO NOWAIT
-    CASE(8)
+    CASE(FUNC_MASK_MISS)
       miss__ = miss
 !ICON_OMP DO COLLAPSE(4)
 !!$ACC PARALLEL LOOP PRESENT(tmp1, tmp2) GANG VECTOR COLLAPSE(4) ASYNC(1) IF(i_am_accel_node)
@@ -560,16 +579,18 @@ CONTAINS
           src => ederiv%vars(iv)%a%src(it)%p
         END IF
         IF (ct .EQ. 0) THEN ! initial assignment
-          CALL perform_op(src, dst, MERGE(6, 5, iop .EQ. 4))
+          CALL perform_op(src, dst, MERGE(FUNC_ASIGN_SQUARE, FUNC_ASIGN, opcodes(iop) .EQ. OP_MEAN_SQUARE))
         ELSE ! actual update
-          CALL perform_op(src, dst, iop)
+          CALL perform_op(src, dst, opfuncs(iop))
         END IF
         ct = ct + 1
-        IF (isactive) THEN ! output step, so weighting is applied this time
-          IF ((1 .EQ. iop .OR. 4 .EQ. iop) .AND. ct .GT. 0) &
-            & CALL perform_op(src, dst, 7, weight=(1._wp / REAL(ct, wp)))
+        IF (isactive) THEN ! output step, so weighting is applied this time for time mean operators
+          IF ((OP_MEAN .EQ. opcodes(iop) .OR. &
+            &  OP_MEAN_SQUARE .EQ. opcodes(iop)) &
+            & .AND. ct .GT. 0) &
+            & CALL perform_op(src, dst, FUNC_APPLY_WEIGHT, weight=(1._wp / REAL(ct, wp)))
           IF (dst%info%lmiss) & ! (re)set missval where applicable
-            & CALL perform_op(src, dst, 8, miss=dst%info%missval%rval, &
+            & CALL perform_op(src, dst, FUNC_MASK_MISS, miss=dst%info%missval%rval, &
                 &             miss_s=src%info%missval%sval)
           ct = 0
         END IF
