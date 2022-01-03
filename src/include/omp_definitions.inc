@@ -28,6 +28,25 @@
 #define ICON_OMP_RUNTIME_SCHEDULE SCHEDULE(runtime)
 #define ICON_OMP_GUIDED_SCHEDULE  SCHEDULE(guided)
 #endif
+!-----------------------------------------------
+
+!-----------------------------------------------
+! define ICON HAMOCC omp parameters
+#define ICON_HAMOCC_OMP_PARALLEL $omp parallel
+#define ICON_HAMOCC_OMP_END_PARALLEL $omp end parallel
+#define ICON_HAMOCC_OMP_DO $omp do
+#define ICON_HAMOCC_OMP_END_DO $omp end do
+#define ICON_HAMOCC_OMP_END_DO_NOWAIT $omp end do nowait
+#define ICON_HAMOCC_OMP $omp
+#define ICON_HAMOCC_OMP_PARALLEL_DO $omp parallel do
+#define ICON_HAMOCC_OMP_END_PARALLEL_DO $omp end parallel do
+#define ICON_HAMOCC_OMP_BARRIER $omp barrier
+#define ICON_HAMOCC_OMP_SINGLE $omp single
+#define ICON_HAMOCC_OMP_END_SINGLE $omp end single
+#define ICON_HAMOCC_OMP_MASTER $omp master
+#define ICON_HAMOCC_OMP_END_MASTER $omp end master
+#define ICON_HAMOCC_OMP_WORKSHARE $omp workshare
+#define ICON_HAMOCC_OMP_END_WORKSHARE $omp end workshare
 
 
 !-----------------------------------------------

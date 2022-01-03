@@ -288,7 +288,7 @@ cat > ${ocean_namelist} << EOF
 /                                           
 &sea_ice_nml
   i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
-  i_ice_dyn                       =   1       ! 1/0=switch on/off AWI ice dynamics
+  i_ice_dyn                       =   1       ! 1/0=switch on/off AWI ice dynamics , 2=C-grid ice dynamics 
 ! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
 ! use_constant_tfreez             = .TRUE.    ! default: true
 ! use_no_flux_gradients           = .FALSE.   ! default: true

@@ -5,9 +5,9 @@
 
 # Configure stage files:
 *.c.d
+*.clw.d
 *.cu.d
 *.f90.d
-*.mod
 .dirstamp
 /Makefile
 /c_binding.d
@@ -21,19 +21,21 @@
 /depgen.c.config
 /depgen.f90.config
 /deplist.config
-/extra_f90.d
 /icon.mk
 
 # Build stage files:
 *.a
 *.i
+*.il
 *.lst
 *.o
+*.pp-*.f90
+*.xmodstamp
 /bin
 /mod
-/pp
 /srclist
 /version.c
+/xmod
 
 # Dist stage files:
 /icon-*.tar.bz2

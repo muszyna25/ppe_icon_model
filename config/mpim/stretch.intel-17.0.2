@@ -19,10 +19,10 @@ NETCDF_LIBS='-lnetcdf'
 NETCDFF_ROOT="${SW_ROOT}/netcdf/netcdf_fortran-4.4.4-intel17"
 NETCDFF_LIBS='-lnetcdff'
 
+BLAS_LAPACK_LDFLAGS='-mkl=sequential'
+
 GRIBAPI_ROOT="${SW_ROOT}/grib_api/grib_api-1.21.0-gccsys"
 GRIBAPI_LIBS='-lgrib_api'
-
-BLAS_LAPACK_LDFLAGS='-mkl=sequential'
 
 XML2_ROOT='/usr'
 XML2_LIBS='-lxml2'
@@ -43,6 +43,8 @@ FCFLAGS="-I${NETCDFF_ROOT}/include -g -pc64 -assume realloc_lhs -O2 -msse2 -fltc
 LDFLAGS="-L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${GRIBAPI_ROOT}/lib ${BLAS_LAPACK_LDFLAGS}"
 LIBS="-Wl,--as-needed ${XML2_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS}"
 
+CLAW='/data/mpi/sclab/sip/m300488/sw/intel-17.0.2/claw-2.0.3-kbyqcrn/bin/clawfc'
+
 MPI_LAUNCH='mpiexec'
 
 EXTRA_CONFIG_ARGS=''
@@ -54,6 +56,7 @@ AR="${AR}" \
 BUILD_ENV="${BUILD_ENV}" \
 CC="${CC}" \
 CFLAGS="${CFLAGS}" \
+CLAW="${CLAW}" \
 CPPFLAGS="${CPPFLAGS}" \
 FC="${FC}" \
 FCFLAGS="${FCFLAGS}" \

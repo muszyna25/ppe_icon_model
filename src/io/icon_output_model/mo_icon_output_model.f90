@@ -33,7 +33,9 @@ MODULE mo_icon_output_model
   USE mtime,                  ONLY: datetimeToString, datetime
   USE mo_name_list_output,    ONLY: close_name_list_output, write_name_list_output
   USE mo_zaxis_type,          ONLY: zaxisTypeList, t_zaxisTypeList
-  USE mo_run_config,          ONLY: output_mode
+
+  !  USE mo_advection_config,    ONLY: configure_advection
+  USE mo_run_config,          ONLY: output_mode !,ldynamics, ltransport
   USE mo_gribout_config,      ONLY: configure_gribout
   ! Control parameters: run control, dynamics, i/o
   USE mo_run_config,          ONLY: &
@@ -60,7 +62,9 @@ MODULE mo_icon_output_model
   !-------------------------------------------------------------
   USE mo_icon_output_tools,    ONLY: init_io_processes, prepare_output
   ! For the coupling
+#ifdef YAC_coupling
   USE mo_icon_output_coupling,      ONLY: construct_icon_output_coupling, destruct_icon_output_coupling
+#endif
   !-------------------------------------------------------------
   USE mo_icon_output_variables, ONLY: construct_icon_output_variables, destruct_icon_output_variables, &
     & patch_3d
@@ -189,7 +193,9 @@ MODULE mo_icon_output_model
     END IF
 #endif
     CALL destruct_icon_communication()
+#ifdef YAC_coupling
     CALL destruct_icon_output_coupling ()
+#endif
     ! close memory logging files
     CALL memory_log_terminate
     CALL message(TRIM(method_name),'clean-up finished')
@@ -264,11 +270,13 @@ MODULE mo_icon_output_model
     CALL setup_phys_patches
 
     ! we need the nnow info
-!     CALL configure_dynamics ( n_dom )
+!     CALL configure_dynamics ( n_dom, ldynamics, ltransport )
 
     CALL construct_icon_output_variables()
     
+#ifdef YAC_coupling
     CALL construct_icon_output_coupling()
+#endif
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
     !---------------------------------------------------------------------

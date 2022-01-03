@@ -63,8 +63,9 @@ MODULE mo_nh_testcases_nml
     &       ape_sst_case, ape_sst_val, w_perturb, th_perturb,                &
     &       mount_height, mount_width, mount_width_2,                        & 
     &       torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,                &
-    &       jw_up, jw_u0, jw_temp0, rh_at_1000hpa,  qv_max, lapse_r,         &
-    &       tpe_moist, tpe_psfc, tpe_temp, temp_case, temp_fwhm_frac,        &
+    &       jw_up, jw_u0, jw_temp0, rh_at_1000hpa, relhum, qv_max, lapse_r,  &
+    &       tpe_moist, tpe_psfc, tpe_temp, t0, z0, gamma0, gamma1,           &
+    &       RCE_Tprescr_noise, temp_case, temp_fwhm_frac,                    &
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale, tpe_mu,      & 
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
     &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y,      &
@@ -100,11 +101,19 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: torus_domain_length    ! (m) length of domain the slice (torus) grid
   REAL(wp) :: hs_nh_vn_ptb_scale     ! amplitude of the random noise
   REAL(wp) :: rh_at_1000hpa          ! relative humidity at 1000 hPa [%]
+  REAL(wp) :: relhum                 ! relative humidity in [%] assumed to be
+                                     ! constant throughout atmosphere (RCE_Tprescr)
   REAL(wp) :: qv_max                 ! limit of maximum specific humidity in the tropics [kg/kg]
   REAL(wp) :: tpe_moist              ! initial total moisture content for terra planet [kg/m2]
   REAL(wp) :: tpe_mu                 ! location of the anomaly maximum in x-direction
   REAL(wp) :: tpe_psfc               ! initial surface pressure for terra planet [Pa]
-  REAL(wp) :: tpe_temp               ! iitial atmospheric temperature for terra planet [K]
+  REAL(wp) :: tpe_temp               ! initial atmospheric temperature for terra planet [K], in the case of RCE_Tprescr this is the surface temperature
+  REAL(wp) :: t0                     ! RCE_Tprescr: initial atmospheric temperature in lowest model layer [K]
+  REAL(wp) :: z0                     ! RCE_Tprescr: altitude above surface up to which temperature increases with lapse rate gamma0 [m]
+  REAL(wp) :: gamma0                 ! RCE_Tprescr: lapse rate of temperature between surface and z0 [K/m]
+  REAL(wp) :: gamma1                 ! RCE_Tprescr: lapse rate of temperature above z0 [K/m]
+  LOGICAL  :: RCE_Tprescr_noise      ! RCE_Tprescr_noise: .TRUE. for adding
+                                     ! random noise to virtual potential temp.
   REAL(wp) :: temp_fwhm_frac         ! size fraction of temp. perturbation at FWHM
   REAL(wp) :: ape_sst_val            ! (degC) value to be used for SST computation for aqua planet
   REAL(wp) :: zp_ape                 ! surface pressure (Pa)
@@ -170,8 +179,9 @@ MODULE mo_nh_testcases_nml
                             temp_i_mwbr_const,  bruntvais_u_mwbr_const,      &
                             rotate_axis_deg,                                 &
                             lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,               &
-                            rh_at_1000hpa, qv_max, temp_fwhm_frac,           &
-                            tpe_moist, tpe_psfc, tpe_temp, temp_case,        &
+                            rh_at_1000hpa, relhum, qv_max, temp_fwhm_frac,   &
+                            tpe_moist, tpe_psfc, tpe_temp, t0, z0, gamma0,   &
+                            gamma1, RCE_Tprescr_noise, temp_case,            &
                             ape_sst_case, ape_sst_val, zp_ape, ztmc_ape,     &
                             linit_tracer_fv, lhs_fric_heat, tpe_mu,          &
                             qv_max_wk, u_infty_wk, lapse_r,                  &
@@ -249,10 +259,16 @@ MODULE mo_nh_testcases_nml
     lhs_fric_heat          = .FALSE.
     hs_nh_vn_ptb_scale     = 1._wp  ! magnitude of the random noise
     rh_at_1000hpa          = 0.7_wp
+    relhum                 = 70._wp
     tpe_moist              = 25._wp
     tpe_mu                 = 0._wp
     tpe_psfc               = 1.e5_wp
     tpe_temp               = 290._wp
+    t0                     = 290._wp
+    z0                     = 500._wp
+    gamma0                 = -0.004_wp
+    gamma1                 = -0.01_wp
+    RCE_Tprescr_noise      = .FALSE.
     temp_fwhm_frac         = 0.25_wp
     qv_max                 = 20.e-3_wp ! 20 g/kg
     ape_sst_case           = 'sst1'

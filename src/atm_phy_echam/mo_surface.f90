@@ -175,9 +175,9 @@ CONTAINS
 
     REAL(wp),INTENT(OUT)   :: pu_stress_tile (:,:) ! (kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   :: pv_stress_tile (:,:) ! (kbdim,ksfc_type)
-    REAL(wp),INTENT(INOUT) :: plhflx_tile (:,:)    ! (kbdim,ksfc_type)
-    REAL(wp),INTENT(INOUT) :: pshflx_tile (:,:)    ! (kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   :: pevap_tile (:,:)     ! (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   :: plhflx_tile (:,:)    ! (kbdim,ksfc_type) see surface_fluxes
+    REAL(wp),INTENT(OUT)   :: pshflx_tile (:,:)    ! (kbdim,ksfc_type) see surface_fluxes
+    REAL(wp),INTENT(OUT)   :: pevap_tile (:,:)     ! (kbdim,ksfc_type) see surface_fluxes
 
     !! JSBACH input
     INTEGER, OPTIONAL,INTENT(IN) :: nblock
@@ -801,9 +801,11 @@ CONTAINS
       !$ACC PARALLEL DEFAULT(PRESENT)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
-        ptsfc_tile(jl,idx_lnd) = ztsfc_lnd(jl)
-        pcpt_tile (jl,idx_lnd) = zcpt_lnd(jl)
-        pqsat_tile(jl,idx_lnd) = qsat_lnd(jl)
+        IF (echam_phy_config(jg)%ljsb ) THEN
+          ptsfc_tile(jl,idx_lnd) = ztsfc_lnd(jl)
+          pcpt_tile (jl,idx_lnd) = zcpt_lnd(jl)
+          pqsat_tile(jl,idx_lnd) = qsat_lnd(jl)
+        END IF
         IF (echam_phy_config(jg)%llake) THEN
           IF (idx_wtr <= ksfc_type) THEN
             IF (alake(jl) > 0._wp) THEN
@@ -836,9 +838,11 @@ CONTAINS
       !$ACC END PARALLEL
 
 #else
-      ptsfc_tile(jcs:kproma,idx_lnd) = ztsfc_lnd(jcs:kproma)
-      pcpt_tile (jcs:kproma,idx_lnd) = zcpt_lnd(jcs:kproma)
-      pqsat_tile(jcs:kproma,idx_lnd) = qsat_lnd(jcs:kproma)
+      IF (echam_phy_config(jg)%ljsb ) THEN
+        ptsfc_tile(jcs:kproma,idx_lnd) = ztsfc_lnd(jcs:kproma)
+        pcpt_tile (jcs:kproma,idx_lnd) = zcpt_lnd(jcs:kproma)
+        pqsat_tile(jcs:kproma,idx_lnd) = qsat_lnd(jcs:kproma)
+      END IF
       IF (echam_phy_config(jg)%llake) THEN
         IF (idx_wtr <= ksfc_type) THEN
           WHERE (alake(jcs:kproma) > 0._wp)
@@ -885,208 +889,9 @@ CONTAINS
 #endif
     END IF ! idx_lnd
 
-    !===========================================================================
-    ! Ocean model
-    !===========================================================================
-    IF (idx_wtr <= ksfc_type) THEN
-
-#ifndef __NO_ICON_OCEAN__
-
-      !$ACC PARALLEL DEFAULT(NONE)
-      !$ACC LOOP GANG VECTOR
-      DO jl = jcs,kproma
-        rsns(jl)      = rsds(jl) - rsus(jl)
-        rlns(jl)      = rlds(jl) - rlus(jl)
-      END DO
-      !$ACC END PARALLEL
-
-      IF (echam_phy_config(jg)%lmlo) THEN
-        ztsfc_wtr(jcs:kproma)=ptsfc_tile(jcs:kproma, idx_wtr) 
-        CALL ml_ocean ( kbdim, jcs, kproma, pdtime, &
-          & pahflw=plhflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
-          & pahfsw=pshflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
-          & ptrflw=rlns(:),                       &
-          & psoflw=rsns(:),                       &
-          & ptsw=ztsfc_wtr(:) )                     ! out
-#ifdef _OPENACC
-        !$ACC PARALLEL DEFAULT(NONE)
-        !$ACC LOOP GANG VECTOR
-        DO jl = jcs,kproma
-          IF (alake(jl) < EPSILON(1._wp)) THEN
-            ptsfc_tile(jl, idx_wtr) = ztsfc_wtr(jl)
-          END IF
-        END DO
-        !$ACC END PARALLEL
-#else
-        WHERE (alake(jcs:kproma) < EPSILON(1._wp))
-          ptsfc_tile(jcs:kproma, idx_wtr) = ztsfc_wtr(jcs:kproma)
-        END WHERE
-#endif
-      END IF
-#endif
-
-      ! Albedo model for the ocean
-      ! TBD: This should be replaced by routine mo_surface_ocean:update_albedo_ocean from ECHAM6.2
-      !$ACC PARALLEL DEFAULT(NONE)
-      !$ACC LOOP GANG VECTOR
-      DO jl = jcs,kproma
-        IF (alake(jl) < EPSILON(1._wp)) THEN
-          albvisdir_tile(jl,idx_wtr) = albedoW
-          albvisdif_tile(jl,idx_wtr) = albedoW
-          albnirdir_tile(jl,idx_wtr) = albedoW
-          albnirdif_tile(jl,idx_wtr) = albedoW
-        END IF
-      END DO
-      !$ACC END PARALLEL
-
-    END IF ! idx_wtr
-
-    !===========================================================================
-    ! Sea-ice model (thermodynamic)
-    !===========================================================================
-
-    IF (idx_ice <= ksfc_type .AND. echam_phy_config(jg)%lice) THEN
-
-      ! DA: wait while the other kernels are not async
-      !$ACC WAIT
-
-#ifndef __NO_ICON_OCEAN__
-      ! LL This is a temporary solution,
-      ! we should restrcure ice thermodynamics in a more stand-alone way
-
-      ! For explicit coupling to ice:
-
-      ! Freezing point of sea-water
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR
-      DO jk = 1, kbdim
-        Tfw(jk) = Tf
-      END DO
-      !$ACC END PARALLEL
-
-      ! ECHAM has no tiles for SW & LW and this is how it's solved there
-      ! Net shortwave on all bands.
-      ! Net longwave - we don't have tiles yet
-      ! First all ice classes
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP SEQ
-      DO k=1,kice
-        !$ACC LOOP GANG VECTOR
-        DO jl = jcs,kproma
-          swflx_ice(jl,k) = rvds_dif(jl) * (1._wp - albvisdif_ice(jl,k)) +     &
-                          & rvds_dir(jl) * (1._wp - albvisdir_ice(jl,k)) +     &
-                          & rnds_dif(jl) * (1._wp - albnirdif_ice(jl,k)) +     &
-                          & rnds_dir(jl) * (1._wp - albnirdir_ice(jl,k))
-  
-          nonsolar_ice(jl,k) = &
-            emissivity(jl) * (rlds(jl) - stbo * (Tsurf(jl,k)+tmelt)**4) &  ! longwave net
-            & + plhflx_tile(jl,idx_ice) + pshflx_tile(jl,idx_ice)
-  
-          dnonsolardT(jl,k) = -4._wp * emissivity(jl) * stbo * (Tsurf(jl,k)+tmelt)**3
-        ENDDO
-      ENDDO
-      !$ACC END PARALLEL
-
-    !$ACC WAIT
-
-      CALL ice_fast(jcs, kproma, kbdim, kice, pdtime, &
-        &   Tsurf,              & ! inout
-        &   T1,                 & ! inout
-        &   T2,                 & ! inout
-        &   hi,                 & ! in
-        &   hs,                 & ! in
-        &   Qtop,               & ! out
-        &   Qbot,               & ! out
-        &   swflx_ice,          & ! in
-        &   nonsolar_ice,       & ! in
-        &   dnonsolardT,        & ! in
-        &   Tfw,                & ! in
-        &   albvisdir_ice,      & ! out
-        &   albvisdif_ice,      & ! out
-        &   albnirdir_ice,      & ! out
-        &   albnirdif_ice )       ! out
-
-    !$ACC WAIT
-
-      ! Update the thickness of snow on ice in atmosphere only simulation.
-      ! In coupled experiments this is done by the ocean model in either
-      ! ice_growth_zerolayer or ice_growth_winton.
-      IF ( .NOT. is_coupled_run() ) THEN
-        !$ACC PARALLEL DEFAULT(PRESENT)
-        !$ACC LOOP SEQ
-        DO k=1,kice
-          !$ACC LOOP GANG VECTOR
-          DO jl = jcs,kproma
-            ! Snowfall on ice - no ice => no snow
-            IF ( hi(jl,k) > 0._wp ) THEN
-              ! Snow only falls when it's below freezing
-              IF ( Tsurf(jl,k) < 0._wp ) THEN
-                hs(jl,k) = hs(jl,k) + (pssfl(jl) + pssfc(jl))*pdtime/rhos
-              ENDIF
-              ! Snow melt
-              hs(jl,k) = hs(jl,k) - MIN( Qtop(jl,k)*pdtime/( alf*rhos ), hs(jl,k) )
-            ELSE
-              hs(jl,k) = 0._wp
-            ENDIF
-          ENDDO
-        ENDDO
-        !$ACC END PARALLEL
-      ENDIF
-
-      ! Average the albedo.
-#ifdef _OPENACC
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR
-      DO jl = jcs,kproma
-        conc_sum(jl) = SUM(conc(jl,:))
-        IF (alake(jl) < EPSILON(1._wp)) THEN
-          albvisdir_tile(jl,idx_ice) = 0._wp
-          albvisdif_tile(jl,idx_ice) = 0._wp
-          albnirdir_tile(jl,idx_ice) = 0._wp
-          albnirdif_tile(jl,idx_ice) = 0._wp
-          IF (conc_sum(jl) > 1.e-6_wp) THEN
-            albvisdir_tile(jl,idx_ice) = SUM( conc(jl,:) * albvisdir_ice(jl,:)) / conc_sum(jl)
-            albvisdif_tile(jl,idx_ice) = SUM( conc(jl,:) * albvisdif_ice(jl,:)) / conc_sum(jl)
-            albnirdir_tile(jl,idx_ice) = SUM( conc(jl,:) * albnirdir_ice(jl,:)) / conc_sum(jl)
-            albnirdif_tile(jl,idx_ice) = SUM( conc(jl,:) * albnirdif_ice(jl,:)) / conc_sum(jl)
-
-            ! Set the tile temperature, convert back to K
-            ptsfc_tile(jl,idx_ice) = Tsurf(jl,1) + tmelt
-          END IF
-        END IF
-      END DO
-      !$ACC END PARALLEL
-#else
-      conc_sum(jcs:kproma) = SUM(conc(jcs:kproma,:),2)
-      WHERE (alake(jcs:kproma) < EPSILON(1._wp))
-        albvisdir_tile(jcs:kproma,idx_ice) = 0._wp
-        albvisdif_tile(jcs:kproma,idx_ice) = 0._wp
-        albnirdir_tile(jcs:kproma,idx_ice) = 0._wp
-        albnirdif_tile(jcs:kproma,idx_ice) = 0._wp
-        WHERE (conc_sum(jcs:kproma) > 1.e-6_wp)
-          albvisdir_tile(jcs:kproma,idx_ice) = SUM( conc(jcs:kproma,:) * albvisdir_ice(jcs:kproma,:), 2 ) / conc_sum(jcs:kproma)
-          albvisdif_tile(jcs:kproma,idx_ice) = SUM( conc(jcs:kproma,:) * albvisdif_ice(jcs:kproma,:), 2 ) / conc_sum(jcs:kproma)
-          albnirdir_tile(jcs:kproma,idx_ice) = SUM( conc(jcs:kproma,:) * albnirdir_ice(jcs:kproma,:), 2 ) / conc_sum(jcs:kproma)
-          albnirdif_tile(jcs:kproma,idx_ice) = SUM( conc(jcs:kproma,:) * albnirdif_ice(jcs:kproma,:), 2 ) / conc_sum(jcs:kproma)
-
-          ! Set the tile temperature, convert back to K
-          ptsfc_tile(jcs:kproma,idx_ice) = Tsurf(jcs:kproma,1) + tmelt
-        END WHERE
-      END WHERE
-#endif
-
-      ! Compute new dry static energy
-      ! (Switched off for now, should be used for implicit coupling)
-      !pcpt_tile(jcs:kproma,idx_ice) = ptsfc_tile(jcs:kproma,idx_ice) * zt2s_conv(jcs:kproma,idx_ice)
-
-#else
-    ! __NO_ICON_OCEAN__
-      CALL finish(method_name, "The ice process requires the ICON_OCEAN component")
-#endif
-    ENDIF ! lice
-
     !===================================================================
-    ! AFTER CALLING land/ocean/ice model
+    ! AFTER CALLING land/ocean/ice model:
+    ! pco2_flux_tile set to zero for sea ice and ocean above...
     !===================================================================
 
     ! calculate grid box mean surface of co2
@@ -1105,6 +910,8 @@ CONTAINS
       END DO
     ENDDO
     !$ACC END PARALLEL
+
+    !
     ! Turbulent transport of moisture and dry static energy:
     ! Get solution of the two variables on the lowest model level.
     !-------------------------------------------------------------------
@@ -1268,9 +1075,10 @@ CONTAINS
 
     END IF
 
-   !-------------------------------------------------------------------
+   !--------------------------------------------------------------------
    ! Various diagnostics
-   !-------------------------------------------------------------------
+   ! Calculate turbulent heat fluxes before calling sea ice or mlo-ocean
+   !--------------------------------------------------------------------
 
     !$ACC WAIT
 
@@ -1316,6 +1124,213 @@ CONTAINS
        END DO
        !$ACC END PARALLEL
     END IF
+
+    !$ACC WAIT
+
+    !===========================================================================
+    ! Ocean model
+    !===========================================================================
+    IF (idx_wtr <= ksfc_type) THEN
+
+#ifndef __NO_ICON_OCEAN__
+
+      !$ACC PARALLEL DEFAULT(NONE)
+      !$ACC LOOP GANG VECTOR
+      DO jl = jcs,kproma
+        rsns(jl)      = rsds(jl) - rsus(jl)
+        rlns(jl)      = rlds(jl) - rlus(jl)
+      END DO
+      !$ACC END PARALLEL
+
+      IF (echam_phy_config(jg)%lmlo) THEN
+        ztsfc_wtr(jcs:kproma)=ptsfc_tile(jcs:kproma, idx_wtr)
+        CALL ml_ocean ( kbdim, jcs, kproma, pdtime, &
+          & pahflw=plhflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
+          & pahfsw=pshflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
+          & ptrflw=rlns(:),                       &
+          & psoflw=rsns(:),                       &
+          & ptsw=ztsfc_wtr(:) )                     ! out
+#ifdef _OPENACC
+        !$ACC PARALLEL DEFAULT(NONE)
+        !$ACC LOOP GANG VECTOR
+        DO jl = jcs,kproma
+          IF (alake(jl) < EPSILON(1._wp)) THEN
+            ptsfc_tile(jl, idx_wtr) = ztsfc_wtr(jl)
+          END IF
+        END DO
+        !$ACC END PARALLEL
+#else
+        WHERE (alake(jcs:kproma) < EPSILON(1._wp))
+          ptsfc_tile(jcs:kproma, idx_wtr) = ztsfc_wtr(jcs:kproma)
+        END WHERE
+#endif
+      END IF
+#endif
+
+      ! Albedo model for the ocean
+      ! TBD: This should be replaced by routine
+      ! mo_surface_ocean:update_albedo_ocean from ECHAM6.2
+      !$ACC PARALLEL DEFAULT(NONE)
+      !$ACC LOOP GANG VECTOR
+      DO jl = jcs,kproma
+        IF (alake(jl) < EPSILON(1._wp)) THEN
+          albvisdir_tile(jl,idx_wtr) = albedoW
+          albvisdif_tile(jl,idx_wtr) = albedoW
+          albnirdir_tile(jl,idx_wtr) = albedoW
+          albnirdif_tile(jl,idx_wtr) = albedoW
+        END IF
+      END DO
+      !$ACC END PARALLEL
+
+    END IF ! idx_wtr
+
+    !===========================================================================
+    ! Sea-ice model (thermodynamic)
+    !===========================================================================
+
+    IF (idx_ice <= ksfc_type .AND. echam_phy_config(jg)%lice) THEN
+
+      ! DA: wait while the other kernels are not async
+      !$ACC WAIT
+
+#ifndef __NO_ICON_OCEAN__
+      ! LL This is a temporary solution,
+      ! we should restrcure ice thermodynamics in a more stand-alone way
+
+      ! For explicit coupling to ice:
+
+      ! Freezing point of sea-water
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jk = 1, kbdim
+        Tfw(jk) = Tf
+      END DO
+      !$ACC END PARALLEL
+
+      ! ECHAM has no tiles for SW & LW and this is how it's solved there
+      ! Net shortwave on all bands.
+      ! Net longwave - we don't have tiles yet
+      ! First all ice classes
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP SEQ
+      DO k=1,kice
+        !$ACC LOOP GANG VECTOR
+        DO jl = jcs,kproma
+          swflx_ice(jl,k) = rvds_dif(jl) * (1._wp - albvisdif_ice(jl,k)) +     &
+                          & rvds_dir(jl) * (1._wp - albvisdir_ice(jl,k)) +     &
+                          & rnds_dif(jl) * (1._wp - albnirdif_ice(jl,k)) +     &
+                          & rnds_dir(jl) * (1._wp - albnirdir_ice(jl,k))
+
+          nonsolar_ice(jl,k) = &
+            emissivity(jl) * (rlds(jl) - stbo * (Tsurf(jl,k)+tmelt)**4) &  !  longwave net
+            & + plhflx_tile(jl,idx_ice) + pshflx_tile(jl,idx_ice)
+
+          dnonsolardT(jl,k) = -4._wp * emissivity(jl) * stbo * (Tsurf(jl,k)+tmelt)**3
+        ENDDO
+      ENDDO
+      !$ACC END PARALLEL
+
+    !$ACC WAIT
+
+      CALL ice_fast(jcs, kproma, kbdim, kice, pdtime, &
+        &   Tsurf,              & ! inout
+        &   T1,                 & ! inout
+        &   T2,                 & ! inout
+        &   hi,                 & ! in
+        &   hs,                 & ! in
+        &   Qtop,               & ! out
+        &   Qbot,               & ! out
+        &   swflx_ice,          & ! in
+        &   nonsolar_ice,       & ! in
+        &   dnonsolardT,        & ! in
+        &   Tfw,                & ! in
+        &   albvisdir_ice,      & ! out
+        &   albvisdif_ice,      & ! out
+        &   albnirdir_ice,      & ! out
+        &   albnirdif_ice )       ! out
+
+    !$ACC WAIT
+
+      ! Update the thickness of snow on ice in atmosphere only simulation.
+      ! In coupled experiments this is done by the ocean model in either
+      ! ice_growth_zerolayer or ice_growth_winton.
+      IF ( .NOT. is_coupled_run() ) THEN
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP SEQ
+        DO k=1,kice
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,kproma
+            ! Snowfall on ice - no ice => no snow
+            IF ( hi(jl,k) > 0._wp ) THEN
+              ! Snow only falls when it's below freezing
+              IF ( Tsurf(jl,k) < 0._wp ) THEN
+                hs(jl,k) = hs(jl,k) + (pssfl(jl) + pssfc(jl))*pdtime/rhos
+              ENDIF
+              ! Snow melt
+              hs(jl,k) = hs(jl,k) - MIN( Qtop(jl,k)*pdtime/( alf*rhos ), hs(jl,k) )
+            ELSE
+              hs(jl,k) = 0._wp
+            ENDIF
+          ENDDO
+        ENDDO
+        !$ACC END PARALLEL
+      ENDIF
+
+      ! Average the albedo.
+#ifdef _OPENACC
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jl = jcs,kproma
+        conc_sum(jl) = SUM(conc(jl,:))
+        IF (alake(jl) < EPSILON(1._wp)) THEN
+          albvisdir_tile(jl,idx_ice) = 0._wp
+          albvisdif_tile(jl,idx_ice) = 0._wp
+          albnirdir_tile(jl,idx_ice) = 0._wp
+          albnirdif_tile(jl,idx_ice) = 0._wp
+          IF (conc_sum(jl) > 1.e-6_wp) THEN
+            albvisdir_tile(jl,idx_ice) = SUM( conc(jl,:) * albvisdir_ice(jl,:)) / conc_sum(jl)
+            albvisdif_tile(jl,idx_ice) = SUM( conc(jl,:) * albvisdif_ice(jl,:)) / conc_sum(jl)
+            albnirdir_tile(jl,idx_ice) = SUM( conc(jl,:) * albnirdir_ice(jl,:)) / conc_sum(jl)
+            albnirdif_tile(jl,idx_ice) = SUM( conc(jl,:) * albnirdif_ice(jl,:)) / conc_sum(jl)
+
+            ! Set the tile temperature, convert back to K
+            ptsfc_tile(jl,idx_ice) = Tsurf(jl,1) + tmelt
+          END IF
+        END IF
+      END DO
+      !$ACC END PARALLEL
+#else
+      conc_sum(jcs:kproma) = SUM(conc(jcs:kproma,:),2)
+      WHERE (alake(jcs:kproma) < EPSILON(1._wp))
+        albvisdir_tile(jcs:kproma,idx_ice) = 0._wp
+        albvisdif_tile(jcs:kproma,idx_ice) = 0._wp
+        albnirdir_tile(jcs:kproma,idx_ice) = 0._wp
+        albnirdif_tile(jcs:kproma,idx_ice) = 0._wp
+        WHERE (conc_sum(jcs:kproma) > 1.e-6_wp)
+          albvisdir_tile(jcs:kproma,idx_ice) = SUM( conc(jcs:kproma,:) * albvisdir_ice(jcs:kproma,:), 2 ) / conc_sum(jcs:kproma)
+          albvisdif_tile(jcs:kproma,idx_ice) = SUM( conc(jcs:kproma,:) * albvisdif_ice(jcs:kproma,:), 2 ) / conc_sum(jcs:kproma)
+          albnirdir_tile(jcs:kproma,idx_ice) = SUM( conc(jcs:kproma,:) * albnirdir_ice(jcs:kproma,:), 2 ) / conc_sum(jcs:kproma)
+          albnirdif_tile(jcs:kproma,idx_ice) = SUM( conc(jcs:kproma,:) * albnirdif_ice(jcs:kproma,:), 2 ) / conc_sum(jcs:kproma)
+
+          ! Set the tile temperature, convert back to K
+          ptsfc_tile(jcs:kproma,idx_ice) = Tsurf(jcs:kproma,1) + tmelt
+        END WHERE
+      END WHERE
+#endif
+
+      ! Compute new dry static energy
+      ! (Switched off for now, should be used for implicit coupling)
+      !pcpt_tile(jcs:kproma,idx_ice) = ptsfc_tile(jcs:kproma,idx_ice) * zt2s_conv(jcs:kproma,idx_ice)
+
+#else
+    ! __NO_ICON_OCEAN__
+      CALL finish(method_name, "The ice process requires the ICON_OCEAN component")
+#endif
+    ENDIF ! lice
+
+   !-------------------------------------------------------------------
+   ! More diagnostics
+   !-------------------------------------------------------------------
 
     !$ACC WAIT
 

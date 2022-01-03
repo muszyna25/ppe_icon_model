@@ -13,10 +13,15 @@
 !!
 !!
 #include "icon_definitions.inc"
+#include "omp_definitions.inc"
 
 MODULE mo_bgc_icon
+#ifdef _OPENMP
+  USE omp_lib
+#endif
 
   USE mo_kind,                ONLY: wp
+  USE mo_exception,           ONLY: finish
 
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D
 
@@ -43,16 +48,19 @@ MODULE mo_bgc_icon
   USE mo_timer, ONLY          : timer_bgc_up_bgc, timer_bgc_swr, timer_bgc_wea,timer_bgc_depo, &
     &                           timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett,timer_bgc_cya,&
     &                           timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
-    &                           timer_bgc_tend, timer_start, timer_stop, timers_level
+    &                           timer_bgc_tend, timer_start, timer_stop, timers_level,timer_bgc_agg
   USE mo_settling,   ONLY    : settling, settling_pdm
+  USE mo_aggregates, ONLY     : mean_aggregate_sinking_speed
   USE mo_ocean_hamocc_couple_state, ONLY: t_ocean_to_hamocc_state, t_hamocc_to_ocean_state, &
     & t_hamocc_ocean_state
 !   USE mo_util_dbg_prnt,          ONLY: dbg_print
-  USE mo_memory_bgc, ONLY      : swr_frac
   USE mo_chemcon, ONLY         : chemcon
   USE mo_ocprod, ONLY: ocprod
   USE mo_sedshi, ONLY: sedshi
   USE mo_hamocc_swr_absorption, ONLY: swr_absorption
+  
+  USE mo_bgc_memory_types, ONLY: t_bgc_memory, t_sediment_memory, t_aggregates_memory, &
+    & bgc_local_memory, sediment_local_memory, aggregates_memory, bgc_memory_copies
 
   IMPLICIT NONE
   PRIVATE
@@ -67,6 +75,11 @@ SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)
 
   TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
   TYPE(t_hamocc_ocean_state), TARGET     :: hamocc_ocean_state
+  
+  TYPE(t_bgc_memory), POINTER :: local_bgc_memory
+  TYPE(t_sediment_memory), POINTER :: local_sediment_memory
+  TYPE(t_aggregates_memory), POINTER :: local_aggregate_memory
+  INTEGER :: local_memory_idx, test_memory_copies
 
   ! Local variables
   INTEGER ::  jb
@@ -84,14 +97,12 @@ SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)
 
   INTEGER :: i
   
-!   CHARACTER(LEN=*), PARAMETER  :: str_module = 'BGC_ICON'  ! Output of module for 1 line debug
+  CHARACTER(LEN=*), PARAMETER  :: str_module = 'BGC_ICON'  ! Output of module for 1 line debug
 !   INTEGER :: idt_src
 !   TYPE(t_subset_range), POINTER :: owned_cells
 
   ocean_to_hamocc_state => hamocc_ocean_state%ocean_to_hamocc_state
   hamocc_to_ocean_state => hamocc_ocean_state%hamocc_to_ocean_state
-
-
   !-----------------------------------------------------------------------
   p_patch   => p_patch_3D%p_patch_2d(1)
   alloc_cell_blocks =  p_patch%alloc_cell_blocks
@@ -131,42 +142,66 @@ IF(l_bgc_check)THEN
 ENDIF
 
 IF (.not. lsediment_only) THEN
+       
+local_memory_idx = 0
+test_memory_copies = 1
+local_bgc_memory => bgc_local_memory(local_memory_idx)
+local_sediment_memory => sediment_local_memory(local_memory_idx)
+local_aggregate_memory => aggregates_memory(local_memory_idx)
+
 !DIR$ INLINE
+#ifdef _OPENMP
+!ICON_OMP_PARALLEL PRIVATE(local_memory_idx, local_bgc_memory, local_sediment_memory, local_aggregate_memory)
+!$  local_memory_idx = omp_get_thread_num()
+! write(0,*) "local_memory_idx=", local_memory_idx
+local_bgc_memory => bgc_local_memory(local_memory_idx)
+local_sediment_memory => sediment_local_memory(local_memory_idx)
+local_aggregate_memory => aggregates_memory(local_memory_idx)
+
+!ICON_OMP_SINGLE
+!$  test_memory_copies = OMP_GET_NUM_THREADS()
+IF (test_memory_copies /= bgc_memory_copies) &
+  & CALL finish(str_module, "test_memory_copies /= bgc_memory_copies")
+!ICON_OMP_END_SINGLE
+
+!ICON_OMP_DO PRIVATE(levels, start_index, end_index)
+#endif
   DO jb = all_cells%start_block, all_cells%end_block
+            
         CALL get_index_range(all_cells, jb, start_index, end_index)
         !  tracer 1: potential temperature
         !  tracer 2: salinity
         levels(start_index:end_index) = p_patch_3D%p_patch_1d(1)%dolic_c(start_index:end_index,jb)
 
         start_detail_timer(timer_bgc_up_bgc,5)
-        CALL update_bgc(start_index,end_index,levels,&
+        CALL update_bgc(local_bgc_memory, local_sediment_memory, start_index,end_index,levels,&
              & p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
              &jb, hamocc_state%p_prog(nold(1))%tracer(:,:,jb,:), &
              & ocean_to_hamocc_state%co2_mixing_ratio(:,jb)                        & ! co2mixing ratio
              & ,hamocc_state%p_diag,hamocc_state%p_sed, hamocc_state%p_tend)
         stop_detail_timer(timer_bgc_up_bgc,5)
 
-        CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
+        CALL ini_bottom(local_bgc_memory, start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
 
         start_detail_timer(timer_bgc_swr,5)
        ! Net solar radiation update and swr_frac
-        CALL swr_absorption(start_index,end_index,levels,                   &
+        CALL swr_absorption(local_bgc_memory, start_index,end_index,levels,                   &
  &                          ocean_to_hamocc_state%short_wave_flux(:,jb),                                 & ! SW radiation
  &                          ocean_to_hamocc_state%ice_concentration_sum(:,jb),                           & ! sea ice concentration
  &                          p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))   ! level thickness
 
-        hamocc_to_ocean_state%swr_fraction(:,:,jb) = swr_frac(:,:)
+        hamocc_to_ocean_state%swr_fraction(:,:,jb) = local_bgc_memory%swr_frac(:,:)
         stop_detail_timer(timer_bgc_swr,5)
 
        ! Linear age
-        CALL update_linage(levels, start_index, end_index,  & ! index range, levels, salinity
+        CALL update_linage(local_bgc_memory, levels, start_index, end_index,  & ! index range, levels, salinity
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))! cell thickness (check for z0)
 
        ! Biogeochemistry
 
         start_detail_timer(timer_bgc_wea,5)
        ! Weathering fluxes 
-        CALL update_weathering(start_index, end_index,  & ! index range, levels, salinity
+        CALL update_weathering(local_bgc_memory, start_index, end_index,  & ! index range, levels, salinity
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&! cell thickness (check for z0)
    &                 ocean_to_hamocc_state%h_old(:,jb)) ! surface_height
 
@@ -174,12 +209,12 @@ IF (.not. lsediment_only) THEN
 
         start_detail_timer(timer_bgc_depo,5)
       ! Dust deposition
-        CALL dust_deposition(start_index, end_index,  & ! index range, levels,
+        CALL dust_deposition(local_bgc_memory, start_index, end_index,  & ! index range, levels,
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), &! cell thickness (check for z0)
    &                 ocean_to_hamocc_state%h_old(:,jb),& ! surface_height
    &                 ext_data_bgc%dusty(:,jb))       ! dust input
       ! Nitrogen deposition
-        CALL nitrogen_deposition(start_index, end_index,  & ! index range, levels
+        CALL nitrogen_deposition(local_bgc_memory, start_index, end_index,  & ! index range, levels
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), &! cell thickness (check for z0)
    &                 ocean_to_hamocc_state%h_old(:,jb),& ! surface_height
    &                 ext_data_bgc%nitro(:,jb))      ! nitrogen input
@@ -189,7 +224,7 @@ IF (.not. lsediment_only) THEN
        ! Calculate chemical properties 
 
         start_detail_timer(timer_bgc_chemcon,5)
-        CALL chemcon(start_index, end_index,levels,  ocean_to_hamocc_state%salinity(:,:,jb), & ! index range, levels, salinity
+        CALL chemcon(local_bgc_memory, start_index, end_index,levels,  ocean_to_hamocc_state%salinity(:,:,jb), & ! index range, levels, salinity
    &                 ocean_to_hamocc_state%temperature(:,:,jb),                              & ! pot. temperature
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),                    & ! cell thickness
    &                 p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb) ,  &           ! depths at interface  
@@ -198,11 +233,22 @@ IF (.not. lsediment_only) THEN
        !----------------------------------------------------------------------
        ! Calculate plankton dynamics and particle settling 
 
-       IF(i_settling.ne.2)then !2==agg
+       IF(i_settling==2)then
+         ! sinking speeds from MAGO aggregation scheme (MARMA)
+
+         start_detail_timer(timer_bgc_agg,5)
+         CALL mean_aggregate_sinking_speed (local_bgc_memory, local_aggregate_memory, levels, start_index, end_index, &
+   &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), & ! cell thickness
+   &                 ocean_to_hamocc_state%press_hyd(:,:,jb),                 & ! hydrostatic pressure
+   &                 ocean_to_hamocc_state%temperature(:,:,jb),               & ! pot. temperature
+   &                 ocean_to_hamocc_state%salinity(:,:,jb))                    ! salinity
+
+        stop_detail_timer(timer_bgc_agg,5)
+       ENDIF
 
         start_detail_timer(timer_bgc_ocprod,5)
          ! plankton dynamics and remineralization  
-         CALL ocprod(levels, start_index,end_index, ocean_to_hamocc_state%temperature(:,:,jb),&
+         CALL ocprod(local_bgc_memory, levels, start_index,end_index, ocean_to_hamocc_state%temperature(:,:,jb),&
    &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), & ! cell thickness
    &               ocean_to_hamocc_state%h_old(:,jb),& ! surface height
    &               p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb),& ! depths at interface  
@@ -212,18 +258,19 @@ IF (.not. lsediment_only) THEN
         start_detail_timer(timer_bgc_sett,5)
          ! particle settling 
         IF (l_pdm_settling)then
-         CALL settling_pdm(levels,start_index, end_index, &
+         CALL settling_pdm(local_bgc_memory, local_sediment_memory, levels,start_index, end_index, &
    &                   p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb)) ! cell thickness
  
         ELSE
-         CALL settling(levels,start_index, end_index, &
+         CALL settling(local_bgc_memory, local_sediment_memory, levels,start_index, end_index, &
    &                   p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
    &                   ocean_to_hamocc_state%h_old(:,jb))                   ! surface height
        
-        ENDIF 
-       endif
+        ENDIF
+        stop_detail_timer(timer_bgc_sett,5) 
+       
 
-       stop_detail_timer(timer_bgc_sett,5)
+      
 
 
        !----------------------------------------------------------------------
@@ -232,7 +279,7 @@ IF (.not. lsediment_only) THEN
        start_detail_timer(timer_bgc_cya,5)
        IF (l_cyadyn) THEN 
         ! dynamic cyanobacteria
-        CALL cyadyn(levels, start_index,end_index, &  ! vertical range, cell range,
+        CALL cyadyn(local_bgc_memory, levels, start_index,end_index, &  ! vertical range, cell range,
      &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
      &               ocean_to_hamocc_state%h_old(:,jb), &                 ! surface height
      &               ocean_to_hamocc_state%temperature(:,:,jb), &        ! pot. temperature 
@@ -240,7 +287,7 @@ IF (.not. lsediment_only) THEN
      &               l_dynamic_pi ) ! depths at interface  
        ELSE
         ! diagnostic N2 fixation
-        CALL cyano (start_index, end_index,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&
+        CALL cyano (local_bgc_memory, start_index, end_index,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&
      &               ocean_to_hamocc_state%h_old(:,jb))                 ! surface height    
        endif
        stop_detail_timer(timer_bgc_cya,5)
@@ -250,7 +297,7 @@ IF (.not. lsediment_only) THEN
        ! Calculate gas exchange
 
         start_detail_timer(timer_bgc_gx,5)
-        CALL gasex( start_index, end_index,    & 
+        CALL gasex(local_bgc_memory, start_index, end_index,    & 
   &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
   &               ocean_to_hamocc_state%h_old(:,jb), &                   ! surface height
   &               ocean_to_hamocc_state%temperature(:,:,jb), &          ! pot. temperature 
@@ -263,7 +310,7 @@ IF (.not. lsediment_only) THEN
         ! Calculate carbonate dissolution
  
         start_detail_timer(timer_bgc_calc,5)
-         CALL calc_dissol( start_index, end_index, levels,   & 
+        CALL calc_dissol(local_bgc_memory, start_index, end_index, levels,   & 
    &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
    &               ocean_to_hamocc_state%salinity(:,:,jb),         &  ! salinity
    &               p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb)) !depths at interface   
@@ -273,36 +320,41 @@ IF (.not. lsediment_only) THEN
         ! Calculate sediment dynamics
         start_detail_timer(timer_bgc_powach,5)
         if(l_implsed)then 
-         CALL powach_impl( start_index, end_index,    & 
+         CALL powach_impl(local_bgc_memory, local_sediment_memory,  start_index, end_index,    & 
    &               ocean_to_hamocc_state%salinity(:,:,jb))          ! salinity
          else
  
-        CALL powach( start_index, end_index, &    
+        CALL powach(local_bgc_memory, local_sediment_memory, start_index, end_index, &    
    &               ocean_to_hamocc_state%salinity(:,:,jb),          &! salinity
    &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))  ! cell thickness
          endif
         stop_detail_timer(timer_bgc_powach,5)
 
-        if(mod(ldtrunbgc,ndtdaybgc).eq.0) CALL sedshi(start_index,end_index)
+        if(mod(ldtrunbgc,ndtdaybgc).eq.0) CALL sedshi(local_bgc_memory, local_sediment_memory, start_index,end_index)
  
         start_detail_timer(timer_bgc_up_ic,5)
-        CALL update_icon(start_index,end_index,levels,&
+        CALL update_icon(local_bgc_memory, start_index,end_index,levels,&
   &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
   &               hamocc_state%p_prog(nold(1))%tracer(:,:,jb,:),            &
   &               hamocc_to_ocean_state%co2_flux(:,jb)                    )          ! co2flux for coupling
         stop_detail_timer(timer_bgc_up_ic,5)
 
         start_detail_timer(timer_bgc_tend,5)
-        CALL set_bgc_tendencies_output(start_index,end_index,levels, &
-  &               p_patch_3D%p_patch_1d(1)%prism_thick_c(:,:,jb),&  ! cell thickness
+        CALL set_bgc_tendencies_output(local_bgc_memory, local_sediment_memory, local_aggregate_memory, &
+          & start_index,end_index,levels, &
+  &          p_patch_3D%p_patch_1d(1)%prism_thick_c(:,:,jb),&  ! cell thickness
   &                                   jb, &
   &                                   hamocc_state%p_tend,            &
   &                                   hamocc_state%p_diag,            &
-  &                                   hamocc_state%p_sed)
+  &                                   hamocc_state%p_sed,             &
+  &                                   hamocc_state%p_agg)
 
         stop_detail_timer(timer_bgc_tend,5)
  ENDDO
-
+#ifdef _OPENMP
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
+#endif
 ! O2 min depth & value diagnostics
 CALL get_omz(hamocc_state,ocean_to_hamocc_state%h_old,p_patch_3d)
 
@@ -310,6 +362,12 @@ ELSE
 ! offline sediment
 !DIR$ INLINE
   DO jb = all_cells%start_block, all_cells%end_block
+  
+        local_memory_idx = 0
+        local_bgc_memory => bgc_local_memory(local_memory_idx)
+        local_sediment_memory => sediment_local_memory(local_memory_idx)
+ 
+  
         CALL get_index_range(all_cells, jb, start_index, end_index)
         !  tracer 1: potential temperature
         !  tracer 2: salinity
@@ -317,7 +375,7 @@ ELSE
 
         start_detail_timer(timer_bgc_up_bgc,5)
 
-        CALL update_bgc(start_index,end_index,levels,&
+        CALL update_bgc(local_bgc_memory, local_sediment_memory, start_index,end_index,levels,&
              & p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
              &jb, hamocc_state%p_prog(nold(1))%tracer(:,:,jb,:), &
              & ocean_to_hamocc_state%co2_mixing_ratio(:,jb)                        & ! co2mixing ratio
@@ -325,13 +383,13 @@ ELSE
 
         stop_detail_timer(timer_bgc_up_bgc,5)
 
-        CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
+        CALL ini_bottom(local_bgc_memory, start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
 
        !----------------------------------------------------------------------
        ! Calculate chemical properties 
 
         start_detail_timer(timer_bgc_chemcon,5)
-        CALL chemcon(start_index, end_index,levels,  ocean_to_hamocc_state%salinity(:,:,jb), & ! index range, levels, salinity
+        CALL chemcon(local_bgc_memory, start_index, end_index,levels,  ocean_to_hamocc_state%salinity(:,:,jb), & ! index range, levels, salinity
    &                 ocean_to_hamocc_state%temperature(:,:,jb),                              & ! pot. temperature
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),                    & ! cell thickness
    &                 p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb) ,  &           ! depths at interface  
@@ -342,21 +400,21 @@ ELSE
         ! Calculate sediment dynamics
         start_detail_timer(timer_bgc_powach,5)
         if(l_implsed)then 
-         CALL powach_impl( start_index, end_index,    & 
+         CALL powach_impl(local_bgc_memory, local_sediment_memory, start_index, end_index,    & 
    &               ocean_to_hamocc_state%salinity(:,:,jb))          ! salinity
          else
  
-        CALL powach( start_index, end_index, &    
+        CALL powach(local_bgc_memory, local_sediment_memory, start_index, end_index, &    
    &               ocean_to_hamocc_state%salinity(:,:,jb),          &! salinity
    &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))  ! cell thickness
          endif
         stop_detail_timer(timer_bgc_powach,5)
 
-        if(mod(ldtrunbgc,ndtdaybgc).eq.0) CALL sedshi(start_index,end_index)
+        if(mod(ldtrunbgc,ndtdaybgc).eq.0) CALL sedshi(local_bgc_memory, local_sediment_memory, start_index,end_index)
 
 
         start_detail_timer(timer_bgc_tend,5)
-        CALL set_bgc_tendencies_output_sedon(start_index,end_index, &
+        CALL set_bgc_tendencies_output_sedon(local_bgc_memory, local_sediment_memory, start_index,end_index, &
   &               p_patch_3D%p_patch_1d(1)%prism_thick_c(:,:,jb),&  ! cell thickness
   &                                   jb, &
   &                                   hamocc_state%p_tend,            &

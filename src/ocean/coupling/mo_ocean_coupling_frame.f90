@@ -10,8 +10,6 @@
 !! headers of the routines.
 !!
 
-#ifdef YAC_coupling
-
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
@@ -409,39 +407,3 @@ CONTAINS
 
 END MODULE mo_ocean_coupling_frame
 
-#else
-
-MODULE mo_ocean_coupling_frame
-
-  USE mo_coupling_config,     ONLY: is_coupled_run
-  USE mo_exception,           ONLY: finish
-
-  PUBLIC :: construct_ocean_coupling, destruct_ocean_coupling
-
-CONTAINS
-
-  SUBROUTINE construct_ocean_coupling(patch_3d)
-
-    TYPE(t_patch_3d ), TARGET, INTENT(in)    :: patch_3d
-
-    IF ( is_coupled_run() ) THEN
-       CALL finish('construct_ocean_coupling: unintentionally called. Check your source code and configure.')
-    ELSE
-       RETURN
-    ENDIF
-
-  END SUBROUTINE construct_ocean_coupling
-
-  SUBROUTINE destruct_ocean_coupling()
-
-    IF ( is_coupled_run() ) THEN
-       CALL finish('destruct_ocean_coupling: unintentionally called. Check your source code and configure.')
-    ELSE
-       RETURN
-    ENDIF
-
-  END SUBROUTINE destruct_ocean_coupling
-
-END MODULE mo_ocean_coupling_frame
-
-#endif

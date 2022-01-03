@@ -17,6 +17,8 @@
 !!
 !----------------------------
 #include "omp_definitions.inc"
+#include "icon_definitions.inc"
+#include "iconfor_dsl_definitions.inc"
 !----------------------------
 MODULE mo_ocean_tracer_diffusion
   
@@ -33,6 +35,7 @@ MODULE mo_ocean_tracer_diffusion
   USE mtime,                  ONLY: MAX_DATETIME_STR_LEN
   USE mo_ocean_time_events,   ONLY: getCurrentDate_to_String
   USE mo_mpi,                 ONLY: my_process_is_stdio
+  USE mo_timer,               ONLY: timer_start, timer_stop, timers_level, timer_dif_vert
  
   IMPLICIT NONE
   
@@ -283,6 +286,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2d
 
+    start_timer(timer_dif_vert,4)
     !-----------------------------------------------------------------------
     cells_in_domain       =>  patch_3d%p_patch_2d(1)%cells%in_domain
     !-----------------------------------------------------------------------
@@ -327,6 +331,8 @@ CONTAINS
 #endif
 
 
+    stop_timer(timer_dif_vert,4)
+    
   END SUBROUTINE tracer_diffusion_vertical_implicit
   !------------------------------------------------------------------------
 

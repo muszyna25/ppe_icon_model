@@ -267,6 +267,14 @@ AC_ARG_ENABLE([serialization],
 'create', 'yes' (same as 'read'), 'no'])])],
 [enable_serialization=no])
 
+AS_VAR_IF([enable_explicit_fpp], [auto],
+  [AS_IF([test x"$enable_serialization" != xno],
+     [AC_MSG_NOTICE([explicit Fortran preprocessing is enabled because the dnl
+Serialbox2 serialization is requested: disable the explicit preprocessing dnl
+if required (--disable-explicit-fpp)])
+      enable_explicit_fpp=yes],
+     [enable_explicit_fpp=no])])
+
 AC_ARG_ENABLE([testbed],
   [AS_HELP_STRING([--enable-testbed],
      [enable ICON Testbed infrastructure @<:@default=no@:>@])],
@@ -296,14 +304,6 @@ AC_ARG_ENABLE([loop-exchange],
   [AS_IF([test x"$enableval" != xno], [enable_loop_exchange=yes])],
   [enable_loop_exchange=yes])
 
-AC_ARG_ENABLE([intel-consistency],
-  [AS_HELP_STRING([--enable-intel-consistency],
-     [enable Intel compiler directives enforcing consistency
-@<:@default=auto@:>@])],
-  [AS_IF([test x"$enableval" != xno && test x"$enableval" != xauto],
-     [enable_intel_consistency=yes])],
-  [enable_intel_consistency=auto])
-
 AC_ARG_ENABLE([vectorized-lrtm],
   [AS_HELP_STRING([--enable-vectorized-lrtm],
      [enable the parallelization-invariant version of LRTM
@@ -316,6 +316,22 @@ AC_ARG_ENABLE([mixed-precision],
      [enable mixed precision dycore @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_mixed_precision=yes])],
   [enable_mixed_precision=no])
+
+AC_ARG_ENABLE([intel-consistency],
+  [AS_HELP_STRING([--enable-intel-consistency],
+     [enable Intel compiler directives enforcing consistency
+@<:@default=auto@:>@])],
+  [AS_IF([test x"$enableval" != xno && test x"$enableval" != xauto],
+     [enable_intel_consistency=yes])],
+  [enable_intel_consistency=auto])
+
+AC_ARG_ENABLE([pgi-inlib],
+  [AS_HELP_STRING([--enable-pgi-inlib],
+     [enable PGI/NVIDIA cross-file function inlining via an inline library
+@<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno && test x"$enableval" != xauto],
+     [enable_pgi_inlib=yes])],
+  [enable_pgi_inlib=no])
 
 dnl Optional Packages:
 
@@ -373,11 +389,7 @@ AC_ARG_WITH([external-cub],
   [AS_IF([test x"$withval" != xno], [with_external_cub=yes])],
   [with_external_cub=no])
 
-############################ MAKEFILE CONDITIONALS #############################
-
-AS_VAR_IF([enable_silent_rules], [yes],
-  [AC_SUBST([DEFAULT_VERBOSITY], [0])],
-  [AC_SUBST([DEFAULT_VERBOSITY], [1])])
+############################# CODEBASE EXTENSIONS ##############################
 
 AS_VAR_IF([enable_jsbach], [yes],
   [icon_subdir_srcdir="$srcdir/externals/jsbach"
@@ -385,9 +397,7 @@ AS_VAR_IF([enable_jsbach], [yes],
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
      [AC_MSG_ERROR([unable to find sources of the land component JSBACH dnl
 ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
-(--disable-jsbach)])])
-   AC_SUBST([JSBACH_ENABLED], [''])],
-  [AC_SUBST([JSBACH_ENABLED], ['#'])])
+(--disable-jsbach)])])])
 
 icon_dace_enabled_or_needed=no
 AS_IF([test x"$enable_dace" = xyes || test x"$enable_emvorado" = xyes],
@@ -400,9 +410,7 @@ AS_VAR_IF([icon_dace_enabled_or_needed], [yes],
      [AC_MSG_ERROR([unable to find sources of the DACE modules for data dnl
 assimilation ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable dnl
 the modules (--disable-dace) and the radar forward operator EMVORADO dnl
-(--disable-emvorado)])])
-   AC_SUBST([DACE_ENABLED_OR_NEEDED], [''])],
-  [AC_SUBST([DACE_ENABLED_OR_NEEDED], ['#'])])
+(--disable-emvorado)])])])
 
 AS_VAR_IF([enable_emvorado], [yes],
   [icon_subdir_srcdir="$srcdir/externals/emvorado"
@@ -410,9 +418,7 @@ AS_VAR_IF([enable_emvorado], [yes],
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
      [AC_MSG_ERROR([unable to find sources of the radar forward operator dnl
 EMVORADO ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the dnl
-operator (--disable-emvorado)])])
-   AC_SUBST([EMVORADO_ENABLED], [''])],
-  [AC_SUBST([EMVORADO_ENABLED], ['#'])])
+operator (--disable-emvorado)])])])
 
 AS_VAR_IF([enable_art], [yes],
   [icon_subdir_srcdir="$srcdir/externals/art"
@@ -420,39 +426,7 @@ AS_VAR_IF([enable_art], [yes],
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
      [AC_MSG_ERROR([unable to find sources of the aerosols and reactive dnl
 trace component ART ($icon_subdir_unique_file) in '$icon_subdir_srcdir': dnl
-disable the component (--disable-art)])])
-   AC_SUBST([ART_ENABLED], [''])],
-  [AC_SUBST([ART_ENABLED], ['#'])])
-
-AS_VAR_IF([enable_mpi], [yes],
-  [AC_SUBST([MPI_ENABLED], [''])],
-  [AC_SUBST([MPI_ENABLED], ['#'])])
-
-AS_VAR_IF([enable_openmp], [yes],
-  [AC_SUBST([OPENMP_ENABLED], [''])],
-  [AC_SUBST([OPENMP_ENABLED], ['#'])])
-
-AS_VAR_IF([enable_gpu], [yes],
-  [AC_SUBST([GPU_ENABLED], [''])],
-  [AC_SUBST([GPU_ENABLED], ['#'])])
-
-AS_IF([test x"$enable_claw" != xno],
-  [AC_SUBST([CLAW_ENABLED], [''])],
-  [AC_SUBST([CLAW_ENABLED], ['#'])])
-
-AS_IF([test x"$enable_explicit_fpp" = xauto && dnl
-test x"$enable_serialization" != xno],
-  [AC_MSG_NOTICE([explicit Fortran preprocessing is enabled because the dnl
-Serialbox2 serialization is requested: disable the explicit preprocessing dnl
-if required (--disable-explicit-fpp)])
-   enable_explicit_fpp=yes])
-AS_VAR_IF([enable_explicit_fpp], [yes],
-  [AC_SUBST([FPP_ENABLED], [''])],
-  [AC_SUBST([FPP_ENABLED], ['#'])])
-
-AS_IF([test x"$enable_serialization" != xno],
-  [AC_SUBST([SB2_ENABLED], [''])],
-  [AC_SUBST([SB2_ENABLED], ['#'])])
+disable the component (--disable-art)])])])
 
 ############################## ENVIRONMENT CHECKS ##############################
 
@@ -494,6 +468,11 @@ AC_ARG_VAR([ICON_OCEAN_FCFLAGS],
   [Fortran compiler flags to be appended to FCFLAGS instead of ICON_FCFLAGS when
 compiling the ocean component of ICON @<:@default=$ICON_FCFLAGS@:>@])dnl
 ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
+AC_ARG_VAR([ICON_DACE_FCFLAGS],
+  [Fortran compiler flags to be appended to FCFLAGS instead of ICON_FCFLAGS when
+compiling the DACE modules for data assimilation
+@<:@default=$ICON_FCFLAGS@:>@])dnl
+ICON_DACE_FCFLAGS=${ICON_DACE_FCFLAGS-$ICON_FCFLAGS}
 AC_ARG_VAR([ICON_BUNDLED_FCFLAGS],
   [Fortran compiler flags to be appended to FCFLAGS when configuring the bundled
 libraries @<:@default=$ICON_FCFLAGS@:>@])dnl
@@ -502,6 +481,23 @@ ICON_BUNDLED_FCFLAGS=${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}
 ACX_FC_PP_SRCEXT([f90])
 ACX_COMPILER_FC_VENDOR_SIMPLE
 AC_SUBST([FC_VENDOR], [$acx_cv_fc_compiler_vendor])
+
+AS_VAR_IF([enable_intel_consistency], [auto],
+  [AS_VAR_IF([FC_VENDOR], [intel],
+     [AC_MSG_NOTICE([Intel compiler directives enforcing consistency are dnl
+enabled because $FC is recognized as the Intel Fortran compiler: disable dnl
+the directives if required (--disable-intel-consistency)])
+      enable_intel_consistency=yes],
+     [enable_intel_consistency=no])])
+
+AS_VAR_IF([enable_pgi_inlib], [auto],
+  [AS_VAR_IF([FC_VENDOR], [portland],
+     [AC_MSG_NOTICE([PGI/NVIDIA cross-file function inlining via an inline dnl
+library is enabled because $FC is recognized as the PGI/NVIDIA compiler: dnl
+disable the inlining if required (--disable-pgi-inlib)])
+      enable_pgi_inlib=yes],
+     [enable_pgi_inlib=no])])
+
 ACX_COMPILER_FC_VERSION_SIMPLE
 AC_SUBST([FC_VERSION], [$acx_cv_fc_compiler_version])
 
@@ -623,21 +619,15 @@ AS_VAR_IF([enable_testbed], [no],
 AS_VAR_IF([enable_loop_exchange], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
 
-AS_IF([test x"$enable_intel_consistency" = xauto && dnl
-test x"$acx_cv_fc_compiler_vendor" = xintel],
-  [AC_MSG_NOTICE([Intel compiler directives enforcing consistency are dnl
-enabled because $FC is recognized as the Intel Fortran compiler: disable dnl
-the directives if required (--disable-intel-consistency)])
-   enable_intel_consistency=yes])
-AS_VAR_IF([enable_intel_consistency], [yes],
-  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}IFORT_CONSISTENCY_ENFORCE"])])
-
 AS_VAR_IF([enable_vectorized_lrtm], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}LRTM_FULL_VECTORIZATION"])])
 
 AS_VAR_IF([enable_mixed_precision], [yes],
   [AS_VAR_APPEND([FCFLAGS],
      [" ${FC_PP_DEF}__MIXED_PRECISION"])])
+
+AS_VAR_IF([enable_intel_consistency], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}IFORT_CONSISTENCY_ENFORCE"])])
 
 ######################### C COMPILER COMMAND AND FLAGS #########################
 AC_LANG([C])
@@ -1128,11 +1118,13 @@ version of ECRAD library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
          [NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
-         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([single-precision])]],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([single-precision])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([pgi-inlib])]],
         [[CFLAGS="$subdir_CFLAGS $ICON_ECRAD_CFLAGS"],
          [FCFLAGS="$subdir_FCFLAGS $ICON_ECRAD_FCFLAGS"],
          [NETCDF_FCFLAGS=], [NETCDF_FCLIBS=],
-         [--enable-silent-rules="$enable_silent_rules"]])
+         [--enable-silent-rules="$enable_silent_rules"],
+         [--enable-pgi-inlib="$enable_pgi_inlib"]])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/ecrad/mod "])
       BUNDLED_LIBFILES="externals/ecrad/libifsaux.a $BUNDLED_LIBFILES"
       BUNDLED_LIBFILES="externals/ecrad/libutilities.a $BUNDLED_LIBFILES"
@@ -1262,13 +1254,27 @@ interface of YAXT library: either disable the YAXT data exchange dnl
 (--disable-cdi-pio) or use the bundled version of YAXT library dnl
 (--without-external-yaxt), or set FCFLAGS, LDFLAGS and LIBS accordingly])])])],
 dnl
-  [icon_bundled_yaxt_needed=no
+  [icon_bundled_yaxt_fc=no
+   icon_bundled_yaxt_c=no
    AS_IF(
      [test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes],
-     [icon_bundled_yaxt_needed=direct_fortran],
+     [icon_bundled_yaxt_fc=direct],
      [test x"$enable_coupling" = xyes && test x"$with_external_yac" = xno],
-     [icon_bundled_yaxt_needed=transitive_c])
-   AS_IF([test x"$icon_bundled_yaxt_needed" != xno],
+     [icon_bundled_yaxt_c=transitive])
+dnl Ensure consistency:
+   AS_CASE(["$icon_bundled_yaxt_fc"],
+dnl Promote icon_bundled_yaxt_c (if it's not higher yet) to transitive if we
+dnl need to link to the Fortran libraries (this is correct because we link
+dnl statically):
+     [direct|transitive],
+     [AS_IF([test x"$icon_bundled_yaxt_c" != xdirect],
+        [icon_bundled_yaxt_c=transitive])],
+dnl Promote icon_bundled_yaxt_c (if it's not higher yet) to dummy if we need the
+dnl Fortran interface:
+     [dummy],
+     [AS_VAR_IF([icon_bundled_yaxt_c], [no],
+        [icon_bundled_yaxt_c=dummy])])
+   AS_IF([test x"$icon_bundled_yaxt_c" != xno],
      [icon_subdir_srcdir="$srcdir/externals/yaxt"
       icon_subdir_unique_file="src/xt_idxlist.c"
       AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
@@ -1324,16 +1330,25 @@ dnl FC instead of CFLAGS and FCFLAGS. As a temporary solution we unset BUILD_CC
 dnl and BUILD_FC here (and hope that they will not be unexpectedly set anywhere
 dnl below) since it should not affect any other bundled libraries.
       AS_UNSET([BUILD_CC]); AS_UNSET([BUILD_FC])
-      AS_CASE(["$icon_bundled_yaxt_needed"],
-        [direct_fortran],
+      AS_CASE([$icon_bundled_yaxt_c],
+        [direct],
+        [dnl TODO: extend CPPFLAGS when this becomes a real case
+         AS_VAR_SET([BUNDLED_LIBFILES],
+           ["externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES"])],
+        [transitive],
+        [AS_VAR_SET([BUNDLED_LIBFILES],
+           ["externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES"])])
+      AS_CASE([$icon_bundled_yaxt_fc],
+        [direct],
         [AS_VAR_APPEND([bundled_includes],
            ["${FC_MOD_IN}externals/yaxt/inst_headers/f90 "])
-         BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a dnl
-externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES"],
-        [transitive_c],
-        [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yaxt], [[FC=no]])
-         BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt_c.a dnl
-$BUNDLED_LIBFILES"])])])
+         AS_VAR_SET([BUNDLED_LIBFILES],
+           ["externals/yaxt/src/.libs/libyaxt.a $BUNDLED_LIBFILES"])],
+        [transitive],
+        [AS_VAR_SET([BUNDLED_LIBFILES],
+           ["externals/yaxt/src/.libs/libyaxt.a $BUNDLED_LIBFILES"])],
+        [no],
+        [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yaxt], [[FC=no]])])])])
 
 AS_VAR_IF([enable_emvorado], [yes],
   [AC_CACHE_CHECK([whether the Fortran 90 interfaces of ECCODES library is dnl
@@ -1668,9 +1683,10 @@ version of YAC library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_YAC_CFLAGS=${ICON_YAC_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/yac],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*],
-         [MPI_CFLAGS=*|MPI_CLIBS=*|MPI_FCFLAGS=*|MPI_FCLIBS=*|YAXT_CFLAGS=*],
-         [YAXT_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*|XML2_CFLAGS=*],
-         [XML2_CLIBS=*|MTIME_CFLAGS=*|MTIME_CLIBS=*|FORTRAN_LAPACK_CLIBS=*],
+         [MPI_CFLAGS=*|MPI_CLIBS=*|MPI_FCFLAGS=*|MPI_FCLIBS=*],
+         [YAXT_CFLAGS=*|YAXT_CLIBS=*|YAXT_FCFLAGS=*|YAXT_FCLIBS=*],
+         [NETCDF_CFLAGS=*|NETCDF_CLIBS=*|XML2_CFLAGS=*|XML2_CLIBS=*],
+         [MTIME_CFLAGS=*|MTIME_CLIBS=*|FORTRAN_LAPACK_CLIBS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([lib-only])],
@@ -1680,8 +1696,8 @@ version of YAC library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
         [[CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS"],
          [FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS"],
          [MPI_CFLAGS=], [MPI_CLIBS=], [MPI_FCFLAGS=], [MPI_FCLIBS=],
-         [YAXT_CLIBS=], [NETCDF_CFLAGS=], [NETCDF_CLIBS=], [XML2_CFLAGS=],
-         [XML2_CLIBS=], [MTIME_CLIBS=], [FORTRAN_LAPACK_CLIBS=],
+         [YAXT_CLIBS=], [YAXT_FCLIBS=], [NETCDF_CFLAGS=], [NETCDF_CLIBS=],
+         [XML2_CFLAGS=], [XML2_CLIBS=], [MTIME_CLIBS=], [FORTRAN_LAPACK_CLIBS=],
          [--enable-silent-rules="$enable_silent_rules"],
          [--disable-maintainer-mode], [--enable-lib-only], [--enable-netcdf],
          [--with-external-lapack=fortran], [--with-external-mtime]])
@@ -1690,13 +1706,23 @@ version of YAC library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
            [[MPI_LAUNCH="$MPI_LAUNCH"]])])
       AS_VAR_IF([with_external_yaxt], [yes],
         [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yac],
-           [[YAXT_CFLAGS=]])],
+           [[YAXT_CFLAGS=], [YAXT_FCFLAGS=]])],
         [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yac],
            [[YAXT_CFLAGS=dnl
 "-I${icon_abs_top_builddir}/externals/yaxt/inst_headers"],
             [ac_cv_header_yaxt_h=yes],
             [acx_cv_c_lib_func_xt_initialized=dnl
-"${icon_abs_top_builddir}/externals/yaxt/src/.libs/libyaxt_c.a"]])])
+"${icon_abs_top_builddir}/externals/yaxt/src/.libs/libyaxt_c.a"]])
+         AS_IF([test x"${icon_bundled_yaxt_fc-no}" != xno],
+           [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yac],
+              [[YAXT_FCFLAGS=dnl
+"${FC_MOD_IN}${icon_abs_top_builddir}/externals/yaxt/inst_headers/f90"],
+               [acx_cv_fc_module_YAXT=yes],
+               [acx_cv_fc_lib_func_XT_INITIALIZED=dnl
+"${icon_abs_top_builddir}/externals/yaxt/src/.libs/libyaxt.a dnl
+${icon_abs_top_builddir}/externals/yaxt/src/.libs/libyaxt_c.a"]])],
+           [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yac],
+              [[YAXT_FCFLAGS=]])])])
       AS_VAR_IF([with_external_mtime], [yes],
         [ACX_CONFIG_SUBDIR_APPEND_ARGS([externals/yac],
            [[MTIME_CFLAGS=]])],
@@ -1855,8 +1881,8 @@ dnl Override the descriptions of the variables set by ACX_PROG_CLAW:
 AC_ARG_VAR([CLAW], [CLAW preprocessor command (optional)])dnl
 AC_ARG_VAR([CLAWFLAGS], [CLAW preprocessor flags (optional)])dnl
 dnl We currently support the old CLAW driver:
-AC_SUBST([CLAW_NEW_DRIVER_ENABLED], ['#'])
-AC_SUBST([CLAW_OLD_DRIVER_ENABLED], ['#'])
+CLAW_NEW_DRIVER_ENABLED='#'
+CLAW_OLD_DRIVER_ENABLED='#'
 dnl Additional macro definitions to aid the dependency generator,
 dnl e.g. CLAW intrinsic macros:
 AC_SUBST([DEPGEN_CLAWFLAGS], ['-D_CLAW'])
@@ -1963,6 +1989,59 @@ dnl We have checked this command earlier but put the declaration here so
 dnl it would be listed in the help message of the configure script at the very
 dnl end, together with other optional commands.
 AC_ARG_VAR([MPI_LAUNCH], [interactive MPI launcher command (optional)])dnl
+
+############################ MAKEFILE CONDITIONALS #############################
+
+AS_VAR_IF([enable_silent_rules], [yes],
+  [AC_SUBST([DEFAULT_VERBOSITY], [0])],
+  [AC_SUBST([DEFAULT_VERBOSITY], [1])])
+
+AS_VAR_IF([enable_jsbach], [yes],
+  [AC_SUBST([JSBACH_ENABLED], [''])],
+  [AC_SUBST([JSBACH_ENABLED], ['#'])])
+
+AS_VAR_IF([icon_dace_enabled_or_needed], [yes],
+  [AC_SUBST([DACE_ENABLED_OR_NEEDED], [''])],
+  [AC_SUBST([DACE_ENABLED_OR_NEEDED], ['#'])])
+
+AS_VAR_IF([enable_emvorado], [yes],
+  [AC_SUBST([EMVORADO_ENABLED], [''])],
+  [AC_SUBST([EMVORADO_ENABLED], ['#'])])
+
+AS_VAR_IF([enable_art], [yes],
+  [AC_SUBST([ART_ENABLED], [''])],
+  [AC_SUBST([ART_ENABLED], ['#'])])
+
+AS_VAR_IF([enable_mpi], [yes],
+  [AC_SUBST([MPI_ENABLED], [''])],
+  [AC_SUBST([MPI_ENABLED], ['#'])])
+
+AS_VAR_IF([enable_openmp], [yes],
+  [AC_SUBST([OPENMP_ENABLED], [''])],
+  [AC_SUBST([OPENMP_ENABLED], ['#'])])
+
+AS_VAR_IF([enable_gpu], [yes],
+  [AC_SUBST([GPU_ENABLED], [''])],
+  [AC_SUBST([GPU_ENABLED], ['#'])])
+
+AS_IF([test x"$enable_claw" != xno],
+  [AC_SUBST([CLAW_ENABLED], [''])],
+  [AC_SUBST([CLAW_ENABLED], ['#'])])
+
+AS_VAR_IF([enable_explicit_fpp], [yes],
+  [AC_SUBST([FPP_ENABLED], [''])],
+  [AC_SUBST([FPP_ENABLED], ['#'])])
+
+AS_IF([test x"$enable_serialization" != xno],
+  [AC_SUBST([SB2_ENABLED], [''])],
+  [AC_SUBST([SB2_ENABLED], ['#'])])
+
+AS_VAR_IF([enable_pgi_inlib], [yes],
+  [AC_SUBST([PGI_INLIB_ENABLED], [''])],
+  [AC_SUBST([PGI_INLIB_ENABLED], ['#'])])
+
+AC_SUBST([CLAW_NEW_DRIVER_ENABLED])
+AC_SUBST([CLAW_OLD_DRIVER_ENABLED])
 
 #################################### OUTPUT ####################################
 

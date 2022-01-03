@@ -29,13 +29,6 @@ MODULE mo_ocean_nudging
     & threshold_min_t, threshold_max_t, threshold_min_s, threshold_max_s, &
     & type_3dimrelax_temp, para_3dimrelax_temp,                           &
     & type_3dimrelax_salt, para_3dimrelax_salt!,                           &
- !   & iswm_oce,                 use_none,                                 &
- !   & flux_calculation_horz, flux_calculation_vert, miura_order1,         &
- !   & l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
- !   & GMRedi_configuration,GMRedi_combined,  GM_only,Redi_only ,          &
- !   & Cartesian_Mixing, tracer_threshold_min, tracer_threshold_max,       &
- !   & namelist_tracer_name, tracer_update_mode, use_none, nbgcadv,        &
- !   & GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,REDI_INDIVIDUAL_DIAGNOSTIC
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma
   USE mo_dynamics_config,           ONLY: nold, nnew
@@ -44,24 +37,8 @@ MODULE mo_ocean_nudging
   USE mo_ocean_nudging_types,       ONLY: t_ocean_nudge
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_exception,                 ONLY: finish !, message_text, message
-!  USE mo_ocean_boundcond,           ONLY: top_bound_cond_tracer
-!  USE mo_ocean_physics_types,       ONLY: t_ho_params
-!  USE mo_ocean_surface_types,       ONLY: t_ocean_surface
-!  USE mo_ocean_diffusion,           ONLY: tracer_diffusion_vertical_implicit, tracer_diffusion_vert_explicit,tracer_diffusion_horz
-!  USE mo_ocean_tracer_transport_horz, ONLY: advect_horz, diffuse_horz
-!  USE mo_ocean_tracer_transport_vert, ONLY: advect_flux_vertical
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
-!  USE mo_sync,                      ONLY: sync_c, sync_e, sync_patch_array
-!  USE mo_timer,                     ONLY: timer_start, timer_stop, timers_level, timer_dif_vert, timer_extra30
-!  USE mo_statistics,                ONLY: global_minmaxmean, print_value_location
-!  USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
-!  USE mo_ocean_GM_Redi,             ONLY: calc_ocean_physics, prepare_ocean_physics
-!  USE mo_ocean_math_operators,      ONLY: div_oce_3d, verticalDiv_scalar_onFullLevels! !verticalDiv_scalar_midlevel
-!  USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d_const_z
-!  USE mo_physical_constants,        ONLY: clw, rho_ref,sitodbar
-!  USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_potential_density
-!  USE mo_ocean_pp_scheme,           ONLY: calculate_rho4GMRedi
 
 
   IMPLICIT NONE

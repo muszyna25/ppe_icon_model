@@ -11,18 +11,23 @@ TEXT_RUN_OK="OK"
 #==============================================================================
 stop_on_error()
 {
-# Check if the first parameter (return status) is not OK
     echo STATUS_IN_FILE ${STATUS_IN_FILE}
-    if [[ $1 -ne 0 || ${STATUS_IN_FILE} -ne 0 ]] 
-    then
-      if [[ $1 -ne 0 ]] 
-      then
-        printf '%-50s : %s \n' $2 ${TEXT_RUN_FAILED} >> ../${LOOP_STATUS_FILE}
-        exit $1
-      else
-        printf '%-50s : %s\n' $2 ${TEXT_RUN_FAILED} >> ../${LOOP_STATUS_FILE}
-        exit ${STATUS_IN_FILE}
-      fi
+
+    # The first argument has priority if it is not 0:
+    if test "x$1" != x0; then _status=$1; else _status=${STATUS_IN_FILE}; fi
+
+    if test "x${_status}" = x0; then
+      # WARNING: cover the case when ${_status} is an empty string or a
+      # space-only string if you decide to refactor the condition above.
+      :
+    elif test 1 -le "$_status" 2>/dev/null && test 255 -ge "$_status" 2>/dev/null; then
+      # ${_status} is a valid exit code in range [1;255]:
+      printf '%-50s : %s \n' $2 ${TEXT_RUN_FAILED} >> ../${LOOP_STATUS_FILE}
+      exit ${_status}
+    else
+      # We avoid exiting with an invalid exit code (e.g. 256 or '')
+      printf '%-50s : %s \n' $2 ${TEXT_RUN_FAILED} >> ../${LOOP_STATUS_FILE}
+      exit 255
     fi
 
     printf '%-50s : %s\n' $2 ${TEXT_RUN_OK} >> ../${LOOP_STATUS_FILE}
@@ -32,18 +37,12 @@ stop_on_error()
 
 warning_on_error()
 {
-# Check if the first parameter (return status) is not OK
-    if [[ $1 -ne 0 || ${STATUS_IN_FILE} -ne 0 ]] 
-    then
-      if [[ $1 -ne 0 ]] 
-      then
-        printf '%-50s : %s \n' $2 ${TEXT_RUN_FAILED} >> ../${LOOP_STATUS_FILE}
-        echo "*********** WARNING: script failed  $1 ****************"
-      else
-        printf '%-50s : %s \n' $2 ${TEXT_RUN_FAILED} >> ../${LOOP_STATUS_FILE}
-        echo "*********** WARNING: script failed  ${STATUS_IN_FILE} ****************"
-      fi
-    else
+    # The first argument has priority if it is not 0:
+    if test "x$1" != x0; then _status=$1; else _status=${STATUS_IN_FILE}; fi
+
+    if test "x${_status}" = x0; then
+      # WARNING: cover the case when ${_status} is an empty string or a
+      # space-only string if you decide to refactor the condition above.
       printf '%-50s : %s\n' $2 ${TEXT_RUN_OK} >> ../${LOOP_STATUS_FILE}
       if [ "${build_post_file}" == "true" ]
       then
@@ -57,6 +56,9 @@ warning_on_error()
           echo "${RUN_POST_COMP}" > ./run_post_comp_list
         fi
       fi
+    else
+      printf '%-50s : %s \n' $2 ${TEXT_RUN_FAILED} >> ../${LOOP_STATUS_FILE}
+      echo "*********** WARNING: script failed  ${_status} ****************"
     fi
 }
 
@@ -165,6 +167,13 @@ run_scripts_submit()
 
     if [ -r $EXP_FILE ]
     then 
+        if [[ "other" = "${batch_system}" ]]
+        then
+          # we assume there is not batch system at all, hence LOG files must be
+          # created manually so that buildbot can find them
+          run_command="${run_command} > LOG.${EXP_FILE}.o 2>&1"
+        fi
+
         echo "---------------------------------------------------------"
         echo " Submit new Script: ${EXP_FILE} at $(date)"
         echo " $run_command "

@@ -46,6 +46,7 @@ MODULE mo_master_config
     INTEGER :: model_min_rank
     INTEGER :: model_max_rank
     INTEGER :: model_inc_rank
+    INTEGER :: model_rank_group_size
   END TYPE t_master_component_model_config
 
   INTEGER, PARAMETER :: maxNoOfModels = 16

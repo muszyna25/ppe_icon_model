@@ -247,6 +247,7 @@ add_component_to_master_namelist()
     model_min_rank=$4
     model_max_rank=$5
     model_inc_rank=$6
+    model_rank_group_size=$7
     cat >> $master_namelist << EOF
 &master_model_nml
   model_name="$model_name"
@@ -255,6 +256,7 @@ add_component_to_master_namelist()
   model_min_rank=$model_min_rank
   model_max_rank=$model_max_rank
   model_inc_rank=$model_inc_rank
+  model_rank_group_size=$model_rank_group_size
 /
 EOF
   fi
@@ -274,10 +276,11 @@ EOF
 no_of_models=${#namelist_list[*]}
 echo "no_of_models=$no_of_models"
 
+rank_group_size=1
 j=0
 while [ $j -lt ${no_of_models} ]
 do
-  add_component_to_master_namelist "${namelist_list[$j]}" "${modelname_list[$j]}" ${modeltype_list[$j]} ${minrank_list[$j]} ${maxrank_list[$j]} ${incrank_list[$j]}
+  add_component_to_master_namelist "${namelist_list[$j]}" "${modelname_list[$j]}" ${modeltype_list[$j]} ${minrank_list[$j]} ${maxrank_list[$j]} ${incrank_list[$j]} ${rank_group_size}
   j=`expr ${j} + 1`
 done
 
@@ -346,7 +349,7 @@ fi
 ls -l ${MODEL}
 check_error $? "${MODEL} does not exist?"
 #
-ldd -v ${MODEL}
+ldd ${MODEL}
 #
 #-----------------------------------------------------------------------------
 #

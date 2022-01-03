@@ -9,21 +9,16 @@
 !! measurements, OA research)
 !! Constant parameter values can be found in mo_bgc_constants.f90
 !!
-#include "hamocc_omp_definitions.inc"
 
 MODULE mo_chemcon
 
 
   USE mo_kind, ONLY        : wp
-  USE mo_memory_bgc, ONLY      : akb3, akw3, ak13, ak23, aksp, &
-       &                     satn2o, satoxy, satn2, solco2,&
-       &                     aksurf,aks3,akf3,ak1p3,ak2p3,&
-       &                     ak3p3,aksi3,rrrcl
-  USE mo_sedmnt, ONLY      : calcon
   USE mo_control_bgc, ONLY : bgc_nproma, bgc_zlevs
   USE mo_hamocc_nml, ONLY  : l_limit_sal
 
   USE mo_bgc_constants
+  USE mo_bgc_memory_types, ONLY  : t_bgc_memory
 
   IMPLICIT NONE
 
@@ -35,13 +30,14 @@ MODULE mo_chemcon
 CONTAINS
 
 
-SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
+SUBROUTINE CHEMCON (local_bgc_mem, start_idx, end_idx, klevs, psao, ptho,  &
      &               pddpo, ptiestu, kldtday)
 
   
   IMPLICIT NONE
 
   !! Arguments
+  TYPE(t_bgc_memory), POINTER :: local_bgc_mem
 
   INTEGER, INTENT(in)  :: start_idx            !< start index for j loop (ICON cells, MPIOM lat dir)  
   INTEGER, INTENT(in)  :: end_idx              !< end index  for j loop  (ICON cells, MPIOM lat dir) 
@@ -70,27 +66,17 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
   !             ([CA++](MOLES/KG)=1.026E-2*(S/35.) AFTER
   !             CULKIN(1965), CF. BROECKER ET AL. 1982)
   !             ------------- --- -------- -- --- -----
-  !
-  calcon = 1.03e-2_wp
-
-
-
-
-  rrrcl = salchl * 1.025_wp * bor1 * bor2
+  ! Done in mo_ini_bgc, this routine assigns local-memory only
+!   
+!   calcon = 1.03e-2_wp
+!   rrrcl = salchl * 1.025_wp * bor1 * bor2
 
   !
   !     -----------------------------------------------------------------
   !*        21. CHEMICAL CONSTANTS - SEA SURFACE
   !             --------------------------------
   !
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(jc,T,log_t,ti,q,log_q,qi,q2,s,sqrt_s,&
-!HAMOCC_OMP            cek0,ak0,oxy,ani,ck1,ck2,ckb,ckw,ak1,ak2,&
-!HAMOCC_OMP            akw,akb, pis, pis2,aksi,cksi,aks,cks,akf,ckf,&
-!HAMOCC_OMP            ck1p,ck2p,ck3p,ak1p,ak2p,ak3p,rs, sti, fti, s2,&
-!HAMOCC_OMP            total2free_0p, free2SWS_0p, total2SWS_0p, SWS2total,&
-!HAMOCC_OMP            tt,ts,ts2,ts3,ts4,ts5,lnkpk0,tc) HAMOCC_OMP_DEFAULT_SCHEDULE
-
+ 
  DO jc = start_idx, end_idx
 
        IF (pddpo(jc, 1) > 0.5_wp) THEN           ! wet cell
@@ -127,7 +113,7 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
 
               cek0 = c00*ti + c01 + c02 * LOG_q + s * (c03 + c04*t + c05*q2)
               AK0 = EXP(CEK0)*SMICR
-              solco2(jc) = AK0
+              local_bgc_mem%solco2(jc) = AK0
               
 
               pis = 19.924_wp * s / ( 1000._wp - 1.005_wp * s )
@@ -210,7 +196,7 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
               rs = a1 + a2 * (100._wp *ti) + a3 * LOG(t*0.01_wp) &
              &    + a4*(t*0.01_wp)**2 + s * ( b1 +b2*(t*0.01_wp) + b3*(t*0.01_wp)**2)
 
-              satn2o(jc) = atn2o*EXP(rs)
+              local_bgc_mem%satn2o(jc) = atn2o*EXP(rs)
               !
               !      O2 OXYGEN, SEA SURFACE
               ! Garcia & Gordon, 1992, EQ. 8, p 1310
@@ -237,7 +223,7 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
 
 
               ! satoxy is a 3d-field
-              satoxy(jc,1) = EXP(OXY)*OXYCO
+              local_bgc_mem%satoxy(jc,1) = EXP(OXY)*OXYCO
 
 
               !      N2 DINITROGEN, SEA SURFACE
@@ -246,7 +232,7 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
 
               ani = an0 + an1 * qi + an2 * log_q + an3 * q &
                   + s * (an4 + an5 * q + an6 * q2)
-              satn2(jc)  = EXP(ANI)*OXYCO
+              local_bgc_mem%satn2(jc)  = EXP(ANI)*OXYCO
 
               !
               !
@@ -304,37 +290,29 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
 
               !*       21.11 STORE CHEMICAL CONSTANTS AT SEA SURFACE
               !              pressure independent
-               aksurf(jc,1) = ak1
-               aksurf(jc,2) = ak2
-               aksurf(jc,3) = akb
-               aksurf(jc,4) = AKW * SWS2total
-               aksurf(jc,5) = aksi * SWS2total
-               aksurf(jc,6) = akf ! already at total scale
-               aksurf(jc,7) = aks !  here free=total scale
-               aksurf(jc,8) = ak1p * SWS2total
-               aksurf(jc,9) = ak2p * SWS2total
-               aksurf(jc,10) = ak3p * SWS2total
+               local_bgc_mem%aksurf(jc,1) = ak1
+               local_bgc_mem%aksurf(jc,2) = ak2
+               local_bgc_mem%aksurf(jc,3) = akb
+               local_bgc_mem%aksurf(jc,4) = AKW * SWS2total
+               local_bgc_mem%aksurf(jc,5) = aksi * SWS2total
+               local_bgc_mem%aksurf(jc,6) = akf ! already at total scale
+               local_bgc_mem%aksurf(jc,7) = aks !  here free=total scale
+               local_bgc_mem%aksurf(jc,8) = ak1p * SWS2total
+               local_bgc_mem%aksurf(jc,9) = ak2p * SWS2total
+               local_bgc_mem%aksurf(jc,10) = ak3p * SWS2total
 
            ENDIF
 
      END DO
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+
+
   !
   !     -----------------------------------------------------------------
   !*        22. CHEMICAL CONSTANTS - DEEP OCEAN
   !     ----------------------------------------------------------------
 
   IF ( kldtday == 1 ) THEN
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(jc,kpke,p,t,ti,log_t,q,log_q,qi,s,sqrt_s,&
-!HAMOCC_OMP            oxy,ck1,ck2,ckb,ak1,ak2,akb,akw,cp,tc,&
-!HAMOCC_OMP            log10ksp,aksp0,ckw,s2,tt,ts,ts2,ts3,ts4,ts5,&
-!HAMOCC_OMP            pis,pis2,cksi,aksi,cks,aks,ckf,akf,&
-!HAMOCC_OMP            ck1p,ck2p,ck3p,ak1p,ak2p,ak3p,deltav,deltak,&
-!HAMOCC_OMP            lnkpk0,sti,fti, total2free_0p,free2SWS_0p,total2SWS_0p,&
-!HAMOCC_OMP             total2free,free2SWS, total2SWS, SWS2total) HAMOCC_OMP_DEFAULT_SCHEDULE
-
+ 
      !
      !*     22.1 APPROX. SEAWATER PRESSURE AT U-POINT DEPTH (BAR)
      !  ----------------------------------------------------------------
@@ -391,7 +369,7 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
                + oxyc0*(s*s)
 
 
-           if (k > 1) satoxy(jc,k) = EXP(oxy) * oxyco
+           if (k > 1) local_bgc_mem%satoxy(jc,k) = EXP(oxy) * oxyco
 
            !
            !*    22.5 PK1, PK2 OF CARBONIC ACID, PKB OF BORIC ACID, PKW OF WATER
@@ -585,25 +563,25 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
 
           ! Conversion to total scale and move to 3D var
 
-           AKS3(JC,K)  = AKS ! here free=total scale
-           AKF3(JC,K)  = AKF ! Already at total scale  
-           AK1P3(JC,K) = AK1P * SWS2total
-           AK2P3(JC,K) = AK2P * SWS2total
-           AK3P3(JC,K) = AK3P * SWS2total
-           AKSI3(JC,K) = AKSI * SWS2total 
-           AK13(JC,K)  = AK1  * SWS2total
-           AK23(JC,K)  = AK2  * SWS2total
-           AKB3(JC,K) = AKB  * SWS2total
-           AKW3(JC,K) = AKW  * SWS2total
-           AKSP(JC,K) = AKSP0  ! independent
+           local_bgc_mem%aks3(jc,k)  = aks ! here free=total scale
+           local_bgc_mem%akf3(jc,k)  = akf ! already at total scale  
+           local_bgc_mem%ak1p3(jc,k) = ak1p * sws2total
+           local_bgc_mem%ak2p3(jc,k) = ak2p * sws2total
+           local_bgc_mem%ak3p3(jc,k) = ak3p * sws2total
+           local_bgc_mem%aksi3(jc,k) = aksi * sws2total 
+           local_bgc_mem%ak13(jc,k)  = ak1  * sws2total
+           local_bgc_mem%ak23(jc,k)  = ak2  * sws2total
+           local_bgc_mem%akb3(jc,k) = akb  * sws2total
+           local_bgc_mem%akw3(jc,k) = akw  * sws2total
+           local_bgc_mem%aksp(jc,k) = aksp0  ! independent
 
 
           END IF
           END IF
         END DO
   END DO
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+
+
 
   ENDIF  ! kldtay == 1
 

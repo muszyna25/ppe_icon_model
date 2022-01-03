@@ -67,7 +67,9 @@ MODULE mo_interface_iconam_echam
   USE mo_kind                  ,ONLY: wp, vp
   USE mo_exception             ,ONLY: warning, finish, print_value
 
+#ifdef YAC_coupling
   USE mo_coupling_config       ,ONLY: is_coupled_run
+#endif
   USE mo_parallel_config       ,ONLY: nproma
   USE mo_advection_config      ,ONLY: advection_config
   USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
@@ -96,7 +98,9 @@ MODULE mo_interface_iconam_echam
     &                                 t_echam_phy_tend , prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
+#ifdef YAC_coupling
   USE mo_echam_coupling        ,ONLY: interface_echam_ocean
+#endif
   
 #ifndef __NO_JSBACH__
   USE mo_jsb_interface         ,ONLY: jsbach_start_timestep, jsbach_finish_timestep
@@ -757,6 +761,7 @@ CONTAINS
     ! (5) Couple to ocean surface if an ocean is present and this is a coupling time step.
     !
     !
+#ifdef YAC_coupling
     IF ( is_coupled_run() ) THEN
 #if defined( _OPENACC )
       CALL warning('GPU:interface_echam_ocean','GPU host synchronization should be removed when port is done!')
@@ -776,6 +781,7 @@ CONTAINS
       CALL gpu_update_var_list('prm_tend_D', .true., jg)
 #endif
     END IF
+#endif
     !
     !=====================================================================================
 
@@ -1065,6 +1071,7 @@ IF (lart) jt_end = advection_config(jg)%nname
           field% mairvi(jc,jb) = 0.0_wp
           field% mdryvi(jc,jb) = 0.0_wp
           field% mrefvi(jc,jb) = 0.0_wp
+          field% cptgzvi(jc,jb) = 0.0_wp
         END DO
         !$ACC END PARALLEL
         !
@@ -1122,6 +1129,10 @@ IF (lart) jt_end = advection_config(jg)%nname
             ! reference air path
             field% mrefvi(jc,   jb) = field% mrefvi(jc,   jb) &
               &                      +field% mref  (jc,jk,jb)
+            !
+            ! reference air path
+            field% cptgzvi(jc,  jb) = field% cptgzvi(jc,   jb) &
+              &                      +(field%cptgz(jc,jk,jb)*field%rho(jc,jk,jb)*field%dz(jc,jk,jb))
             !
           END DO
         END DO

@@ -151,7 +151,7 @@ MODULE mo_timer
   PUBLIC :: timer_model_init, timer_init_latbc
   PUBLIC :: timer_init_nwp_phy
   PUBLIC :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
-  PUBLIC :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc
+  PUBLIC :: timer_solve_ab, timer_tracer_ab, timer_bgc_tracer_ab, timer_vert_veloc, timer_normal_veloc
   PUBLIC :: timer_upd_phys, timer_upd_flx, timer_calc_moc
   PUBLIC :: timer_ab_expl, timer_ab_rhs4sfc
   PUBLIC :: timer_dif_horz, timer_hflx_lim
@@ -192,7 +192,7 @@ MODULE mo_timer
        &    timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
        &    timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
        &    timer_bgc_tend,timer_bgc_ini, timer_bgc_inv, timer_bgc_tot, &
-       &    timer_exchange_ocean_hamocc
+       &    timer_exchange_ocean_hamocc,timer_bgc_agg
 
   ! restart timers
   PUBLIC :: timer_load_restart
@@ -366,7 +366,7 @@ MODULE mo_timer
   INTEGER :: timer_model_init, timer_init_latbc
   INTEGER :: timer_init_nwp_phy
   INTEGER :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
-  INTEGER :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc
+  INTEGER :: timer_solve_ab, timer_tracer_ab, timer_bgc_tracer_ab, timer_vert_veloc, timer_normal_veloc
   INTEGER :: timer_upd_phys, timer_upd_flx, timer_calc_moc
   INTEGER :: timer_ab_expl, timer_ab_rhs4sfc
   INTEGER :: timer_dif_horz, timer_hflx_lim
@@ -408,7 +408,7 @@ MODULE mo_timer
        &     timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
        &     timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
        &     timer_bgc_tend, timer_bgc_ini, timer_bgc_inv, timer_bgc_tot, &
-       &     timer_exchange_ocean_hamocc
+       &     timer_exchange_ocean_hamocc,timer_bgc_agg
 
   ! restart timers
   INTEGER :: timer_load_restart
@@ -759,6 +759,7 @@ CONTAINS
     timer_ab_expl       = new_timer("ab_expl")
     timer_ab_rhs4sfc    = new_timer("ab_rhs4sfc")
     timer_tracer_ab     = new_timer("tracer_ab")
+    timer_bgc_tracer_ab     = new_timer("bgc_tracer_ab")
     timer_dif_horz      = new_timer("dif_horiz")
     timer_hflx_lim      = new_timer("hflx_lim")
     timer_dif_vert      = new_timer("dif_vert")
@@ -814,6 +815,7 @@ CONTAINS
     timer_bgc_chemcon = new_timer("hamocc_chemcon")
     timer_bgc_ocprod  = new_timer("hamocc_ocprod")
     timer_bgc_sett    = new_timer("hamocc_settling") 
+    timer_bgc_agg     = new_timer("hamocc_aggregates")    
     timer_bgc_cya     = new_timer("hamocc_cyanos")
     timer_bgc_gx      = new_timer("hamocc_gas_ex") 
     timer_bgc_calc    = new_timer("hamocc_calc_dissol")

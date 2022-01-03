@@ -1,4 +1,4 @@
-#include "hamocc_omp_definitions.inc"     
+      
 #include "icon_definitions.inc" 
    MODULE mo_hamocc_ocean_physics
 
@@ -9,7 +9,7 @@
     USE mo_model_domain,                 ONLY: t_patch_3D, t_patch
     USE mo_grid_subset,                  ONLY: get_index_range, t_subset_range
     USE mo_timer,                        ONLY: timer_start, timer_stop, &
-    &                                          timer_tracer_ab, timer_bgc_tot,&
+    &                                          timer_bgc_tracer_ab, timer_bgc_tot,&
     &                                          timers_level
     USE mo_ocean_tracer,                 ONLY: advect_ocean_tracers
 !    USE mo_ocean_tracer_GMRedi,          ONLY: advect_ocean_tracers_GMRedi
@@ -105,9 +105,10 @@
         old_tracer_collection%tracer(i)%ver_diffusion_coeff => ocean_to_hamocc_state%ver_diffusion_coeff
     ENDDO
 
-    start_timer(timer_tracer_ab,1)
+    start_timer(timer_bgc_tracer_ab,1)
     hamocc_state_prog => hamocc_state%p_prog(nnew(1))
 
+    
     IF (GMRedi_configuration == Cartesian_Mixing) THEN
       CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
     ELSE
@@ -119,7 +120,7 @@
       ENDIF
     ENDIF
     
-     stop_timer(timer_tracer_ab,1)
+     stop_timer(timer_bgc_tracer_ab,1)
 
     IF (l_bgc_check) THEN
       CALL message('4. after transport', 'inventories', io_stdo_bgc)

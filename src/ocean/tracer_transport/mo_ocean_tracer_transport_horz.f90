@@ -454,11 +454,11 @@ CONTAINS
     REAL(wp), INTENT(inout)             :: edge_upwind_flux(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)   !< variable in which the upwind flux is stored
     INTEGER, INTENT(in), OPTIONAL :: opt_start_level    ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_end_level    ! optional vertical end level
+
     ! local variables
-    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc  ! pointer to line and block indices
     INTEGER :: start_level, end_level
     INTEGER :: start_index, end_index
-    INTEGER :: edge_index, level, blockNo         !< index of edge, vert level, block
+    INTEGER :: edge_index, level, blockNo, idx1, blk1, idx2, blk2         !< index of edge, vert level, block
     TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_patch), POINTER :: patch_2d
     !-----------------------------------------------------------------------
@@ -483,46 +483,57 @@ CONTAINS
     ! for no-slip boundary conditions, boundary treatment for tracer (zero at lateral walls)
     !is implicit done via velocity boundary conditions
     !
-!ICON_OMP_PARALLEL PRIVATE(iilc, iibc)
-    ! line and block indices of two neighboring cells
-    iilc => patch_2d%edges%cell_idx
-    iibc => patch_2d%edges%cell_blk
-    
+
     ! loop through all patch edges (and blocks)
-!ICON_OMP_DO PRIVATE(start_index, end_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, edge_index, level, idx1, blk1, idx2, blk2) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
-      edge_upwind_flux(:,:,blockNo) = 0.0_wp
 #ifdef __LVECTOR__
       DO level = start_level, MAXVAL(patch_3d%p_patch_1d(1)%dolic_e(start_index:end_index,blockNo))
         DO edge_index = start_index, end_index
           IF (patch_3d%p_patch_1d(1)%dolic_e(edge_index,blockNo) < level) CYCLE
+          idx1 = patch_2d%edges%cell_idx(edge_index,blockNo,1)
+          blk1 = patch_2d%edges%cell_blk(edge_index,blockNo,1)
+          idx2 = patch_2d%edges%cell_idx(edge_index,blockNo,2)
+          blk2 = patch_2d%edges%cell_blk(edge_index,blockNo,2)            
 #else     
       DO edge_index = start_index, end_index
+        idx1 = patch_2d%edges%cell_idx(edge_index,blockNo,1)
+        blk1 = patch_2d%edges%cell_blk(edge_index,blockNo,1)
+        idx2 = patch_2d%edges%cell_idx(edge_index,blockNo,2)
+        blk2 = patch_2d%edges%cell_blk(edge_index,blockNo,2)
         DO level = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_e(edge_index,blockNo), end_level)
 #endif
-          !
+
           ! compute the first order upwind flux; notice
           ! that multiplication by edge length is avoided to
           ! compute final conservative update using the discrete
           ! div operator
           edge_upwind_flux(edge_index,level,blockNo) =  &
              0.5_wp * (        edge_vn(edge_index,level,blockNo)  *           &
-               & ( cell_value(iilc(edge_index,blockNo,1),level,iibc(edge_index,blockNo,1)) + &
-               &   cell_value(iilc(edge_index,blockNo,2),level,iibc(edge_index,blockNo,2)) ) &
+               & ( cell_value(idx1,level,blk1) + &
+               &   cell_value(idx2,level,blk2) ) &
                &   - ABS( edge_vn(edge_index,level,blockNo) ) *               &
-               & ( cell_value(iilc(edge_index,blockNo,2),level,iibc(edge_index,blockNo,2)) - &
-               &   cell_value(iilc(edge_index,blockNo,1),level,iibc(edge_index,blockNo,1)) ) )
+               & ( cell_value(idx2,level,blk2) - &
+               &   cell_value(idx1,level,blk1) ) )
+               
+!           IF ( edge_vn(edge_index,level,blockNo) >= 0.0_wp) THEN
+!             edge_upwind_flux(edge_index,level,blockNo) = &
+!               & edge_vn(edge_index,level,blockNo) * cell_value(idx1,level,blk1)
+!           ELSE
+!             edge_upwind_flux(edge_index,level,blockNo) = &
+!               & edge_vn(edge_index,level,blockNo) * cell_value(idx2,level,blk2)
+!           ENDIF
+          
            ! inlined above
 !          FUNCTION laxfr_upflux( p_vn, p_psi1, p_psi2 )  result(p_upflux)
 !             & laxfr_upflux( edge_vn(edge_index,level,blockNo), cell_value(iilc(edge_index,blockNo,1),level,iibc(edge_index,blockNo,1)), &
 !             & cell_value(iilc(edge_index,blockNo,2),level,iibc(edge_index,blockNo,2)) )
           
-        END DO  ! end loop over edges
+        ENDDO       
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
-!ICON_OMP_END_DO NOWAIT
-!ICON_OMP_END_PARALLEL
+!ICON_OMP_END_PARALLEL_DO
     
   END SUBROUTINE upwind_hflux_oce
   !-----------------------------------------------------------------------

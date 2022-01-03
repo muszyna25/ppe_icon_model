@@ -584,14 +584,26 @@ PACKAGE_URL=''
 ac_unique_file="src/drivers/icon.f90"
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+CLAW_OLD_DRIVER_ENABLED
+CLAW_NEW_DRIVER_ENABLED
+PGI_INLIB_ENABLED
+SB2_ENABLED
+FPP_ENABLED
+CLAW_ENABLED
+GPU_ENABLED
+OPENMP_ENABLED
+MPI_ENABLED
+ART_ENABLED
+EMVORADO_ENABLED
+DACE_ENABLED_OR_NEEDED
+JSBACH_ENABLED
+DEFAULT_VERBOSITY
 MPI_LAUNCH
 SB2PP
 FPP
 CLAW_MOD_IN
 CLAW_MOD_OUT
 DEPGEN_CLAWFLAGS
-CLAW_OLD_DRIVER_ENABLED
-CLAW_NEW_DRIVER_ENABLED
 CLAWFLAGS
 CLAW
 PERL
@@ -644,6 +656,7 @@ FC_VERSION
 FC_VENDOR
 FCFLAGS_f90
 ICON_BUNDLED_FCFLAGS
+ICON_DACE_FCFLAGS
 ICON_OCEAN_FCFLAGS
 ICON_LDFLAGS
 ICON_FCFLAGS
@@ -664,17 +677,6 @@ build_cpu
 build
 BUILD_ENV_MAKE
 BUILD_ENV
-SB2_ENABLED
-FPP_ENABLED
-CLAW_ENABLED
-GPU_ENABLED
-OPENMP_ENABLED
-MPI_ENABLED
-ART_ENABLED
-EMVORADO_ENABLED
-DACE_ENABLED_OR_NEEDED
-JSBACH_ENABLED
-DEFAULT_VERBOSITY
 target_alias
 host_alias
 build_alias
@@ -746,9 +748,10 @@ enable_serialization
 enable_testbed
 enable_memory_tracing
 enable_loop_exchange
-enable_intel_consistency
 enable_vectorized_lrtm
 enable_mixed_precision
+enable_intel_consistency
+enable_pgi_inlib
 with_external_ecrad
 with_external_rte_rrtmgp
 with_external_sct
@@ -770,6 +773,7 @@ LIBS
 ICON_FCFLAGS
 ICON_LDFLAGS
 ICON_OCEAN_FCFLAGS
+ICON_DACE_FCFLAGS
 ICON_BUNDLED_FCFLAGS
 CC
 CFLAGS
@@ -1485,14 +1489,16 @@ Infrastructural Features:
 
 Optimization Features:
   --enable-loop-exchange  enable loop exchange [default=yes]
-  --enable-intel-consistency
-                          enable Intel compiler directives enforcing
-                          consistency [default=auto]
   --enable-vectorized-lrtm
                           enable the parallelization-invariant version of LRTM
                           [default=no]
   --enable-mixed-precision
                           enable mixed precision dycore [default=no]
+  --enable-intel-consistency
+                          enable Intel compiler directives enforcing
+                          consistency [default=auto]
+  --enable-pgi-inlib      enable PGI/NVIDIA cross-file function inlining via
+                          an inline library [default=no]
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1527,6 +1533,10 @@ Some influential environment variables:
               Fortran compiler flags to be appended to FCFLAGS instead of
               ICON_FCFLAGS when compiling the ocean component of ICON
               [default=$ICON_FCFLAGS]
+  ICON_DACE_FCFLAGS
+              Fortran compiler flags to be appended to FCFLAGS instead of
+              ICON_FCFLAGS when compiling the DACE modules for data
+              assimilation [default=$ICON_FCFLAGS]
   ICON_BUNDLED_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when
               configuring the bundled libraries [default=$ICON_FCFLAGS]
@@ -2638,6 +2648,16 @@ else
 fi
 
 
+if test "x$enable_explicit_fpp" = xauto; then :
+  if test x"$enable_serialization" != xno; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: explicit Fortran preprocessing is enabled because the Serialbox2 serialization is requested: disable the explicit preprocessing if required (--disable-explicit-fpp)" >&5
+$as_echo "$as_me: explicit Fortran preprocessing is enabled because the Serialbox2 serialization is requested: disable the explicit preprocessing if required (--disable-explicit-fpp)" >&6;}
+      enable_explicit_fpp=yes
+else
+  enable_explicit_fpp=no
+fi
+fi
+
 # Check whether --enable-testbed was given.
 if test "${enable_testbed+set}" = set; then :
   enableval=$enable_testbed; if test x"$enableval" != xno; then :
@@ -2675,16 +2695,6 @@ else
 fi
 
 
-# Check whether --enable-intel-consistency was given.
-if test "${enable_intel_consistency+set}" = set; then :
-  enableval=$enable_intel_consistency; if test x"$enableval" != xno && test x"$enableval" != xauto; then :
-  enable_intel_consistency=yes
-fi
-else
-  enable_intel_consistency=auto
-fi
-
-
 # Check whether --enable-vectorized-lrtm was given.
 if test "${enable_vectorized_lrtm+set}" = set; then :
   enableval=$enable_vectorized_lrtm; if test x"$enableval" != xno; then :
@@ -2702,6 +2712,26 @@ if test "${enable_mixed_precision+set}" = set; then :
 fi
 else
   enable_mixed_precision=no
+fi
+
+
+# Check whether --enable-intel-consistency was given.
+if test "${enable_intel_consistency+set}" = set; then :
+  enableval=$enable_intel_consistency; if test x"$enableval" != xno && test x"$enableval" != xauto; then :
+  enable_intel_consistency=yes
+fi
+else
+  enable_intel_consistency=auto
+fi
+
+
+# Check whether --enable-pgi-inlib was given.
+if test "${enable_pgi_inlib+set}" = set; then :
+  enableval=$enable_pgi_inlib; if test x"$enableval" != xno && test x"$enableval" != xauto; then :
+  enable_pgi_inlib=yes
+fi
+else
+  enable_pgi_inlib=no
 fi
 
 
@@ -2805,15 +2835,7 @@ else
 fi
 
 
-############################ MAKEFILE CONDITIONALS #############################
-
-if test "x$enable_silent_rules" = xyes; then :
-  DEFAULT_VERBOSITY=0
-
-else
-  DEFAULT_VERBOSITY=1
-
-fi
+############################# CODEBASE EXTENSIONS ##############################
 
 if test "x$enable_jsbach" = xyes; then :
   icon_subdir_srcdir="$srcdir/externals/jsbach"
@@ -2821,11 +2843,6 @@ if test "x$enable_jsbach" = xyes; then :
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the land component JSBACH ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-jsbach)" "$LINENO" 5
 fi
-   JSBACH_ENABLED=''
-
-else
-  JSBACH_ENABLED='#'
-
 fi
 
 icon_dace_enabled_or_needed=no
@@ -2839,11 +2856,6 @@ if test "x$icon_dace_enabled_or_needed" = xyes; then :
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the DACE modules for data assimilation ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the modules (--disable-dace) and the radar forward operator EMVORADO (--disable-emvorado)" "$LINENO" 5
 fi
-   DACE_ENABLED_OR_NEEDED=''
-
-else
-  DACE_ENABLED_OR_NEEDED='#'
-
 fi
 
 if test "x$enable_emvorado" = xyes; then :
@@ -2852,11 +2864,6 @@ if test "x$enable_emvorado" = xyes; then :
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the radar forward operator EMVORADO ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the operator (--disable-emvorado)" "$LINENO" 5
 fi
-   EMVORADO_ENABLED=''
-
-else
-  EMVORADO_ENABLED='#'
-
 fi
 
 if test "x$enable_art" = xyes; then :
@@ -2865,64 +2872,6 @@ if test "x$enable_art" = xyes; then :
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the aerosols and reactive trace component ART ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-art)" "$LINENO" 5
 fi
-   ART_ENABLED=''
-
-else
-  ART_ENABLED='#'
-
-fi
-
-if test "x$enable_mpi" = xyes; then :
-  MPI_ENABLED=''
-
-else
-  MPI_ENABLED='#'
-
-fi
-
-if test "x$enable_openmp" = xyes; then :
-  OPENMP_ENABLED=''
-
-else
-  OPENMP_ENABLED='#'
-
-fi
-
-if test "x$enable_gpu" = xyes; then :
-  GPU_ENABLED=''
-
-else
-  GPU_ENABLED='#'
-
-fi
-
-if test x"$enable_claw" != xno; then :
-  CLAW_ENABLED=''
-
-else
-  CLAW_ENABLED='#'
-
-fi
-
-if test x"$enable_explicit_fpp" = xauto && test x"$enable_serialization" != xno; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: explicit Fortran preprocessing is enabled because the Serialbox2 serialization is requested: disable the explicit preprocessing if required (--disable-explicit-fpp)" >&5
-$as_echo "$as_me: explicit Fortran preprocessing is enabled because the Serialbox2 serialization is requested: disable the explicit preprocessing if required (--disable-explicit-fpp)" >&6;}
-   enable_explicit_fpp=yes
-fi
-if test "x$enable_explicit_fpp" = xyes; then :
-  FPP_ENABLED=''
-
-else
-  FPP_ENABLED='#'
-
-fi
-
-if test x"$enable_serialization" != xno; then :
-  SB2_ENABLED=''
-
-else
-  SB2_ENABLED='#'
-
 fi
 
 ############################## ENVIRONMENT CHECKS ##############################
@@ -3528,6 +3477,7 @@ ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
 
 ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
+ICON_DACE_FCFLAGS=${ICON_DACE_FCFLAGS-$ICON_FCFLAGS}
 ICON_BUNDLED_FCFLAGS=${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}
 
 
@@ -3607,7 +3557,7 @@ $as_echo_n "checking for Fortran compiler vendor... " >&6; }
 if ${acx_cv_fc_compiler_vendor+:} false; then :
   $as_echo_n "(cached) " >&6
 else
-  if $FC --version 2>/dev/null | grep '^ifort (IFORT)' >/dev/null 2>&1; then :
+  if $FC --version 2>/dev/null | grep '^\(ifort\|ifx\) (IFORT)' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=intel
 elif $FC -V 2>&1 | grep '^NAG Fortran Compiler Release' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=nag
@@ -3633,6 +3583,27 @@ $as_echo "$acx_cv_fc_compiler_vendor" >&6; }
 
 FC_VENDOR=$acx_cv_fc_compiler_vendor
 
+
+if test "x$enable_intel_consistency" = xauto; then :
+  if test "x$FC_VENDOR" = xintel; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Intel compiler directives enforcing consistency are enabled because $FC is recognized as the Intel Fortran compiler: disable the directives if required (--disable-intel-consistency)" >&5
+$as_echo "$as_me: Intel compiler directives enforcing consistency are enabled because $FC is recognized as the Intel Fortran compiler: disable the directives if required (--disable-intel-consistency)" >&6;}
+      enable_intel_consistency=yes
+else
+  enable_intel_consistency=no
+fi
+fi
+
+if test "x$enable_pgi_inlib" = xauto; then :
+  if test "x$FC_VENDOR" = xportland; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: PGI/NVIDIA cross-file function inlining via an inline library is enabled because $FC is recognized as the PGI/NVIDIA compiler: disable the inlining if required (--disable-pgi-inlib)" >&5
+$as_echo "$as_me: PGI/NVIDIA cross-file function inlining via an inline library is enabled because $FC is recognized as the PGI/NVIDIA compiler: disable the inlining if required (--disable-pgi-inlib)" >&6;}
+      enable_pgi_inlib=yes
+else
+  enable_pgi_inlib=no
+fi
+fi
+
             { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler version" >&5
 $as_echo_n "checking for Fortran compiler version... " >&6; }
 if ${acx_cv_fc_compiler_version+:} false; then :
@@ -3640,7 +3611,15 @@ if ${acx_cv_fc_compiler_version+:} false; then :
 else
   case $acx_cv_fc_compiler_vendor in #(
   intel) :
-    acx_cv_fc_compiler_version=`$FC --version 2>/dev/null | sed -n 's/^ifort (IFORT) \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'` ;; #(
+    acx_cv_fc_compiler_version=`$FC --version 2>/dev/null | sed -n 's/^ifort (IFORT) \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`
+         if test -z "$acx_cv_fc_compiler_version"; then :
+  acx_cv_fc_compiler_version=`$FC --version 2>/dev/null | sed -n 's/^ifx (IFORT) \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`
+            if test -n "$acx_cv_fc_compiler_version"; then :
+  acx_cv_fc_compiler_version="oneapi:${acx_cv_fc_compiler_version}"
+fi
+else
+  acx_cv_fc_compiler_version="classic:${acx_cv_fc_compiler_version}"
+fi ;; #(
   nag) :
     acx_cv_fc_compiler_version=`$FC -V 2>&1 | sed -n 's/^NAG Fortran Compiler Release \([0-9][0-9]*\.[0-9][0-9]*\).*Build \([0-9][0-9]*\)/\1.\2/p'` ;; #(
   portland) :
@@ -4495,21 +4474,16 @@ if test "x$enable_loop_exchange" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__LOOP_EXCHANGE"
 fi
 
-if test x"$enable_intel_consistency" = xauto && test x"$acx_cv_fc_compiler_vendor" = xintel; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: Intel compiler directives enforcing consistency are enabled because $FC is recognized as the Intel Fortran compiler: disable the directives if required (--disable-intel-consistency)" >&5
-$as_echo "$as_me: Intel compiler directives enforcing consistency are enabled because $FC is recognized as the Intel Fortran compiler: disable the directives if required (--disable-intel-consistency)" >&6;}
-   enable_intel_consistency=yes
-fi
-if test "x$enable_intel_consistency" = xyes; then :
-  as_fn_append FCFLAGS " ${FC_PP_DEF}IFORT_CONSISTENCY_ENFORCE"
-fi
-
 if test "x$enable_vectorized_lrtm" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}LRTM_FULL_VECTORIZATION"
 fi
 
 if test "x$enable_mixed_precision" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__MIXED_PRECISION"
+fi
+
+if test "x$enable_intel_consistency" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}IFORT_CONSISTENCY_ENFORCE"
 fi
 
 ######################### C COMPILER COMMAND AND FLAGS #########################
@@ -5260,6 +5234,8 @@ if ${acx_cv_c_compiler_vendor+:} false; then :
 else
   if $CC --version 2>/dev/null | grep '^icc (ICC)' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=intel
+elif $CC --version 2>/dev/null | grep '^Intel.*oneAPI.*Compiler' >/dev/null 2>&1; then :
+  acx_cv_c_compiler_vendor=intel
 elif $CC -V 2>&1 | grep '^NAG Fortran Compiler Release' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=nag
 elif $CC -V 2>/dev/null| grep '^Copyright.*\(The Portland Group\|NVIDIA CORPORATION\)' >/dev/null 2>&1; then :
@@ -5289,7 +5265,15 @@ if ${acx_cv_c_compiler_version+:} false; then :
 else
   case $acx_cv_c_compiler_vendor in #(
   intel) :
-    acx_cv_c_compiler_version=`$CC --version 2>/dev/null | sed -n 's/^icc (ICC) \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'` ;; #(
+    acx_cv_c_compiler_version=`$CC --version 2>/dev/null | sed -n 's/^icc (ICC) \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`
+         if test -z "$acx_cv_c_compiler_version"; then :
+  acx_cv_c_compiler_version=`$CC --version 2>/dev/null | sed -n 's/^Intel.*oneAPI.*Compiler \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`
+            if test -n "$acx_cv_c_compiler_version"; then :
+  acx_cv_c_compiler_version="oneapi:${acx_cv_c_compiler_version}"
+fi
+else
+  acx_cv_c_compiler_version="classic:${acx_cv_c_compiler_version}"
+fi ;; #(
   nag) :
     acx_cv_c_compiler_version=`$CC -V 2>&1 | sed -n 's/^NAG Fortran Compiler Release \([0-9][0-9]*\.[0-9][0-9]*\).*Build \([0-9][0-9]*\)/\1.\2/p'` ;; #(
   portland) :
@@ -6893,6 +6877,8 @@ fi
      ;; #(
   -enable-single-precision|-enable-single-precision=*|--enable-single-precision|--enable-single-precision=*|-disable-single-precision|--disable-single-precision) :
      ;; #(
+  -enable-pgi-inlib|-enable-pgi-inlib=*|--enable-pgi-inlib|--enable-pgi-inlib=*|-disable-pgi-inlib|--disable-pgi-inlib) :
+     ;; #(
   *) :
 
            case $acx_config_subdir_arg in #(
@@ -6907,7 +6893,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-         set dummy CFLAGS="$subdir_CFLAGS $ICON_ECRAD_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_ECRAD_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_ECRAD_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_ECRAD_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-silent-rules="$enable_silent_rules" --enable-pgi-inlib="$enable_pgi_inlib" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7169,13 +7155,26 @@ ${icon_usr_note}" "$LINENO" 5; }
 fi
 fi
 else
-    icon_bundled_yaxt_needed=no
+    icon_bundled_yaxt_fc=no
+   icon_bundled_yaxt_c=no
    if test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes; then :
-  icon_bundled_yaxt_needed=direct_fortran
+  icon_bundled_yaxt_fc=direct
 elif test x"$enable_coupling" = xyes && test x"$with_external_yac" = xno; then :
-  icon_bundled_yaxt_needed=transitive_c
+  icon_bundled_yaxt_c=transitive
 fi
-   if test x"$icon_bundled_yaxt_needed" != xno; then :
+   case "$icon_bundled_yaxt_fc" in #(
+       direct|transitive) :
+    if test x"$icon_bundled_yaxt_c" != xdirect; then :
+  icon_bundled_yaxt_c=transitive
+fi ;; #(
+       dummy) :
+    if test "x$icon_bundled_yaxt_c" = xno; then :
+  icon_bundled_yaxt_c=dummy
+fi ;; #(
+  *) :
+     ;;
+esac
+   if test x"$icon_bundled_yaxt_c" != xno; then :
   icon_subdir_srcdir="$srcdir/externals/yaxt"
       icon_subdir_unique_file="src/xt_idxlist.c"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
@@ -7259,11 +7258,21 @@ esac
       done
       as_fn_append subdirs_extra " externals/yaxt"
       { BUILD_CC=; unset BUILD_CC;}; { BUILD_FC=; unset BUILD_FC;}
-      case "$icon_bundled_yaxt_needed" in #(
-  direct_fortran) :
+      case $icon_bundled_yaxt_c in #(
+  direct) :
+             BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES" ;; #(
+  transitive) :
+    BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES" ;; #(
+  *) :
+     ;;
+esac
+      case $icon_bundled_yaxt_fc in #(
+  direct) :
     as_fn_append bundled_includes "${FC_MOD_IN}externals/yaxt/inst_headers/f90 "
-         BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES" ;; #(
-  transitive_c) :
+         BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a $BUNDLED_LIBFILES" ;; #(
+  transitive) :
+    BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a $BUNDLED_LIBFILES" ;; #(
+  no) :
           set dummy FC=no ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
@@ -7274,8 +7283,7 @@ esac
 esac
         as_fn_append acx_config_subdir_args_externals_yaxt " '$acx_config_subdir_arg'"
       done
-
-         BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES" ;; #(
+    ;; #(
   *) :
      ;;
 esac
@@ -7775,11 +7783,13 @@ fi
      ;; #(
   BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*) :
      ;; #(
-  MPI_CFLAGS=*|MPI_CLIBS=*|MPI_FCFLAGS=*|MPI_FCLIBS=*|YAXT_CFLAGS=*) :
+  MPI_CFLAGS=*|MPI_CLIBS=*|MPI_FCFLAGS=*|MPI_FCLIBS=*) :
      ;; #(
-  YAXT_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*|XML2_CFLAGS=*) :
+  YAXT_CFLAGS=*|YAXT_CLIBS=*|YAXT_FCFLAGS=*|YAXT_FCLIBS=*) :
      ;; #(
-  XML2_CLIBS=*|MTIME_CFLAGS=*|MTIME_CLIBS=*|FORTRAN_LAPACK_CLIBS=*) :
+  NETCDF_CFLAGS=*|NETCDF_CLIBS=*|XML2_CFLAGS=*|XML2_CLIBS=*) :
+     ;; #(
+  MTIME_CFLAGS=*|MTIME_CLIBS=*|FORTRAN_LAPACK_CLIBS=*) :
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
@@ -7807,7 +7817,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-         set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= YAXT_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MTIME_CLIBS= FORTRAN_LAPACK_CLIBS= --enable-silent-rules="$enable_silent_rules" --disable-maintainer-mode --enable-lib-only --enable-netcdf --with-external-lapack=fortran --with-external-mtime ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= YAXT_CLIBS= YAXT_FCLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MTIME_CLIBS= FORTRAN_LAPACK_CLIBS= --enable-silent-rules="$enable_silent_rules" --disable-maintainer-mode --enable-lib-only --enable-netcdf --with-external-lapack=fortran --with-external-mtime ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7832,7 +7842,7 @@ esac
 
 fi
       if test "x$with_external_yaxt" = xyes; then :
-        set dummy YAXT_CFLAGS= ; shift
+        set dummy YAXT_CFLAGS= YAXT_FCFLAGS= ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7855,6 +7865,31 @@ esac
         as_fn_append acx_config_subdir_args_externals_yac " '$acx_config_subdir_arg'"
       done
 
+         if test x"${icon_bundled_yaxt_fc-no}" != xno; then :
+        set dummy YAXT_FCFLAGS="${FC_MOD_IN}${icon_abs_top_builddir}/externals/yaxt/inst_headers/f90" acx_cv_fc_module_YAXT=yes acx_cv_fc_lib_func_XT_INITIALIZED="${icon_abs_top_builddir}/externals/yaxt/src/.libs/libyaxt.a ${icon_abs_top_builddir}/externals/yaxt/src/.libs/libyaxt_c.a" ; shift
+      for acx_config_subdir_arg; do
+        case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+        as_fn_append acx_config_subdir_args_externals_yac " '$acx_config_subdir_arg'"
+      done
+
+else
+        set dummy YAXT_FCFLAGS= ; shift
+      for acx_config_subdir_arg; do
+        case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+        as_fn_append acx_config_subdir_args_externals_yac " '$acx_config_subdir_arg'"
+      done
+
+fi
 fi
       if test "x$with_external_mtime" = xyes; then :
         set dummy MTIME_CFLAGS= ; shift
@@ -8389,9 +8424,7 @@ fi
 
 
 CLAW_NEW_DRIVER_ENABLED='#'
-
 CLAW_OLD_DRIVER_ENABLED='#'
-
 DEPGEN_CLAWFLAGS='-D_CLAW'
 
 if test x"$enable_claw" != xno; then :
@@ -8675,13 +8708,7 @@ else
       end subroutine
       end module
 _ACEOF
-      { ac_try='$CLAW -f -o conftest.claw.$ac_ext --gen-mod-files ${acx_cv_claw_module_out_flag}sub $CLAWFLAGS conftest.$ac_ext >&5'
-  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; }; }
-      { ac_try='test -f sub/conftest_module.xmod'
+      { ac_try='$CLAW -f -o conftest.claw.$ac_ext --gen-mod-files ${acx_cv_claw_module_out_flag}sub $CLAWFLAGS conftest.$ac_ext >&5 && test -f sub/conftest_module.xmod'
   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
   (eval $ac_try) 2>&5
   ac_status=$?
@@ -8926,6 +8953,107 @@ fi
 else
   SB2PP=
 fi
+
+
+############################ MAKEFILE CONDITIONALS #############################
+
+if test "x$enable_silent_rules" = xyes; then :
+  DEFAULT_VERBOSITY=0
+
+else
+  DEFAULT_VERBOSITY=1
+
+fi
+
+if test "x$enable_jsbach" = xyes; then :
+  JSBACH_ENABLED=''
+
+else
+  JSBACH_ENABLED='#'
+
+fi
+
+if test "x$icon_dace_enabled_or_needed" = xyes; then :
+  DACE_ENABLED_OR_NEEDED=''
+
+else
+  DACE_ENABLED_OR_NEEDED='#'
+
+fi
+
+if test "x$enable_emvorado" = xyes; then :
+  EMVORADO_ENABLED=''
+
+else
+  EMVORADO_ENABLED='#'
+
+fi
+
+if test "x$enable_art" = xyes; then :
+  ART_ENABLED=''
+
+else
+  ART_ENABLED='#'
+
+fi
+
+if test "x$enable_mpi" = xyes; then :
+  MPI_ENABLED=''
+
+else
+  MPI_ENABLED='#'
+
+fi
+
+if test "x$enable_openmp" = xyes; then :
+  OPENMP_ENABLED=''
+
+else
+  OPENMP_ENABLED='#'
+
+fi
+
+if test "x$enable_gpu" = xyes; then :
+  GPU_ENABLED=''
+
+else
+  GPU_ENABLED='#'
+
+fi
+
+if test x"$enable_claw" != xno; then :
+  CLAW_ENABLED=''
+
+else
+  CLAW_ENABLED='#'
+
+fi
+
+if test "x$enable_explicit_fpp" = xyes; then :
+  FPP_ENABLED=''
+
+else
+  FPP_ENABLED='#'
+
+fi
+
+if test x"$enable_serialization" != xno; then :
+  SB2_ENABLED=''
+
+else
+  SB2_ENABLED='#'
+
+fi
+
+if test "x$enable_pgi_inlib" = xyes; then :
+  PGI_INLIB_ENABLED=''
+
+else
+  PGI_INLIB_ENABLED='#'
+
+fi
+
+
 
 
 #################################### OUTPUT ####################################

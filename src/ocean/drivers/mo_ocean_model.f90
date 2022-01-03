@@ -39,6 +39,8 @@ MODULE mo_ocean_model
   !
   USE mo_run_config,          ONLY: &
     & test_mode,              &
+    & ldynamics,              &
+    & ltransport,             &
     & ltimer,                 & !    :
     & num_lev,                &
     & nshift,                 &
@@ -109,8 +111,9 @@ MODULE mo_ocean_model
   USE mo_icon_output_tools,    ONLY: init_io_processes, prepare_output
   !-------------------------------------------------------------
   ! For the coupling
+#ifdef YAC_coupling
   USE mo_ocean_coupling_frame, ONLY: construct_ocean_coupling, destruct_ocean_coupling
-  USE mo_coupling_config,      ONLY: is_coupled_run
+#endif
   !-------------------------------------------------------------
  
   USE mo_ocean_hamocc_interface, ONLY: ocean_to_hamocc_construct, ocean_to_hamocc_init, ocean_to_hamocc_end
@@ -311,7 +314,9 @@ MODULE mo_ocean_model
 #endif
 
     CALL destruct_icon_communication()
+#ifdef YAC_coupling
     CALL destruct_ocean_coupling ()
+#endif
 
     CALL destruct_operators_coefficients(operators_coefficients, solverCoefficients_sp)
     ! close memory logging files
@@ -407,7 +412,7 @@ MODULE mo_ocean_model
     CALL setup_phys_patches
 
     ! we need the nnow info
-    CALL configure_dynamics ( n_dom )
+    CALL configure_dynamics ( n_dom, ldynamics, ltransport )
 
     CALL construct_ocean_var_lists(ocean_patch_3d%p_patch_2d(1))
     
@@ -554,7 +559,9 @@ MODULE mo_ocean_model
     CALL construct_atmos_fluxes(patch_3d%p_patch_2d(1), atmos_fluxes, kice)
 
     CALL construct_ocean_surface(patch_3d, p_oce_sfc)
+#ifdef YAC_coupling
     CALL construct_ocean_coupling(ocean_patch_3d)
+#endif
 
     !------------------------------------------------------------------
     CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1))

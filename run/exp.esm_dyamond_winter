@@ -259,7 +259,7 @@ cat > coupling_${EXPNAME}.xml << EOF
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <coupling xmlns="http://www.w3schools.com"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	  xsi:schemaLocation="http://www.w3schools.com coupling.xsd">
+          xsi:schemaLocation="http://www.w3schools.com coupling.xsd">
    <redirect redirect_of_root="false" redirect_stdout="false"/>
    <components>
       <component id="1">
