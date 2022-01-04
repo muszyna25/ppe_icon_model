@@ -44,7 +44,7 @@ MODULE mo_nwp_sfc_interface
     &                               isub_lake, itype_interception, l2lay_rho_snow,    &
     &                               lprog_albsi, itype_trvg, itype_snowevap, zml_soil
   USe mo_extpar_config,       ONLY: itype_vegetation_cycle
-  USE mo_initicon_config,     ONLY: icpl_da_sfcevap, dt_ana
+  USE mo_initicon_config,     ONLY: icpl_da_sfcevap, dt_ana, icpl_da_skinc
   USE mo_ensemble_pert_config,ONLY: sst_pert_corrfac
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi, dqsatdT_ice
   USE sfc_terra,              ONLY: terra
@@ -226,7 +226,7 @@ CONTAINS
     INTEGER  :: i_count, i_count_snow, ic, icount_init, is1, is2, init_list(nproma), it1(nproma), it2(nproma)
     REAL(wp) :: tmp1, tmp2, tmp3, qsat1, dqsdt1, qsat2, dqsdt2
     REAL(wp) :: frac_sv(nproma), frac_snow_sv(nproma), fact1(nproma), fact2(nproma), tsnred(nproma), &
-                sntunefac(nproma), sntunefac2(nproma, ntiles_total)
+                sntunefac(nproma), sntunefac2(nproma, ntiles_total), heatcond_fac(nproma), heatcap_fac(nproma)
     REAL(wp) :: rain_gsp_rate(nproma, ntiles_total)
     REAL(wp) :: snow_gsp_rate(nproma, ntiles_total)
     REAL(wp) :: ice_gsp_rate (nproma, ntiles_total)
@@ -313,7 +313,7 @@ CONTAINS
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,                 &
 !$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t,            &
 !$OMP   meltrate,h_snow_gp_t,conv_frac,t_sk_now_t,t_sk_new_t,skinc_t,tsnred,plevap_t,z0_t,laifac_t,         &
-!$OMP   cond,init_list_tmp,ic_tot,icount_init_tmp,                                                          &
+!$OMP   cond,init_list_tmp,ic_tot,icount_init_tmp,heatcond_fac, heatcap_fac,                                &
 !$OMP   qsat1,dqsdt1,qsat2,dqsdt2,sntunefac,sntunefac2,snowfrac_lcu_t) ICON_OMP_GUIDED_SCHEDULE
 
     !$acc data present(ext_data, p_prog, p_prog_rcf, p_diag, p_metrics, prm_diag, &
@@ -344,7 +344,7 @@ CONTAINS
     !$acc              rstom_t, lhfl_bs_t, t_snow_mult_new_t, rho_snow_mult_new_t,       &
     !$acc              wliq_snow_new_t, wtot_snow_new_t, dzh_snow_new_t, t_so_new_t,     &
     !$acc              w_so_new_t, w_so_ice_new_t, lhfl_pl_t, shfl_s_t, lhfl_s_t,        &
-    !$acc              qhfl_s_t, plevap_t, z0_t, sso_sigma_t,                            &
+    !$acc              qhfl_s_t, plevap_t, z0_t, sso_sigma_t, heatcond_fac, heatcap_fac, &
     !$acc              snowfrac_lcu_t, lc_class_t)
 
     DO jb = i_startblk, i_endblk
@@ -632,6 +632,14 @@ CONTAINS
             z0_t(ic)                =  prm_diag%gz0_t(jc,jb,isubs)/grav
           ENDIF
 
+          IF (icpl_da_skinc >= 2) THEN
+            heatcond_fac(ic)        =  prm_diag%heatcond_fac(jc,jb)
+            heatcap_fac(ic)         =  prm_diag%heatcap_fac(jc,jb)
+          ELSE
+            heatcond_fac(ic)        =  1._wp
+            heatcap_fac(ic)         =  1._wp
+          ENDIF
+
           ! note: we reset "runoff_s_inst_t", "runoff_g_inst_t" in
           ! order to obtain the instantaneous values (and not the sum
           ! over forecast) from terra:
@@ -787,6 +795,8 @@ CONTAINS
         &  laifac       = laifac_t                           , & !IN ratio between current LAI and laimax                 --
         &  eai          = eai_t                              , & !IN surface area index                  --
         &  skinc        = skinc_t                            , & !IN skin conductivity                 ( W/m**2/K )
+        &  heatcond_fac = heatcond_fac                       , & !IN tuning factor for soil heat conductivity
+        &  heatcap_fac  = heatcap_fac                        , & !IN tuning factor for soil heat capacity
         &  rsmin2d      = rsmin2d_t                          , & !IN minimum stomata resistance        ( s/m )
         &  z0           = z0_t                               , & !IN vegetation roughness length        ( m )
 !

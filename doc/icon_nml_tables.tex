@@ -2534,7 +2534,8 @@ icpl\_da\_snowalb&
 I & 0 & &
 Coupling between temperature bias inferred from data assimilation and snow albedo\\
 0: off \\
-1: on; requires assimilation of T2M and cycling of a time-filtered temperature increment at the lowest model level &
+1: on; requires assimilation of T2M and cycling of a time-filtered temperature increment at the lowest model level \\
+2: as option 1, but additional adaptation of sea-ice albedo &
 init\_mode=5; icpl\_da\_sfcevap=3
 \tabularnewline
 
@@ -2544,7 +2545,8 @@ I & 0 & &
 Coupling between bias of diurnal temperature amplitude inferred from data assimilation and skin conductivity\\
 0: off \\
 1: on; requires assimilation of T2M and cycling of a time-filtered weighted (with cosine of local time) 
-temperature increment at the lowest model level  &
+temperature increment at the lowest model level  \\
+2: as option 1, but additional adaptation of soil heat conductivity and heat capacity &
 init\_mode=5
 \tabularnewline
 

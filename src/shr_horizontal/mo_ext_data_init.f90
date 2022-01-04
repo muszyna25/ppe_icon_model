@@ -2352,7 +2352,7 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk,i_startidx, i_endidx
     INTEGER  :: i_count,ilu
 
-    REAL(wp) :: t2mclim_hc(nproma),t_asyfac(nproma),tdiff_norm,wfac,dtdz_clim,trans_width,trh_bias,skinc_fac,lat
+    REAL(wp) :: t2mclim_hc(nproma),t_asyfac(nproma),tdiff_norm,wfac,dtdz_clim,trans_width,trh_bias,skinc_fac,lat,scal
     REAL(wp), DIMENSION(num_lcc) :: laimin,threshold_temp,temp_asymmetry,rd_fac
 
     INTEGER, PARAMETER :: nparam = 4  ! Number of parameters used in lookup table 
@@ -2415,7 +2415,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,ic,i_startidx,i_endidx,i_count,jc,ilu,t2mclim_hc,t_asyfac,tdiff_norm,wfac,trh_bias,skinc_fac,lat)
+!$OMP DO PRIVATE(jb,jt,ic,i_startidx,i_endidx,i_count,jc,ilu,t2mclim_hc,t_asyfac,tdiff_norm,wfac,trh_bias,skinc_fac,lat,scal)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2510,10 +2510,11 @@ CONTAINS
 
           ! Tuning factor for skin conductivity
           IF (icpl_da_skinc >= 1) THEN
+            scal = MERGE(4._wp, 2.5_wp, icpl_da_skinc == 1)
             IF (nh_diag%t_wgt_avginc(jc,jb) < 0._wp) THEN
-              skinc_fac = MAX(0.1_wp,1._wp+10800._wp/dt_ana*4._wp*nh_diag%t_wgt_avginc(jc,jb))
+              skinc_fac = MAX(0.1_wp,1._wp+10800._wp/dt_ana*scal*nh_diag%t_wgt_avginc(jc,jb))
             ELSE
-              skinc_fac = 1._wp/MAX(0.1_wp,1._wp-10800._wp/dt_ana*4._wp*nh_diag%t_wgt_avginc(jc,jb))
+              skinc_fac = 1._wp/MAX(0.1_wp,1._wp-10800._wp/dt_ana*scal*nh_diag%t_wgt_avginc(jc,jb))
             ENDIF
 
             lat = p_patch%cells%center(jc,jb)%lat*rad2deg
