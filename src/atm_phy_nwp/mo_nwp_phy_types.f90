@@ -177,6 +177,8 @@ MODULE mo_nwp_phy_types
       &  albnirdif_t(:,:,:),   & !! tile-based near IR albedo for diffuse radiation (0.3-0.7um)
       &  lw_emiss(:,:),        & !! Longwave emissivity with corrections for deserts and snow cover
       &  snowalb_fac(:,:),     & !! Factor for adaptive snow albedo tuning (coupled to DA increments for T)
+      &  heatcond_fac(:,:),    & !! Factor for adaptive soil heat conductivity tuning (coupled to DA increments for T)
+      &  heatcap_fac(:,:),     & !! Factor for adaptive soil heat capacity tuning (coupled to DA increments for T)
       &  vio3(:,:),            & !! vertically integrated ozone amount (Pa O3)
       &  hmo3(:,:),            & !! height of O3 maximum (Pa)
       &  flxdwswtoa(:,:),      & !! downward shortwave flux at TOA [W/m2]

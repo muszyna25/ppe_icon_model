@@ -1025,7 +1025,16 @@ CONTAINS
               ! If something goes wrong with the sea-ice index list, or if the initialization 
               ! fails, there is the danger that we make use negative albedo values. To force a
               ! model crash in this case, we set negative albedo values to 0.
-              ! 
+              !
+              IF (icpl_da_snowalb >= 2) THEN
+                ! Adaptive tuning of sea-ice albedo analogous to snow albedo:
+                ! the constant limits reflect the albedo bounds assumed in the sea-ice scheme;
+                ! in addition, albedo reduction is limited to 10% to avoid strong albedo reduction if a cold bias occurs in the polar night
+                prm_diag%albdif_t(jc,jb,isub_seaice) =                                                &
+                  MAX(0.685_wp*csalb(ist_seaice), 0.9_wp*prm_diag%albdif_t(jc,jb,isub_seaice),        &
+                  MIN(prm_diag%albdif_t(jc,jb,isub_seaice)*prm_diag%snowalb_fac(jc,jb),csalb_snow_max))
+              ENDIF
+
             ENDDO
             !$acc end parallel                       
           ELSE 

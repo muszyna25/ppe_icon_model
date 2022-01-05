@@ -102,7 +102,7 @@ MODULE mo_nwp_phy_init
   USE mo_master_config,       ONLY: isRestart
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
-  USE mo_initicon_config,     ONLY: init_mode, lread_tke, icpl_da_sfcevap, dt_ana, icpl_da_snowalb
+  USE mo_initicon_config,     ONLY: init_mode, lread_tke, icpl_da_sfcevap, dt_ana, icpl_da_snowalb, icpl_da_skinc
 
   USE mo_nwp_tuning_config,   ONLY: tune_zceff_min, tune_v0snow, tune_zvz0i, tune_icesedi_exp
   USE mo_cuparameters,        ONLY: sugwd
@@ -414,6 +414,18 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
           ELSE
             prm_diag%snowalb_fac(jc,jb) = MIN(4._wp/3._wp,1._wp-10800._wp/dt_ana*0.8_wp*p_diag%t_avginc(jc,jb))
           ENDIF
+        ENDIF
+      ENDDO
+    ENDIF
+    IF (icpl_da_skinc >= 2) THEN
+      ! Tuning factors for soil heat capacity and conductivity
+      DO jc = i_startidx,i_endidx
+        IF (p_diag%t_wgt_avginc(jc,jb) < 0._wp) THEN
+          prm_diag%heatcond_fac(jc,jb) = MAX(0.1_wp,  1._wp+10800._wp/dt_ana*2.5_wp*p_diag%t_wgt_avginc(jc,jb))
+          prm_diag%heatcap_fac(jc,jb)  = MAX(0.25_wp, 1._wp+10800._wp/dt_ana*2.0_wp*p_diag%t_wgt_avginc(jc,jb))
+        ELSE
+          prm_diag%heatcond_fac(jc,jb) = 1._wp/MAX(0.1_wp,  1._wp-10800._wp/dt_ana*2.5_wp*p_diag%t_wgt_avginc(jc,jb)) 
+          prm_diag%heatcap_fac(jc,jb)  = 1._wp/MAX(0.25_wp, 1._wp-10800._wp/dt_ana*2.0_wp*p_diag%t_wgt_avginc(jc,jb))
         ENDIF
       ENDDO
     ENDIF

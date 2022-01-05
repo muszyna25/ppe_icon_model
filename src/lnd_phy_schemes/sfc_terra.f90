@@ -188,6 +188,8 @@ CONTAINS
                   laifac           , & ! ratio between current LAI and laimax            --
                   eai              , & ! earth area (evaporative surface area) index     --
                   skinc            , & ! skin conductivity                        ( W/m**2/K )
+                  heatcond_fac     , & ! tuning factor for soil heat conductivity
+                  heatcap_fac      , & ! tuning factor for soil heat capacity
                   rsmin2d          , & ! minimum stomata resistance                    ( s/m )
                   z0               , & ! vegetation roughness length                   ( m   )
 ! for TERRA_URB
@@ -336,6 +338,8 @@ CONTAINS
                   laifac           , & ! ratio between current LAI and laimax
                   eai              , & ! earth area (evaporative surface area) index     --
                   skinc            , & ! skin conductivity                        ( W/m**2/K )
+                  heatcond_fac     , & ! tuning factor for soil heat conductivity
+                  heatcap_fac      , & ! tuning factor for soil heat capacity
 ! for TERRA_URB
 !                 fr_paved         , & ! fraction of paved ared                          --
 !                 sa_uf            , & ! total impervious surface-area index
@@ -1143,7 +1147,7 @@ ENDDO
   !$acc present(zmls)                                                &
   !$acc present(soiltyp_subs, plcov, rootdp, sai, eai, tai)    &
   !$acc present(laifac)                                              &
-  !$acc present(skinc)                                               &
+  !$acc present(skinc, heatcond_fac, heatcap_fac)                    &
   !$acc present(rsmin2d, u, v, t, qv, ptot, ps, h_snow_gp, u_10m)    &
   !$acc present(v_10m, prr_con, prs_con, conv_frac, prr_gsp,prs_gsp,pri_gsp) &
 #ifdef TWOMOM_SB
@@ -1271,8 +1275,8 @@ ENDDO
     zpwp      (i,:) = cpwp  (mstyp)              ! plant wilting point
     zadp      (i,:) = cadp  (mstyp)              ! air dryness point
     zfcap     (i,:) = cfcap (mstyp)              ! field capacity
-    zrocg     (i,:) = crhoc (mstyp)              ! heat capacity
-    zrocg_soil(i,:) = crhoc (mstyp)              ! heat capacity
+    zrocg     (i,:) = crhoc (mstyp)*heatcap_fac(i)   ! heat capacity
+    zrocg_soil(i,:) = crhoc (mstyp)*heatcap_fac(i)   ! heat capacity
     zalam     (i,:) = cala0 (mstyp)              ! heat conductivity parameter
 #endif
     zrock     (i)   = crock (mstyp)              ! EQ 0 for Ice and Rock EQ 1 else
@@ -1304,8 +1308,8 @@ ENDDO
     zpwp (i,kso)  = cpwp (mstyp)              ! plant wilting point
     zadp (i,kso)  = cadp (mstyp)              ! air dryness point
     zfcap(i,kso)  = cfcap(mstyp)              ! field capacity
-    zrocg(i,kso)  = crhoc(mstyp)              ! heat capacity
-    zrocg_soil(i,kso)  = crhoc(mstyp)         ! heat capacity
+    zrocg(i,kso)  = crhoc(mstyp)*heatcap_fac(i)      ! heat capacity
+    zrocg_soil(i,kso) = crhoc(mstyp)*heatcap_fac(i)  ! heat capacity
    ENDDO
   ENDDO
 !$NEC outerloop_unroll(7)
@@ -1601,7 +1605,7 @@ ENDDO
         ELSE
           zxx = 0.0_wp
         ENDIF
-        hzalam(i,kso) = (zKe*(zlamsat - zlamdry) + zlamdry)*(1._wp-zxx) + zxx*0.06_wp
+        hzalam(i,kso) = heatcond_fac(i)*(zKe*(zlamsat - zlamdry) + zlamdry)*(1._wp-zxx) + zxx*0.06_wp
 
         ! heat conductivity is also artificially reduced on snow-free forest-covered tiles generated
         ! by the melting-rate parameterization
