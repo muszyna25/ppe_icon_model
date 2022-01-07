@@ -167,7 +167,7 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 ! run_nml: general switches ---------------------------------------------------
 &run_nml
  ltestcase                   =                     .FALSE.        ! real case run
- num_lev                     =                      60, 55        ! number of full levels (atm.) for each domain
+ num_lev                     =                      80, 78        ! number of full levels (atm.) for each domain
  lvert_nest                  =                      .TRUE.        ! vertical nesting
  dtime                       =                         10.        ! timestep in seconds
  ldynamics                   =                      .TRUE.        ! compute adiabatic dynamic tendencies
@@ -418,11 +418,11 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 &sleve_nml
  min_lay_thckn               =                         20.0       ! layer thickness of lowermost layer
  top_height                  =                      23000.0       ! height of model top
- stretch_fac                 =                          0.85      ! stretching factor to vary distribution of model levels
- decay_scale_1               =                       2000.0       ! decay scale of large-scale topography component
- decay_scale_2               =                        500.0       ! decay scale of small-scale topography component
+ stretch_fac                 =                          0.65      ! stretching factor to vary distribution of model levels
+ decay_scale_1               =                       4000.0       ! decay scale of large-scale topography component
+ decay_scale_2               =                       2500.0       ! decay scale of small-scale topography component
  decay_exp                   =                          1.2       ! exponent of decay function
- flat_height                 =                       6000.0       ! height above which the coordinate surfaces are flat
+ flat_height                 =                      16000.0       ! height above which the coordinate surfaces are flat
 /
 
 ! transport_nml: tracer transport ---------------------------------------------
