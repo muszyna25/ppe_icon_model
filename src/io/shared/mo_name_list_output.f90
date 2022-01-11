@@ -2638,9 +2638,7 @@ CONTAINS
     ! "init_name_list_output", since some values (log_dom_id) are
     ! reuqired which are communicated there.
     CALL collect_requested_ipz_levels()
-    IF (iequations/=ihs_ocean) THEN ! atm
-      CALL create_mipz_level_selections(output_file)
-    END IF
+    CALL create_mipz_level_selections(output_file)
     CALL create_vertical_axes(output_file)
 
     ! Tell the compute PEs that we are ready to work
