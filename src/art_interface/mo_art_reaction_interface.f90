@@ -50,7 +50,8 @@ MODULE mo_art_reaction_interface
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_psc_state,                 ONLY: art_psc_main
   USE mo_art_feedback_icon,             ONLY: art_feedback_o3,     &
-                                          &   art_dry_freezing_H2O
+                                          &   art_dry_freezing_H2O,  &
+                                          &   art_set_artconfig_o3_feedback
   USE mo_art_cell_loop,                 ONLY: art_loop_cell_array
   USE mo_art_chem_utils,                ONLY: art_calc_vmr2Nconc,            &
                                           &   art_convert_tracers_mmr_Nconc, &
@@ -209,6 +210,8 @@ SUBROUTINE art_reaction_interface(jg,current_date,p_dtime,p_prog_list,tracer)
       ! Convert number concentration in #/cm3 back to mass mixing ratio
       CALL art_convert_tracers_Nconc_mmr(jg, tracer, p_prog_list, p_art_data(jg)%chem%vmr2Nconc)
 
+      ! call added for art_set_artconfig_o3_feedback by Thomas Reddmann
+      CALL art_set_artconfig_o3_feedback(p_prog_list,jg,'TRO3', p_art_data(jg)%dict_tracer)
 
       SELECT CASE ( irad_o3 )
         CASE (10)
