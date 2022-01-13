@@ -300,6 +300,7 @@ cat > ${ocean_namelist} << EOF
   lswr_jerlov                     = .TRUE.    ! use jerlov water types for sw absorption
   jerlov_atten                    = 0.08      ! jerlov water type IB
   jerlov_bluefrac                 = 0.36      ! jerlov water type IB
+  surface_flux_type               = 13
 /
 &ocean_initialConditions_nml
   initial_salinity_type           = 1         ! read from file
