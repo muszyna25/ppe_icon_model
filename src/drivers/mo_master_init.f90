@@ -38,7 +38,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
 
     INTEGER :: master_namelist_status
-    INTEGER :: model_no, jg, js, je, jinc
+    INTEGER :: model_no, model_rank, start_rank, end_rank, inc_rank, group_size, current_rank, j
 
     CHARACTER(LEN=*), PARAMETER :: method_name = "master_control"
     !-----------------------------------------------------------------------
@@ -74,23 +74,34 @@ CONTAINS
       COMPONENT_MODELS: DO model_no = 1, noOfModels()
 
         !         write(0,*) 'master_component_models:', model_no, trim(master_component_models(model_no)%model_name)
-
-        js   = master_component_models(model_no)%model_min_rank
-        je   = master_component_models(model_no)%model_max_rank
-        jinc = master_component_models(model_no)%model_inc_rank
+        start_rank   = master_component_models(model_no)%model_min_rank
+        end_rank  = master_component_models(model_no)%model_max_rank
+        inc_rank = master_component_models(model_no)%model_inc_rank
+        group_size = master_component_models(model_no)%model_rank_group_size
         
-        DO jg = js, je, jinc
+        model_rank = start_rank
+        
+        DO WHILE(model_rank .LE. end_rank)
+        
+          DO j = 0, group_size-1, 1
 
-          IF ( get_my_global_mpi_id() == jg ) THEN
+            current_rank = model_rank + j
+            IF (current_rank > end_rank) EXIT
             
-            CALL set_my_component(model_no,                                      &
-                 &                master_component_models(model_no)%model_name,  &
-                 &                master_component_models(model_no)%model_type,  &
-                 &                master_component_models(model_no)%model_namelist_filename)
+            IF ( get_my_global_mpi_id() == current_rank ) THEN
+              
+              CALL set_my_component(model_no,                                      &
+                  &                master_component_models(model_no)%model_name,  &
+                  &                master_component_models(model_no)%model_type,  &
+                  &                master_component_models(model_no)%model_namelist_filename)
+              
+            ENDIF
             
-          ENDIF
+          ENDDO
           
-        ENDDO
+          model_rank = model_rank + group_size-1 + inc_rank
+        
+        ENDDO ! WHILE(model_rank .LE. end_rank)
         
       ENDDO COMPONENT_MODELS
 

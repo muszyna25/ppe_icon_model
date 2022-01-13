@@ -1598,11 +1598,7 @@ CONTAINS
     INTEGER :: dom_sim_step_info_jstep0
     TYPE(t_event_data_local) :: event_list_dummy(1)
     
-    IF ( is_coupled_run() ) THEN
-
-       CALL construct_io_coupler ( "dummy" )
-
-    ENDIF
+    CALL construct_io_coupler ( "dummy" )
 
     IF (p_pe_work == 0) THEN
       CALL p_recv(dom_sim_step_info_jstep0, p_source=0, p_tag=156, &

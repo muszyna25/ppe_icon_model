@@ -10,8 +10,6 @@
 !! headers of the routines.
 !!
 
-#ifdef YAC_coupling
-
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
@@ -92,51 +90,3 @@ CONTAINS
 
 END MODULE mo_icon_output_coupling
 
-#else
-
-MODULE mo_icon_output_coupling
-
-  USE mo_model_domain,        ONLY: t_patch_3d
-  USE mo_coupling_config,     ONLY: is_coupled_run
-  USE mo_exception,           ONLY: finish
-  USE mtime,                  ONLY: datetime
-
-  PUBLIC :: construct_icon_output_coupling, destruct_icon_output_coupling
-  PUBLIC :: couple_icon_output_tomodel
-
-CONTAINS
-
-  SUBROUTINE construct_icon_output_coupling()
-
-
-    IF ( is_coupled_run() ) THEN
-       CALL finish('construct_icon_output_coupling: unintentionally called. Check your source code and configure.')
-    ELSE
-       RETURN
-    ENDIF
-
-  END SUBROUTINE construct_icon_output_coupling
-
-  SUBROUTINE couple_icon_output_tomodel()
-
-    IF ( is_coupled_run() ) THEN
-       CALL finish('couple_icon_output_tomodel: unintentionally called. Check your source code and configure.')
-    ELSE
-       RETURN
-    ENDIF
-
-  END SUBROUTINE couple_icon_output_tomodel
-
-  SUBROUTINE destruct_icon_output_coupling()
-
-    IF ( is_coupled_run() ) THEN
-       CALL finish('destruct_icon_output_coupling: unintentionally called. Check your source code and configure.')
-    ELSE
-       RETURN
-    ENDIF
-
-  END SUBROUTINE destruct_icon_output_coupling
-
-END MODULE mo_icon_output_coupling
-
-#endif
