@@ -1745,6 +1745,15 @@ CONTAINS
       &         t_cf_var('heatabs', 'J m-2', 'heatabs', datatype_flt),&
       &         dflt_g2_decl_cell,&
       &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups_oce_default)
+
+   ! heating due to fw flux [W m-2]
+    CALL add_var(ocean_default_list, 'heatflux_rainevaprunoff', ocean_state_diag%heatflux_rainevaprunoff, &
+      &         grid_unstructured_cell, za_surface,&
+      &         t_cf_var('heatflux_rainevaprunof', 'W m-2', 'heatflux_rainevaprunof', datatype_flt),&
+      &         dflt_g2_decl_cell,&
+      &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups_oce_default)
+
+
  
    ! dummy2d
 !    CALL add_var(ocean_default_list, 'dummy2d', ocean_state_diag%dummy2d , &

@@ -49,7 +49,7 @@ MODULE mo_ocean_bulk_forcing
     &  i_sea_ice, l_relaxsal_ice, forcing_enable_freshwater,                    &
     &  forcing_set_runoff_to_zero, OMIP_FluxFromFile, OceanReferenceDensity,    &
     &  bulk_wind_stress_type, wind_stress_from_file, wind_stress_type_noocean,  &
-    &  wind_stress_type_ocean, check_total_volume
+    &  wind_stress_type_ocean, check_total_volume, coriolis_type, coriolis_fplane_latitude
   USE mo_sea_ice_nml,         ONLY: stress_ice_zero
 
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
@@ -57,7 +57,7 @@ MODULE mo_ocean_bulk_forcing
   USE mo_math_constants,      ONLY: rad2deg !, deg2rad
   USE mo_physical_constants,  ONLY: alv, tmelt, clw, stbo, zemiss_def
   USE mo_physical_constants,  ONLY: rd, cpd, fr_fac, alf, cd_ia, Cd_io, rho_ref
-  USE mo_impl_constants,      ONLY: max_char_length, sea_boundary
+  USE mo_impl_constants,      ONLY: max_char_length, sea_boundary,f_plane_coriolis
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
   USE mo_ocean_surface_types, ONLY: t_ocean_surface, t_atmos_for_ocean
@@ -66,7 +66,9 @@ MODULE mo_ocean_bulk_forcing
   USE mtime,                  ONLY: datetime, getDayOfYearFromDateTime, getNoOfDaysInYearDateTime
   USE mo_ocean_time_events,   ONLY: isEndOfThisRun 
   USE mo_statistics,         ONLY: subset_sum
-  
+
+  USE mo_grid_geometry_info,  ONLY: planar_torus_geometry
+
   IMPLICIT NONE
   
   ! required for reading netcdf files
@@ -122,13 +124,13 @@ CONTAINS
     INTEGER                       :: jc, jb
     INTEGER                       :: i_startidx_c, i_endidx_c
     REAL(wp)                      :: relax_strength, thick
-    TYPE(t_patch), POINTER        :: p_patch
+    TYPE(t_patch), POINTER        :: patch_2D
     REAL(wp),      POINTER        :: t_top(:,:), s_top(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3D%p_patch_2D(1)
-    all_cells => p_patch%cells%all
+    patch_2D   => p_patch_3D%p_patch_2D(1)
+    all_cells => patch_2D%cells%all
     !-------------------------------------------------------------------------
 
     t_top => p_os%p_prog(nold(1))%tracer(:,1,:,1)
@@ -173,9 +175,9 @@ CONTAINS
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfcRlx:HeatFlx_Rlx[W/m2]',p_oce_sfc%HeatFlux_Relax     ,str_module,2, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfcRlx: T* to relax to'  ,p_oce_sfc%data_surfRelax_Temp,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfcRlx: 1/tau*(T*-T)'    ,p_oce_sfc%TempFlux_Relax     ,str_module,3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcRlx:HeatFlx_Rlx[W/m2]',p_oce_sfc%HeatFlux_Relax     ,str_module,2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('UpdSfcRlx: T* to relax to'  ,p_oce_sfc%data_surfRelax_Temp,str_module,4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('UpdSfcRlx: 1/tau*(T*-T)'    ,p_oce_sfc%TempFlux_Relax     ,str_module,3, in_subset=patch_2D%cells%owned)
       !---------------------------------------------------------------------
 
     ELSE IF (tracer_no == 2) THEN  ! surface salinity relaxation
@@ -216,9 +218,9 @@ CONTAINS
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfcRlx:FrshFlxRelax[m/s]',p_oce_sfc%FrshFlux_Relax     ,str_module,2, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfcRlx: S* to relax to'  ,p_oce_sfc%data_surfRelax_Salt,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfcRlx: 1/tau*(S*-S)'    ,p_oce_sfc%SaltFlux_Relax     ,str_module,3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcRlx:FrshFlxRelax[m/s]',p_oce_sfc%FrshFlux_Relax     ,str_module,2, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('UpdSfcRlx: S* to relax to'  ,p_oce_sfc%data_surfRelax_Salt,str_module,4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('UpdSfcRlx: 1/tau*(S*-S)'    ,p_oce_sfc%SaltFlux_Relax     ,str_module,3, in_subset=patch_2D%cells%owned)
       !---------------------------------------------------------------------
 
     END IF  ! tracer_no
@@ -376,14 +378,14 @@ CONTAINS
     INTEGER :: i_startidx_c, i_endidx_c
     REAL(wp) :: t_top_old  (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: s_top_old  (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_patch), POINTER :: patch_2D
     REAL(wp),      POINTER :: t_top(:,:), s_top(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
-    p_patch         => p_patch_3D%p_patch_2D(1)
+    patch_2D         => p_patch_3D%p_patch_2D(1)
     !-------------------------------------------------------------------------
 
-    all_cells => p_patch%cells%all
+    all_cells => patch_2D%cells%all
 
     t_top =>p_os%p_prog(nold(1))%tracer(:,1,:,1)
     t_top_old(:,:) = t_top(:,:)
@@ -405,9 +407,9 @@ CONTAINS
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('AppTrcRlx: TempFluxRelax'  , p_oce_sfc%TempFlux_Relax, str_module, 3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('AppTrcRlx: Old Temperature', t_top_old                  , str_module, 3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('AppTrcRlx: New Temperature', t_top                      , str_module, 2, in_subset=p_patch%cells%owned)
+      CALL dbg_print('AppTrcRlx: TempFluxRelax'  , p_oce_sfc%TempFlux_Relax, str_module, 3, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('AppTrcRlx: Old Temperature', t_top_old                  , str_module, 3, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('AppTrcRlx: New Temperature', t_top                      , str_module, 2, in_subset=patch_2D%cells%owned)
       !---------------------------------------------------------------------
 
     ! add relaxation term to salinity tracer
@@ -426,9 +428,9 @@ CONTAINS
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('AppTrcRlx: SaltFluxRelax', p_oce_sfc%SaltFlux_Relax, str_module, 3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('AppTrcRlx: Old Salt'     , s_top_old                  , str_module, 3, in_subset=p_patch%cells%owned)
-      CALL dbg_print('AppTrcRlx: New Salt'     , s_top                      , str_module, 2, in_subset=p_patch%cells%owned)
+      CALL dbg_print('AppTrcRlx: SaltFluxRelax', p_oce_sfc%SaltFlux_Relax, str_module, 3, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('AppTrcRlx: Old Salt'     , s_top_old                  , str_module, 3, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('AppTrcRlx: New Salt'     , s_top                      , str_module, 2, in_subset=patch_2D%cells%owned)
       !---------------------------------------------------------------------
 
     END IF  ! tracer_no
@@ -464,14 +466,14 @@ CONTAINS
     REAL(wp) :: sodt
 
 
-    TYPE(t_patch), POINTER:: p_patch 
+    TYPE(t_patch), POINTER:: patch_2D 
     !TYPE(t_subset_range), POINTER :: all_cells
 
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3D%p_patch_2D(1)
+    patch_2D   => p_patch_3D%p_patch_2D(1)
     !-------------------------------------------------------------------------
 
-    !all_cells       => p_patch%cells%all
+    !all_cells       => patch_2D%cells%all
 
     !  calculate day and month
     jmon  = this_datetime%date%month
@@ -647,14 +649,14 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4)
-    CALL dbg_print('FlxFil: Ext data4-ta/mon1' ,z_c2        ,str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: Ext data4-ta/mon1' ,z_c2        ,str_module,3, in_subset=patch_2D%cells%owned)
     z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
-    CALL dbg_print('FlxFil: Ext data4-ta/mon2' ,z_c2        ,str_module,3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('FlxFil: p_as%tafo'         ,p_as%tafo   ,str_module,3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('FlxFil: p_as%windStr-u',p_as%topBoundCond_windStress_u, str_module,3,in_subset=p_patch%cells%owned)
-    CALL dbg_print('FlxFil: p_as%windStr-v',p_as%topBoundCond_windStress_v, str_module,4,in_subset=p_patch%cells%owned)
-    CALL dbg_print('FlxFil: Precipitation' ,p_as%FrshFlux_Precipitation,str_module,3,in_subset=p_patch%cells%owned)
-    CALL dbg_print('FlxFil: Runoff'        ,p_as%FrshFlux_Runoff       ,str_module,3,in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: Ext data4-ta/mon2' ,z_c2        ,str_module,3, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('FlxFil: p_as%tafo'         ,p_as%tafo   ,str_module,3, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('FlxFil: p_as%windStr-u',p_as%topBoundCond_windStress_u, str_module,3,in_subset=patch_2D%cells%owned)
+    CALL dbg_print('FlxFil: p_as%windStr-v',p_as%topBoundCond_windStress_v, str_module,4,in_subset=patch_2D%cells%owned)
+    CALL dbg_print('FlxFil: Precipitation' ,p_as%FrshFlux_Precipitation,str_module,3,in_subset=patch_2D%cells%owned)
+    CALL dbg_print('FlxFil: Runoff'        ,p_as%FrshFlux_Runoff       ,str_module,3,in_subset=patch_2D%cells%owned)
     !---------------------------------------------------------------------
 
     IF (type_surfRelax_Temp == 2)  THEN
@@ -686,17 +688,17 @@ CONTAINS
       CALL message (' ', message_text)
     END IF
     z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,1)
-    CALL dbg_print('FlxFil: Ext data1-u/mon1'  ,z_c2 ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: Ext data1-u/mon1'  ,z_c2 ,str_module,idt_src, in_subset=patch_2D%cells%owned)
     z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,1)
-    CALL dbg_print('FlxFil: Ext data1-u/mon2'  ,z_c2 ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: Ext data1-u/mon2'  ,z_c2 ,str_module,idt_src, in_subset=patch_2D%cells%owned)
     z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2)
-    CALL dbg_print('FlxFil: Ext data2-v/mon1'  ,z_c2 ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: Ext data2-v/mon1'  ,z_c2 ,str_module,idt_src, in_subset=patch_2D%cells%owned)
     z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
-    CALL dbg_print('FlxFil: Ext data2-v/mon2'  ,z_c2 ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: Ext data2-v/mon2'  ,z_c2 ,str_module,idt_src, in_subset=patch_2D%cells%owned)
     z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,3)
-    CALL dbg_print('FlxFil: Ext data3-t/mon1'  ,z_c2 ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: Ext data3-t/mon1'  ,z_c2 ,str_module,idt_src, in_subset=patch_2D%cells%owned)
     z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,3)
-    CALL dbg_print('FlxFil: Ext data3-t/mon2'  ,z_c2 ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: Ext data3-t/mon2'  ,z_c2 ,str_module,idt_src, in_subset=patch_2D%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE update_flux_fromFile
@@ -716,10 +718,14 @@ CONTAINS
   !! Rewritten by Stephan Lorenz, MPI-M (2015-06).
   !!  Using interface with parameters in order to call budget routine independent of ocean model
 
-  SUBROUTINE calc_omip_budgets_ice(geolat, tafoC, ftdewC, fu10, fclou, pao, fswr,                &
+  SUBROUTINE calc_omip_budgets_ice(p_patch_3d, geolat, tafoC, ftdewC, fu10, fclou, pao, fswr,                &
     &                              kice, tice, hice, albvisdir, albvisdif, albnirdir, albnirdif, &
     &                              LWnetIce, SWnetIce, sensIce, latentIce,                       &
-    &                              dLWdTIce, dsensdTIce, dlatdTIce)                              
+    &                              dLWdTIce, dsensdTIce, dlatdTIce)
+
+    TYPE(t_patch_3d),         INTENT(IN), TARGET    :: p_patch_3d
+    TYPE(t_patch), POINTER:: patch_2D
+
 
  !  INPUT variables for OMIP via parameter:
     REAL(wp), INTENT(in)    :: geolat(:,:)      ! latitude                             [rad]
@@ -746,8 +752,9 @@ CONTAINS
     REAL(wp), INTENT(inout) :: dsensdTIce(:,:,:)! derivitave of sensIce w.r.t temperature
     REAL(wp), INTENT(inout) :: dlatdTIce(:,:,:) ! derivitave of latentIce w.r.t temperature
 
+
  !  Local variables
- !  REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) :: &
+ !  REAL(wp), DIMENSION (nproma,patch_2D%alloc_cell_blocks) :: &
     REAL(wp), DIMENSION (SIZE(tafoC,1), SIZE(tafoC,2)) ::  &
       & Tsurf,          &  ! Surface temperature in Celsius                  [C]
       & tafoK,          &  ! Air temperature at 2 m in Kelvin                [K]
@@ -772,6 +779,8 @@ CONTAINS
     INTEGER :: i
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif, local_rad2deg
+
+    patch_2D         => p_patch_3D%p_patch_2D(1)
 
     tafoK(:,:)  = tafoC(:,:) + tmelt  ! Change units of tafo  to Kelvin
 
@@ -826,10 +835,17 @@ CONTAINS
 
     ! icon-identical calculation of rad2deg
     local_rad2deg = 180.0_wp / 3.14159265358979323846264338327950288_wp
-    fakts   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
-      &         *MIN(ABS(local_rad2deg*geolat(:,:)),60._wp) ) * fclou(:,:)**2
-  !   &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * fclou(:,:)**2
 
+    ! This is needed for the f-plane planar torus setup
+    IF ( patch_2d%geometry_info%geometry_type == planar_torus_geometry &
+         & .AND. coriolis_type ==  f_plane_coriolis ) THEN
+      fakts   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
+           &         *MIN(ABS(coriolis_fplane_latitude ),60._wp) ) * fclou(:,:)**2
+    ELSE
+      fakts   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
+           &         *MIN(ABS(local_rad2deg*geolat(:,:)),60._wp) ) * fclou(:,:)**2
+      !   &         *MIN(ABS(rad2deg*patch_2D%cells%center(:,:)%lat),60._wp) ) * fclou(:,:)**2
+    ENDIF
     !-----------------------------------------------------------------------
     !  Calculate bulk equations according to
     !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002:
@@ -963,17 +979,17 @@ CONTAINS
     REAL(wp) :: aw,bw,cw,dw,AAw,BBw,CCw,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
 
-    TYPE(t_patch), POINTER:: p_patch
+    TYPE(t_patch), POINTER:: patch_2D
     TYPE(t_subset_range), POINTER :: all_cells
 
-    p_patch         => p_patch_3D%p_patch_2D(1)
+    patch_2D         => p_patch_3D%p_patch_2D(1)
 
     Tsurf(:,:)  = p_os%p_prog(nold(1))%tracer(:,1,:,1)  ! set surface temp = mixed layer temp
     tafoK(:,:)  = p_as%tafo(:,:)  + tmelt               ! Change units of tafo  to Kelvin
     ftdewC(:,:) = p_as%ftdew(:,:) - tmelt               ! Change units of ftdew to Celsius
 
     ! subset range pointer
-    all_cells => p_patch%cells%all
+    all_cells => patch_2D%cells%all
 
     !-----------------------------------------------------------------------
     ! Compute water vapor pressure and specific humididty in 2m height (esta)
@@ -1019,9 +1035,18 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     humi(:,:)    = 0.39_wp - 0.05_wp*SQRT(esta(:,:)/100._wp)
-    fakts(:,:)   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
-      &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou(:,:)**2
-    ! Berliand & Berliand ('52) calculate only LWnetw
+
+    ! This is needed for the f-plane planar torus setup
+    IF ( patch_2d%geometry_info%geometry_type == planar_torus_geometry &
+         & .AND. coriolis_type ==  f_plane_coriolis ) THEN
+      fakts(:,:)   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
+           &         *MIN(ABS(coriolis_fplane_latitude),60._wp) ) * p_as%fclou(:,:)**2
+      ! Berliand & Berliand ('52) calculate only LWnetw
+    ELSE
+      fakts(:,:)   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
+           &         *MIN(ABS(rad2deg*patch_2D%cells%center(:,:)%lat),60._wp) ) * p_as%fclou(:,:)**2
+      ! Berliand & Berliand ('52) calculate only LWnetw
+    ENDIF
 
     ! #eoo# 2012-12-14: another bugfix
     ! #slo# #hha# 2012-12-13: bugfix, corrected form
@@ -1079,31 +1104,31 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5          , fix)
-    CALL dbg_print('omipBudOce:tafoK'              , tafoK                 , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:tafo'               , p_as%tafo             , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:ftdew'              , p_as%ftdew            , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:ftdewC'             , ftdewC                , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:pao'                , p_as%pao              , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:fa'                 , fa                    , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:fw'                 , fw                    , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:esta'               , esta                  , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:estw'               , estw                  , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:sphumida'           , sphumida              , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:sphumidw'           , sphumidw              , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:rhoair'             , rhoair                , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:dragl'              , dragl                 , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:drags'              , drags                 , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:fu10'               , p_as%fu10             , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:fu10lim'            , fu10lim               , str_module, idt_src, in_subset=p_patch%cells%owned)
-    !CALL dbg_print('omipBudOce:stress_xw'          , atmos_fluxes%stress_xw, str_module, idt_src, in_subset=p_patch%cells%owned)
-    !CALL dbg_print('omipBudOce:stress_yw'          , atmos_fluxes%stress_yw, str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:p_as%windStr-u',p_as%topBoundCond_windStress_u,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:tafoK'              , tafoK                 , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:tafo'               , p_as%tafo             , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:ftdew'              , p_as%ftdew            , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:ftdewC'             , ftdewC                , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:pao'                , p_as%pao              , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:fa'                 , fa                    , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:fw'                 , fw                    , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:esta'               , esta                  , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:estw'               , estw                  , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:sphumida'           , sphumida              , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:sphumidw'           , sphumidw              , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:rhoair'             , rhoair                , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:dragl'              , dragl                 , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:drags'              , drags                 , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:fu10'               , p_as%fu10             , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:fu10lim'            , fu10lim               , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    !CALL dbg_print('omipBudOce:stress_xw'          , atmos_fluxes%stress_xw, str_module, idt_src, in_subset=patch_2D%cells%owned)
+    !CALL dbg_print('omipBudOce:stress_yw'          , atmos_fluxes%stress_yw, str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:p_as%windStr-u',p_as%topBoundCond_windStress_u,str_module,idt_src, in_subset=patch_2D%cells%owned)
     idt_src=3  ! output print level (1-5          , fix)
-    CALL dbg_print('omipBudOce:Tsurf ocean'        , Tsurf                 , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:atmflx%SWnetw'      , atmos_fluxes%SWnetw   , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:atmflx%LWnetw'      , atmos_fluxes%LWnetw   , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:atmflx%sensw'       , atmos_fluxes%sensw    , str_module, idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('omipBudOce:atmflx%latw'        , atmos_fluxes%latw     , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:Tsurf ocean'        , Tsurf                 , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:atmflx%SWnetw'      , atmos_fluxes%SWnetw   , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:atmflx%LWnetw'      , atmos_fluxes%LWnetw   , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:atmflx%sensw'       , atmos_fluxes%sensw    , str_module, idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('omipBudOce:atmflx%latw'        , atmos_fluxes%latw     , str_module, idt_src, in_subset=patch_2D%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE calc_omip_budgets_oce
@@ -1246,14 +1271,14 @@ CONTAINS
     REAL(wp) :: delv                ! Meridional I-O velocity mismatch           [m/s]
     REAL(wp) :: delabs              ! I-O mismatch abs value                     [m/s]
     ! Ranges
-    TYPE(t_patch), POINTER        :: p_patch
+    TYPE(t_patch), POINTER        :: patch_2D
     TYPE(t_subset_range), POINTER :: all_cells
     ! Indexing
     INTEGER  :: i_startidx_c, i_endidx_c, jc, jb
 
 !--------------------------------------------------------------------------------------------------
-    p_patch         => p_patch_3D%p_patch_2D(1)
-    all_cells       => p_patch%cells%all
+    patch_2D         => p_patch_3D%p_patch_2D(1)
+    all_cells       => patch_2D%cells%all
 !--------------------------------------------------------------------------------------------------
 
     IF ( i_sea_ice > 0 ) THEN ! sea ice is on
@@ -1299,11 +1324,12 @@ CONTAINS
         IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
           CALL gvec2cvec(  p_oce_sfc%TopBC_WindStress_u(jc,jb),&
                          & p_oce_sfc%TopBC_WindStress_v(jc,jb),&
-                         & p_patch%cells%center(jc,jb)%lon,&
-                         & p_patch%cells%center(jc,jb)%lat,&
+                         & patch_2D%cells%center(jc,jb)%lon,&
+                         & patch_2D%cells%center(jc,jb)%lat,&
                          & p_oce_sfc%TopBC_WindStress_cc(jc,jb)%x(1),&
                          & p_oce_sfc%TopBC_WindStress_cc(jc,jb)%x(2),&
-                         & p_oce_sfc%TopBC_WindStress_cc(jc,jb)%x(3))
+                         & p_oce_sfc%TopBC_WindStress_cc(jc,jb)%x(3),&
+                         & patch_2D%geometry_info)
         ELSE
           p_oce_sfc%TopBC_WindStress_u(jc,jb)         = 0.0_wp
           p_oce_sfc%TopBC_WindStress_v(jc,jb)         = 0.0_wp
@@ -1314,10 +1340,10 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    CALL dbg_print('sfc_flx: windStress_u',p_oce_sfc%TopBC_WindStress_u, str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('sfc_flx: windStress_v',p_oce_sfc%TopBC_WindStress_v, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('sfc_flx: windStress_u',p_oce_sfc%TopBC_WindStress_u, str_module, 2, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('sfc_flx: windStress_v',p_oce_sfc%TopBC_WindStress_v, str_module, 3, in_subset=patch_2D%cells%owned)
     CALL dbg_print('sfc_flx: windStress_cc1',p_oce_sfc%TopBC_WindStress_cc%x(1), &
-      &             str_module,3, in_subset=p_patch%cells%owned)
+      &             str_module,3, in_subset=patch_2D%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE update_ocean_surface_stress
