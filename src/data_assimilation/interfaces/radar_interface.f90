@@ -180,9 +180,7 @@ MODULE radar_interface
        get_utc_date,         &
        init_vari
 
-#ifdef GRIBAPI
   USE radar_data_io, ONLY : t_grib2_modelspec
-#endif
   
 #endif
 
@@ -386,7 +384,8 @@ MODULE radar_interface
             set_testpattern_hydrometeors_mg, initialize_tmax_1mom_vec_par, finalize_tmax,&
             initialize_tmax_2mom_vec_par, initialize_tmax_atomic_1mom,                 &
             initialize_tmax_atomic_2mom,                                               &
-            get_obstime_ind_of_currtime, get_obs_time_tolerance,                       &
+            get_obstime_ind_of_currtime, get_obstime_ind_of_modtime,                   &
+            get_obs_time_tolerance,                                                    &
             check_obstime_within_forecast, check_obstime_within_modelrun,              &
             check_if_currtime_is_obstime, get_domain_starttime_in_sec,                 &
             alloc_aux_model_variables, dealloc_aux_model_variables,                    &
@@ -415,9 +414,7 @@ MODULE radar_interface
             get_domaincenter_global,                                                    &
             get_rotlatlon_domain_for_superobing, set_fdbk_metadata
 
-#ifdef GRIBAPI
   PUBLIC :: grib2_add_modelspec_info
-#endif
 
   PUBLIC :: trigger_warm_bubbles
 #endif
@@ -2632,6 +2629,37 @@ CONTAINS
     END DO
     
   END FUNCTION get_obstime_ind_of_currtime
+
+  !------------------------------------------------------------------------------
+
+  !============================================================================
+  ! 
+  ! Function for computing the index of the nearest obs_time to the input
+  !  model time. The obs times are given in an input vector. If none of the
+  !  obs times falls within the current model time step +/- 0.5*dt, no
+  !  index can be found and missval is returned.
+  !
+  !============================================================================
+
+  FUNCTION get_obstime_ind_of_modtime ( time_mod, obs_times ) RESULT (i_time)
+
+    IMPLICIT NONE
+
+    REAL(KIND=dp), INTENT(in) :: time_mod
+    REAL(KIND=dp), INTENT(in) :: obs_times(:)
+    INTEGER                   :: i_time
+
+    INTEGER       :: n
+
+    i_time = -999
+    DO n = 1, UBOUND(obs_times,1)
+      IF ((obs_times(n) - 0.5_dp*dtime < time_mod .AND. time_mod <= obs_times(n) + 0.5_dp*dtime)) THEN
+        i_time = n
+        EXIT
+      END IF
+    END DO
+    
+  END FUNCTION get_obstime_ind_of_modtime
 
   !------------------------------------------------------------------------------
 
@@ -5468,7 +5496,6 @@ CONTAINS
 !
 !==============================================================================
   
-#ifdef GRIBAPI
   SUBROUTINE grib2_add_modelspec_info(idom_model, grib_locinfo, error)
 
     IMPLICIT NONE
@@ -5524,7 +5551,6 @@ CONTAINS
     grib_locinfo%numberOfForecastsInEnsemble  = gribout_config(idom_model)%numberOfForecastsInEnsemble
 
   END SUBROUTINE grib2_add_modelspec_info
-#endif
 
 !================================================================================
 !================================================================================
