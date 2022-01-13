@@ -262,6 +262,7 @@ MODULE mo_ocean_types
       & fwR, &  !< product of fw flux and density
       & tauxU, &  !< product of x-windstress and u-velocity
       & tauyV, &  !< product of y-windstress and v-velocity
+      & heatflux_rainevaprunoff, & !< heatflux implied by fw flux (fw enters with SST)
       & heat_content_snow ,&
       & heat_content_seaice ,&
       & delta_ice, & 
