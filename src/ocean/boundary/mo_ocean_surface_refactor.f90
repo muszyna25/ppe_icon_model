@@ -465,7 +465,7 @@ CONTAINS
     !  ******  (Thermodynamic Eq. 1)  ******
     ! Apply net surface heat flux to ocean surface (new p_oce_flx%SST)
     IF (no_tracer > 0) THEN
-      IF (heatflux_forcing_on_sst == .TRUE.) THEN
+      IF ( heatflux_forcing_on_sst ) THEN
       ! sst-change in surface module after sea-ice thermodynamics using HeatFlux_Total and old freeboard zUnderIceIni
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1894,7 +1894,7 @@ CONTAINS
 
     
     IF (no_tracer > 0) THEN
-      IF (heatflux_forcing_on_sst == .TRUE.) THEN
+      IF ( heatflux_forcing_on_sst ) THEN
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
@@ -2087,7 +2087,7 @@ CONTAINS
 
     
     IF (no_tracer > 0) THEN
-      IF (heatflux_forcing_on_sst == .TRUE.) THEN
+      IF ( heatflux_forcing_on_sst ) THEN
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
@@ -2337,7 +2337,7 @@ CONTAINS
     END DO
           
     IF (no_tracer > 0) THEN
-      IF (heatflux_forcing_on_sst == .TRUE.) THEN
+      IF ( heatflux_forcing_on_sst ) THEN
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
@@ -2456,7 +2456,7 @@ CONTAINS
           
     IF (no_tracer > 0) THEN
 
-      IF (heatflux_forcing_on_sst == .TRUE.) THEN
+      IF ( heatflux_forcing_on_sst ) THEN
 
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
