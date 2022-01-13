@@ -171,6 +171,8 @@ MODULE mo_radiation_config
     INTEGER  :: nproma_rad              !< subblock size used for the ecrad interface.
                                         !< If set negativ, the absolute value is considered as the number of subblocks.
     !
+
+    !$ACC DECLARE COPYIN(vpp_ch4, vpp_n2o)
   
   !END TYPE t_radiation_config
   !>

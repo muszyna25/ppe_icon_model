@@ -346,6 +346,7 @@ MODULE mo_ser_all
            CALL ser_var_list('lnd_diag_of_domain_', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg)
            CALL ser_var_list('wtr_prog_of_domain_', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg, substr='_and_timelev_', timelev=nnow(jg))
            CALL ser_var_list('wtr_prog_of_domain_', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg, substr='_and_timelev_', timelev=nnew(jg))
+           CALL ser_var_list('ext_data_atm_td_D', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg)
            CALL ser_var_list('ext_data_atm_D', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg)
        ENDIF
 

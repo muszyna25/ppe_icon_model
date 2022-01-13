@@ -351,15 +351,17 @@ SUBROUTINE interpol_scal_nudging_core(ptr_pp, jb, i_startblk, i_endblk, all_enab
 
   CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
        i_startidx, i_endidx, grf_nudgintp_start_c, min_rlcell_int)
-  !$ACC DATA CREATE(grad_x, grad_y, maxval_neighb, minval_neighb) IF(i_am_accel_node )
+  !$ACC PARALLEL DEFAULT(NONE) CREATE(grad_x, grad_y, maxval_neighb, &
+  !$ACC   minval_neighb) PRESENT(h_aux, ptr_dist, l_enabled, ptr_coeff, &
+  !$ACC   p_in_fld, iblk, iidx) IF(i_am_accel_node)
   IF (all_enabled) THEN ! Use vectorizable form with loop reordering
-    !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node  )
-    !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = 1, elev
 #else
+    !$ACC LOOP GANG(STATIC:1)
     DO jk = 1, elev
+      !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
 #endif
         grad_x(jc,jk) =  &
@@ -408,10 +410,8 @@ SUBROUTINE interpol_scal_nudging_core(ptr_pp, jb, i_startblk, i_endblk, all_enab
               p_in_fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
       ENDDO
     ENDDO
-    !$ACC END PARALLEL
   ELSE
-    !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node  )
-    !$ACC LOOP GANG
+    !$ACC LOOP GANG(STATIC:1)
     DO jk = 1, elev
       IF (.NOT. l_enabled(jk)) CYCLE
       !$ACC LOOP VECTOR
@@ -462,10 +462,8 @@ SUBROUTINE interpol_scal_nudging_core(ptr_pp, jb, i_startblk, i_endblk, all_enab
               p_in_fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
       ENDDO
     ENDDO
-    !$ACC END PARALLEL
   ENDIF
 
-  !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node  )
   !$ACC LOOP GANG(STATIC:1)
   DO jk = 1, elev
     IF (.NOT. l_enabled(jk)) CYCLE
@@ -533,7 +531,6 @@ SUBROUTINE interpol_scal_nudging_core(ptr_pp, jb, i_startblk, i_endblk, all_enab
     ENDDO
   ENDDO
   !$ACC END PARALLEL
-  !$ACC END DATA
 
 END SUBROUTINE interpol_scal_nudging_core
 
@@ -694,8 +691,6 @@ all_enabled = ALL(l_enabled(:))
 
 r_ovsht_fac = 1._wp/ovsht_fac
 
-!$ACC DATA CREATE(h_aux) COPYIN(r_limval, l_enabled) IF( i_am_accel_node )
-
 ! Start and end blocks for which scalar interpolation is needed
 i_startblk = ptr_pp%cells%start_block(grf_nudgintp_start_c)
 i_endblk   = ptr_pp%cells%end_block(min_rlcell_int)
@@ -710,6 +705,9 @@ ptr_dist  => ptr_grf%grf_dist_pc2cc
 ! child cell indices and blocks for non-MPI parent-to-child communication
 ichcidx => ptr_pp%cells%child_idx
 ichcblk => ptr_pp%cells%child_blk
+
+!$ACC DATA CREATE(h_aux) COPYIN(r_limval, l_enabled) PRESENT(ichcidx, ichcblk) &
+!$ACC   IF( i_am_accel_node )
 
 ! Shift parameter
 js = nshift
@@ -742,6 +740,8 @@ ENDDO ! fields
 DO jn = 1, nfields
 
   p_out_fld => p_out(jn)%fld ! pointer without derived type needed for ACC
+  !$ACC DATA PRESENT(p_out_fld) IF( i_am_accel_node )
+
   elev = UBOUND(p_out_fld,2)
 
 !$OMP DO PRIVATE (jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -752,7 +752,7 @@ DO jn = 1, nfields
 
     IF (l_limit_nneg(jn)) THEN
 
-      !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node )
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node )
 #ifdef __LOOP_EXCHANGE
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jc = i_startidx, i_endidx
@@ -781,7 +781,7 @@ DO jn = 1, nfields
 
     ELSE
 
-      !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node )
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node )
 #ifdef __LOOP_EXCHANGE
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jc = i_startidx, i_endidx
@@ -808,10 +808,12 @@ DO jn = 1, nfields
     ENDIF
 
   ENDDO
+  !$ACC END DATA
 !$OMP END DO NOWAIT
 ENDDO
 
 !$OMP END PARALLEL
+!$ACC WAIT
 !$ACC END DATA
 
 END SUBROUTINE interpol_scal_nudging

@@ -271,7 +271,8 @@ MODULE mo_nwp_rad_interface
 
 #ifdef _OPENACC
     IF(lacc) THEN
-      CALL message('mo_nh_interface_nwp', 'Device to host copy before Radiation. This needs to be removed once port is finished!')
+      CALL message('mo_nh_interface_nwp', &
+        &  'Device to host copy before nwp_rrtm_radiation. This needs to be removed once port is finished!')
       CALL gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data)
       i_am_accel_node = .FALSE.
     ENDIF
@@ -293,31 +294,52 @@ MODULE mo_nwp_rad_interface
           
       ENDIF
 
+#ifdef _OPENACC
+      IF(lacc) THEN
+        CALL message('mo_nh_interface_nwp', &
+          &  'Host to device copy after nwp_rrtm_radiation. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
+        i_am_accel_node = my_process_is_work()
+      ENDIF
+#endif
+
     CASE (4) ! ecRad
 #ifdef __ECRAD
       !$ACC WAIT
       CALL nwp_ozon_aerosol ( p_sim_time, mtime_datetime, pt_patch, ext_data, &
         & pt_diag, prm_diag, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, use_acc=lacc )
 
-#if defined(_OPENACC) && !defined(__ECRAD_ACC)
-    IF(lacc) THEN
-      CALL message('mo_nh_interface_nwp', 'Device to host copy before Radiation. This needs to be removed once port is finished!')
-      CALL gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data)
-      !$ACC UPDATE HOST(zaeq1, zaeq2, zaeq3, zaeq4, zaeq5) IF(lacc)
-      i_am_accel_node = .FALSE.
-    ENDIF
-#endif
-
+      !$ACC WAIT
       IF (.NOT. lredgrid) THEN
+#ifdef _OPENACC
+        IF(lacc) THEN
+          CALL message('mo_nh_interface_nwp', &
+            &  'Device to host copy before nwp_ecRad_radiation (full radiation grid). &
+            &  This needs to be removed once port is finished!')
+          CALL gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data)
+          !$ACC UPDATE HOST(zaeq1, zaeq2, zaeq3, zaeq4, zaeq5) IF(lacc)
+          i_am_accel_node = .FALSE.
+        ENDIF
+#endif
         CALL nwp_ecRad_radiation ( mtime_datetime, pt_patch, ext_data,      &
           & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                              &
           & od_lw, od_sw, ssa_sw, g_sw,                                     &
-          & pt_diag, prm_diag, pt_prog, lnd_prog, ecrad_conf )
+          & pt_diag, prm_diag, pt_prog, lnd_prog, ecrad_conf, lacc )
+#ifdef _OPENACC
+        IF(lacc) THEN
+          CALL message('mo_nh_interface_nwp', &
+            &  'Host to device copy after nwp_ecRad_radiation (full radiation grid). &
+            &  This needs to be removed once port is finished!')
+          CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
+          i_am_accel_node = my_process_is_work()
+        ENDIF
+#endif
       ELSE
+        !$ACC WAIT
         CALL nwp_ecRad_radiation_reduced ( mtime_datetime, pt_patch,pt_par_patch, &
           & ext_data, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                          &
           & od_lw, od_sw, ssa_sw, g_sw,                                           &
-          & pt_diag, prm_diag, pt_prog, lnd_prog, ecrad_conf )
+          & pt_diag, prm_diag, pt_prog, lnd_prog, ecrad_conf, lacc )
       ENDIF
 #else
       CALL finish(routine,  &
@@ -329,14 +351,6 @@ MODULE mo_nwp_rad_interface
         &                  ' not valid. Valid choices are 0: none, 1:RRTM, 4:ecRad '
       CALL finish(routine,message_text)
     END SELECT ! inwp_radiation
-
-#ifdef _OPENACC
-    IF(lacc) THEN
-      CALL message('mo_nh_interface_nwp', 'Host to device copy after Radiation. This needs to be removed once port is finished!')
-      CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
-      i_am_accel_node = my_process_is_work()
-    ENDIF
-#endif
 
     !$ACC END DATA
 

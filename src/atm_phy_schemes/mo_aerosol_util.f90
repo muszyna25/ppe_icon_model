@@ -81,6 +81,8 @@ MODULE mo_aerosol_util
   PUBLIC :: prog_aerosol_2D, aerosol_2D_diffusion
   PUBLIC :: tegen_scal_factors, init_aerosol_props_tegen_ecrad
 
+  !$ACC DECLARE CREATE(zaea_rrtm, zaes_rrtm, zaeg_rrtm)
+
 CONTAINS
 
   !!  Subroutine aerdis is simplified version from COSMO model (version 4.16).
@@ -665,6 +667,8 @@ CONTAINS
      &0.1310_wp,0.1906_wp,0.2625_wp,0.3154_wp,0.3869_wp,0.4787_wp,0.5279_wp,0.6272_wp,&     ! SB
      &0.6941_wp,0.7286_wp,0.7358_wp,0.7177_wp,0.6955_wp,0.0616_wp/),(/jpsw+jpband,5/))      ! SB
 
+    !$ACC UPDATE DEVICE(zaea_rrtm, zaes_rrtm, zaeg_rrtm)
+
   END SUBROUTINE init_aerosol_props_tanre_rrtm
   
   SUBROUTINE init_aerosol_props_tegen_rrtm
@@ -741,6 +745,8 @@ CONTAINS
      &0.1310_wp,0.1906_wp,0.2625_wp,0.3154_wp,0.3869_wp,0.4787_wp,0.5279_wp,0.6272_wp,&     ! SB
      &0.6941_wp,0.7286_wp,0.7358_wp,0.7177_wp,0.6955_wp,0.0616_wp/),(/jpsw+jpband,5/))      ! SB
 
+    !$ACC UPDATE DEVICE(zaea_rrtm, zaes_rrtm, zaeg_rrtm)
+
   END SUBROUTINE init_aerosol_props_tegen_rrtm
 
   !---------------------------------------------------------------------------------------
@@ -773,6 +779,8 @@ CONTAINS
       tegen_scal_factors%absorption(:,:) = zaea_rrtm(:,:)
       tegen_scal_factors%scattering(:,:) = zaes_rrtm(:,:)
       tegen_scal_factors%asymmetry (:,:) = zaeg_rrtm(:,:)
+      !$ACC UPDATE DEVICE(tegen_scal_factors%absorption, &
+      !$ACC   tegen_scal_factors%scattering, tegen_scal_factors%asymmetry)
     ELSE
       ! This part will be used for ecckd in the future.
       ! Here, the number of bands is flexible and the
@@ -804,6 +812,7 @@ CONTAINS
     ALLOCATE(this%absorption(this%n_bands,5))
     ALLOCATE(this%scattering(this%n_bands,5))
     ALLOCATE(this%asymmetry (this%n_bands,5))
+    !$ACC ENTER DATA CREATE(this%absorption, this%scattering, this%asymmetry)
   END SUBROUTINE
   !---------------------------------------------------------------------------------------
 
@@ -822,10 +831,13 @@ CONTAINS
 
     this%n_bands = 0
 
+    !$ACC EXIT DATA DELETE(this%absorption) IF(ALLOCATED(this%absorption))
     IF (ALLOCATED(this%absorption)) &
       DEALLOCATE(this%absorption)
+    !$ACC EXIT DATA DELETE(this%scattering) IF(ALLOCATED(this%scattering))
     IF (ALLOCATED(this%scattering)) &
       DEALLOCATE(this%scattering)
+    !$ACC EXIT DATA DELETE(this%asymmetry) IF(ALLOCATED(this%asymmetry))
     IF (ALLOCATED(this%asymmetry)) &
       DEALLOCATE(this%asymmetry)
   END SUBROUTINE

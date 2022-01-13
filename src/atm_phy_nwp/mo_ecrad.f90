@@ -107,6 +107,8 @@ MODULE mo_ecrad
   INTEGER            :: iband_par_ecrad(100)
   REAL(KIND=wp)      :: weight_par_ecrad(100)
 
+  !$ACC DECLARE COPYIN(iband_par_ecrad, weight_par_ecrad)
+
 ! Pointers to aerosol optical properties
   TYPE t_opt_ptrs
     REAL(wp), POINTER, DIMENSION(:,:) :: &
