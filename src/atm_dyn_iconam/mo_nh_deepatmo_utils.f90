@@ -901,7 +901,7 @@ CONTAINS !......................................................................
     ! Local variables from solve_nh that are passed for efficiency optimization
     REAL(vp), DIMENSION(:,:,:), INTENT(INOUT) :: z_w_concorr_me, z_kin_hor_e, z_vt_ie
 
-    INTEGER, INTENT(IN)  :: ntnd     ! time level of ddt_adv fields used to store tendencies
+    INTEGER, INTENT(IN)  :: ntnd     ! time level of ddt fields used to store tendencies
     INTEGER, INTENT(IN)  :: istep    ! 1: predictor step, 2: corrector step
     LOGICAL, INTENT(IN)  :: lvn_only ! true: compute only vn tendency
     REAL(wp),INTENT(IN)  :: dtime    ! time step
@@ -1324,7 +1324,7 @@ CONTAINS !......................................................................
       DO jk = 2, nlev
 !DIR$ IVDEP
         DO jc = i_startidx_2, i_endidx_2
-          p_diag%ddt_w_adv(jc,jk,jb,ntnd) =  - z_w_con_c(jc,jk)   *                                 &
+          p_diag%ddt_w_adv_pc(jc,jk,jb,ntnd) =  - z_w_con_c(jc,jk)*                                 &
             (p_prog%w(jc,jk-1,jb)*p_metrics%coeff1_dwdz(jc,jk,jb) -                                 &
              p_prog%w(jc,jk+1,jb)*p_metrics%coeff2_dwdz(jc,jk,jb) +                                 &
              p_prog%w(jc,jk,jb)*(p_metrics%coeff2_dwdz(jc,jk,jb) - p_metrics%coeff1_dwdz(jc,jk,jb)) )
@@ -1336,14 +1336,14 @@ CONTAINS !......................................................................
       DO jc = i_startidx_2, i_endidx_2
 !DIR$ IVDEP
         DO jk = 2, nlev
-          p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)       + &
+          p_diag%ddt_w_adv_pc(jc,jk,jb,ntnd) = p_diag%ddt_w_adv_pc(jc,jk,jb,ntnd) + &
             p_int%e_bln_c_s(jc,1,jb)*z_v_grad_w(jk,ieidx(jc,jb,1),ieblk(jc,jb,1)) + &
             p_int%e_bln_c_s(jc,2,jb)*z_v_grad_w(jk,ieidx(jc,jb,2),ieblk(jc,jb,2)) + &
             p_int%e_bln_c_s(jc,3,jb)*z_v_grad_w(jk,ieidx(jc,jb,3),ieblk(jc,jb,3))
 #else
       DO jk = 2, nlev
         DO jc = i_startidx_2, i_endidx_2
-          p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)       + &
+          p_diag%ddt_w_adv_pc(jc,jk,jb,ntnd) = p_diag%ddt_w_adv_pc(jc,jk,jb,ntnd) + &
             p_int%e_bln_c_s(jc,1,jb)*z_v_grad_w(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) + &
             p_int%e_bln_c_s(jc,2,jb)*z_v_grad_w(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) + &
             p_int%e_bln_c_s(jc,3,jb)*z_v_grad_w(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))
@@ -1361,7 +1361,7 @@ CONTAINS !......................................................................
                   ABS(z_w_con_c(jc,jk))*dtime/p_metrics%ddqz_z_half(jc,jk,jb) - cfl_w_limit*dtime )
 
                 ! nabla2 diffusion on w
-                p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)        + &
+                p_diag%ddt_w_adv_pc(jc,jk,jb,ntnd) = p_diag%ddt_w_adv_pc(jc,jk,jb,ntnd)  + &
                   difcoef * p_patch%cells%area(jc,jb) * (                                  &
                   p_prog%w(jc,jk,jb)                          *p_int%geofac_n2s(jc,1,jb) + &
                   p_prog%w(incidx(jc,jb,1),jk,incblk(jc,jb,1))*p_int%geofac_n2s(jc,2,jb) + &
@@ -1407,7 +1407,7 @@ CONTAINS !......................................................................
       DO je = i_startidx, i_endidx
 !DIR$ IVDEP, PREFERVECTOR
         DO jk = 1, nlev
-          p_diag%ddt_vn_adv(je,jk,jb,ntnd) = - (                                                & 
+          p_diag%ddt_vn_apc_pc(je,jk,jb,ntnd) = - (                                             & 
              (                                                                                  & 
               z_kin_hor_e(je,jk,jb) *                                                           &
               (p_metrics%coeff_gradekin(je,1,jb) - p_metrics%coeff_gradekin(je,2,jb)) +         &
@@ -1428,7 +1428,7 @@ CONTAINS !......................................................................
 #else
       DO jk = 1, nlev
         DO je = i_startidx, i_endidx
-          p_diag%ddt_vn_adv(je,jk,jb,ntnd) = - (                                                &
+          p_diag%ddt_vn_apc_pc(je,jk,jb,ntnd) = - (                                             &
              (                                                                                  &
               z_kin_hor_e(je,jk,jb) *                                                           &
               (p_metrics%coeff_gradekin(je,1,jb) - p_metrics%coeff_gradekin(je,2,jb)) +         &
@@ -1451,6 +1451,21 @@ CONTAINS !......................................................................
         ENDDO
       ENDDO
 
+      ! If needed, compute separately the Coriolis effect: vt*f - wcon_e*ft
+      IF (p_diag%ddt_vn_adv_is_associated .OR. p_diag%ddt_vn_cor_is_associated) THEN
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+            p_diag%ddt_vn_cor_pc(je,jk,jb,ntnd) = - (                                             &
+               + p_diag%vt(je,jk,jb) * ( p_patch%edges%f_e(je,jb) )                               &
+               + (p_int%c_lin_e(je,1,jb)*z_w_con_c_full(icidx(je,jb,1),jk,icblk(je,jb,1)) +       &
+               p_int%c_lin_e(je,2,jb)*z_w_con_c_full(icidx(je,jb,2),jk,icblk(je,jb,2))) *         &
+               (                                                                                  &
+               - p_patch%edges%ft_e(je,jb)                                                        &
+               )                                                                                  &
+              )
+          ENDDO
+        ENDDO
+      END IF
 
       IF (lextra_diffu) THEN
         ! Search for grid points for which w_con is close to or above the CFL stability limit
@@ -1466,7 +1481,7 @@ CONTAINS !......................................................................
                 difcoef = scalfac_exdiff * MIN(0.85_wp - cfl_w_limit*dtime,                &
                   ABS(w_con_e)*dtime/p_metrics%ddqz_z_full_e(je,jk,jb) - cfl_w_limit*dtime )
 
-                p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd)   +                 &
+                p_diag%ddt_vn_apc_pc(je,jk,jb,ntnd) = p_diag%ddt_vn_apc_pc(je,jk,jb,ntnd) +             &
                   difcoef * p_patch%edges%area_edge(je,jb) * (                                          &
                   p_int%geofac_grdiv(je,1,jb)*p_prog%vn(je,jk,jb)                         +             &
                   p_int%geofac_grdiv(je,2,jb)*p_prog%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) +             &

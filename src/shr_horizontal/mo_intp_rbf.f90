@@ -302,7 +302,7 @@ DO jb = i_startblk, i_endblk
                      i_startidx, i_endidx, rl_start, rl_end)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-#ifndef _OPENACC
+!$ACC LOOP GANG VECTOR TILE(32,4)
 #ifdef __LOOP_EXCHANGE
   DO jc = i_startidx, i_endidx
     DO jk = slev, elev
@@ -310,17 +310,6 @@ DO jb = i_startblk, i_endblk
   DO jk = slev, elev
     DO jc = i_startidx, i_endidx
 #endif
-! _OPENACC
-#else
-  !$ACC LOOP GANG VECTOR COLLAPSE(2)
-  DO jk0 = slev, elev, 2
-    DO jc = i_startidx, i_endidx
-      !$ACC LOOP SEQ
-      do jkk = 0, 1
-        jk = jk0 + jkk
-        if (jk > elev) cycle
-#endif
-
       p_u_out(jc,jk,jb) =  &
         ptr_coeff(1,1,jc,jb)*p_vn_in(iidx(1,jc,jb),jk,iblk(1,jc,jb)) + &
         ptr_coeff(2,1,jc,jb)*p_vn_in(iidx(2,jc,jb),jk,iblk(2,jc,jb)) + &
@@ -341,11 +330,6 @@ DO jb = i_startblk, i_endblk
         ptr_coeff(7,2,jc,jb)*p_vn_in(iidx(7,jc,jb),jk,iblk(7,jc,jb)) + &
         ptr_coeff(8,2,jc,jb)*p_vn_in(iidx(8,jc,jb),jk,iblk(8,jc,jb)) + &
         ptr_coeff(9,2,jc,jb)*p_vn_in(iidx(9,jc,jb),jk,iblk(9,jc,jb))
-
-#ifdef _OPENACC
-      ENDDO
-#endif
-
     ENDDO
   ENDDO
 !$ACC END PARALLEL

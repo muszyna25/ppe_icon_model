@@ -1069,11 +1069,12 @@ version of RTE+RRTMGP library @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
          [NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
-         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([openacc])]],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([gpu])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([tests])]],
         [[CFLAGS="$subdir_CFLAGS $ICON_RTE_RRTMGP_CFLAGS"],
          [FCFLAGS="$subdir_FCFLAGS $ICON_RTE_RRTMGP_FCFLAGS"],
          [NETCDF_FCFLAGS=], [NETCDF_FCLIBS=],
-         [--enable-openacc="$enable_gpu"],
+         [--enable-gpu="$enable_gpu"], [--enable-tests=no],
          [--enable-silent-rules="$enable_silent_rules"]])
       AS_VAR_APPEND([bundled_includes],
         ["${FC_MOD_IN}externals/rte-rrtmgp/mod "])

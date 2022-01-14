@@ -33,7 +33,7 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE vdiff_up( jcs, kproma, kbdim, klev, klevm1,                 &! in
+  SUBROUTINE vdiff_up( jg, jcs, kproma, kbdim, klev, klevm1,             &! in
                        ktrac,      ksfc_type,   idx_wtr,                 &! in
                        pdtime, pfrc,                                     &! in
                        pcfm_tile,                                        &! in
@@ -54,7 +54,7 @@ CONTAINS
 !!$                       ptotte,                                           &! out
 !!$                       psh_vdiff,  pqv_vdiff                             )! out
 
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, klevm1, ktrac
+    INTEGER, INTENT(IN) :: jg, jcs, kproma, kbdim, klev, klevm1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr
     REAL(wp),INTENT(IN) :: pdtime
 
@@ -125,7 +125,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     CALL rhs_bksub( jcs, kproma, kbdim, itop, klev, aa, bb ) ! in,...,in, inout
 
-    CALL vdiff_tendencies( jcs, kproma, kbdim, itop, klev, klevm1,      &! in
+    CALL vdiff_tendencies( jg, jcs, kproma, kbdim, itop, klev, klevm1,  &! in
                          & ktrac, ksfc_type, idx_wtr,                   &! in
                          & pdtime,                                      &! in
                          & pum1, pvm1, ptm1,                            &! in

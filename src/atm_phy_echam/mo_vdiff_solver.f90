@@ -20,7 +20,8 @@ MODULE mo_vdiff_solver
   USE mo_exception,         ONLY: message, message_text, finish
   USE mo_physical_constants,ONLY: rgrav, cpd, cpv
   USE mo_echam_vdiff_params,ONLY: totte_min, &
-    &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
+    &                             tpfac1, tpfac2, tpfac3, cchar
+  USE mo_echam_vdf_config,  ONLY: echam_vdf_config
   USE mo_echam_phy_config,  ONLY: echam_phy_config
   USE mo_echam_vdf_config,  ONLY: echam_vdf_config
   USE mo_nh_testcases_nml,  ONLY: isrfc_type, shflx, lhflx
@@ -447,7 +448,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-    !$ACC LOOP GANG VECTOR COLLAPSE(1)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klevm1
       DO jc = jcs,kproma
         zkh(jc,jk) = 0.5_wp*(zkstar(jc,jk)+zkstar(jc,jk+1))
@@ -1171,7 +1172,7 @@ CONTAINS
   !-------------
   !>
   !!
-  SUBROUTINE vdiff_tendencies( jcs, kproma, kbdim, itop, klev, klevm1,     &! in
+  SUBROUTINE vdiff_tendencies( jg, jcs, kproma, kbdim, itop, klev, klevm1, &! in
                              & ktrac, ksfc_type, idx_wtr,                  &! in
                              & pdtime,                                     &! in
                              & pum1, pvm1, ptm1,                           &! in
@@ -1189,7 +1190,7 @@ CONTAINS
 !!$                             & pz0m, ptotte, pthvvar,                      &! out
 !!$                             & psh_vdiff,pqv_vdiff                         )! out
 
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, itop, klev, klevm1, ktrac !!$, klevp1
+    INTEGER, INTENT(IN) :: jg, jcs, kproma, kbdim, itop, klev, klevm1, ktrac !!$, klevp1
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr
     REAL(wp),INTENT(IN) :: pdtime
 
@@ -1234,6 +1235,7 @@ CONTAINS
     REAL(wp) :: zunew, zvnew, zqnew, zsnew, zhnew
     REAL(wp) :: zcp
     REAL(wp) :: zdis  (kbdim,klev)
+    REAL(wp) :: z0m_min
 
     INTEGER  :: jk, jl, jt, irhs, jsfc
 
@@ -1257,6 +1259,8 @@ CONTAINS
 
     zrdt   = 1._wp/pdtime
 
+    z0m_min = echam_vdf_config(jg)%z0m_min
+
     !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = 1, klev
@@ -1274,10 +1278,9 @@ CONTAINS
     !$ACC END PARALLEL
 
     !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( ktrac > 0 )
-    !$ACC LOOP GANG COLLAPSE(2)
+    !$ACC LOOP GANG VECTOR COLLAPSE(3)
     DO jt = 1, ktrac
       DO jk = 1, klev
-        !$ACC LOOP VECTOR
         DO jl = 1, kbdim
           pxtte_vdf(jl,jk,jt) = 0._wp
         END DO
@@ -1294,11 +1297,10 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Compute TTE at the new time step.
     !-------------------------------------------------------------------
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-    !$ACC LOOP SEQ
+    ztest = 0._wp
+    !$ACC PARALLEL DEFAULT(NONE) REDUCTION(+:ztest) ASYNC(1)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = itop,klevm1
-      ztest = 0._wp
-      !$ACC LOOP GANG VECTOR REDUCTION(+:ztest)
       DO jl = jcs,kproma
         ptotte(jl,jk) = bb(jl,jk,itotte) + tpfac3*pztottevn(jl,jk)
         ztest = ztest+MERGE(1._wp,0._wp,ptotte(jl,jk)<0._wp)
@@ -1438,10 +1440,10 @@ CONTAINS
     ! Update roughness height over open water, then update the grid-box mean
     !----------------------------------------------------------------------------
     IF (idx_wtr<=ksfc_type) THEN  ! water surface exists in the simulation
-      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+      !$ACC PARALLEL DEFAULT(NONE) PRESENT(echam_vdf_config) ASYNC(1)
       !acc loop gang vector
       DO jl = 1,kbdim
-        pz0m_tile(jl,idx_wtr) = 1.E-3_wp
+        pz0m_tile(jl,idx_wtr) = echam_vdf_config(jg)%z0m_oce
       ENDDO
       !$ACC END PARALLEL
       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)

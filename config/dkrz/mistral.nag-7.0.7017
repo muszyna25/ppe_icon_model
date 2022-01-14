@@ -79,7 +79,7 @@ LIBS=$(echo "${LIBS}" | sed 's/\([ ]\|^\)-l/\1-Wl,-l/g')
 
 MPI_LAUNCH="${MPICH_ROOT}/bin/mpirun"
 
-EXTRA_CONFIG_ARGS=''
+EXTRA_CONFIG_ARGS='--enable-rte-rrtmgp '
 
 ################################################################################
 

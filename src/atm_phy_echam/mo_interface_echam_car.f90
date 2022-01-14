@@ -129,16 +129,13 @@ CONTAINS
        CASE(1)
           ! use tendency to update the model state
           tend% qtrc_phy(jcs:jce,:,jb,io3) = tend% qtrc_phy(jcs:jce,:,jb,io3) + tend_qtrc_car(jcs:jce,:,io3)*amo3/amd
-!!$       CASE(2)
-!!$          ! use tendency as forcing in the dynamics
-!!$          ...
        END SELECT
        !
        ! update physics state for input to the next physics process
        SELECT CASE(fc_car)
        CASE(0)
           ! diagnostic, do not use tendency
-       CASE(1,2)
+       CASE(1)
           ! use tendency to update the physics state
           IF (lparamcpl) THEN
              field% qtrc(jcs:jce,:,jb,io3)  = field% qtrc(jcs:jce,:,jb,io3)  +  tend_qtrc_car(jcs:jce,:,io3)*amo3/amd*pdtime

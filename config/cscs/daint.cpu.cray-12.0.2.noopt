@@ -25,7 +25,7 @@ CFLAGS='-g -O3'
 CPPFLAGS="-I${XML2_ROOT}/include/libxml2"
 
 FC='ftn'
-FCFLAGS='-hadd_paren -r am -Ktrap=divz,ovf,inv -hflex_mp=intolerant -hfp0 -O0 -hnoacc'
+FCFLAGS='-hadd_paren -r am -Ktrap=divz,ovf,inv -hflex_mp=intolerant -hfp0 -O0 -hnoacc -D__CCE_1202_BUG__'
 
 LDFLAGS="-L${XML2_ROOT}/lib"
 LIBS="-Wl,--as-needed ${XML2_LIBS}"

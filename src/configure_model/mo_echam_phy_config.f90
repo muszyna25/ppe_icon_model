@@ -59,10 +59,6 @@ MODULE mo_echam_phy_config
      ! ------------------------
      !
      ! dynamics physics coupling
-     LOGICAL  :: ldcphycpl  !< determines the coupling between the dynamics and the phyiscs
-     !                      !  .FALSE.: dynamics and physics update sequentially
-     !                      !  .TRUE. : dynamics uses physics forcing for updating
-     !
      LOGICAL  :: lparamcpl  !< determines the coupling between the parameterizations
      !                      !  .FALSE.: parameterizations do not update the physics state
      !                      !           so that all params get the same input state
@@ -90,11 +86,9 @@ MODULE mo_echam_phy_config
      ! - dt = time interval
      !
      ! forcing control of processes
-     ! (to replace later ldcphycpl, which controls all params. together, by a param. specific control)
      ! - fc
      !   fc = 0: diagnostic, tendencies of the param. are not used in integration
      !   fc = 1: prognostic, tendencies of the param. are used to update the model state
-     !   fc = 2: prognostic, tendencies of the param. are used as forcing in the dynamical core 
      !
      ! atmospheric physics
      CHARACTER(len=max_timedelta_str_len) :: dt_rad  !< time  step of LW radiation
@@ -282,7 +276,6 @@ CONTAINS
     ! ---------------------------
     !
     ! dynamics physics coupling
-    echam_phy_config(:)%ldcphycpl = .FALSE.
     echam_phy_config(:)%lparamcpl = .TRUE.
     echam_phy_config(:)%ldrymoist = .FALSE.
     !
@@ -503,14 +496,14 @@ CONTAINS
       END IF
       !
       !
-      ! 5. fc must be 0, 1 or 2
+      ! 5. fc must be 0 or 1
       !
       SELECT CASE(config_fc)
-      CASE(0,1,2)
+      CASE(0,1)
          ! OK
       CASE DEFAULT
          ! not allowed
-         CALL finish(method_name,'echam_phy_config('//TRIM(cg)//')% fc_'//TRIM(process)//' must be 0, 1 or 2')
+         CALL finish(method_name,'echam_phy_config('//TRIM(cg)//')% fc_'//TRIM(process)//' must be 0 or 1')
       END SELECT
       !
       CALL deallocateTimeDelta(tc_dt)
@@ -734,8 +727,6 @@ CONTAINS
        CALL message    ('','..........................')
        CALL message    ('','')
        CALL message    ('','dynamics physics coupling')
-       CALL print_value('    echam_phy_config('//TRIM(cg)//')% ldcphycpl  ',echam_phy_config(jg)% ldcphycpl  )
-       CALL message    ('','')
        CALL message    ('','parameterization coupling: .FALSE.: no updates of physics state, .TRUE.: updates phyiscs state')
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% lparamcpl  ',echam_phy_config(jg)% lparamcpl  )
        CALL message    ('','')
@@ -941,8 +932,6 @@ CONTAINS
             CALL message ('',process//' tendencies are diagnostic')
          CASE(1)
             CALL message ('',process//' tendencies are used to update the model state')
-         CASE(2)
-            CALL message ('',process//' tendencies are used as forcing in the dynamics')
          END SELECT
       END IF
       CALL message   ('','')

@@ -74,10 +74,10 @@ CONTAINS
     TYPE(datetime)          ,POINTER    :: datetime_old
     REAL(wp)                ,INTENT(in) :: pdtime
 
-    ! Pointers
+    ! Shortcuts
     !
-    LOGICAL                 ,POINTER    :: lparamcpl, l2moment
-    INTEGER                 ,POINTER    :: fc_vdf
+    LOGICAL :: lparamcpl, l2moment, ldtrad_gt0
+    INTEGER :: fc_vdf
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
 
@@ -206,9 +206,10 @@ CONTAINS
     nlev         = patch%nlev
 
     ! associate pointers
-    lparamcpl => echam_phy_config(jg)%lparamcpl
-    l2moment  => echam_phy_config(jg)%l2moment
-    fc_vdf    => echam_phy_config(jg)%fc_vdf
+    lparamcpl =  echam_phy_config(jg)%lparamcpl
+    l2moment  =  echam_phy_config(jg)%l2moment
+    ldtrad_gt0=  echam_phy_tc(jg)%dt_rad > dt_zero
+    fc_vdf    =  echam_phy_config(jg)%fc_vdf
     field     => prm_field(jg)
     tend      => prm_tend (jg)
 
@@ -219,30 +220,32 @@ CONTAINS
     nice   = prm_field(jg)%kice
     turb => echam_vdf_config(jg)%turb
 
-    !$ACC DATA PCREATE( zxt_emis ) IF( ntrac > 0 )
-    !$ACC DATA PRESENT( field, tend ),                                          &
-    !$ACC      PCREATE( zcpt_sfc_tile, ri_tile, zqx, zbn_tile,                  &
+    !$ACC DATA  CREATE( zxt_emis ) IF( ntrac > 0 )
+    !$ACC DATA PRESENT( field, tend, ccycle_config ),                           &
+    !$ACC       CREATE( zcpt_sfc_tile, ri_tile, zqx, zbn_tile,                  &
     !$ACC               zbhn_tile, zbm_tile, zbh_tile, dummy, dummyx,           &
     !$ACC               wstar, qs_sfc_tile, hdtcbl, ri_atm, mixlen, cfm,        &
     !$ACC               cfm_tile, cfh, cfh_tile, cfv, cftotte, cfthv, zaa,      &
     !$ACC               zaa_btm, zbb, zbb_btm, zfactor_sfc, ddt_u, ddt_v,       &
     !$ACC               zthvvar, ztottevn, zch_tile, kedisp, tend_ua_vdf,       &
     !$ACC               tend_va_vdf, q_vdf, tend_qtrc_vdf, q_snocpymlt, zco2,   &
-    !$ACC               tend_qtrc_vdf_iqt, tend_qtrc_vdf_dummy,                 &
+    !$ACC               tend_qtrc_vdf_dummy,                                    &
     !$ACC               tend_ta_sfc, q_rlw_impl, tend_ta_rlw_impl, tend_ta_vdf, &
     !$ACC               ts_tile, z0m_tile, ustar, wstar_tile, thvsig, rlus,     &
     !$ACC               albvisdir_ice, albnirdir_ice, albvisdif_ice,            &
     !$ACC               albnirdif_ice, ts, ts_rad, evap, cair, csat, z0h_lnd,   &
     !$ACC               albvisdir, albnirdir, albvisdif, albnirdif,             &
     !$ACC               albvisdir_tile, albnirdir_tile, albvisdif_tile,         &
-    !$ACC               albnirdif_tile, albedo, albedo_tile  )
+    !$ACC               albnirdif_tile, albedo, albedo_tile,                    &
+    !$ACC               qi_hori_tend, ql_hori_tend, qv_hori_tend, ta_hori_tend, &
+    !$ACC               qnc_hori_tend, qni_hori_tend )
 
     IF ( is_dry_cbl ) THEN
-!$ACC KERNELS DEFAULT(NONE)
+      !$ACC KERNELS DEFAULT(NONE) ASYNC(1)
       field% qtrc(:,:,:,iqv) = 0._wp
       field% qtrc(:,:,:,iqi) = 0._wp
       field% qtrc(:,:,:,iqc) = 0._wp
-!$ACC END KERNELS
+      !$ACC END KERNELS
     END IF
 
     !$NOser verbatim zaa = 0._wp
@@ -259,47 +262,41 @@ CONTAINS
 
 
     IF ( is_in_sd_ed_interval ) THEN
-       !
-       IF ( is_active ) THEN
+      !
+      IF ( is_active ) THEN
 
-    rls = grf_bdywidth_c+1
-    rle = min_rlcell_int
+        rls = grf_bdywidth_c+1
+        rle = min_rlcell_int
 
-    ncd = MAX(1,patch%n_childdom)
-    jbs = patch%cells%start_blk(rls,  1)
-    jbe = patch%cells%end_blk  (rle,ncd)
-!##############################################################################
-!## jb loop1, is_in_sd_ed_interval == T .and. is_active == T
+        ncd = MAX(1,patch%n_childdom)
+        jbs = patch%cells%start_blk(rls,  1)
+        jbe = patch%cells%end_blk  (rle,ncd)
 
 !$OMP PARALLEL DO PRIVATE(jb,jcs,jce)
-    DO jb = jbs, jbe
-      CALL get_indices_c(patch, jb, jbs, jbe, jcs, jce, rls, rle)
-      IF (jcs>jce) CYCLE
-!##############################################################################
+        !## jb loop1, is_in_sd_ed_interval == T .and. is_active == T
+        DO jb = jbs, jbe
+          CALL get_indices_c(patch, jb, jbs, jbe, jcs, jce, rls, rle)
+          IF (jcs>jce) CYCLE
           !
           ! Set dummy values to zero to prevent invalid floating point operations:
-          !$ACC PARALLEL DEFAULT(NONE)
-          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
           DO jk = 1,nlev
             DO jl = jcs,jce
               dummy (jl,jk,jb) = 0._wp
               dummyx(jl,jk,jb) = 0._wp 
             END DO
           END DO
-          !$ACC END PARALLEL
           !
           ! Surface emissions of extra tracers if ntrac > 0
           !
           ! - default is no emission
           IF (ntrac > 0) THEN
-            !$ACC PARALLEL DEFAULT(NONE) IF( ntrac > 0 )
-            !$ACC LOOP GANG VECTOR COLLAPSE(2)
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( ntrac > 0 )
             DO jt = 1,ntrac
               DO jl = jcs,jce
                 zxt_emis(jl,jt,jb) = 0._wp
               END DO
             END DO
-            !$ACC END PARALLEL
           END IF
           !
           ! Carbon cycle
@@ -313,6 +310,8 @@ CONTAINS
              CALL finish('interface_echam_vdf','The C-cycle cannot be used without CO2 tracer (ico2<iqt or ntracer<ico2)')
           END IF
           !
+          ! DA: fuse all the 1D copies in a single ACC kernel
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
           SELECT CASE (ccycle_config(jg)%iccycle)
              !
           CASE (0) ! no c-cycle
@@ -321,70 +320,53 @@ CONTAINS
              ! of interface_echam_vdf/update_surface/jsbach.
              ! The original parameter echam_rad_config(jg)%vmr_co2 is replaced by its value:
              !
-             !$ACC PARALLEL DEFAULT(NONE)
              !$ACC LOOP GANG VECTOR
              DO jl = jcs,jce
                zco2(jl,jb) = 348.0e-06_wp * amco2/amd
              END DO
-             !$ACC END PARALLEL
              !
           CASE (1) ! c-cycle with interactive atm. co2 concentration
              !
              ! co2 flux at the surface
-             !$ACC DATA PRESENT( field%fco2nat )
-             !$ACC PARALLEL DEFAULT(NONE)
              !$ACC LOOP GANG VECTOR
              DO jl = jcs,jce
                zxt_emis(jl,ico2-(iqt-1),jb) = field%fco2nat(jl,jb)
              END DO
-             !$ACC END PARALLEL
-             !$ACC END DATA
              !
              ! co2 concentration in the lowermost layer
-             !$ACC DATA PRESENT( field%qtrc )
-             !$ACC PARALLEL DEFAULT(NONE)
              !$ACC LOOP GANG VECTOR
              DO jl = jcs,jce
                zco2(jl,jb) = field% qtrc(jl,nlev,jb,ico2)
              END DO
-             !$ACC END PARALLEL
-             !$ACC END DATA
              !
           CASE (2) ! c-cycle with prescribed atm. co2 concentration
              !
              ! co2 flux at the surface
-             !$ACC DATA PRESENT( field%fco2nat )
-             !$ACC PARALLEL DEFAULT(NONE)
              !$ACC LOOP GANG VECTOR
              DO jl = jcs,jce
                zxt_emis(jl,ico2-(iqt-1),jb) = field%fco2nat(jl,jb)
              END DO
-             !$ACC END PARALLEL
-             !$ACC END DATA
              !
              ! co2 concentration in the lowermost layer
              SELECT CASE (ccycle_config(jg)%ico2conc)
              CASE (2)
                 mmr_co2 = ccycle_config(jg)%vmr_co2   * amco2/amd
                 !
-                !$ACC PARALLEL DEFAULT(NONE)
                 !$ACC LOOP GANG VECTOR
                 DO jl = jcs,jce
                   zco2(jl,jb) = mmr_co2
                 END DO
-                !$ACC END PARALLEL
              CASE (4)
-                !$ACC PARALLEL DEFAULT(NONE)
                 !$ACC LOOP GANG VECTOR
                 DO jl = jcs,jce
                   zco2(jl,jb) = ghg_co2mmr
                 END DO
-                !$ACC END PARALLEL
              END SELECT
              !
           END SELECT
-          !$ACC PARALLEL DEFAULT(NONE)
-          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          !$ACC END PARALLEL
+          !
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
           DO jk = 1,nlev
             DO jl = jcs,jce
               zqx(jl,jk,jb) =  field%qtrc(jl,jk,jb,iqc) + field%qtrc(jl,jk,jb,iqi)
@@ -392,9 +374,7 @@ CONTAINS
           END DO
           !$ACC END PARALLEL
           !
-          !$ACC DATA PRESENT( field%ustar, field%cair, field%csat, field%z0h_lnd, field%rlus )
-          !$ACC PARALLEL DEFAULT(NONE)
-          !$ACC LOOP GANG VECTOR
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
           DO jl = jcs,jce
             ustar   (jl,jb) = field% ustar   (jl,jb)
             cair    (jl,jb) = field% cair    (jl,jb)
@@ -402,12 +382,8 @@ CONTAINS
             z0h_lnd (jl,jb) = field% z0h_lnd (jl,jb)
             rlus    (jl,jb) = field% rlus    (jl,jb)
           END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
           !
-          !$ACC DATA PRESENT( field%ts_tile, field%wstar_tile, field%z0m_tile )
-          !$ACC PARALLEL DEFAULT(NONE)
-          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
           DO jsfc=1,nsfc_type
             DO jl=jcs,jce
               ts_tile   (jl,jb,jsfc) = field% ts_tile   (jl,jb,jsfc)
@@ -415,13 +391,9 @@ CONTAINS
               z0m_tile  (jl,jb,jsfc) = field% z0m_tile  (jl,jb,jsfc)
             END DO
           END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
           !
           !
-          !$ACC DATA PRESENT( field%albvisdir_ice, field%albnirdir_ice, field%albvisdif_ice, field%albnirdif_ice )
-          !$ACC PARALLEL DEFAULT(NONE)
-          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
           DO jice=1,nice
             DO jl=jcs,jce
               albvisdir_ice (jl,jice,jb) = field% albvisdir_ice(jl,jice,jb)
@@ -430,323 +402,246 @@ CONTAINS
               albnirdif_ice (jl,jice,jb) = field% albnirdif_ice(jl,jice,jb)
             END DO
           END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
           !
-    !$ACC WAIT
-
-!##############################################################################
-!## jb loop 1
-    END DO
+        END DO !## jb loop 1
+        !$ACC WAIT
 !$OMP END PARALLEL DO
-!##############################################################################
 
-    !$ACC WAIT
+        IF (ltimer) CALL timer_start(timer_vdf_dn)
+        !
+        ! Turbulent mixing, part I:
+        ! - computation of exchange coefficients in the atmosphere and at the surface;
+        ! - build up the tridiagonal linear algebraic system;
+        ! - downward sweep (Gaussian elimination from top till level nlev-1)
+        !
+        !----------------------------------------------------------------------------------------
 
-          IF (ltimer) CALL timer_start(timer_vdf_dn)
-          !
-          ! Turbulent mixing, part I:
-          ! - computation of exchange coefficients in the atmosphere and at the surface;
-          ! - build up the tridiagonal linear algebraic system;
-          ! - downward sweep (Gaussian elimination from top till level nlev-1)
-          !
-          !----------------------------------------------------------------------------------------
-
-          !
-          ! DA: this routine is async aware, so it's safe not not wait here
-          !
-          CALL vdiff_down(jg,                                &! in
-               &          nproma, patch%nblks_c,             &! in
-               &          patch%nblks_v, patch%nblks_e,      &! in
-               &          nlev, nlevm1, nlevp1,              &! in
-               &          ntrac, nsfc_type,                  &! in
-               &          iwtr, iice, ilnd,                  &! in, indices of different surface types
-               &          pdtime,                            &! in, time step
-               &          field%coriol(:,:),                 &! in, Coriolis parameter
-               ! Smagorinsky 
-               &          turb,                              &! in, 1: TTE, 2: 3D Smagorinsky
-               &          patch,                             &! in
-               &          l2moment,                          &! in, l2moment switch for horizontal tendencies
-               !
-               &          field%   zf(:,:,:),                &! in, geopot. height above sea level, full level
-               &          field%   zh(:,:,:),                &! in, geopot. height above sea level, half level
-               &          field%frac_tile(:,:,:),            &! in, area fraction of each sfc type
-               &                 ts_tile(:,:,:),             &! in, surface temperature
-               &          field% ocu (:,:),                  &! in, ocean sfc velocity, u-component
-               &          field% ocv (:,:),                  &! in, ocean sfc velocity, v-component
-               &          field% phalf(:,nlevp1,:),          &! in, sfc pressure
-               &          field%   ua(:,:,:),                &! in, um1
-               &          field%   va(:,:,:),                &! in, vm1
-               &          field%   wa(:,:,:),                &! in, wp1
-               &          field%   ta(:,:,:),                &! in, tm1
-               &          field% qtrc(:,:,:,iqv),            &! in, qm1
-               &          field% qtrc(:,:,:,iqc),            &! in, xlm1
-               &          field% qtrc(:,:,:,iqi),            &! in, xim1
-               &                  zqx(:,:,:),                &! in, xlm1 + xim1
-               &          field% qtrc(:,:,:,iqt:),           &! in, xtm1
-               &          field% mair(:,:,:),                &! in, moist     air mass
-               &          field% mref(:,:,:),                &! in, reference air mass
-               &          field% rho(:,:,:),                 &! in, air density
-               &          field% phalf(:,:,:),               &! in, aphm1
-               &          field% pfull(:,:,:),               &! in, apm1
-               &          field%   tv(:,:,:),                &! in, virtual temperaturea
-               &          field% aclc(:,:,:),                &! in, cloud fraction
-               &          zxt_emis(:,:,:),                   &! in, zxtems
-               &          dummy(:,:,:),                      &! in, variance of theta_v at step t-dt
-               &          dummyx(:,:,:),                     &! in
-               &                 z0m_tile(:,:,:),            &! in
-               &          field% tottem1(:,:,:),             &! in, TTE at step t-dt
-               &                 ustar  (:,:),               &! inout
-               &                 wstar  (:,:),               &! out, convective velocity scale
-               &                 wstar_tile(:,:,:),          &! inout, convective velocity scale (each sfc type)
-               &                 qs_sfc_tile(:,:,:),         &! out, sfc specific humidity at saturation
-               &                 hdtcbl  (:,:),              &! out, for output
-               &                 ri_atm  (:,:,:),            &! out, for output
-               &                 ri_tile (:,:,:),            &! out, for nsurf_diag
-               &                 mixlen  (:,:,:),            &! out, for output
-               &                 cfm     (:,:,:),            &! out, for output
-               &                 cfm_tile(:,:,:),            &! out, for output and "vdiff_up"
-               &                 cfh     (:,:,:),            &! out, for output
-               &                 cfh_tile(:,:,:),            &! out, for output and "vdiff_up"
-               &                 cfv     (:,:,:),            &! out, for output
-               &                 cftotte (:,:,:),            &! out, for output
-               &                 cfthv   (:,:,:),            &! out, for output
-               &          zaa(:,:,:,:,:), zaa_btm(:,:,:,:,:),&
-               &          zbb(:,:,:,:), zbb_btm(:,:,:,:),    &! out, for "vdiff_up"
-               ! for Smagorinsky
-               &          ddt_u(:,:,:), ddt_v(:,:,:),        &! out
-               &          ta_hori_tend(:,:,:),               &! out
-               &          qv_hori_tend(:,:,:),               &! out
-               &          ql_hori_tend(:,:,:),               &! out
-               &          qi_hori_tend(:,:,:),               &! out
-               ! for 2 moment scheme and Smagorinsky
-               &          qnc_hori_tend(:,:,:),              &! out
-               &          qni_hori_tend(:,:,:),              &! out
-               !
-               &          zfactor_sfc(:,:),                  &! out, for "vdiff_up"
-               &          zcpt_sfc_tile(:,:,:),              &! out, for "vdiff_up"
-               &          field%cptgz(:,:,:),                &! out, for "vdiff_up"
-               &          zthvvar(:,:,:),                    &! out, for "vdiff_up"
-               &          thvsig(:,:),                       &! out, for "cucall"
-               &          ztottevn (:,:,:),                  &! out, for "vdiff_up"
-               &          zch_tile(:,:,:),                   &! out, for "nsurf_diag"
-
+        CALL vdiff_down(jg,                                &! in
+              &          nproma, patch%nblks_c,             &! in
+              &          patch%nblks_v, patch%nblks_e,      &! in
+              &          nlev, nlevm1, nlevp1,              &! in
+              &          ntrac, nsfc_type,                  &! in
+              &          iwtr, iice, ilnd,                  &! in, indices of different surface types
+              &          pdtime,                            &! in, time step
+              &          field%coriol(:,:),                 &! in, Coriolis parameter
+              ! Smagorinsky 
+              &          turb,                              &! in, 1: TTE, 2: 3D Smagorinsky
+              &          patch,                             &! in
+              &          l2moment,                          &! in, l2moment switch for horizontal tendencies
+              !
+              &          field%   zf(:,:,:),                &! in, geopot. height above sea level, full level
+              &          field%   zh(:,:,:),                &! in, geopot. height above sea level, half level
+              &          field%frac_tile(:,:,:),            &! in, area fraction of each sfc type
+              &                 ts_tile(:,:,:),             &! in, surface temperature
+              &          field% ocu (:,:),                  &! in, ocean sfc velocity, u-component
+              &          field% ocv (:,:),                  &! in, ocean sfc velocity, v-component
+              &          field% phalf(:,nlevp1,:),          &! in, sfc pressure
+              &          field%   ua(:,:,:),                &! in, um1
+              &          field%   va(:,:,:),                &! in, vm1
+              &          field%   wa(:,:,:),                &! in, wp1
+              &          field%   ta(:,:,:),                &! in, tm1
+              &          field% qtrc(:,:,:,iqv),            &! in, qm1
+              &          field% qtrc(:,:,:,iqc),            &! in, xlm1
+              &          field% qtrc(:,:,:,iqi),            &! in, xim1
+              &                  zqx(:,:,:),                &! in, xlm1 + xim1
+              &          field% qtrc(:,:,:,iqt:),           &! in, xtm1
+              &          field% mair(:,:,:),                &! in, moist     air mass
+              &          field% mref(:,:,:),                &! in, reference air mass
+              &          field% rho(:,:,:),                 &! in, air density
+              &          field% phalf(:,:,:),               &! in, aphm1
+              &          field% pfull(:,:,:),               &! in, apm1
+              &          field%   tv(:,:,:),                &! in, virtual temperaturea
+              &          field% aclc(:,:,:),                &! in, cloud fraction
+              &          zxt_emis(:,:,:),                   &! in, zxtems
+              &          dummy(:,:,:),                      &! in, variance of theta_v at step t-dt
+              &          dummyx(:,:,:),                     &! in
+              &                 z0m_tile(:,:,:),            &! in
+              &          field% tottem1(:,:,:),             &! in, TTE at step t-dt
+              &                 ustar  (:,:),               &! inout
+              &                 wstar  (:,:),               &! out, convective velocity scale
+              &                 wstar_tile(:,:,:),          &! inout, convective velocity scale (each sfc type)
+              &                 qs_sfc_tile(:,:,:),         &! out, sfc specific humidity at saturation
+              &                 hdtcbl  (:,:),              &! out, for output
+              &                 ri_atm  (:,:,:),            &! out, for output
+              &                 ri_tile (:,:,:),            &! out, for nsurf_diag
+              &                 mixlen  (:,:,:),            &! out, for output
+              &                 cfm     (:,:,:),            &! out, for output
+              &                 cfm_tile(:,:,:),            &! out, for output and "vdiff_up"
+              &                 cfh     (:,:,:),            &! out, for output
+              &                 cfh_tile(:,:,:),            &! out, for output and "vdiff_up"
+              &                 cfv     (:,:,:),            &! out, for output
+              &                 cftotte (:,:,:),            &! out, for output
+              &                 cfthv   (:,:,:),            &! out, for output
+              &          zaa(:,:,:,:,:), zaa_btm(:,:,:,:,:),&
+              &          zbb(:,:,:,:), zbb_btm(:,:,:,:),    &! out, for "vdiff_up"
+              ! for Smagorinsky
+              &          ddt_u(:,:,:), ddt_v(:,:,:),        &! out
+              &          ta_hori_tend(:,:,:),               &! out
+              &          qv_hori_tend(:,:,:),               &! out
+              &          ql_hori_tend(:,:,:),               &! out
+              &          qi_hori_tend(:,:,:),               &! out
+              ! for 2 moment scheme and Smagorinsky
+              &          qnc_hori_tend(:,:,:),              &! out
+              &          qni_hori_tend(:,:,:),              &! out
+              !
+              &          zfactor_sfc(:,:),                  &! out, for "vdiff_up"
+              &          zcpt_sfc_tile(:,:,:),              &! out, for "vdiff_up"
+              &          field%cptgz(:,:,:),                &! out, for "vdiff_up"
+              &          zthvvar(:,:,:),                    &! out, for "vdiff_up"
+              &          thvsig(:,:),                       &! out, for "cucall"
+              &          ztottevn (:,:,:),                  &! out, for "vdiff_up"
+              &          zch_tile(:,:,:),                   &! out, for "nsurf_diag"
 !!$               &          zchn_tile(:,:),                  &! out, for "nsurf_diag"
 !!$               &          zcdn_tile(:,:),                  &! out, for "nsurf_diag"
 !!$               &          zcfnc_tile(:,:),                 &! out, for "nsurf_diag"
-               &          zbn_tile(:,:,:),                   &! out, for "nsurf_diag"
-               &          zbhn_tile(:,:,:),                  &! out, for "nsurf_diag"
-               &          zbm_tile(:,:,:),                   &! out, for "nsurf_diag"
-               &          zbh_tile(:,:,:),                   &! out, for "nsurf_diag"
-               &          pcsat = csat(:,:),                 &! in, optional, area fraction with wet land surface
-               &          pcair = cair(:,:),                 &! in, optional, area fraction with wet land surface (air)
-               &          paz0lh = z0h_lnd(:,:)          )    ! in, optional, roughness length for heat over land
+              &          zbn_tile(:,:,:),                   &! out, for "nsurf_diag"
+              &          zbhn_tile(:,:,:),                  &! out, for "nsurf_diag"
+              &          zbm_tile(:,:,:),                   &! out, for "nsurf_diag"
+              &          zbh_tile(:,:,:),                   &! out, for "nsurf_diag"
+              &          pcsat = csat(:,:),                 &! in, optional, area fraction with wet land surface
+              &          pcair = cair(:,:),                 &! in, optional, area fraction with wet land surface (air)
+              &          paz0lh = z0h_lnd(:,:)          )    ! in, optional, roughness length for heat over land
+        !
+        !
+        ! DA: vdiff_down has its own ACC WAIT due to automatic arrays in ACC data sections
+        !----------------------------------------------------------------------------------------
 
-          !
-          !
-          ! DA: before the rest of the kernels here are async, we need to wait
-          !$ACC WAIT
-          !----------------------------------------------------------------------------------------
+        rls = grf_bdywidth_c+1
+        rle = min_rlcell_int
 
-    rls = grf_bdywidth_c+1
-    rle = min_rlcell_int
+        ncd = MAX(1,patch%n_childdom)
+        jbs = patch%cells%start_blk(rls,  1)
+        jbe = patch%cells%end_blk  (rle,ncd)
 
-    ncd = MAX(1,patch%n_childdom)
-    jbs = patch%cells%start_blk(rls,  1)
-    jbe = patch%cells%end_blk  (rle,ncd)
-
-!##############################################################################
-!## jb loop2, is_in_sd_ed_interval == T .and. is_active == T
 !$OMP PARALLEL DO PRIVATE(jb,jcs,jce)
-    DO jb = jbs, jbe
-      CALL get_indices_c(patch, jb, jbs, jbe, jcs, jce, rls, rle)
-      IF (jcs>jce) CYCLE
-!##############################################################################
-
+        !## jb loop2, is_in_sd_ed_interval == T .and. is_active == T
+        DO jb = jbs, jbe
+          CALL get_indices_c(patch, jb, jbs, jbe, jcs, jce, rls, rle)
+          IF (jcs>jce) CYCLE
+          !
           ! store in memory for output, if requested
           !
+          ! DA: fuse all the 1D copies in a single ACC kernel
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
           IF (ASSOCIATED(field% wstar)) THEN
-            !$ACC DATA PRESENT( field%wstar, wstar )
-            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl=jcs,jce
               field% wstar(jl,jb) = wstar(jl,jb)
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
-          END IF
-          IF (ASSOCIATED(field% qs_sfc_tile)) THEN
-            !$ACC DATA PRESENT( field%qs_sfc_tile, qs_sfc_tile )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP SEQ
-            DO jsfc=1,nsfc_type
-              !$ACC LOOP GANG VECTOR
-              DO jl=jcs,jce
-                field% qs_sfc_tile(jl,jb,jsfc) = qs_sfc_tile(jl,jb,jsfc)
-              END DO
-            END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           IF (ASSOCIATED(field% hdtcbl)) THEN
-            !$ACC DATA PRESENT( field%hdtcbl, hdtcbl )
-            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl=jcs,jce
               field% hdtcbl(jl,jb) = hdtcbl(jl,jb)
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
+          END IF
+          !$ACC END PARALLEL
+          !
+          IF (ASSOCIATED(field% qs_sfc_tile)) THEN
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+            DO jsfc=1,nsfc_type
+              DO jl=jcs,jce
+                field% qs_sfc_tile(jl,jb,jsfc) = qs_sfc_tile(jl,jb,jsfc)
+              END DO
+            END DO
           END IF
           IF (ASSOCIATED(field% ri_atm)) THEN
-            !$ACC DATA PRESENT( field%ri_atm, ri_atm )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk=1,nlev
-              !$ACC LOOP VECTOR
               DO jl=jcs,jce
                 field% ri_atm(jl,jk,jb) = ri_atm(jl,jk,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           IF (ASSOCIATED(field% mixlen)) THEN
-            !$ACC DATA PRESENT( field%mixlen, mixlen )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk=1,nlev
-              !$ACC LOOP VECTOR
               DO jl=jcs,jce
                 field% mixlen(jl,jk,jb) = mixlen(jl,jk,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           IF (ASSOCIATED(field% cfm)) THEN
-            !$ACC DATA PRESENT( field%cfm, cfm )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk=1,nlev
-              !$ACC LOOP VECTOR
               DO jl=jcs,jce
                 field% cfm(jl,jk,jb) = cfm(jl,jk,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           IF (ASSOCIATED(field% cfm_tile)) THEN
-            !$ACC DATA PRESENT( field%cfm_tile, cfm_tile )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP SEQ
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jsfc=1,nsfc_type
-              !$ACC LOOP GANG VECTOR
               DO jl=jcs,jce
                 field% cfm_tile(jl,jb,jsfc) = cfm_tile(jl,jb,jsfc)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           IF (ASSOCIATED(field% cfh)) THEN
-            !$ACC DATA PRESENT( field%cfh, cfh )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk=1,nlev
-              !$ACC LOOP VECTOR
               DO jl=jcs,jce
                 field% cfh(jl,jk,jb) = cfh(jl,jk,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           IF (ASSOCIATED(field% cfh_tile)) THEN
-            !$ACC DATA PRESENT( field%cfh_tile, cfh_tile )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP SEQ
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jsfc=1,nsfc_type
-              !$ACC LOOP GANG VECTOR
               DO jl=jcs,jce
                 field% cfh_tile(jl,jb,jsfc) = cfh_tile(jl,jb,jsfc)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           IF (ASSOCIATED(field% cfv)) THEN
-            !$ACC DATA PRESENT( field%cfv, cfv )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk=1,nlev
-              !$ACC LOOP VECTOR
               DO jl=jcs,jce
                 field% cfv(jl,jk,jb) = cfv(jl,jk,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           IF (ASSOCIATED(field% cftotte)) THEN
-            !$ACC DATA PRESENT( field%cftotte, cftotte )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk=1,nlev
-              !$ACC LOOP VECTOR
               DO jl=jcs,jce
                 field% cftotte(jl,jk,jb) = cftotte(jl,jk,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           IF (ASSOCIATED(field% cfthv)) THEN
-            !$ACC DATA PRESENT( field%cfthv, cfthv )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk=1,nlev
-              !$ACC LOOP VECTOR
               DO jl=jcs,jce
                 field% cfthv(jl,jk,jb) = cfthv(jl,jk,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
-    !$ACC WAIT
           !
-!##############################################################################
-!## jb loop 2
-    END DO
+        END DO !## jb loop 2
+        !$ACC WAIT
 !$OMP END PARALLEL DO
-!##############################################################################
-          !
-    !$ACC WAIT
-          !
-          IF (ltimer) CALL timer_stop(timer_vdf_dn)
-          !
-    rls = grf_bdywidth_c+1
-    rle = min_rlcell_int
+        !
+        !
+        IF (ltimer) CALL timer_stop(timer_vdf_dn)
+        !
+        rls = grf_bdywidth_c+1
+        rle = min_rlcell_int
 
-    ncd = MAX(1,patch%n_childdom)
-    jbs = patch%cells%start_blk(rls,  1)
-    jbe = patch%cells%end_blk  (rle,ncd)
+        ncd = MAX(1,patch%n_childdom)
+        jbs = patch%cells%start_blk(rls,  1)
+        jbe = patch%cells%end_blk  (rle,ncd)
 
-!##############################################################################
-!## jb loop2-1, is_in_sd_ed_interval == T .and. is_active == T
 !$OMP PARALLEL DO PRIVATE(jb,jcs,jce)
-    DO jb = jbs, jbe
-      CALL get_indices_c(patch, jb, jbs, jbe, jcs, jce, rls, rle)
-      IF (jcs>jce) CYCLE
-!##############################################################################
+        !## jb loop2-1, is_in_sd_ed_interval == T .and. is_active == T
+        DO jb = jbs, jbe
+          CALL get_indices_c(patch, jb, jbs, jbe, jcs, jce, rls, rle)
+          IF (jcs>jce) CYCLE
           !
           ! Surface processes that provide time-dependent lower boundary
           ! condition for wind, temperature, tracer concentration, etc.
           !
-
-    !$ACC WAIT
+          !$ACC WAIT
           !
           IF (ltimer) CALL timer_start(timer_vdf_sf)
 
@@ -840,22 +735,18 @@ CONTAINS
                &              albvisdif_ice = albvisdif_ice(:,:,jb),          &! inout
                &              albnirdif_ice = albnirdif_ice(:,:,jb))           ! inout
           !
-          !----------------------------------------------------------------------------------------
           !
-    !$ACC WAIT
+          ! DA: update_surface has its own ACC WAIT due to automatic arrays in ACC data sections
+          !----------------------------------------------------------------------------------------
           IF (ltimer) CALL timer_stop(timer_vdf_sf)
           !
           ! store in memory for output or recycling
           !
           IF (ASSOCIATED(field% q_snocpymlt)) THEN
-            !$ACC DATA PRESENT( field%q_snocpymlt, q_snocpymlt )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG VECTOR
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
             DO jl = jcs,jce
               field% q_snocpymlt(jl, jb)   = q_snocpymlt(jl,jb)
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
 
           !
@@ -874,9 +765,9 @@ CONTAINS
           ELSE
             tend_qtrc_vdf_iqt => tend_qtrc_vdf_dummy
           ENDIF
-    !$ACC WAIT
+          !$ACC WAIT
           !
-          CALL vdiff_up(jcs, jce, nproma, nlev, nlevm1,  &! in
+          CALL vdiff_up(jg, jcs, jce, nproma, nlev, nlevm1,  &! in
                &        ntrac, nsfc_type,                &! in
                &        iwtr,                            &! in, indices of different sfc types
                &        pdtime,                          &! in, time steps
@@ -914,18 +805,19 @@ CONTAINS
 !!$               &        field%      totte(:,:,jb),       &! out
 !!$               &        field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
 !!$               &        field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
+          !
+          !
+          ! DA: vdiff_up has its own ACC WAIT due to automatic arrays in ACC data sections in vdiff_tendencies
+          !----------------------------------------------------------------------------------------
 
-    !$ACC WAIT
           IF ( turb == 2 ) THEN ! Smagorinksy
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG VECTOR COLLAPSE(2)
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk = 1,nlev
               DO jl = jcs, jce 
                 tend_ua_vdf(jl,jk,jb) = tend_ua_vdf(jl,jk,jb) + ddt_u(jl,jk,jb)
                 tend_va_vdf(jl,jk,jb) = tend_va_vdf(jl,jk,jb) + ddt_v(jl,jk,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
           END IF
 
           !
@@ -935,17 +827,12 @@ CONTAINS
           ! For now do not change the co2 tracer if a prescribed co2 concentration
           ! is used as input to land (and ocean).
           IF (ccycle_config(jg)%iccycle == 2) THEN
-            !$ACC DATA PRESENT( tend_qtrc_vdf )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk = 1,nlev
-              !$ACC LOOP VECTOR
               DO jl = jcs,jce
                 tend_qtrc_vdf(jl,jk,jb,ico2) = 0.0_wp
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           !
           !----------------------------------------------------------------------------------------
@@ -954,302 +841,214 @@ CONTAINS
           !
           ! store in memory for output or recycling
           !
+          ! DA: fuse all the 1D copies in a single ACC kernel
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
           IF (ASSOCIATED(field% kedisp  )) THEN
-            !$ACC DATA PRESENT( field%kedisp, kedisp )
-            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs,jce
               field% kedisp  (jl, jb)   = kedisp (jl,jb)
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           !
-          IF (ASSOCIATED(field% q_vdf)) THEN
-            !$ACC DATA PRESENT( field%q_vdf, q_vdf )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG 
-            DO jk = 1,nlev
-              !$ACC LOOP VECTOR
-              DO jl = jcs,jce
-                field% q_vdf(jl,jk,jb) = q_vdf(jl,jk,jb)
-              END DO
-            END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
-          END IF
           IF (ASSOCIATED(field% q_vdf_vi)) THEN
-            !$ACC DATA PRESENT( field%q_vdf_vi, q_vdf )
-            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs,jce
               field% q_vdf_vi(jl,jb) = SUM(q_vdf(jl,:,jb))
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
+          END IF
+          !$ACC END PARALLEL
+          !
+          IF (ASSOCIATED(field% q_vdf)) THEN
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+            DO jk = 1,nlev
+              DO jl = jcs,jce
+                field% q_vdf(jl,jk,jb) = q_vdf(jl,jk,jb)
+              END DO
+            END DO
           END IF
           !
           IF (ASSOCIATED(tend% ua_vdf)) THEN
-            !$ACC DATA PRESENT( tend%ua_vdf, tend_ua_vdf )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk = 1,nlev
-              !$ACC LOOP VECTOR
               DO jl = jcs,jce
                 tend% ua_vdf(jl,jk,jb) = tend_ua_vdf(jl,jk,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           IF (ASSOCIATED(tend% va_vdf)) THEN
-            !$ACC DATA PRESENT( tend%va_vdf, tend_va_vdf )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk = 1,nlev
-              !$ACC LOOP VECTOR
               DO jl = jcs,jce
                 tend% va_vdf(jl,jk,jb) = tend_va_vdf(jl,jk,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           !
           IF (ASSOCIATED(tend% qtrc_vdf )) THEN
             IF (l2moment) THEN
-            !$ACC DATA PRESENT( tend%qtrc_vdf, tend_qtrc_vdf, tend_qtrc_vdf_iqt )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
-            DO jk = 1,nlev
-              !$ACC LOOP VECTOR
-              DO jl = jcs,jce
-                tend% qtrc_vdf(jl,jk,jb,iqv) = tend_qtrc_vdf(jl,jk,jb,iqv)
-                tend% qtrc_vdf(jl,jk,jb,iqc) = tend_qtrc_vdf(jl,jk,jb,iqc)
-                tend% qtrc_vdf(jl,jk,jb,iqi) = tend_qtrc_vdf(jl,jk,jb,iqi)
-                tend% qtrc_vdf(jl,jk,jb,iqnc) = tend_qtrc_vdf(jl,jk,jb,iqnc)
-                tend% qtrc_vdf(jl,jk,jb,iqni) = tend_qtrc_vdf(jl,jk,jb,iqni)
-              END DO
-            END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
-            ELSE
-            !$ACC DATA PRESENT( tend%qtrc_vdf, tend_qtrc_vdf, tend_qtrc_vdf_iqt )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
-            DO jk = 1,nlev
-              !$ACC LOOP VECTOR
-              DO jl = jcs,jce
-                tend% qtrc_vdf(jl,jk,jb,iqv) = tend_qtrc_vdf(jl,jk,jb,iqv)
-                tend% qtrc_vdf(jl,jk,jb,iqc) = tend_qtrc_vdf(jl,jk,jb,iqc)
-                tend% qtrc_vdf(jl,jk,jb,iqi) = tend_qtrc_vdf(jl,jk,jb,iqi)
-                !$ACC LOOP SEQ
-                DO jt = iqt,ntracer
-                   !iqt is the index of the first non-water tracer
-                  tend% qtrc_vdf(jl,jk,jb,jt) = tend_qtrc_vdf(jl,jk,jb,jt) 
+              !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT(tend_qtrc_vdf) GANG VECTOR COLLAPSE(2) ASYNC(1)
+              DO jk = 1,nlev
+                DO jl = jcs,jce
+                  tend% qtrc_vdf(jl,jk,jb,iqv) = tend_qtrc_vdf(jl,jk,jb,iqv)
+                  tend% qtrc_vdf(jl,jk,jb,iqc) = tend_qtrc_vdf(jl,jk,jb,iqc)
+                  tend% qtrc_vdf(jl,jk,jb,iqi) = tend_qtrc_vdf(jl,jk,jb,iqi)
+                  tend% qtrc_vdf(jl,jk,jb,iqnc) = tend_qtrc_vdf(jl,jk,jb,iqnc)
+                  tend% qtrc_vdf(jl,jk,jb,iqni) = tend_qtrc_vdf(jl,jk,jb,iqni)
                 END DO
               END DO
-            END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
+            ELSE
+              !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT(tend_qtrc_vdf) GANG VECTOR COLLAPSE(2) ASYNC(1)
+              DO jk = 1,nlev
+                DO jl = jcs,jce
+                  tend% qtrc_vdf(jl,jk,jb,iqv) = tend_qtrc_vdf(jl,jk,jb,iqv)
+                  tend% qtrc_vdf(jl,jk,jb,iqc) = tend_qtrc_vdf(jl,jk,jb,iqc)
+                  tend% qtrc_vdf(jl,jk,jb,iqi) = tend_qtrc_vdf(jl,jk,jb,iqi)
+                  !$ACC LOOP SEQ
+                  DO jt = iqt,ntracer
+                    !iqt is the index of the first non-water tracer
+                    tend% qtrc_vdf(jl,jk,jb,jt) = tend_qtrc_vdf(jl,jk,jb,jt) 
+                  END DO
+                END DO
+              END DO
             END IF
           END IF
-
-    !$ACC WAIT
-
-!##############################################################################
-!## jb loop2-1 END
-    ENDDO
+        !
+        ENDDO !## jb loop2-1 END
+        !$ACC WAIT
 !$OMP END PARALLEL DO
-!##############################################################################
 
-    !$ACC WAIT
+      ELSE  ! if ( is_active )
 
-       ELSE  ! if ( is_active )
+        rls = grf_bdywidth_c+1
+        rle = min_rlcell_int
 
-    rls = grf_bdywidth_c+1
-    rle = min_rlcell_int
+        ncd = MAX(1,patch%n_childdom)
+        jbs = patch%cells%start_blk(rls,  1)
+        jbe = patch%cells%end_blk  (rle,ncd)
 
-    ncd = MAX(1,patch%n_childdom)
-    jbs = patch%cells%start_blk(rls,  1)
-    jbe = patch%cells%end_blk  (rle,ncd)
-
-!##############################################################################
-!## jb loop3, is_in_sd_ed_interval == T .and. is_active == F
 !$OMP PARALLEL DO PRIVATE(jb,jcs,jce)
-    DO jb = jbs, jbe
-      CALL get_indices_c(patch, jb, jbs, jbe, jcs, jce, rls, rle)
-      IF (jcs>jce) CYCLE
-!##############################################################################
-
+        !## jb loop3, is_in_sd_ed_interval == T .and. is_active == F
+        DO jb = jbs, jbe
+          CALL get_indices_c(patch, jb, jbs, jbe, jcs, jce, rls, rle)
+          IF (jcs>jce) CYCLE
           !
           ! retrieve from memory for recycling
           !
           IF (ASSOCIATED(field% q_snocpymlt)) THEN
-            !$ACC DATA PRESENT( q_snocpymlt, field%q_snocpymlt )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG VECTOR
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
             DO jl = jcs,jce
               q_snocpymlt(jl,jb) = field% q_snocpymlt(jl,  jb)
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           !
           IF (ASSOCIATED(field% q_vdf)) THEN
-            !$ACC DATA PRESENT( q_vdf, field%q_vdf )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk = 1,nlev
-              !$ACC LOOP VECTOR
               DO jl = jcs,jce
                 q_vdf(jl,jk,jb) = field% q_vdf(jl,jk,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           !
           IF (ASSOCIATED(tend% ua_vdf)) THEN
-            !$ACC DATA PRESENT( tend_ua_vdf, tend%ua_vdf )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk = 1,nlev
-              !$ACC LOOP VECTOR
               DO jl = jcs,jce
                 tend_ua_vdf(jl,jk,jb) = tend% ua_vdf(jl,jk,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           IF (ASSOCIATED(tend% va_vdf)) THEN
-            !$ACC DATA PRESENT( tend_va_vdf, tend%va_vdf )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk = 1,nlev
-              !$ACC LOOP VECTOR
               DO jl = jcs,jce
                 tend_va_vdf(jl,jk,jb) = tend% va_vdf(jl,jk,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           !
           IF (ASSOCIATED(tend% qtrc_vdf )) THEN
             IF (l2moment) THEN
-            !$ACC DATA PRESENT( tend_qtrc_vdf, tend%qtrc_vdf )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
-            DO jk = 1,nlev
-              !$ACC LOOP VECTOR
-              DO jl = jcs,jce
-                tend_qtrc_vdf(jl,jk,jb,iqv) = tend% qtrc_vdf(jl,jk,jb,iqv)
-                tend_qtrc_vdf(jl,jk,jb,iqc) = tend% qtrc_vdf(jl,jk,jb,iqc)
-                tend_qtrc_vdf(jl,jk,jb,iqi) = tend% qtrc_vdf(jl,jk,jb,iqi)
-                tend_qtrc_vdf(jl,jk,jb,iqnc) = tend% qtrc_vdf(jl,jk,jb,iqnc)
-                tend_qtrc_vdf(jl,jk,jb,iqni) = tend% qtrc_vdf(jl,jk,jb,iqni)
-              END DO
-            END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
-            ELSE
-            !$ACC DATA PRESENT( tend_qtrc_vdf, tend%qtrc_vdf )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG
-            DO jk = 1,nlev
-              !$ACC LOOP VECTOR
-              DO jl = jcs,jce
-                tend_qtrc_vdf(jl,jk,jb,iqv) = tend% qtrc_vdf(jl,jk,jb,iqv)
-                tend_qtrc_vdf(jl,jk,jb,iqc) = tend% qtrc_vdf(jl,jk,jb,iqc)
-                tend_qtrc_vdf(jl,jk,jb,iqi) = tend% qtrc_vdf(jl,jk,jb,iqi)
-                !$ACC LOOP SEQ
-                DO jt = iqt,ntracer
-                  tend_qtrc_vdf(jl,jk,jb,jt) = tend% qtrc_vdf(jl,jk,jb,jt)
+              !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT(tend_qtrc_vdf) GANG VECTOR COLLAPSE(2) ASYNC(1)
+              DO jk = 1,nlev
+                DO jl = jcs,jce
+                  tend_qtrc_vdf(jl,jk,jb,iqv) = tend% qtrc_vdf(jl,jk,jb,iqv)
+                  tend_qtrc_vdf(jl,jk,jb,iqc) = tend% qtrc_vdf(jl,jk,jb,iqc)
+                  tend_qtrc_vdf(jl,jk,jb,iqi) = tend% qtrc_vdf(jl,jk,jb,iqi)
+                  tend_qtrc_vdf(jl,jk,jb,iqnc) = tend% qtrc_vdf(jl,jk,jb,iqnc)
+                  tend_qtrc_vdf(jl,jk,jb,iqni) = tend% qtrc_vdf(jl,jk,jb,iqni)
                 END DO
               END DO
-            END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
+            ELSE
+              !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT(tend_qtrc_vdf) GANG VECTOR COLLAPSE(2) ASYNC(1)
+              DO jk = 1,nlev
+                DO jl = jcs,jce
+                  tend_qtrc_vdf(jl,jk,jb,iqv) = tend% qtrc_vdf(jl,jk,jb,iqv)
+                  tend_qtrc_vdf(jl,jk,jb,iqc) = tend% qtrc_vdf(jl,jk,jb,iqc)
+                  tend_qtrc_vdf(jl,jk,jb,iqi) = tend% qtrc_vdf(jl,jk,jb,iqi)
+                  !$ACC LOOP SEQ
+                  DO jt = iqt,ntracer
+                    tend_qtrc_vdf(jl,jk,jb,jt) = tend% qtrc_vdf(jl,jk,jb,jt)
+                  END DO
+                END DO
+              END DO
             END IF
           END IF
-
-    !$ACC WAIT
-
-!##############################################################################
-!## jb loop3 END
-    ENDDO
+        !
+        ENDDO !## jb loop3 END
+        !$ACC WAIT
 !$OMP END PARALLEL DO
-!##############################################################################
 
-    !$ACC WAIT
+      END IF ! if ( is_active )
+      !
+      !
+      rls = grf_bdywidth_c+1
+      rle = min_rlcell_int
 
-       END IF ! if ( is_active )
-       !
-       !
-    rls = grf_bdywidth_c+1
-    rle = min_rlcell_int
+      ncd = MAX(1,patch%n_childdom)
+      jbs = patch%cells%start_blk(rls,  1)
+      jbe = patch%cells%end_blk  (rle,ncd)
 
-    ncd = MAX(1,patch%n_childdom)
-    jbs = patch%cells%start_blk(rls,  1)
-    jbe = patch%cells%end_blk  (rle,ncd)
-
-!##############################################################################
 !## jb loop4, is_in_sd_ed_interval == T
 !$OMP PARALLEL DO PRIVATE(jb,jcs,jce)
-    DO jb = jbs, jbe
-      CALL get_indices_c(patch, jb, jbs, jbe, jcs, jce, rls, rle)
-      IF (jcs>jce) CYCLE
-!##############################################################################
-       !
-       ! Surface effect on the lowermost layer
-       !
-       IF (echam_phy_config(jg)%ljsb) THEN
+      DO jb = jbs, jbe
+        CALL get_indices_c(patch, jb, jbs, jbe, jcs, jce, rls, rle)
+        IF (jcs>jce) CYCLE
+        !
+        ! Surface effect on the lowermost layer
+        !
+        IF (echam_phy_config(jg)%ljsb) THEN
           !
           ! convert    heating
           ! q_snocpymlt = heating for melting of snow on canopy
           !             = cooling of atmosphere --> negative sign
-          !$ACC DATA PRESENT( tend_ta_sfc, q_snocpymlt, field%qconv )
-          !$ACC PARALLEL DEFAULT(NONE)
+          !
+          ! DA: fuse all the 1D copies in a single ACC kernel
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
           !$ACC LOOP GANG VECTOR
           DO jl = jcs,jce
             tend_ta_sfc(jl,jb) = -q_snocpymlt(jl,jb) * field% qconv(jl,nlev,jb)
           END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
           !
           IF (ASSOCIATED(tend% ta_sfc)) THEN
-            !$ACC DATA PRESENT( tend%ta_sfc, tend_ta_sfc )
-            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs, jce
               tend% ta_sfc(jl,jb) = tend_ta_sfc(jl,jb)
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
 
           ! for output: accumulate heating
           IF (ASSOCIATED(field% q_phy)) THEN
-            !$ACC DATA PRESENT( field%q_phy, q_snocpymlt )
-            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs, jce
               field% q_phy(jl,nlev,jb) = field% q_phy(jl,nlev,jb) - q_snocpymlt(jl,jb)
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           IF (ASSOCIATED(field% q_phy_vi)) THEN
-            !$ACC DATA PRESENT( field%q_phy_vi, q_snocpymlt )
-            !$ACC PARALLEL DEFAULT(NONE)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs, jce
               field% q_phy_vi(jl, jb) = field% q_phy_vi(jl, jb) - q_snocpymlt(jl,jb)
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           !
           ! accumulate tendencies for later updating the model state
@@ -1258,175 +1057,128 @@ CONTAINS
              ! diagnostic, do not use tendency
           CASE(1)
              ! use tendency to update the model state
-             !$ACC DATA PRESENT( tend%ta_phy, tend_ta_sfc )
-             !$ACC PARALLEL DEFAULT(NONE)
              !$ACC LOOP GANG VECTOR
              DO jl = jcs, jce
                tend% ta_phy(jl,nlev,jb) = tend% ta_phy(jl,nlev,jb) + tend_ta_sfc(jl,jb)
              END DO
-             !$ACC END PARALLEL
-             !$ACC END DATA
-!!$          CASE(2)
-!!$             ! use tendency as forcing in the dynamics
-!!$             ...
           END SELECT
           !
           ! update physics state for input to the next physics process
           SELECT CASE(fc_vdf)
           CASE(0)
              ! diagnostic, do not use tendency
-          CASE(1,2)
+          CASE(1)
              ! use tendency to update the physics state
              IF (lparamcpl) THEN
-                !$ACC DATA PRESENT( field%ta, tend_ta_sfc )
-                !$ACC PARALLEL DEFAULT(NONE)
                 !$ACC LOOP GANG VECTOR
                 DO jl = jcs, jce
                    field% ta(jl,nlev,jb) = field% ta(jl,nlev,jb) + tend_ta_sfc(jl,jb)*pdtime
                 END DO
-                !$ACC END PARALLEL
-                !$ACC END DATA
              END IF
           END SELECT
+          !$ACC END PARALLEL
 
-       END IF
-       !
-       !
-       ! Vertical diffusion effect on the atmospheric column
-       !
-       ! convert    heating
-       !$ACC DATA PRESENT( q_vdf, field%qconv )
-       !$ACC PARALLEL DEFAULT(NONE)
-       !$ACC LOOP GANG
-       DO jk = 1,nlev
-         !$ACC LOOP VECTOR
-         DO jl = jcs, jce
-           tend_ta_vdf(jl,jk,jb) = q_vdf(jl,jk,jb) * field% qconv(jl,jk,jb)
-         END DO
-       END DO
-       !$ACC END PARALLEL
-       !$ACC END DATA
-
-       ! for Smagorinsky
-       IF ( turb == 2 ) THEN
-         !$ACC DATA PRESENT( tend_ta_vdf, ta_hori_tend, tend_qtrc_vdf, qv_hori_tend, ql_hori_tend, qi_hori_tend )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR COLLAPSE(2)
-         DO jk = 1,nlev
-           DO jl = jcs, jce
-             tend_ta_vdf(jl,jk,jb) = tend_ta_vdf(jl,jk,jb) + ta_hori_tend(jl,jk,jb)
-             tend_qtrc_vdf(jl,jk,jb,iqv) = tend_qtrc_vdf(jl,jk,jb,iqv) + qv_hori_tend(jl,jk,jb)
-             tend_qtrc_vdf(jl,jk,jb,iqc) = tend_qtrc_vdf(jl,jk,jb,iqc) + ql_hori_tend(jl,jk,jb)
-             tend_qtrc_vdf(jl,jk,jb,iqi) = tend_qtrc_vdf(jl,jk,jb,iqi) + qi_hori_tend(jl,jk,jb)
-           END DO
-         END DO
-         !$ACC END PARALLEL 
-         !$ACC END DATA
-         IF (l2moment) THEN
-           !$ACC DATA PRESENT( tend_qtrc_vdf, qnc_hori_tend, qni_hori_tend )
-           !$ACC PARALLEL DEFAULT(NONE)
-           !$ACC LOOP GANG VECTOR COLLAPSE(2)
-           DO jk = 1,nlev
-             DO jl = jcs, jce
-               tend_qtrc_vdf(jl,jk,jb,iqnc) = tend_qtrc_vdf(jl,jk,jb,iqnc) + qnc_hori_tend(jl,jk,jb)
-               tend_qtrc_vdf(jl,jk,jb,iqni) = tend_qtrc_vdf(jl,jk,jb,iqni) + qni_hori_tend(jl,jk,jb)
-             END DO
-           END DO
-           !$ACC END PARALLEL
-           !$ACC END DATA
-         END IF ! l2moment
-       END IF
-
-       !
-       IF (ASSOCIATED(tend% ta_vdf)) THEN
-         !$ACC DATA PRESENT( tend%ta_vdf )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG
-         DO jk = 1,nlev
-           !$ACC LOOP VECTOR
-           DO jl = jcs, jce
-             tend% ta_vdf(jl,jk,jb) = tend_ta_vdf(jl,jk,jb)
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-
-       ! for output: accumulate heating
-       IF (ASSOCIATED(field% q_phy)) THEN
-         !$ACC DATA PRESENT( field%q_phy, q_vdf )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG
-         DO jk = 1,nlev
-           !$ACC LOOP VECTOR
-           DO jl = jcs, jce
-             field% q_phy(jl,jk,jb) = field% q_phy(jl,jk,jb) + q_vdf(jl,jk,jb)
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% q_phy_vi)) THEN 
-         !$ACC DATA PRESENT( field%q_phy_vi, q_vdf )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs, jce
-           field% q_phy_vi(jl, jb) = field% q_phy_vi(jl, jb) + SUM(q_vdf(jl,:,jb))
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       !
-       ! accumulate tendencies for later updating the model state
-       SELECT CASE(fc_vdf)
-       CASE(0)
-          ! diagnostic, do not use tendency
-       CASE(1)
-          ! use tendency to update the model state
-          IF (l2moment) THEN
-          !$ACC DATA PRESENT( tend%ua_phy, tend_ua_vdf, tend%va_phy, tend_va_vdf, tend%ta_phy, &
-          !$ACC               tend%qtrc_phy, tend_qtrc_vdf )
-          !$ACC PARALLEL DEFAULT(NONE)
-          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+        END IF
+        !
+        !
+        ! Vertical diffusion effect on the atmospheric column
+        !
+        ! convert    heating
+        !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+        DO jk = 1,nlev
+          DO jl = jcs, jce
+            tend_ta_vdf(jl,jk,jb) = q_vdf(jl,jk,jb) * field% qconv(jl,jk,jb)
+          END DO
+        END DO
+        !
+        ! for Smagorinsky
+        IF ( turb == 2 ) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT(tend_qtrc_vdf) GANG VECTOR COLLAPSE(2) ASYNC(1)
           DO jk = 1,nlev
             DO jl = jcs, jce
-              tend%   ua_phy(jl,jk,jb)      = tend%   ua_phy(jl,jk,jb)      + tend_ua_vdf  (jl,jk,jb)
-              tend%   va_phy(jl,jk,jb)      = tend%   va_phy(jl,jk,jb)      + tend_va_vdf  (jl,jk,jb)
-              tend%   ta_phy(jl,jk,jb)      = tend%   ta_phy(jl,jk,jb)      + tend_ta_vdf  (jl,jk,jb)
-              tend% qtrc_phy(jl,jk,jb,iqv)  = tend% qtrc_phy(jl,jk,jb,iqv)  + tend_qtrc_vdf(jl,jk,jb,iqv)
-              tend% qtrc_phy(jl,jk,jb,iqc)  = tend% qtrc_phy(jl,jk,jb,iqc)  + tend_qtrc_vdf(jl,jk,jb,iqc)
-              tend% qtrc_phy(jl,jk,jb,iqi)  = tend% qtrc_phy(jl,jk,jb,iqi)  + tend_qtrc_vdf(jl,jk,jb,iqi)
-              tend% qtrc_phy(jl,jk,jb,iqnc)  = tend% qtrc_phy(jl,jk,jb,iqnc)  + tend_qtrc_vdf(jl,jk,jb,iqnc)
-              tend% qtrc_phy(jl,jk,jb,iqni)  = tend% qtrc_phy(jl,jk,jb,iqni)  + tend_qtrc_vdf(jl,jk,jb,iqni)
+              tend_ta_vdf(jl,jk,jb) = tend_ta_vdf(jl,jk,jb) + ta_hori_tend(jl,jk,jb)
+              tend_qtrc_vdf(jl,jk,jb,iqv) = tend_qtrc_vdf(jl,jk,jb,iqv) + qv_hori_tend(jl,jk,jb)
+              tend_qtrc_vdf(jl,jk,jb,iqc) = tend_qtrc_vdf(jl,jk,jb,iqc) + ql_hori_tend(jl,jk,jb)
+              tend_qtrc_vdf(jl,jk,jb,iqi) = tend_qtrc_vdf(jl,jk,jb,iqi) + qi_hori_tend(jl,jk,jb)
             END DO
           END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
-          ELSE
-          !$ACC DATA PRESENT( tend%ua_phy, tend_ua_vdf, tend%va_phy, tend_va_vdf, tend%ta_phy, &
-          !$ACC               tend%qtrc_phy, tend_qtrc_vdf )
-          !$ACC PARALLEL DEFAULT(NONE)
-          !$ACC LOOP GANG VECTOR COLLAPSE(2)
-          DO jk = 1,nlev
-            DO jl = jcs, jce
-              tend%   ua_phy(jl,jk,jb)      = tend%   ua_phy(jl,jk,jb)      + tend_ua_vdf  (jl,jk,jb)
-              tend%   va_phy(jl,jk,jb)      = tend%   va_phy(jl,jk,jb)      + tend_va_vdf  (jl,jk,jb)
-              tend%   ta_phy(jl,jk,jb)      = tend%   ta_phy(jl,jk,jb)      + tend_ta_vdf  (jl,jk,jb)
-              tend% qtrc_phy(jl,jk,jb,iqv)  = tend% qtrc_phy(jl,jk,jb,iqv)  + tend_qtrc_vdf(jl,jk,jb,iqv)
-              tend% qtrc_phy(jl,jk,jb,iqc)  = tend% qtrc_phy(jl,jk,jb,iqc)  + tend_qtrc_vdf(jl,jk,jb,iqc)
-              tend% qtrc_phy(jl,jk,jb,iqi)  = tend% qtrc_phy(jl,jk,jb,iqi)  + tend_qtrc_vdf(jl,jk,jb,iqi)
-              !$ACC LOOP SEQ
-              DO jt = iqt,ntracer
-                tend% qtrc_phy(jl,jk,jb,jt) = tend% qtrc_phy(jl,jk,jb,jt) + tend_qtrc_vdf(jl,jk,jb,jt)
+          IF (l2moment) THEN
+            !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT(tend_qtrc_vdf) GANG VECTOR COLLAPSE(2) ASYNC(1)
+            DO jk = 1,nlev
+              DO jl = jcs, jce
+                tend_qtrc_vdf(jl,jk,jb,iqnc) = tend_qtrc_vdf(jl,jk,jb,iqnc) + qnc_hori_tend(jl,jk,jb)
+                tend_qtrc_vdf(jl,jk,jb,iqni) = tend_qtrc_vdf(jl,jk,jb,iqni) + qni_hori_tend(jl,jk,jb)
               END DO
             END DO
+          END IF ! l2moment
+        END IF
+
+        !
+        IF (ASSOCIATED(tend% ta_vdf)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jk = 1,nlev
+            DO jl = jcs, jce
+              tend% ta_vdf(jl,jk,jb) = tend_ta_vdf(jl,jk,jb)
+            END DO
           END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
+        END IF
+
+        ! for output: accumulate heating
+        IF (ASSOCIATED(field% q_phy)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jk = 1,nlev
+            DO jl = jcs, jce
+              field% q_phy(jl,jk,jb) = field% q_phy(jl,jk,jb) + q_vdf(jl,jk,jb)
+            END DO
+          END DO
+        END IF
+        IF (ASSOCIATED(field% q_phy_vi)) THEN 
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
+          DO jl = jcs, jce
+            field% q_phy_vi(jl, jb) = field% q_phy_vi(jl, jb) + SUM(q_vdf(jl,:,jb))
+          END DO
+        END IF
+        !
+        ! accumulate tendencies for later updating the model state
+        SELECT CASE(fc_vdf)
+        CASE(0)
+          ! diagnostic, do not use tendency
+        CASE(1)
+          ! use tendency to update the model state
+          IF (l2moment) THEN
+            !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT(tend_qtrc_vdf) GANG VECTOR COLLAPSE(2) ASYNC(1)
+            DO jk = 1,nlev
+              DO jl = jcs, jce
+                tend%   ua_phy(jl,jk,jb)      = tend%   ua_phy(jl,jk,jb)      + tend_ua_vdf  (jl,jk,jb)
+                tend%   va_phy(jl,jk,jb)      = tend%   va_phy(jl,jk,jb)      + tend_va_vdf  (jl,jk,jb)
+                tend%   ta_phy(jl,jk,jb)      = tend%   ta_phy(jl,jk,jb)      + tend_ta_vdf  (jl,jk,jb)
+                tend% qtrc_phy(jl,jk,jb,iqv)  = tend% qtrc_phy(jl,jk,jb,iqv)  + tend_qtrc_vdf(jl,jk,jb,iqv)
+                tend% qtrc_phy(jl,jk,jb,iqc)  = tend% qtrc_phy(jl,jk,jb,iqc)  + tend_qtrc_vdf(jl,jk,jb,iqc)
+                tend% qtrc_phy(jl,jk,jb,iqi)  = tend% qtrc_phy(jl,jk,jb,iqi)  + tend_qtrc_vdf(jl,jk,jb,iqi)
+                tend% qtrc_phy(jl,jk,jb,iqnc) = tend% qtrc_phy(jl,jk,jb,iqnc) + tend_qtrc_vdf(jl,jk,jb,iqnc)
+                tend% qtrc_phy(jl,jk,jb,iqni) = tend% qtrc_phy(jl,jk,jb,iqni) + tend_qtrc_vdf(jl,jk,jb,iqni)
+              END DO
+            END DO
+          ELSE
+            ! use tendency to update the model state
+            !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT(tend_qtrc_vdf) GANG VECTOR COLLAPSE(2) ASYNC(1)
+            DO jk = 1,nlev
+              DO jl = jcs, jce
+                tend%   ua_phy(jl,jk,jb)      = tend%   ua_phy(jl,jk,jb)      + tend_ua_vdf  (jl,jk,jb)
+                tend%   va_phy(jl,jk,jb)      = tend%   va_phy(jl,jk,jb)      + tend_va_vdf  (jl,jk,jb)
+                tend%   ta_phy(jl,jk,jb)      = tend%   ta_phy(jl,jk,jb)      + tend_ta_vdf  (jl,jk,jb)
+                tend% qtrc_phy(jl,jk,jb,iqv)  = tend% qtrc_phy(jl,jk,jb,iqv)  + tend_qtrc_vdf(jl,jk,jb,iqv)
+                tend% qtrc_phy(jl,jk,jb,iqc)  = tend% qtrc_phy(jl,jk,jb,iqc)  + tend_qtrc_vdf(jl,jk,jb,iqc)
+                tend% qtrc_phy(jl,jk,jb,iqi)  = tend% qtrc_phy(jl,jk,jb,iqi)  + tend_qtrc_vdf(jl,jk,jb,iqi)
+                !$ACC LOOP SEQ
+                DO jt = iqt,ntracer
+                  tend% qtrc_phy(jl,jk,jb,jt) = tend% qtrc_phy(jl,jk,jb,jt) + tend_qtrc_vdf(jl,jk,jb,jt)
+                END DO
+              END DO
+            END DO
           END IF
           IF ( is_dry_cbl ) THEN
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG VECTOR COLLAPSE(2)
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk = 1,nlev
               DO jl = jcs, jce
                 tend% qtrc_phy(jl,jk,jb,iqv)  = 0._wp
@@ -1434,97 +1186,70 @@ CONTAINS
                 tend% qtrc_phy(jl,jk,jb,iqi)  = 0._wp
               END DO
             END DO
-            !$ACC END PARALLEL
           END IF
-!!$       CASE(2)
-!!$          ! use tendency as forcing in the dynamics
-!!$          ...
-       END SELECT
-       !
-       ! update physics state for input to the next physics process
-       SELECT CASE(fc_vdf)
-       CASE(0)
+
+        END SELECT
+        !
+        ! update physics state for input to the next physics process
+        SELECT CASE(fc_vdf)
+        CASE(0)
           ! diagnostic, do not use tendency
-       CASE(1,2)
+        CASE(1)
           ! use tendency to update the physics state
           IF (lparamcpl) THEN
              ! prognostic
-             IF (l2moment) THEN
-             !$ACC DATA PRESENT( field%ua, tend_ua_vdf, field%va, tend_va_vdf, field%ta,  &
-             !$ACC               field%qtrc, tend_qtrc_vdf )
-             !$ACC PARALLEL DEFAULT(NONE)
-             !$ACC LOOP GANG VECTOR COLLAPSE(2)
-             DO jk = 1,nlev
-               DO jl = jcs, jce
-                 field%   ua(jl,jk,jb)      = field%   ua(jl,jk,jb)      + tend_ua_vdf  (jl,jk,jb)     *pdtime
-                 field%   va(jl,jk,jb)      = field%   va(jl,jk,jb)      + tend_va_vdf  (jl,jk,jb)     *pdtime
-                 field%   ta(jl,jk,jb)      = field%   ta(jl,jk,jb)      + tend_ta_vdf  (jl,jk,jb)     *pdtime
-                 field% qtrc(jl,jk,jb,iqv)  = field% qtrc(jl,jk,jb,iqv)  + tend_qtrc_vdf(jl,jk,jb,iqv) *pdtime
-                 field% qtrc(jl,jk,jb,iqc)  = field% qtrc(jl,jk,jb,iqc)  + tend_qtrc_vdf(jl,jk,jb,iqc) *pdtime
-                 field% qtrc(jl,jk,jb,iqi)  = field% qtrc(jl,jk,jb,iqi)  + tend_qtrc_vdf(jl,jk,jb,iqi) *pdtime
-                 field% qtrc(jl,jk,jb,iqnc)  = field% qtrc(jl,jk,jb,iqnc)  + tend_qtrc_vdf(jl,jk,jb,iqnc) *pdtime
-                 field% qtrc(jl,jk,jb,iqni)  = field% qtrc(jl,jk,jb,iqni)  + tend_qtrc_vdf(jl,jk,jb,iqni) *pdtime
-               END DO
-             END DO
-             !$ACC END PARALLEL
-             !$ACC END DATA
-             ELSE
-             !$ACC DATA PRESENT( field%ua, tend_ua_vdf, field%va, tend_va_vdf, field%ta,  &
-             !$ACC               field%qtrc, tend_qtrc_vdf )
-             !$ACC PARALLEL DEFAULT(NONE)
-             !$ACC LOOP GANG VECTOR COLLAPSE(2)
-             DO jk = 1,nlev
-               DO jl = jcs, jce
-                 field%   ua(jl,jk,jb)      = field%   ua(jl,jk,jb)      + tend_ua_vdf  (jl,jk,jb)     *pdtime
-                 field%   va(jl,jk,jb)      = field%   va(jl,jk,jb)      + tend_va_vdf  (jl,jk,jb)     *pdtime
-                 field%   ta(jl,jk,jb)      = field%   ta(jl,jk,jb)      + tend_ta_vdf  (jl,jk,jb)     *pdtime
-                 field% qtrc(jl,jk,jb,iqv)  = field% qtrc(jl,jk,jb,iqv)  + tend_qtrc_vdf(jl,jk,jb,iqv) *pdtime
-                 field% qtrc(jl,jk,jb,iqc)  = field% qtrc(jl,jk,jb,iqc)  + tend_qtrc_vdf(jl,jk,jb,iqc) *pdtime
-                 field% qtrc(jl,jk,jb,iqi)  = field% qtrc(jl,jk,jb,iqi)  + tend_qtrc_vdf(jl,jk,jb,iqi) *pdtime
-                 !$ACC LOOP SEQ
-                 DO jt = iqt,ntracer
-                   field% qtrc(jl,jk,jb,jt) = field% qtrc(jl,jk,jb,jt) + tend_qtrc_vdf(jl,jk,jb,jt)*pdtime
-                 END DO
-               END DO
-             END DO
-             !$ACC END PARALLEL
-             !$ACC END DATA
-             END IF
-             IF ( is_dry_cbl ) THEN
-               !$ACC DATA PRESENT( tend%qtrc_phy )
-               !$ACC PARALLEL DEFAULT(NONE)
-               !$ACC LOOP GANG VECTOR COLLAPSE(2)
-               DO jk = 1,nlev
-                 DO jl = jcs, jce
-                   tend% qtrc_phy(jl,jk,jb,iqv)  = 0._wp
-                   tend% qtrc_phy(jl,jk,jb,iqc)  = 0._wp
-                   tend% qtrc_phy(jl,jk,jb,iqi)  = 0._wp
-                 END DO
-               END DO
-               !$ACC END PARALLEL
-               !$ACC END DATA
-             END IF 
+            IF (l2moment) THEN
+              !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT(tend_qtrc_vdf) GANG VECTOR COLLAPSE(2) ASYNC(1)
+              DO jk = 1,nlev
+                DO jl = jcs, jce
+                  field%   ua(jl,jk,jb)      = field%   ua(jl,jk,jb)      + tend_ua_vdf  (jl,jk,jb)     *pdtime
+                  field%   va(jl,jk,jb)      = field%   va(jl,jk,jb)      + tend_va_vdf  (jl,jk,jb)     *pdtime
+                  field%   ta(jl,jk,jb)      = field%   ta(jl,jk,jb)      + tend_ta_vdf  (jl,jk,jb)     *pdtime
+                  field% qtrc(jl,jk,jb,iqv)  = field% qtrc(jl,jk,jb,iqv)  + tend_qtrc_vdf(jl,jk,jb,iqv) *pdtime
+                  field% qtrc(jl,jk,jb,iqc)  = field% qtrc(jl,jk,jb,iqc)  + tend_qtrc_vdf(jl,jk,jb,iqc) *pdtime
+                  field% qtrc(jl,jk,jb,iqi)  = field% qtrc(jl,jk,jb,iqi)  + tend_qtrc_vdf(jl,jk,jb,iqi) *pdtime
+                  field% qtrc(jl,jk,jb,iqnc)  = field% qtrc(jl,jk,jb,iqnc)  + tend_qtrc_vdf(jl,jk,jb,iqnc) *pdtime
+                  field% qtrc(jl,jk,jb,iqni)  = field% qtrc(jl,jk,jb,iqni)  + tend_qtrc_vdf(jl,jk,jb,iqni) *pdtime
+                END DO
+              END DO
+            ELSE
+              !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT(tend_qtrc_vdf) GANG VECTOR COLLAPSE(2) ASYNC(1)
+              DO jk = 1,nlev
+                DO jl = jcs, jce
+                  field%   ua(jl,jk,jb)      = field%   ua(jl,jk,jb)      + tend_ua_vdf  (jl,jk,jb)     *pdtime
+                  field%   va(jl,jk,jb)      = field%   va(jl,jk,jb)      + tend_va_vdf  (jl,jk,jb)     *pdtime
+                  field%   ta(jl,jk,jb)      = field%   ta(jl,jk,jb)      + tend_ta_vdf  (jl,jk,jb)     *pdtime
+                  field% qtrc(jl,jk,jb,iqv)  = field% qtrc(jl,jk,jb,iqv)  + tend_qtrc_vdf(jl,jk,jb,iqv) *pdtime
+                  field% qtrc(jl,jk,jb,iqc)  = field% qtrc(jl,jk,jb,iqc)  + tend_qtrc_vdf(jl,jk,jb,iqc) *pdtime
+                  field% qtrc(jl,jk,jb,iqi)  = field% qtrc(jl,jk,jb,iqi)  + tend_qtrc_vdf(jl,jk,jb,iqi) *pdtime
+                  !$ACC LOOP SEQ
+                  DO jt = iqt,ntracer
+                    field% qtrc(jl,jk,jb,jt) = field% qtrc(jl,jk,jb,jt) + tend_qtrc_vdf(jl,jk,jb,jt)*pdtime
+                  END DO
+                END DO
+              END DO
+            END IF
+            IF ( is_dry_cbl ) THEN
+              !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+              DO jk = 1,nlev
+                DO jl = jcs, jce
+                  tend% qtrc_phy(jl,jk,jb,iqv)  = 0._wp
+                  tend% qtrc_phy(jl,jk,jb,iqc)  = 0._wp
+                  tend% qtrc_phy(jl,jk,jb,iqi)  = 0._wp
+                END DO
+              END DO
+            END IF 
             !
             ! diagnostic
             ! 2-tl-scheme
-            !$ACC DATA PRESENT( field%tottem1, field%totte )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG VECTOR COLLAPSE(2)
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jk = 1,nlev
               DO jl = jcs, jce
-              field% tottem1   (jl,jk,jb) = field% totte (jl,jk,jb)
+                field% tottem1   (jl,jk,jb) = field% totte (jl,jk,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
             !
-
-            !$ACC DATA PRESENT( field%ts, field%ts_rad, field%ustar, field%evap,        &
-            !$ACC               field%thvsig, field%cair, field%csat, field%z0h_lnd,    &
-            !$ACC               field%rlus, field%albvisdir, field%albnirdir,           &
-            !$ACC               field%albvisdif, field%albnirdif, field%albedo          )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP GANG VECTOR
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
             DO jl = jcs, jce
               field% ts        (jl,jb)   = ts        (jl,jb)
               field% ts_rad    (jl,jb)   = ts_rad    (jl,jb)
@@ -1543,16 +1268,8 @@ CONTAINS
               field% albedo    (jl,jb)   = albedo    (jl,jb)
             END DO
             !
-            !$ACC END PARALLEL
-            !$ACC END DATA
-
-            !$ACC DATA PRESENT( field%ts_tile, field%wstar_tile, field%z0m_tile,                  &
-            !$ACC               field%albvisdir_tile, field%albnirdir_tile, field%albvisdif_tile, &
-            !$ACC               field%albnirdif_tile, field%albedo_tile )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP SEQ
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jsfc = 1,nsfc_type
-              !$ACC LOOP GANG VECTOR
               DO jl = jcs,jce
                 field% ts_tile   (jl,jb,jsfc) = ts_tile   (jl,jb,jsfc)
                 field% wstar_tile(jl,jb,jsfc) = wstar_tile(jl,jb,jsfc)
@@ -1566,14 +1283,9 @@ CONTAINS
                 !
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
-
-            !$ACC DATA PRESENT( field%albvisdir_ice, field%albnirdir_ice, field%albvisdif_ice, field%albnirdif_ice )
-            !$ACC PARALLEL DEFAULT(NONE)
-            !$ACC LOOP SEQ
+            !
+            !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
             DO jice=1,nice
-              !$ACC LOOP GANG VECTOR
               DO jl=jcs,jce
                 field% albvisdir_ice(jl,jice,jb) = albvisdir_ice(jl,jice,jb)
                 field% albnirdir_ice(jl,jice,jb) = albnirdir_ice(jl,jice,jb)
@@ -1581,137 +1293,99 @@ CONTAINS
                 field% albnirdif_ice(jl,jice,jb) = albnirdif_ice(jl,jice,jb)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
             !
           END IF
-       END SELECT
-       !
-       !
-       ! Correction related to implicitness, due to the fact that surface model only used
-       ! part of longwave radiation to compute new surface temperature
-       ! 
-       IF ( isrfc_type >= 5 ) THEN
-         !$ACC DATA PRESENT(q_rlw_impl)
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           q_rlw_impl(jl,jb) = 0._wp
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       ELSE
-         !$ACC DATA PRESENT( q_rlw_impl, field%rld_rt, field%rlu_rt, field%rlds, field%rlus, field%q_rlw_nlev )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           q_rlw_impl(jl,jb) =                                               &
+        END SELECT
+        !
+        !
+        ! Correction related to implicitness, due to the fact that surface model only used
+        ! part of longwave radiation to compute new surface temperature
+        !
+        ! DA: fuse all the 1D copies in a single ACC kernel
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+        IF ( isrfc_type >= 5 ) THEN
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,jce
+            q_rlw_impl(jl,jb) = 0._wp
+          END DO
+        ELSE
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,jce
+            q_rlw_impl(jl,jb) =                                               &
                 &  ( (field%rld_rt(jl,nlev,jb)-field%rlu_rt(jl,nlev,jb))  & ! ( rln  from "radiation", at top of layer nlev
                 &   -(field%rlds  (jl,jb)     -field%rlus  (jl,jb)     )) & !  -rlns from "radheating" and "update_surface")
                 & -field%q_rlw_nlev(jl,jb)                                       ! -old heating in layer nlev from "radheating"
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       !
-       IF (ASSOCIATED(field%q_rlw_impl)) THEN
-         !$ACC DATA PRESENT( field%q_rlw_impl, q_rlw_impl )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-          field%q_rlw_impl(jl,jb) = q_rlw_impl(jl,jb)
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-
-       ! convert    heating
-       !$ACC DATA PRESENT( tend_ta_rlw_impl, q_rlw_impl, field%qconv )
-       !$ACC PARALLEL DEFAULT(NONE)
-       !$ACC LOOP GANG VECTOR
-       DO jl = jcs,jce
-         tend_ta_rlw_impl(jl,jb) = q_rlw_impl(jl,jb) * field% qconv(jl,nlev,jb)
-       END DO
-       !$ACC END PARALLEL
-       !$ACC END DATA
-       !
-       IF (ASSOCIATED(tend%ta_rlw_impl)) THEN
-         !$ACC DATA PRESENT( tend%ta_rlw_impl, tend_ta_rlw_impl )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           tend%ta_rlw_impl(jl,jb) = tend_ta_rlw_impl(jl,jb)
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-
-       ! for output: accumulate heating
-       IF (ASSOCIATED(field% q_phy)) THEN
-         !$ACC DATA PRESENT( field%q_phy, q_rlw_impl )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           field% q_phy(jl,nlev,jb) = field% q_phy(jl,nlev,jb) + q_rlw_impl(jl,jb)
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% q_phy_vi)) THEN
-         !$ACC DATA PRESENT( field%q_phy_vi, q_rlw_impl )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           field% q_phy_vi(jl,jb) = field% q_phy_vi(jl,jb) + q_rlw_impl(jl,jb)
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       !
-       ! accumulate surface lw increment for later updating the model state
-       ! but only if radiative processes are active.
-       IF ( echam_phy_tc(jg)%dt_rad > dt_zero ) THEN
-          SELECT CASE(fc_vdf)
-          CASE(1)
-          ! use tendency to update the model state
-          !$ACC DATA PRESENT( tend%ta_phy, tend_ta_rlw_impl )
-          !$ACC PARALLEL DEFAULT(NONE)
+          END DO
+        END IF
+        !
+        IF (ASSOCIATED(field%q_rlw_impl)) THEN
           !$ACC LOOP GANG VECTOR
           DO jl = jcs,jce
-             tend%ta_phy(jl,nlev,jb) = tend%ta_phy(jl,nlev,jb) + tend_ta_rlw_impl(jl,jb)
+            field%q_rlw_impl(jl,jb) = q_rlw_impl(jl,jb)
           END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
-!!$       CASE(2)
-!!$          ! use tendency as forcing in the dynamics
-!!$          ...
+        END IF
+
+        ! convert    heating
+        !$ACC LOOP GANG VECTOR
+        DO jl = jcs,jce
+          tend_ta_rlw_impl(jl,jb) = q_rlw_impl(jl,jb) * field% qconv(jl,nlev,jb)
+        END DO
+        !
+        IF (ASSOCIATED(tend%ta_rlw_impl)) THEN
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,jce
+            tend%ta_rlw_impl(jl,jb) = tend_ta_rlw_impl(jl,jb)
+          END DO
+        END IF
+
+        ! for output: accumulate heating
+        IF (ASSOCIATED(field% q_phy)) THEN
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,jce
+            field% q_phy(jl,nlev,jb) = field% q_phy(jl,nlev,jb) + q_rlw_impl(jl,jb)
+          END DO
+        END IF
+        IF (ASSOCIATED(field% q_phy_vi)) THEN
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,jce
+            field% q_phy_vi(jl,jb) = field% q_phy_vi(jl,jb) + q_rlw_impl(jl,jb)
+          END DO
+        END IF
+        !
+        ! accumulate surface lw increment for later updating the model state
+        ! but only if radiative processes are active.
+        IF ( ldtrad_gt0 ) THEN
+          SELECT CASE(fc_vdf)
+          CASE(1)
+            ! use tendency to update the model state
+            !$ACC LOOP GANG VECTOR
+            DO jl = jcs,jce
+              tend%ta_phy(jl,nlev,jb) = tend%ta_phy(jl,nlev,jb) + tend_ta_rlw_impl(jl,jb)
+            END DO
           END SELECT
           !
           ! update physics state for input to the next physics process
           SELECT CASE(fc_vdf)
           CASE(0)
-             ! diagnostic, do not use tendency
-          CASE(1,2)
-             ! use tendency to update the physics state
-             IF (lparamcpl) THEN
-               !$ACC DATA PRESENT( field%ta, tend_ta_rlw_impl )
-               !$ACC PARALLEL DEFAULT(NONE)
-               !$ACC LOOP GANG VECTOR
-               DO jl = jcs,jce
-                  field% ta(jl,nlev,jb) = field% ta(jl,nlev,jb) + tend_ta_rlw_impl(jl,jb)*pdtime
-               END DO
-               !$ACC END PARALLEL
-               !$ACC END DATA
-             END IF
+            ! diagnostic, do not use tendency
+          CASE(1)
+            ! use tendency to update the physics state
+            IF (lparamcpl) THEN
+              !$ACC LOOP GANG VECTOR
+              DO jl = jcs,jce
+                field% ta(jl,nlev,jb) = field% ta(jl,nlev,jb) + tend_ta_rlw_impl(jl,jb)*pdtime
+              END DO
+            END IF
           END SELECT
-       END IF
+        END IF
+        !$ACC END PARALLEL
+        !$ACC WAIT
 
-    !$ACC WAIT
-
-       ! Turbulent mixing, part III:
-       ! - Further diagnostics.
-       !----------------------------------------------------------------------------------------
-       CALL nsurf_diag(jcs, jce, nproma, nsfc_type,     &! in
+        ! Turbulent mixing, part III:
+        ! - Further diagnostics.
+        !----------------------------------------------------------------------------------------
+        ! TODO: async
+        CALL nsurf_diag(jcs, jce, nproma, nsfc_type,     &! in
             &          ilnd,                            &! in
             &          field%frac_tile(:,jb,:),         &! in
             &          field%  qtrc(:,nlev,jb,iqv),     &! in humidity qm1
@@ -1744,447 +1418,294 @@ CONTAINS
             &          field%   dew2_tile(:,jb,:),      &! out dew point temperature in 2m on tiles
             &          field%    uas_tile(:,jb,:),      &! out zonal wind in 10m on tiles
             &          field%    vas_tile(:,jb,:)       )! out meridional wind in 10m on tiles
-    !$ACC WAIT
 
-!##############################################################################
-!## jb loop4 END
-    ENDDO
+      ENDDO !## jb loop4 END
 !$OMP END PARALLEL DO
-!##############################################################################
-    !$ACC WAIT
-       !
-       !
+      !
+      !
     ELSE ! if ( is_in_sd_ed_interval )
-       !
-       !
-    rls = grf_bdywidth_c+1
-    rle = min_rlcell_int
+      !
+      rls = grf_bdywidth_c+1
+      rle = min_rlcell_int
 
-    ncd = MAX(1,patch%n_childdom)
-    jbs = patch%cells%start_blk(rls,  1)
-    jbe = patch%cells%end_blk  (rle,ncd)
+      ncd = MAX(1,patch%n_childdom)
+      jbs = patch%cells%start_blk(rls,  1)
+      jbe = patch%cells%end_blk  (rle,ncd)
 
-!##############################################################################
-!## jb loop5, is_in_sd_ed_interval == F
 !$OMP PARALLEL DO PRIVATE(jb,jcs,jce)
-    DO jb = jbs, jbe
-      CALL get_indices_c(patch, jb, jbs, jbe, jcs, jce, rls, rle)
-      IF (jcs>jce) CYCLE
-!##############################################################################
-       !
-       !
-       ! vdiff_down
-       !$ACC DATA PRESENT( field%ustar )
-       !$ACC PARALLEL DEFAULT(NONE)
-       !$ACC LOOP GANG VECTOR
-       DO jl = jcs,jce
-         field% ustar(jl,jb) = 0.0_wp
-       END DO
-       !$ACC END PARALLEL
-       !$ACC END DATA
-       IF (ASSOCIATED(field% wstar)) THEN
-         !$ACC DATA PRESENT( field%wstar )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           field% wstar(jl,jb) = 0.0_wp
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       !$ACC DATA PRESENT( field%wstar_tile )
-       !$ACC PARALLEL DEFAULT(NONE)
-       !$ACC LOOP SEQ
-       DO jsfc = 1,nsfc_type
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           field% wstar_tile(jl,jb,jsfc) = 0.0_wp
-         END DO
-       END DO
-       !$ACC END PARALLEL
-       !$ACC END DATA
-       IF (ASSOCIATED(field% qs_sfc_tile)) THEN
-         !$ACC DATA PRESENT( field%qs_sfc_tile )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP SEQ
-         DO jsfc = 1,nsfc_type
-           !$ACC LOOP GANG VECTOR
-           DO jl = jcs,jce
-             field% qs_sfc_tile (jl,jb,jsfc) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% hdtcbl  )) THEN
-         !$ACC DATA PRESENT( field%hdtcbl )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           field% hdtcbl(jl, jb) = 0.0_wp
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% ri_atm  )) THEN
-         !$ACC DATA PRESENT( field%ri_atm )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG
-         DO jk = 1,nlev
-           !$ACC LOOP VECTOR
-           DO jl = jcs,jce
-             field% ri_atm(jk,jk,jb) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% mixlen)) THEN
-         !$ACC DATA PRESENT( field%mixlen )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG
-         DO jk = 1,nlev
-           !$ACC LOOP VECTOR
-           DO jl = jcs,jce
-             field% mixlen(jl,jk,jb) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% cfm)) THEN
-         !$ACC DATA PRESENT( field%cfm )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG
-         DO jk = 1,nlev
-           !$ACC LOOP VECTOR
-           DO jl = jcs,jce
-             field% cfm(jl,jk,jb) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% cfm_tile)) THEN
-         !$ACC DATA PRESENT( field%cfm_tile )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP SEQ
-         DO jsfc = 1,nsfc_type
-           !$ACC LOOP GANG VECTOR
-           DO jl = jcs,jce
-             field% cfm_tile(jl,jb,jsfc) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% cfh)) THEN
-         !$ACC DATA PRESENT( field%cfh )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG
-         DO jk = 1,nlev
-           !$ACC LOOP VECTOR
-           DO jl = jcs,jce
-             field% cfh(jl,jk,jb) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% cfh_tile)) THEN
-         !$ACC DATA PRESENT( field%cfh_tile )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP SEQ
-         DO jsfc = 1,nsfc_type
-           !$ACC LOOP GANG VECTOR
-           DO jl = jcs,jce
-             field% cfh_tile(jl,jb,jsfc) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% cfv)) THEN
-         !$ACC DATA PRESENT( field%cfv )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG
-         DO jk = 1,nlev
-           !$ACC LOOP VECTOR
-           DO jl = jcs,jce
-             field% cfv(jl,jk,jb) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% cftotte )) THEN
-         !$ACC DATA PRESENT( field%cftotte )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG
-         DO jk = 1,nlev
-           !$ACC LOOP VECTOR
-           DO jl = jcs,jce
-             field% cftotte(jl,jk,jb) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% cfthv)) THEN
-         !$ACC DATA PRESENT( field%cfthv )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG
-         DO jk = 1,nlev
-           !$ACC LOOP VECTOR
-           DO jl = jcs,jce
-             field% cfthv(jl,jk,jb) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       !$ACC DATA PRESENT( field%thvsig )
-       !$ACC PARALLEL DEFAULT(NONE)
-       !$ACC LOOP GANG VECTOR
-       DO jl = jcs,jce
-         field% thvsig(jl,jb) = 0.0_wp
-       END DO
-       !$ACC END PARALLEL
-       !$ACC END DATA
-       !
-       ! update_surface
-       !$ACC DATA PRESENT( field%ts_tile, field%u_stress, field%v_stress, field%lhflx, field%shflx, field%evap, &
-       !$ACC               field%u_stress_tile, field%v_stress_tile, field%lhflx_tile, field%shflx_tile,        &
-       !$ACC               field%evap_tile, field%lwflxsfc_tile, field%swflxsfc_tile, field%rlus, field%rsus,   &
-       !$ACC               field%csat, field%cair, field%z0h_lnd, field%albvisdir, field%albnirdir,             &
-       !$ACC               field%albvisdif, field%albnirdif, field%albvisdir_tile, field%albnirdir_tile,        &
-       !$ACC               field%albvisdif_tile, field%albnirdif_tile, field%albedo, field%albedo_tile,         &
-       !$ACC               field%co2_flux_tile, field%ts, field%ts_rad, field%lwflxsfc_tile, field%swflxsfc_tile )
-       !$ACC PARALLEL DEFAULT(NONE)
-       !$ACC LOOP GANG VECTOR
-       DO jl = jcs,jce
-         field% u_stress  (jl,jb) = 0.0_wp
-         field% v_stress  (jl,jb) = 0.0_wp
-         field% lhflx     (jl,jb) = 0.0_wp
-         field% shflx     (jl,jb) = 0.0_wp
-         field%  evap     (jl,jb) = 0.0_wp
-         field% rlus      (jl,jb) = 0.0_wp
-         field% rsus      (jl,jb) = 0.0_wp
-         field% csat      (jl,jb) = 0.0_wp
-         field% cair      (jl,jb) = 0.0_wp
-         field% z0h_lnd   (jl,jb) = 0.0_wp
-         field% albvisdir (jl,jb) = 0.0_wp
-         field% albnirdir (jl,jb) = 0.0_wp
-         field% albvisdif (jl,jb) = 0.0_wp
-         field% albnirdif (jl,jb) = 0.0_wp
-         field% albedo    (jl,jb) = 0.0_wp
-         field% ts        (jl,jb) = 0.0_wp
-         field% ts_rad    (jl,jb) = 0.0_wp
-       END DO
-       !$ACC END PARALLEL
-       !$ACC PARALLEL DEFAULT(NONE)
-       !$ACC LOOP SEQ
-       DO jsfc = 1,nsfc_type
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           field% ts_tile        (jl,jb,jsfc) = 0.0_wp
-           field% u_stress_tile  (jl,jb,jsfc) = 0.0_wp
-           field% v_stress_tile  (jl,jb,jsfc) = 0.0_wp
-           field% lhflx_tile     (jl,jb,jsfc) = 0.0_wp
-           field% shflx_tile     (jl,jb,jsfc) = 0.0_wp
-           field%  evap_tile     (jl,jb,jsfc) = 0.0_wp
-           field% lwflxsfc_tile  (jl,jb,jsfc) = 0.0_wp
-           field% swflxsfc_tile  (jl,jb,jsfc) = 0.0_wp
-           field% albvisdir_tile (jl,jb,jsfc) = 0.0_wp
-           field% albnirdir_tile (jl,jb,jsfc) = 0.0_wp
-           field% albvisdif_tile (jl,jb,jsfc) = 0.0_wp
-           field% albnirdif_tile (jl,jb,jsfc) = 0.0_wp
-           field% albedo_tile    (jl,jb,jsfc) = 0.0_wp
-           field% co2_flux_tile  (jl,jb,jsfc) = 0.0_wp
-         END DO
-       END DO
-       !$ACC END PARALLEL
-       !$ACC END DATA
-       IF (ASSOCIATED(field% q_snocpymlt)) THEN
-         !$ACC DATA PRESENT( field%q_snocpymlt )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           field% q_snocpymlt (jl,jb) = 0.0_wp
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% q_rlw_impl)) THEN
-         !$ACC DATA PRESENT( field%q_rlw_impl )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           field% q_rlw_impl(jl,jb) = 0.0_wp
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       !
-       !$ACC DATA PRESENT( field%Tsurf, field%T1, field%T2, field%Qtop, field%Qbot, field%albvisdir_ice, &
-       !$ACC               field%albnirdir_ice, field%albvisdif_ice, field%albnirdif_ice )
-       !$ACC PARALLEL DEFAULT(NONE)
-       !$ACC LOOP GANG
-       DO jice=1,nice
-         !$ACC LOOP VECTOR
-         DO jl = jcs,jce
-           field% Tsurf          (jl,jice,jb) = 0.0_wp
-           field% T1             (jl,jice,jb) = 0.0_wp
-           field% T2             (jl,jice,jb) = 0.0_wp
-           field% Qtop           (jl,jice,jb) = 0.0_wp
-           field% Qbot           (jl,jice,jb) = 0.0_wp
-           field% albvisdir_ice  (jl,jice,jb) = 0.0_wp
-           field% albnirdir_ice  (jl,jice,jb) = 0.0_wp
-           field% albvisdif_ice  (jl,jice,jb) = 0.0_wp
-           field% albnirdif_ice  (jl,jice,jb) = 0.0_wp
-         END DO
-       END DO
-       !$ACC END PARALLEL
-       !$ACC END DATA
-       !
-       IF (ASSOCIATED(tend% ta_sfc     )) THEN
-         !$ACC DATA PRESENT( tend%ta_sfc )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           tend% ta_sfc(jl,jb) = 0.0_wp
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(tend% ta_rlw_impl)) THEN
-         !$ACC DATA PRESENT( tend%ta_rlw_impl )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           tend% ta_rlw_impl(jl,jb) = 0.0_wp
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       !
-       ! vdiff_up
-       !$ACC DATA PRESENT( field%totte, field%z0m, field%z0m_tile )
-       !$ACC PARALLEL DEFAULT(NONE)
-       !$ACC LOOP GANG
-       DO jk = 1,nlev
-         !$ACC LOOP VECTOR
-         DO jl = jcs,jce
-           field% totte(jl,jk,jb) = 0.0_wp
-         END DO
-       END DO
-       !$ACC END PARALLEL
-       !$ACC PARALLEL DEFAULT(NONE)
-       !$ACC LOOP GANG VECTOR
-       DO jl = jcs,jce
-         field% z0m(jl,jb) = 0.0_wp
-       END DO
-       !$ACC END PARALLEL
-       !$ACC PARALLEL DEFAULT(NONE)
-       !$ACC LOOP SEQ
-       DO jsfc = 1,nsfc_type
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           field% z0m_tile(jl,jb,jsfc) = 0.0_wp
-         END DO
-       END DO
-       !$ACC END PARALLEL
-       !$ACC END DATA
-       IF (ASSOCIATED(field% kedisp)) THEN
-         !$ACC DATA PRESENT( field%kedisp )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           field% kedisp(jl,jb) = 0.0_wp
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-!!$       !$ACC DATA PRESENT( field%sh_vdiff, field%qv_vdiff )
-!!$       !$ACC PARALLEL DEFAULT(NONE)
-!!$       !$ACC LOOP GANG VECTOR
-!!$       DO jl = jcs,jce
-!!$         field% sh_vdiff(jl,jb) = 0.0_wp
-!!$         field% qv_vdiff(jl,jb) = 0.0_wp
-!!$       END DO
-!!$       !$ACC END PARALLEL
-!!$       !$ACC END DATA
-       !
-       IF (ASSOCIATED(field% q_vdf)) THEN
-         !$ACC DATA PRESENT( field%q_vdf )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG
-         DO jk = 1,nlev
-         !$ACC LOOP VECTOR
-           DO jl = jcs,jce
-             field% q_vdf(jl,jk,jb) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% q_vdf_vi)) THEN
-         !$ACC DATA PRESENT( field%q_vdf_vi )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG VECTOR
-         DO jl = jcs,jce
-           field% q_vdf_vi(jl,jb) = 0.0_wp
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       !
-       IF (ASSOCIATED(tend% ta_vdf)) THEN
-         !$ACC DATA PRESENT( tend%ta_vdf )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG
-         DO jk = 1,nlev
-         !$ACC LOOP VECTOR
-           DO jl = jcs,jce
-             tend% ta_vdf(jl,jk,jb) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(tend% ua_vdf)) THEN
-         !$ACC DATA PRESENT( tend%ua_vdf )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG
-         DO jk = 1,nlev
-         !$ACC LOOP VECTOR
-           DO jl = jcs,jce
-             tend% ua_vdf(jl,jk,jb) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(tend% va_vdf)) THEN
-         !$ACC DATA PRESENT( tend%va_vdf )
-         !$ACC PARALLEL DEFAULT(NONE)
-         !$ACC LOOP GANG
-         DO jk = 1,nlev
-         !$ACC LOOP VECTOR
-           DO jl = jcs,jce
-             tend% va_vdf(jl,jk,jb) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       !
-       IF (ASSOCIATED(tend% qtrc_vdf)) THEN
-          !$ACC DATA PRESENT( tend%qtrc_vdf )
-          !$ACC PARALLEL DEFAULT(NONE)
-          !$ACC LOOP GANG
+      !## jb loop5, is_in_sd_ed_interval == F
+      DO jb = jbs, jbe
+        CALL get_indices_c(patch, jb, jbs, jbe, jcs, jce, rls, rle)
+        IF (jcs>jce) CYCLE
+        !
+        !
+        ! vdiff_down
+        ! DA: fuse all the 1D copies in a single ACC kernel
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+        !$ACC LOOP GANG VECTOR
+        DO jl = jcs,jce
+          field% ustar(jl,jb) = 0.0_wp
+        END DO
+        IF (ASSOCIATED(field% wstar)) THEN
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,jce
+            field% wstar(jl,jb) = 0.0_wp
+          END DO
+        END IF        
+        IF (ASSOCIATED(field% hdtcbl  )) THEN
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,jce
+            field% hdtcbl(jl, jb) = 0.0_wp
+          END DO
+        END IF
+        !$ACC LOOP GANG VECTOR
+        DO jl = jcs,jce
+          field% thvsig(jl,jb) = 0.0_wp
+        END DO
+        !$ACC END PARALLEL
+        !
+        !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+        DO jsfc = 1,nsfc_type
+          DO jl = jcs,jce
+            field% wstar_tile(jl,jb,jsfc) = 0.0_wp
+          END DO
+        END DO
+        IF (ASSOCIATED(field% qs_sfc_tile)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jsfc = 1,nsfc_type
+            DO jl = jcs,jce
+              field% qs_sfc_tile (jl,jb,jsfc) = 0.0_wp
+            END DO
+          END DO
+        END IF
+        IF (ASSOCIATED(field% ri_atm  )) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
           DO jk = 1,nlev
-          !$ACC LOOP VECTOR
+            DO jl = jcs,jce
+              field% ri_atm(jk,jk,jb) = 0.0_wp
+            END DO
+          END DO
+        END IF
+        IF (ASSOCIATED(field% mixlen)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jk = 1,nlev
+            DO jl = jcs,jce
+              field% mixlen(jl,jk,jb) = 0.0_wp
+            END DO
+          END DO
+        END IF
+        IF (ASSOCIATED(field% cfm)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jk = 1,nlev
+            DO jl = jcs,jce
+              field% cfm(jl,jk,jb) = 0.0_wp
+            END DO
+          END DO
+        END IF
+        IF (ASSOCIATED(field% cfm_tile)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jsfc = 1,nsfc_type
+            DO jl = jcs,jce
+              field% cfm_tile(jl,jb,jsfc) = 0.0_wp
+            END DO
+          END DO
+        END IF
+        IF (ASSOCIATED(field% cfh)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jk = 1,nlev
+            DO jl = jcs,jce
+              field% cfh(jl,jk,jb) = 0.0_wp
+            END DO
+          END DO
+        END IF
+        IF (ASSOCIATED(field% cfh_tile)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jsfc = 1,nsfc_type
+            DO jl = jcs,jce
+              field% cfh_tile(jl,jb,jsfc) = 0.0_wp
+            END DO
+          END DO
+        END IF
+        IF (ASSOCIATED(field% cfv)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jk = 1,nlev
+            DO jl = jcs,jce
+              field% cfv(jl,jk,jb) = 0.0_wp
+            END DO
+          END DO
+        END IF
+        IF (ASSOCIATED(field% cftotte )) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jk = 1,nlev
+            DO jl = jcs,jce
+              field% cftotte(jl,jk,jb) = 0.0_wp
+            END DO
+          END DO
+        END IF
+        IF (ASSOCIATED(field% cfthv)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jk = 1,nlev
+            DO jl = jcs,jce
+              field% cfthv(jl,jk,jb) = 0.0_wp
+            END DO
+          END DO
+        END IF
+        !
+        ! update_surface
+        ! DA: fuse all the 1D copies in a single ACC kernel
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+        !$ACC LOOP GANG VECTOR
+        DO jl = jcs,jce
+          field% u_stress  (jl,jb) = 0.0_wp
+          field% v_stress  (jl,jb) = 0.0_wp
+          field% lhflx     (jl,jb) = 0.0_wp
+          field% shflx     (jl,jb) = 0.0_wp
+          field%  evap     (jl,jb) = 0.0_wp
+          field% rlus      (jl,jb) = 0.0_wp
+          field% rsus      (jl,jb) = 0.0_wp
+          field% csat      (jl,jb) = 0.0_wp
+          field% cair      (jl,jb) = 0.0_wp
+          field% z0h_lnd   (jl,jb) = 0.0_wp
+          field% albvisdir (jl,jb) = 0.0_wp
+          field% albnirdir (jl,jb) = 0.0_wp
+          field% albvisdif (jl,jb) = 0.0_wp
+          field% albnirdif (jl,jb) = 0.0_wp
+          field% albedo    (jl,jb) = 0.0_wp
+          field% ts        (jl,jb) = 0.0_wp
+          field% ts_rad    (jl,jb) = 0.0_wp
+        END DO
+        IF (ASSOCIATED(field% q_snocpymlt)) THEN
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,jce
+            field% q_snocpymlt (jl,jb) = 0.0_wp
+          END DO
+        END IF
+        IF (ASSOCIATED(field% q_rlw_impl)) THEN
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,jce
+            field% q_rlw_impl(jl,jb) = 0.0_wp
+          END DO
+        END IF
+        IF (ASSOCIATED(tend% ta_sfc     )) THEN
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,jce
+            tend% ta_sfc(jl,jb) = 0.0_wp
+          END DO
+        END IF
+        IF (ASSOCIATED(tend% ta_rlw_impl)) THEN
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,jce
+            tend% ta_rlw_impl(jl,jb) = 0.0_wp
+          END DO
+        END IF
+        !$ACC END PARALLEL
+        !
+        !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+        DO jsfc = 1,nsfc_type
+          DO jl = jcs,jce
+            field% ts_tile        (jl,jb,jsfc) = 0.0_wp
+            field% u_stress_tile  (jl,jb,jsfc) = 0.0_wp
+            field% v_stress_tile  (jl,jb,jsfc) = 0.0_wp
+            field% lhflx_tile     (jl,jb,jsfc) = 0.0_wp
+            field% shflx_tile     (jl,jb,jsfc) = 0.0_wp
+            field%  evap_tile     (jl,jb,jsfc) = 0.0_wp
+            field% lwflxsfc_tile  (jl,jb,jsfc) = 0.0_wp
+            field% swflxsfc_tile  (jl,jb,jsfc) = 0.0_wp
+            field% albvisdir_tile (jl,jb,jsfc) = 0.0_wp
+            field% albnirdir_tile (jl,jb,jsfc) = 0.0_wp
+            field% albvisdif_tile (jl,jb,jsfc) = 0.0_wp
+            field% albnirdif_tile (jl,jb,jsfc) = 0.0_wp
+            field% albedo_tile    (jl,jb,jsfc) = 0.0_wp
+            field% co2_flux_tile  (jl,jb,jsfc) = 0.0_wp
+          END DO
+        END DO        
+        !
+        !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+        DO jice=1,nice
+          DO jl = jcs,jce
+            field% Tsurf          (jl,jice,jb) = 0.0_wp
+            field% T1             (jl,jice,jb) = 0.0_wp
+            field% T2             (jl,jice,jb) = 0.0_wp
+            field% Qtop           (jl,jice,jb) = 0.0_wp
+            field% Qbot           (jl,jice,jb) = 0.0_wp
+            field% albvisdir_ice  (jl,jice,jb) = 0.0_wp
+            field% albnirdir_ice  (jl,jice,jb) = 0.0_wp
+            field% albvisdif_ice  (jl,jice,jb) = 0.0_wp
+            field% albnirdif_ice  (jl,jice,jb) = 0.0_wp
+          END DO
+        END DO
+        !
+        ! vdiff_up
+        ! DA: fuse all the 1D copies in a single ACC kernel
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+        !$ACC LOOP GANG VECTOR
+        DO jl = jcs,jce
+          field% z0m(jl,jb) = 0.0_wp
+        END DO
+        IF (ASSOCIATED(field% kedisp)) THEN
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,jce
+            field% kedisp(jl,jb) = 0.0_wp
+          END DO
+        END IF
+        IF (ASSOCIATED(field% q_vdf_vi)) THEN
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,jce
+            field% q_vdf_vi(jl,jb) = 0.0_wp
+          END DO
+        END IF
+        !$ACC END PARALLEL
+        !
+        !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+        DO jk = 1,nlev
+          DO jl = jcs,jce
+            field% totte(jl,jk,jb) = 0.0_wp
+          END DO
+        END DO
+        !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+        DO jsfc = 1,nsfc_type
+          DO jl = jcs,jce
+            field% z0m_tile(jl,jb,jsfc) = 0.0_wp
+          END DO
+        END DO
+        !
+        IF (ASSOCIATED(field% q_vdf)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jk = 1,nlev
+            DO jl = jcs,jce
+              field% q_vdf(jl,jk,jb) = 0.0_wp
+            END DO
+          END DO
+        END IF
+        !
+        IF (ASSOCIATED(tend% ta_vdf)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jk = 1,nlev
+            DO jl = jcs,jce
+              tend% ta_vdf(jl,jk,jb) = 0.0_wp
+            END DO
+          END DO
+        END IF
+        IF (ASSOCIATED(tend% ua_vdf)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jk = 1,nlev
+            DO jl = jcs,jce
+              tend% ua_vdf(jl,jk,jb) = 0.0_wp
+            END DO
+          END DO
+        END IF
+        IF (ASSOCIATED(tend% va_vdf)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jk = 1,nlev
+            DO jl = jcs,jce
+              tend% va_vdf(jl,jk,jb) = 0.0_wp
+            END DO
+          END DO
+        END IF
+        !
+        IF (ASSOCIATED(tend% qtrc_vdf)) THEN
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+          DO jk = 1,nlev
             DO jl = jcs,jce
               tend% qtrc_vdf(jl,jk,jb,iqv)  = 0.0_wp
               tend% qtrc_vdf(jl,jk,jb,iqc)  = 0.0_wp
@@ -2195,31 +1716,21 @@ CONTAINS
               END DO
             END DO
           END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
-       END IF
-       !
-    !$ACC WAIT
-
-!##############################################################################
-!## jb loop5 END
-    ENDDO
+        END IF
+        !$ACC WAIT
+      !
+      ENDDO !## jb loop5 END
 !$OMP END PARALLEL DO
-!##############################################################################
-    !$ACC WAIT
-
+    !  
     END IF ! if ( is_in_sd_ed_interval )
 
-    ! disassociate pointers
-    NULLIFY(lparamcpl)
-    NULLIFY(l2moment)
-    NULLIFY(fc_vdf)
-    NULLIFY(field)
-    NULLIFY(tend)
-
     !$ACC WAIT
     !$ACC END DATA
     !$ACC END DATA
+
+    ! disassociate pointers
+    NULLIFY(field)
+    NULLIFY(tend)
 
     IF (ltimer) CALL timer_stop(timer_vdf)
 

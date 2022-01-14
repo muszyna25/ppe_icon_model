@@ -236,16 +236,13 @@ CONTAINS
               tend% va_phy(jc,jk,jb) = tend% va_phy(jc,jk,jb) + tend_va_gwd(jc,jk)
             END DO
           END DO
-!!$       CASE(2)
-!!$          ! use tendency as forcing in the dynamics
-!!$          ...
        END SELECT
        !
        ! update physics state for input to the next physics process
        SELECT CASE(fc_gwd)
        CASE(0)
           ! diagnostic, do not use tendency
-       CASE(1,2)
+       CASE(1)
           ! use tendency to update the physics state
           IF (lparamcpl) THEN
              !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)

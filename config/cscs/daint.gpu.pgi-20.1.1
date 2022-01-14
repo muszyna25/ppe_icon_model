@@ -54,7 +54,7 @@ SB2PP="python2 ${SERIALBOX2_ROOT}/python/pp_ser/pp_ser.py"
 
 #MPI_LAUNCH='/apps/daint/UES/xalt/production/bin/srun -p debug -C gpu'
 MPI_LAUNCH=false
-EXTRA_CONFIG_ARGS='--disable-loop-exchange --enable-claw --enable-gpu --enable-rte-rrtmgp --enable-ecrad'
+EXTRA_CONFIG_ARGS='--disable-loop-exchange --enable-claw --enable-gpu --enable-rte-rrtmgp --enable-ecrad --without-external-yaxt'
 
 # Speed up the configuration by disabling MPI checks:
 EXTRA_CONFIG_ARGS+=' --disable-mpi-checks'

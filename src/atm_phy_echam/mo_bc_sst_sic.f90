@@ -246,7 +246,7 @@ CONTAINS
     REAL(dp) :: ztsw(SIZE(tsw,1),SIZE(tsw,2))
     REAL(dp), CONTIGUOUS_POINTER :: sst(:,:,:), sic(:,:,:)
 
-    INTEGER  :: jc, jb, jg
+    INTEGER  :: jc, jb, jg, jce, nblk
 #ifdef _OPENACC
     LOGICAL  :: lzopenacc
 
@@ -261,44 +261,38 @@ CONTAINS
 
     sst => ext_sea(jg)%sst
     sic => ext_sea(jg)%sic
-    !$ACC DATA PRESENT( tsw, seaice, siced, mask, sst, sic, p_patch%cells%center ) &
-    !$ACC       CREATE( zts, zic, ztsw ) COPYIN(tiw)                               &
-    !$ACC           IF( lzopenacc )
 
-    !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
-    !$ACC LOOP SEQ
+    jce  = SIZE(tsw,1)
+    nblk = SIZE(tsw,2)
+
+    !$ACC PARALLEL DEFAULT(PRESENT) COPYIN(tiw) CREATE( zts, zic, ztsw ) IF( lzopenacc )
 !$omp parallel private(jb,jc)
 !$omp do
-    DO jb = 1, SIZE(zts,2)
-      !$ACC LOOP GANG VECTOR
-      DO jc = 1, SIZE(zts,1)
+    !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
+    DO jb = 1, nblk
+      DO jc = 1, jce
         zts(jc,jb) = tiw%weight1 * sst(jc,jb,tiw%month1_index) + tiw%weight2 * sst(jc,jb,tiw%month2_index)
         zic(jc,jb) = tiw%weight1 * sic(jc,jb,tiw%month1_index) + tiw%weight2 * sic(jc,jb,tiw%month2_index)
       END DO
     END DO
 !$omp end do nowait
-    !$ACC END PARALLEL
 
     !TODO: missing siced needs to be added
 
-    !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
-    !$ACC LOOP SEQ
 !$omp do
-    DO jb = 1, SIZE(tsw,2)
-      !$ACC LOOP GANG VECTOR
-      DO jc = 1, SIZE(tsw,1)
+    !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
+    DO jb = 1, nblk
+      DO jc = 1, jce
         ! assuming input data is in percent
         seaice(jc,jb) = zic(jc,jb) * MERGE(0.01_dp, 0.0_dp, mask(jc,jb))
       END DO
     END DO
 !$omp end do nowait
-    !$ACC END PARALLEL
-    !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
-    !$ACC LOOP SEQ
+
 !$omp do
-    DO jb = 1, SIZE(tsw,2)
-      !$ACC LOOP GANG VECTOR
-      DO jc = 1, SIZE(tsw,1)
+    !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
+    DO jb = 1, nblk
+      DO jc = 1, jce
         seaice(jc,jb) = MERGE(0.99_dp, seaice(jc,jb), seaice(jc,jb) > 0.99_dp)
         seaice(jc,jb) = MERGE(0.0_dp, seaice(jc,jb), seaice(jc,jb) <= 0.01_dp)
 
@@ -306,42 +300,33 @@ CONTAINS
       END DO
     END DO
 !$omp end do nowait
-    !$ACC END PARALLEL
 
     IF (l_init) THEN
-      !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
-      !$ACC LOOP SEQ
 !$omp do
-      DO jb = 1, SIZE(tsw,2)
-        !$ACC LOOP GANG VECTOR
-        DO jc = 1, SIZE(tsw,1)
+      !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
+      DO jb = 1, nblk
+        DO jc = 1, jce
           tsw(jc,jb) = ztsw(jc,jb)
         END DO
       END DO
 !$omp end do nowait
-      !$ACC END PARALLEL
     ELSE
-      !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
-      !$ACC LOOP SEQ
 !$omp do
-      DO jb = 1, SIZE(tsw,2)
-        !$ACC LOOP GANG VECTOR
-        DO jc = 1, SIZE(tsw,1)
+      !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
+      DO jb = 1, nblk
+        DO jc = 1, jce
           IF (mask(jc,jb)) THEN
             tsw(jc,jb) = ztsw(jc,jb)
           END IF
         END DO
       END DO
 !$omp end do nowait
-      !$ACC END PARALLEL
     END IF
 
-    !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
-    !$ACC LOOP SEQ
 !$omp do
-    DO jb = 1, SIZE(tsw,2)
-      !$ACC LOOP GANG VECTOR
-      DO jc = 1, SIZE(tsw,1)
+    !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
+    DO jb = 1, nblk
+      DO jc = 1, jce
         IF (seaice(jc,jb) > 0.0_dp) THEN
           siced(jc,jb) = MERGE(2._dp, 1._dp, p_patch%cells%center(jc,jb)%lat > 0.0_dp)
         ELSE
@@ -354,8 +339,6 @@ CONTAINS
     !$ACC END PARALLEL
 
     !CALL message('','Interpolated sea surface temperature and sea ice cover.')
-
-    !$ACC END DATA
 
   END SUBROUTINE bc_sst_sic_time_interpolation
 

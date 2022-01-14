@@ -422,8 +422,6 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  file_interval    = "${file_interval_3d}"
  include_last     = .FALSE.
  ml_varlist       = 'ps'           , 'pfull'        , 'zg'           ,
-                    'tend_ta'      , 'tend_qhus'    ,
-                    'tend_ta_dyn'  , 'tend_qhus_dyn',
                     'tend_ta_phy'  , 'tend_qhus_phy',
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
                     'tend_ta_vdf'  , 'tend_qhus_vdf',

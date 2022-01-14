@@ -3,7 +3,7 @@
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
 
-${ICON_DIR}/config/mpim/stretch.intel --disable-yaxt --disable-openmp --disable-rte-rrtmgp --enable-claw
+${ICON_DIR}/config/mpim/stretch.intel --disable-yaxt --disable-openmp --enable-rte-rrtmgp --enable-claw
 
 if test 0 -ne "$?" && test ! -z "${BB_SLAVE}"; then
   echo " ***** Configuration logs from '$(pwd)' ***** "

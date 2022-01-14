@@ -565,9 +565,8 @@ SUBROUTINE graupel     (             &
   !$ACC CREATE( zvzr, zvzs, zvzg, zvzi )                         &
   !$ACC CREATE( zpkr, zpks, zpkg, zpki )                         &
   !$ACC CREATE( zprvr, zprvs, zprvi, zqvsw_up, zprvg )           &
-  !$ACC CREATE( dist_cldtop, zlhv, zlhs )
-
-  !$ACC DATA PRESENT( pri_gsp ) IF (lpres_pri)
+  !$ACC CREATE( dist_cldtop, zlhv, zlhs )                        &
+  !$ACC NO_CREATE( pri_gsp )
 
 ! Some constant coefficients
   IF( lsuper_coolw) THEN
@@ -625,19 +624,12 @@ SUBROUTINE graupel     (             &
 
   ! save input arrays for final tendency calculation
   IF (lldiag_ttend) THEN
-    !$ACC DATA            &
-    !$ACC PRESENT( t_in )
-
-    !$ACC KERNELS
+    !$ACC KERNELS DEFAULT(NONE) ASYNC(1)
     t_in  = t
     !$ACC END KERNELS
-    !$ACC END DATA
   ENDIF
   IF (lldiag_qtend) THEN
-    !$ACC DATA                                                &
-    !$ACC PRESENT( qv_in, qc_in, qi_in, qr_in, qs_in, qg_in )
-
-    !$ACC KERNELS
+    !$ACC KERNELS DEFAULT(NONE) ASYNC(1)
     qv_in = qv
     qc_in = qc
     qi_in = qi
@@ -645,7 +637,6 @@ SUBROUTINE graupel     (             &
     qs_in = qs
     qg_in = qg
     !$ACC END KERNELS
-    !$ACC END DATA
   END IF
 
 ! timestep for calculations
@@ -687,7 +678,7 @@ SUBROUTINE graupel     (             &
   ENDIF
 
   ! Delete precipitation fluxes from previous timestep
-  !$ACC PARALLEL
+  !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
   !$ACC LOOP GANG VECTOR
   DO iv = iv_start, iv_end
     prr_gsp (iv) = 0.0_wp
@@ -726,7 +717,7 @@ SUBROUTINE graupel     (             &
 ! transfer rates  and sedimentation terms
 ! *********************************************************************
 
-  !$ACC PARALLEL
+  !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
   !$ACC LOOP SEQ
 #ifdef __LOOP_EXCHANGE
   DO iv = iv_start, iv_end  !loop over horizontal domain
@@ -1583,10 +1574,7 @@ SUBROUTINE graupel     (             &
 ! calculated pseudo-tendencies
 
   IF ( lldiag_ttend ) THEN
-    !$ACC DATA                          &
-    !$ACC PRESENT( ddt_tend_t, t, t_in )
-
-    !$ACC PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT) ASYNC(1)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO k=k_start,ke
       DO iv=iv_start,iv_end
@@ -1594,16 +1582,10 @@ SUBROUTINE graupel     (             &
       END DO
     END DO
     !$ACC END PARALLEL
-
-    !$ACC END DATA
   ENDIF
 
   IF ( lldiag_qtend ) THEN
-    !$ACC DATA                                          &
-    !$ACC PRESENT(ddt_tend_qv,ddt_tend_qc,ddt_tend_qr,ddt_tend_qs) &
-    !$ACC PRESENT(ddt_tend_qi,qv_in,qc_in,qr_in,qs_in,qi_in)
-
-    !$ACC PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT) ASYNC(1)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO k=k_start,ke
       DO iv=iv_start,iv_end
@@ -1616,9 +1598,6 @@ SUBROUTINE graupel     (             &
       END DO
     END DO
     !$ACC END PARALLEL
-
-    !$ACC END DATA
-    
   ENDIF
 
   IF (izdebug > 15) THEN
@@ -1650,7 +1629,7 @@ SUBROUTINE graupel     (             &
     CALL message('', TRIM(message_text))
   ENDIF
 
-  !$ACC END DATA
+  !$ACC WAIT
   !$ACC END DATA
   !$ACC END DATA
 
