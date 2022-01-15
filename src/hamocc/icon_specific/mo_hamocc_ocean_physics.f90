@@ -90,9 +90,8 @@
               &           ocean_to_hamocc_state%stretch_c(:,:) * patch_3d%wet_c(:,1,:)
         pddpo_new(:,jk,:) = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,jk,:) * &
               &           ocean_to_hamocc_state%stretch_c_new(:,:) * patch_3d%wet_c(:,1,:)
-      
-        ! Shouldn't this rather be depth_cellMiddle??
-        ptiestu(:,jk,:) = patch_3d%p_patch_1d(1)%depth_CellInterface(:,jk,:) * &
+
+        ptiestu(:,jk,:) = patch_3d%p_patch_1d(1)%depth_cellMiddle(:,jk,:) * &
               &           ocean_to_hamocc_state%stretch_c(:,:) + ocean_to_hamocc_state%draftave(:,:)
       enddo
 
@@ -103,8 +102,8 @@
     ELSE
       pddpo(:,:,:) = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:)
       pddpo_new(:,:,:) = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:)
-      ! Shouldn't this rather be depth_cellMiddle??
-      ptiestu(:,:,:) = patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,:)
+
+      ptiestu(:,:,:) = patch_3d%p_patch_1d(1)%depth_cellMiddle(:,:,:)
       ssh(:,:) = ocean_to_hamocc_state%h_old(:,:)
       ssh_new(:,:) = ocean_to_hamocc_state%h_new(:,:)
     ENDIF
