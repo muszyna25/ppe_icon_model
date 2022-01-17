@@ -9,8 +9,8 @@
 #PBS -v BB_SLAVE
 #PBS -l elapstim_req=00:40:00
 #PBS --venode=${NE}
-#PBS --venum-lhost=4     # Number of VE per logical host
-#PBS -l cpunum_job=6
+#PBS --venum-lhost=2     # Number of VE per logical host
+#PBS -l cpunum_job=3
 #PBS -l coresz_prc=0
 #PBS -T necmpi
 #PBS --use-hca=2             # Number of HCA per logical host
