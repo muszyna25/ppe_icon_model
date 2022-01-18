@@ -1432,7 +1432,6 @@ CONTAINS
 !$ACC UPDATE DEVICE( p_cc, p_cellhgt_mc_now, p_cellmass_now, p_mflx_contra_v, p_upflux ), &
 !$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
-!$ACC DATA CREATE( zq_ubc ), IF( i_am_accel_node .AND. acc_on )
 
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -1456,16 +1455,6 @@ CONTAINS
       l_out_edgeval = opt_lout_edge
     ELSE
       l_out_edgeval = .FALSE.
-    ENDIF
-
-    IF ( PRESENT(opt_q_ubc) ) THEN
-!$ACC KERNELS PRESENT( opt_q_ubc, zq_ubc ), IF ( i_am_accel_node .AND. acc_on ) ASYNC(1)
-      zq_ubc(:,:) = opt_q_ubc(:,:)
-!$ACC END KERNELS
-    ELSE
-!$ACC KERNELS PRESENT( zq_ubc ), IF ( i_am_accel_node .AND. acc_on ) ASYNC(1)
-      zq_ubc(:,:) = 0._wp
-!$ACC END KERNELS
     ENDIF
 
     IF ( PRESENT(opt_rlstart) ) THEN
@@ -1514,19 +1503,20 @@ CONTAINS
 !$ACC ENTER DATA CREATE( z_cfl ),  IF( i_am_accel_node .AND. acc_on )
     END IF
 
-!$ACC DATA CREATE( z_face, z_face_up, z_face_low, z_delta_q, z_a1, zparent_topflx ), &
+!$ACC DATA CREATE( z_face, z_face_up, z_face_low, z_delta_q, z_a1, zq_ubc ), &
 !$ACC      PCOPYIN( p_cc, p_cellhgt_mc_now, p_cellmass_now ), PCOPY( p_mflx_contra_v, p_upflux ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
 
-    IF ( PRESENT(opt_topflx_tra) ) THEN
-      !$ACC KERNELS DEFAULT(NONE) PRESENT( opt_topflx_tra ) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-      zparent_topflx(:,:) = opt_topflx_tra(:,:)
+    IF ( PRESENT(opt_q_ubc) ) THEN
+      !$ACC KERNELS DEFAULT(NONE) PRESENT( opt_q_ubc ) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      zq_ubc(:,:) = opt_q_ubc(:,:)
       !$ACC END KERNELS
     ELSE
       !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-      zparent_topflx(:,:) = 0._wp
+      zq_ubc(:,:) = 0._wp
       !$ACC END KERNELS
     ENDIF
+
 
 !$OMP PARALLEL
 
@@ -1942,8 +1932,6 @@ CONTAINS
         CALL finish(routine, 'deallocation for z_cfl failed' )
       ENDIF
     END IF
-
-!$ACC END DATA ! zq_ubc
 
 !$ACC UPDATE HOST( p_mflx_contra_v, p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
