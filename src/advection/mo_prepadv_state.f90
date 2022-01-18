@@ -222,6 +222,7 @@ CONTAINS
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
                     & ref_idx=jt, opt_var_ref_pos=2,                                &
                     & ldims=shape2d_c, lrestart=.FALSE. )
+      ENDDO
 #endif
     ENDDO
 
