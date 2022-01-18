@@ -71,7 +71,7 @@ MPI_LAUNCH='/sw/spack-rhel6/openmpi-2.0.2p2-xw623x/bin/mpiexec'
 
 NVCFLAGS='-arch=sm_37 -g -O3'
 
-EXTRA_CONFIG_ARGS='--enable-parallel-netcdf --disable-loop-exchange --enable-claw --enable-gpu'
+EXTRA_CONFIG_ARGS='--enable-rte-rrtmgp --enable-parallel-netcdf --disable-loop-exchange --enable-claw --enable-gpu'
 
 ################################################################################
 

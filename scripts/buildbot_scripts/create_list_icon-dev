@@ -14,16 +14,20 @@ listname=icon-dev
 #-----------------------------------------------------------
 # AES
 # add amip tests to all builders
-$addexp "checksuite.icon-dev/check.atm_amip*"                --list $listname
-$addexp "checksuite.icon-dev/check.atm_heldsuarez"           --list $listname
-$addexp "checksuite.icon-dev/check.atm_ape"                  --list $listname
-$addexp "checksuite.icon-dev/check.atm_sma"                  --list $listname
-$addexp "checksuite.icon-dev/check.atm_2mom_bubble_rceTorus" --list $listname
-# add concurrent ps_rad test
-$addexp "aes/exp.test_concurrent_psrad_model" --without-configureflags without-mpi --machines mistral  --list $listname
+$addexp "checksuite.icon-dev/check.atm_rte_rrtmgp_amip"                    --list $listname
+$addexp "checksuite.icon-dev/check.atm_rte_rrtmgp_amip_update"             --list $listname
+$addexp "checksuite.icon-dev/check.atm_heldsuarez"                         --list $listname
+$addexp "checksuite.icon-dev/check.atm_rte_rrtmgp_ape"                     --list $listname
+$addexp "checksuite.icon-dev/check.atm_amip_noforcing"                     --list $listname
+$addexp "checksuite.icon-dev/check.atm_amip_noparams"                      --list $listname
+$addexp "checksuite.icon-dev/check.atm_sma" --machines mistral breeze cray --list $listname
+#off## add bubble est 
+#off#$addexp "checksuite.icon-dev/check.atm_2mom_bubble_rceTorus"               --list $listname
+#off## add concurrent ps_rad test 
+#off#$addexp "aes/exp.test_concurrent_psrad_model" --without-configureflags without-mpi --machines mistral  --list $listname
 #-----------------------------------------------------------
 # in case reference data are not available uncomment this line
-#./rmexp checksuite.icon-dev/check.atm_amip_update  --list $listname
+#./rmexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_update  --list $listname
 
 #-----------------------------------------------------------
 # OES
@@ -52,21 +56,8 @@ $addexp checksuite.infrastructure/testbed/exp.icon-testbed_read-netcdf --builder
 #-----------------------------------------------------------
 # CSCS
 # Additional tests for GPU
-# Some AMIP tests fail with extremely small differences in some Physics fields; investigation ongoing
-
-# CCE-CPU and NVIDIA-CPU/GPU: remove traditional tests which use PSrad
-
-./rmexp checksuite.icon-dev/check.atm_ape                  --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
-./rmexp checksuite.icon-dev/check.atm_amip                 --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
-./rmexp checksuite.icon-dev/check.atm_amip_update          --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
-./rmexp checksuite.icon-dev/check.atm_amip_diagparams_constbc_nojsb_notransport_nodynamics --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
-./rmexp checksuite.icon-dev/check.atm_sma                  --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
-./rmexp checksuite.icon-dev/check.atm_2mom_bubble_rceTorus --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
 
 # But add the RTE-RRTMGP based tests
-$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_ape  --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
-$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
-$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_update --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
 $addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_diagparams_constbc_nojsb_notransport_nodynamics --builders DAINT_CPU_cce DAINT_CPU_pgi DAINT_GPU_pgi DAINT_CPU_nvidia DAINT_GPU_nvidia --list $listname
 
 # NVIDIA for GPU: failing currently because:
@@ -107,11 +98,11 @@ for builder in DWD_nec DWD_nec_yac2 DWD_nec_hybrid; do
   # remove non-dwd tests
   ./rmexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest               --builders ${builder} --list $listname
   ./rmexp checksuite.ocean_internal/technical/exp.test_ocean_omip_technical      --builders ${builder} --list $listname
-  ./rmexp checksuite.icon-dev/check.atm_amip*                                    --builders ${builder} --list $listname
+  ./rmexp checksuite.icon-dev/check.atm_rte*                                     --builders ${builder} --list $listname
+  ./rmexp checksuite.icon-dev/check.atm_amip_noforcing                           --builders ${builder} --list $listname
+  ./rmexp checksuite.icon-dev/check.atm_amip_noparams                            --builders ${builder} --list $listname
   ./rmexp checksuite.icon-dev/check.atm_heldsuarez                               --builders ${builder} --list $listname
-  ./rmexp checksuite.icon-dev/check.atm_ape                                      --builders ${builder} --list $listname
-  ./rmexp checksuite.icon-dev/check.atm_sma                                      --builders ${builder} --list $listname
-  ./rmexp checksuite.icon-dev/check.atm_2mom_bubble_rceTorus                     --builders ${builder} --list $listname
+#off#  ./rmexp checksuite.icon-dev/check.atm_2mom_bubble_rceTorus                     --builders ${builder} --list $listname
 done
 # only DWD_nec
 $addexp checksuite.rcnl.dwd.de/exp.run_ICON_09_R2B6N7_oper_EPS.run               --builders DWD_nec --list $listname
@@ -121,23 +112,23 @@ $addexp checksuite.rcnl.dwd.de/exp.run_ICON_14_R2B6N7_oper_IAU_and_restarttest.r
 
 #-----------------------------------------------------------
 # Ruby0 coupled tests, only with mpi
-$addexp exp.esm_bb_ruby0 --without-configureflags without-mpi --machines mistral --runflags "cpu_time=00:20:00 no_of_nodes=4" --list $listname
+#off##$addexp exp.esm_bb_rte_rrtmgp_ruby0 --without-configureflags without-mpi --machines mistral --runflags "cpu_time=00:20:00 no_of_nodes=4" --list $listname
 
 #-----------------------------------------------------------
-# Other tests
-#   torus test from Anurag : red, move to problems list
-$addexp checksuite.icon-dev/check.atm_rce_les  --machines mistral  --runflags "cpu_time=00:30:00" --list $listname
-#   old test from Anurag
-$addexp checksuite.icon-dev/check.atm_icoles_nested --machines mistral  --runflags "cpu_time=00:30:00 queue=compute" --list $listname
-#   old test from Levi
-$addexp exp.nat_rce_cbl_120km_nwp  --machines mistral  --runflags "cpu_time=00:30:00" --list $listname
-#   very old test from Pilar
-$addexp exp.nat_jww_nwp_mpiomp --without-configureflags without-mpi  --machines mistral --runflags "cpu_time=00:30:00" --list $listname
+#off## Other tests
+#off##   torus test from Anurag : red, move to problems list
+#off#$addexp checksuite.icon-dev/check.atm_rce_les  --machines mistral  --runflags "cpu_time=00:30:00" --list $listname
+#off##   old test from Anurag
+#off#$addexp checksuite.icon-dev/check.atm_icoles_nested --machines mistral  --runflags "cpu_time=00:30:00 queue=compute" --list $listname
+#off##   old test from Levi
+#off#$addexp exp.nat_rce_cbl_120km_nwp  --machines mistral  --runflags "cpu_time=00:30:00" --list $listname
+#off##   very old test from Pilar
+#off#$addexp exp.nat_jww_nwp_mpiomp --without-configureflags without-mpi  --machines mistral --runflags "cpu_time=00:30:00" --list $listname
 
-# test memory loggin in amip setup
-$addexp checksuite.infrastructure/memLog/exp.atm_memLog         --builders MISTRAL_intel18_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
-$addexp checksuite.infrastructure/memLog/exp.atm_memLog_AsyncIO --builders MISTRAL_intel18_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
-$addexp checksuite.infrastructure/memLog/exp.oce_memLog         --builders MISTRAL_intel18_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
+#off## test memory loggin in amip setup
+#off#$addexp checksuite.infrastructure/memLog/exp.atm_memLog         --builders MISTRAL_intel18_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
+#off#$addexp checksuite.infrastructure/memLog/exp.atm_memLog_AsyncIO --builders MISTRAL_intel18_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
+#off#$addexp checksuite.infrastructure/memLog/exp.oce_memLog         --builders MISTRAL_intel18_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
 #-----------------------------------------------------------
 #remove red setups
 ./rmexp exp.test_nwp_R02B04N06_multifile_restart exp.test_nwp_R02B04N06multi2 --builders MISTRAL_nag --list $listname
@@ -147,17 +138,17 @@ $addexp checksuite.infrastructure/memLog/exp.oce_memLog         --builders MISTR
 # activate runs for the CDI-PIO builder on mistral
 ./set_builder_flags Active --builders MISTRAL_intel18_pio --list $listname
 for builder in MISTRAL_intel18_pio; do
-  $addexp checksuite.infrastructure/output/exp.atm_amip_R2B4_1day_pio --builders ${builder} --list $listname
-  $addexp checksuite.infrastructure/output/exp.atm_amip_R2B4_1day     --builders ${builder} --list $listname
-  $addexp exp.esm_bb_ruby0_pio      --builders ${builder} --list $listname --runflags "cpu_time=00:20:00 no_of_nodes=4"
-  $addexp exp.esm_bb_ruby0          --builders ${builder} --list $listname --runflags "cpu_time=00:20:00 no_of_nodes=4"
+  $addexp checksuite.infrastructure/output/exp.atm_rte_rrtmgp_amip_R2B4_1day_pio --builders ${builder} --list $listname
+  $addexp checksuite.infrastructure/output/exp.atm_rte_rrtmgp_amip_R2B4_1day     --builders ${builder} --list $listname
+#off##  $addexp exp.esm_bb_rte_rrtmgp_ruby0_pio  --builders ${builder} --list $listname --runflags "cpu_time=00:20:00 no_of_nodes=4"
+#off##  $addexp exp.esm_bb_rte_rrtmgp_ruby0      --builders ${builder} --list $listname --runflags "cpu_time=00:20:00 no_of_nodes=4"
   $addexp checksuite.infrastructure/output/exp.hamocc_omip_10days  --builder ${builder} --list $listname
 done
 
 # activate experiments for the Mac builder and breeze
 for builder in MPIMAC_gcc BREEZE_gcc BREEZE_nag BREEZE_intel; do
   ./set_builder_flags Active --builders ${builder}  --list $listname
-  $addexp exp.atm_amip_test --builders ${builder} --list $listname --runflags "mpi_procs_pernode=4"
+  $addexp exp.atm_rte_rrtmgp_amip_test --builders ${builder} --list $listname --runflags "mpi_procs_pernode=4"
   $addexp checksuite.ocean_internal/omip/exp.ocean_omip_short_r2b4 --builders ${builder} --list $listname --runflags "mpi_procs_pernode=4"
 done
 

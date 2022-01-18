@@ -290,7 +290,7 @@ CONTAINS
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
            i_startidx, i_endidx, i_rlstart, i_rlend)
 
-      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) COLLAPSE(2) &
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) TILE(64,2) &
       !$ACC               ASYNC(1) IF( i_am_accel_node .AND. acc_on )
       DO jk = slev, elev
         DO je = i_startidx, i_endidx

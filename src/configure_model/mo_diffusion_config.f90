@@ -25,7 +25,7 @@
 MODULE mo_diffusion_config
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, message_text
+  USE mo_exception,           ONLY: message, message_text, print_value
   USE mo_impl_constants,      ONLY: max_dom
 
   IMPLICIT NONE
@@ -46,14 +46,37 @@ MODULE mo_diffusion_config
                             ! 3: Smagorinsky diffusion for hexagonal model
                             ! 4: 4th order linear diffusion on all vertical levels 
                             ! 5: Smagorinsky diffusion for triangular model
+                            ! 24 or 42: 2nd order linear diffusion for upper levels,
+                            !           4th order for lower levels
                             
+
+    REAL(wp) :: k2_pres_max ! (relevant only when hdiff_order = 24 or 42)
+                            ! pressure (in Pa) specified by the user
+                            ! to determine the lowest vertical level 
+                            ! to which 2nd order linear diffusion is applied.
+                            ! For the levels with pressure > k2_pres_max, 
+                            ! 4th order linear diffusion is applied. 
+
+    INTEGER  :: k2_klev_max ! (relevant only when hdiff_order = 24 or 42)
+                            ! vertical level index specified by the user
+                            ! to determine the lowest vertical level 
+                            ! to which 2nd order linear diffusion is applied.
+                            ! For the levels with k > k2_klev_max, 
+                            ! 4th order linear diffusion is applied. 
 
     REAL(wp) :: hdiff_efdt_ratio      ! ratio of e-folding time to (2*)time step
     REAL(wp) :: hdiff_w_efdt_ratio    ! ratio of e-folding time to time step for w diffusion (NH only)
     REAL(wp) :: hdiff_min_efdt_ratio  ! minimum value of hdiff_efdt_ratio 
                                       ! (for upper sponge layer)
     REAL(wp) :: hdiff_tv_ratio        ! the ratio of diffusion coefficient: temp:mom
-    REAL(wp) :: hdiff_smag_fac        ! scaling factor for Smagorinsky diffusion
+    REAL(wp) :: hdiff_smag_fac        ! scaling factor for Smagorinsky diffusion at height hdiff_smag_z and below
+    REAL(wp) :: hdiff_smag_fac2       ! scaling factor for Smagorinsky diffusion at height hdiff_smag_z2
+    REAL(wp) :: hdiff_smag_fac3       ! scaling factor for Smagorinsky diffusion at height hdiff_smag_z3
+    REAL(wp) :: hdiff_smag_fac4       ! scaling factor for Smagorinsky diffusion at height hdiff_smag_z4 and above
+    REAL(wp) :: hdiff_smag_z          ! height up to which hdiff_smag_fac is used, start of linear profile
+    REAL(wp) :: hdiff_smag_z2         ! height of hdiff_smag_fac2, end of linear and start of quadratic profile
+    REAL(wp) :: hdiff_smag_z3         ! height of hdiff_smag_fac3, to define quadratic profile
+    REAL(wp) :: hdiff_smag_z4         ! height from which hdiff_smag_fac4, end of quadratic profile
     REAL(wp) :: hdiff_multfac         ! multiplication factor of normalized diffusion
                                       ! coefficient for nested domains
     INTEGER  :: itype_vn_diffu        ! options for discretizing the Smagorinsky momentum diffusion
@@ -73,6 +96,11 @@ MODULE mo_diffusion_config
                                  ! (hdiff_efdt_ratio above), and the horizontal 
                                  ! resolution of the model
 
+    INTEGER ik2s, ik2e, ik4s, ik4e  ! indices defining to which vertical levels
+                                    ! 2nd and 4th linear diffusion are applied.
+                                    ! The values are not specified by the user via namelist,
+                                    ! but determined from k2_klev_max, k2_pres_max
+                                    ! and the configuration of the vertical coordinate
 
   END TYPE t_diffusion_config
   !>
@@ -82,17 +110,121 @@ MODULE mo_diffusion_config
 CONTAINS
   !>
   !!
-  SUBROUTINE configure_diffusion( n_dom, dynamics_parent_grid_id )
+  SUBROUTINE configure_diffusion( n_dom, dynamics_parent_grid_id,  &
+    &                             nlev, vct_a, vct_b, apzero       )
 
     INTEGER, INTENT(IN) :: n_dom
     INTEGER, INTENT(IN) :: dynamics_parent_grid_id(max_dom)
+    INTEGER, INTENT(IN) :: nlev
+    REAL(WP),INTENT(IN) :: vct_a(nlev+1), vct_b(nlev+1), apzero
 
     INTEGER  :: jg, jk, jgp
-    REAL(wp) :: tmp
+    REAL(wp) :: zpres(nlev+1), tmp
+
+    REAL(wp) :: k2_pres_max
+    INTEGER  :: k2_klev_max
+    INTEGER  :: ik2s, ik2e, ik4s, ik4e
 
     CHARACTER(len=*), PARAMETER :: &
       routine = 'mo_diffusion_config:configure_diffusion'
 
+    !-----------------------------------------------------------
+    ! If using hybrid linear diffusion, set the starting and 
+    ! ending vertical level indices for each diffusion order. 
+    !-----------------------------------------------------------
+    DO jg= 1,n_dom
+
+      IF (  diffusion_config(jg)%hdiff_order==24 .OR. &
+         &  diffusion_config(jg)%hdiff_order==42) THEN
+
+        k2_pres_max = diffusion_config(jg)% k2_pres_max
+        k2_klev_max = diffusion_config(jg)% k2_klev_max
+        ik2s        = diffusion_config(jg)% ik2s
+        ik2e        = diffusion_config(jg)% ik2e
+        ik4s        = diffusion_config(jg)% ik4s
+        ik4e        = diffusion_config(jg)% ik4e
+        
+        CALL message('','')
+        WRITE(message_text,'(a,i2.2)') '----- horizontal diffusion on grid level ', jg
+        CALL message('',TRIM(message_text))
+        
+        ! In case user has specified a pressure value
+        IF ( k2_pres_max >0._wp) THEN 
+
+          CALL print_value('k2_pres_max (Pa) = ',k2_pres_max)
+
+          ! Calculate the pressure values at layer interfaces
+          ! assuming surface pressure is apzero.
+
+          zpres(:) = vct_a(:) + vct_b(:)*apzero
+
+          IF (k2_pres_max <= zpres(1)) THEN
+          ! Model does not include mass of the whole atmosphere; User
+          ! specified a pressure value located above the model top.
+          ! 2nd order diffusion will not be applied. Only 4th order.
+         
+            k2_klev_max = 0
+
+            CALL print_value('ptop (Pa)        = ',zpres(1))
+            CALL message('','--- k2_pres_max <= ptop')
+  
+          ELSE IF ( k2_pres_max >= zpres(nlev+1)) THEN
+          ! User specified a very high pressure. 2nd order diffusion 
+          ! will be applied to all vertical levels.
+  
+            k2_klev_max = nlev
+
+            CALL print_value('pres_sfc (Pa)    = ',zpres(nlev+1))
+            CALL message('','--- k2_pres_max >= pres_sfc')
+  
+          ELSE ! Search for the layer in which k2_pres_max is located.
+  
+            DO jk = 1,nlev
+              IF ( k2_pres_max>zpres(jk).AND.k2_pres_max<=zpres(jk+1) ) THEN
+                k2_klev_max = jk 
+                EXIT
+              END IF
+            END DO
+
+            CALL print_value('half level pressure (-) = ', zpres(k2_klev_max))
+            CALL print_value('half level pressure (+) = ', zpres(k2_klev_max+1))
+  
+          END IF ! k2_pres_max search
+          diffusion_config(jg)%k2_klev_max = k2_klev_max  ! Update
+        END IF   ! k2_pres_max >0
+
+        ! If the user didn't specifiy a pressure value, then use the 
+        ! default or user-specified level index k2_klev_max.
+
+        ik2s = 1
+        ik2e = k2_klev_max
+        ik4s = k2_klev_max +1
+        ik4e = nlev
+        diffusion_config(jg)%ik2s = ik2s
+        diffusion_config(jg)%ik2e = ik2e
+        diffusion_config(jg)%ik4s = ik4s
+        diffusion_config(jg)%ik4e = ik4e
+
+        ! Inform the user about the configuration
+
+        CALL print_value('ik2s =',diffusion_config(jg)% ik2s)
+        CALL print_value('ik2e =',diffusion_config(jg)% ik2e)
+        CALL print_value('ik4s =',diffusion_config(jg)% ik4s)
+        CALL print_value('ik4e =',diffusion_config(jg)% ik4e)
+
+        IF (ik2e >= ik2s) THEN
+          WRITE(message_text,'(2(a,i4.4))') '--- 2nd order from level ',ik2s,' to ',ik2e
+          CALL message('',TRIM(message_text))
+        END IF
+        IF (ik4e >= ik4s) THEN
+          WRITE(message_text,'(2(a,i4.4))') '--- 4nd order from level ',ik4s,' to ',ik4e
+          CALL message('',TRIM(message_text))
+        END IF
+        CALL message('','-----------')
+        CALL message('','')
+
+      END IF !  hdiff_order==24.OR. hdiff_order==42
+    ENDDO ! n_dom
 
     !-----------------------------------------------------------
     ! Compute diffusion coefficients

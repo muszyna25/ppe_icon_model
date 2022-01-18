@@ -26,6 +26,16 @@ MODULE mo_echam_cld_nml
 
 CONTAINS
 
+  SUBROUTINE nml_read(funit)
+    INTEGER, INTENT(in) :: funit
+    READ(funit, NML=echam_cld_nml)
+  END SUBROUTINE nml_read
+  !
+  SUBROUTINE nml_write(funit)
+    INTEGER, INTENT(in) :: funit
+    WRITE(funit, NML=echam_cld_nml)
+  END SUBROUTINE nml_write
+  !
   SUBROUTINE process_echam_cld_nml(filename)
     !
     CHARACTER(LEN=*), INTENT(in) :: filename
@@ -33,18 +43,6 @@ CONTAINS
     CALL init_echam_cld_config
     !
     CALL process_nml(filename, 'echam_cld_nml', nml_read, nml_write)
-    !
-  CONTAINS
-    !
-    SUBROUTINE nml_read(funit)
-      INTEGER, INTENT(in) :: funit
-      READ(funit, NML=echam_cld_nml)
-    END SUBROUTINE nml_read
-    !
-    SUBROUTINE nml_write(funit)
-      INTEGER, INTENT(in) :: funit
-      WRITE(funit, NML=echam_cld_nml)
-    END SUBROUTINE nml_write
     !
   END SUBROUTINE process_echam_cld_nml
 

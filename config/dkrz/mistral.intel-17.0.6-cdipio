@@ -55,7 +55,7 @@ FCFLAGS="-I${CDI_ROOT}/include -I${YAXT_ROOT}/include -I${NETCDFF_ROOT}/include 
 LDFLAGS="-shared-intel -L${CDI_ROOT}/lib -L${YAXT_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${ECCODES_ROOT}/lib -L${LIBAEC_ROOT}/lib ${MKL_LDFLAGS}"
 LIBS="-Wl,--as-needed ${CDI_LIBS} ${YAXT_LIBS} ${ECCODES_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${LIBAEC_LIBS} ${XML2_LIBS} -Wl,--no-as-needed"
 
-EXTRA_CONFIG_ARGS=(--enable-intel-consistency --enable-vectorized-lrtm --enable-parallel-netcdf --enable-cdi-pio --with-external-yaxt --with-external-cdi --enable-yaxt)
+EXTRA_CONFIG_ARGS=(--enable-intel-consistency --enable-vectorized-lrtm --enable-rte-rrtmgp --enable-parallel-netcdf --enable-cdi-pio --with-external-yaxt --with-external-cdi --enable-yaxt)
 
 ################################################################################
 

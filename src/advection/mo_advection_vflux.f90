@@ -1514,10 +1514,19 @@ CONTAINS
 !$ACC ENTER DATA CREATE( z_cfl ),  IF( i_am_accel_node .AND. acc_on )
     END IF
 
-!$ACC DATA CREATE( z_face, z_face_up, z_face_low, z_delta_q, z_a1 ), &
+!$ACC DATA CREATE( z_face, z_face_up, z_face_low, z_delta_q, z_a1, zparent_topflx ), &
 !$ACC      PCOPYIN( p_cc, p_cellhgt_mc_now, p_cellmass_now ), PCOPY( p_mflx_contra_v, p_upflux ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
 
+    IF ( PRESENT(opt_topflx_tra) ) THEN
+      !$ACC KERNELS DEFAULT(NONE) PRESENT( opt_topflx_tra ) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      zparent_topflx(:,:) = opt_topflx_tra(:,:)
+      !$ACC END KERNELS
+    ELSE
+      !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      zparent_topflx(:,:) = 0._wp
+      !$ACC END KERNELS
+    ENDIF
 
 !$OMP PARALLEL
 

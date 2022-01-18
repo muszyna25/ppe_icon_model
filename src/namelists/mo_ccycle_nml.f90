@@ -26,7 +26,17 @@ MODULE mo_ccycle_nml
 
 CONTAINS
 
-    SUBROUTINE process_ccycle_nml(filename)
+  SUBROUTINE nml_read(funit)
+    INTEGER, INTENT(in) :: funit
+    READ(funit, NML=ccycle_nml)
+  END SUBROUTINE nml_read
+  !
+  SUBROUTINE nml_write(funit)
+    INTEGER, INTENT(in) :: funit
+    WRITE(funit, NML=ccycle_nml)
+  END SUBROUTINE nml_write
+  !
+  SUBROUTINE process_ccycle_nml(filename)
     !
     CHARACTER(LEN=*), INTENT(in) :: filename
     !
@@ -34,18 +44,7 @@ CONTAINS
     !
     CALL process_nml(filename, 'ccycle_nml', nml_read, nml_write)
     !
-  CONTAINS
-    !
-    SUBROUTINE nml_read(funit)
-      INTEGER, INTENT(in) :: funit
-      READ(funit, NML=ccycle_nml)
-    END SUBROUTINE nml_read
-    !
-    SUBROUTINE nml_write(funit)
-      INTEGER, INTENT(in) :: funit
-      WRITE(funit, NML=ccycle_nml)
-    END SUBROUTINE nml_write
-    !
+    !$ACC ENTER DATA COPYIN(ccycle_config)
   END SUBROUTINE process_ccycle_nml
 
 END MODULE mo_ccycle_nml

@@ -571,13 +571,13 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ps'           , 'pfull'        ,
-                    'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
+                    'tend_ta_phy'  ,
                     'tend_ta_vdf'  , 'tend_ta_gwd'  , 'tend_ta_sso'  ,
-                    'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
+                    'tend_ua_phy'  ,
                     'tend_ua_vdf'  , 'tend_ua_gwd'  , 'tend_ua_sso'  ,
-                    'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
+                    'tend_va_phy'  ,
                     'tend_va_vdf'  , 'tend_va_gwd'  , 'tend_va_sso'  ,
-                    'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
+                    'tend_qhus_phy',
                     'tend_qhus_vdf',
                     'tend_ta_mig'  , 'tend_qhus_mig', 
                     'tend_qclw_mig', 'tend_qcli_mig',

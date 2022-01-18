@@ -30,8 +30,7 @@ MODULE mo_turbulence_diag
 
   USE mo_echam_vdf_config,  ONLY: echam_vdf_config
   USE mo_echam_vdiff_params,ONLY: ckap, cb,cc, chneu, da1,                  &
-    &                             eps_shear, eps_corio, totte_min, cons5,   &
-    &                             lmix_max
+    &                             eps_shear, eps_corio, totte_min, cons5
   USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd, rv,         &
     &                             vtmpc1, tmelt, alv, als, p0ref
   USE mo_grid_config       ,ONLY: grid_angular_velocity
@@ -176,7 +175,7 @@ CONTAINS
 
     ! Shortcuts to components of echam_vdf_config
     !
-    REAL(wp) :: f_tau0, f_theta0, c_f, c_n, c_e, pr0, fbl
+    REAL(wp) :: f_tau0, f_theta0, c_f, c_n, c_e, pr0, fbl, lmix_max
     !
     !$ACC DATA &
     !---- Argument arrays - intent(in)
@@ -198,6 +197,7 @@ CONTAINS
     c_e      = echam_vdf_config(jg)% c_e
     pr0      = echam_vdf_config(jg)% pr0
     fbl      = echam_vdf_config(jg)% fbl
+    lmix_max = echam_vdf_config(jg)% lmix_max
 
     !-------------------------------------
     ! 1. Some constants

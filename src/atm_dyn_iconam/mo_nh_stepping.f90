@@ -137,7 +137,7 @@ MODULE mo_nh_stepping
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
 #endif
 
-  USE mo_sync,                     ONLY: sync_patch_array_mult, sync_patch_array, SYNC_C, global_max
+  USE mo_sync,                     ONLY: sync_patch_array_mult, sync_patch_array, SYNC_C, SYNC_E, global_max
   USE mo_nh_interface_nwp,         ONLY: nwp_nh_interface
   USE mo_interface_iconam_echam,   ONLY: interface_iconam_echam
   USE mo_echam_phy_memory,         ONLY: prm_tend
@@ -196,8 +196,8 @@ MODULE mo_nh_stepping
   USE mo_var_list_register_utils,  ONLY: vlr_print_vls
   USE mo_async_latbc_utils,        ONLY: recv_latbc_data, update_lin_interpolation
   USE mo_async_latbc_types,        ONLY: t_latbc_data
-  USE mo_nonhydro_types,           ONLY: t_nh_state
-  USE mo_fortran_tools,            ONLY: swap, copy
+  USE mo_nonhydro_types,           ONLY: t_nh_state, t_nh_diag
+  USE mo_fortran_tools,            ONLY: swap, copy, init
   USE mtime,                       ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString,     &
        &                                 timedelta, newTimedelta, deallocateTimedelta, timedeltaToString, &
        &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN, newDatetime,        &
@@ -228,6 +228,7 @@ MODULE mo_nh_stepping
 #if defined( _OPENACC )
   USE mo_nonhydro_gpu_types,       ONLY: h2d_icon, d2h_icon, devcpy_grf_state
   USE mo_mpi,                      ONLY: i_am_accel_node, my_process_is_work
+  USE mo_acc_device_management,    ONLY: printGPUMem
 #endif
   USE mo_loopindices,              ONLY: get_indices_c, get_indices_v
   USE mo_nh_testcase_interface,    ONLY: nh_testcase_interface
@@ -1672,6 +1673,12 @@ MODULE mo_nh_stepping
     ! This executes one time step for the global domain and two steps for nested domains
     JSTEP_LOOP: DO jstep = 1, num_steps
 
+#ifdef _OPENACC
+      IF (msg_level >= 13) THEN
+        CALL printGPUMem("GPU mem usage")
+        CALL message('',message_text)
+      ENDIF
+#endif
 
       IF (ifeedback_type == 1 .AND. (jstep == 1) .AND. jg > 1 ) THEN
 #ifdef _OPENACC
@@ -1858,22 +1865,24 @@ MODULE mo_nh_stepping
                                          p_nh_state(jg)%diag)
         ENDIF
 
+        ! Set diagnostic fields, which collect dynamics tendencies over all substeps, to zero
+        CALL init_ddt_vn_diagnostics(p_nh_state(jg)%diag)
+
         ! For real-data runs, perform an extra diffusion call before the first time
         ! step because no other filtering of the interpolated velocity field is done
         !
-        ! For the time being, we hand over the dynamics time step and replace iadv_rcf by
-        ! ndyn_substeps (for bit-reproducibility).
         IF (ldynamics .AND. .NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
             init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) THEN
 
+          ! Use here the model time step dt_loc, for which the diffusion is computed here.
           CALL diffusion(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,       &
-            p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc/ndyn_substeps, .TRUE.)
+            p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .TRUE.)
 
         ENDIF
 
         IF (itype_comm == 1) THEN
 
-          IF (ldynamics) THEN
+          IF (ldynamics) THEN    
 
             !$ser verbatim CALL serialize_all(nproma, jg, "dynamics", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
             ! dynamics integration with substepping
@@ -1888,11 +1897,11 @@ MODULE mo_nh_stepping
               !$ser verbatim CALL serialize_all(nproma, jg, "diffusion", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
               CALL diffusion(p_nh_state(jg)%prog(nnew(jg)), p_nh_state(jg)%diag,     &
                 &            p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg),   &
-                &            dt_loc/ndyn_substeps, .FALSE.)
+                &            dt_loc, .FALSE.)
               !$ser verbatim CALL serialize_all(nproma, jg, "diffusion", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
             ENDIF
 
-          ELSE IF (iforcing == inwp .OR. (iforcing == iecham .AND. echam_phy_config(jg)%ldcphycpl)) THEN
+          ELSE IF (iforcing == inwp) THEN
             ! dynamics for ldynamics off, option of coriolis force, typically used for SCM and similar test cases
             CALL add_slowphys_scm(p_nh_state(jg), p_patch(jg), p_int_state(jg), &
               &                   nnow(jg), nnew(jg), dt_loc)
@@ -1940,7 +1949,7 @@ MODULE mo_nh_stepping
           ENDIF
 
 
-          IF (msg_level >= 13) THEN
+          IF (msg_level >= 12) THEN
             WRITE(message_text,'(a,i2)') 'call advection  DOM:',jg
             CALL message('integrate_nh', message_text)
           ENDIF
@@ -2115,8 +2124,6 @@ MODULE mo_nh_stepping
                 &                         ,p_patch(jg)                               & !in
                 &                         ,p_int_state(jg)                           & !in
                 &                         ,p_nh_state(jg)%metrics                    & !in
-                &                         ,p_nh_state(jg)%prog(nnow(jg))             & !in
-                &                         ,p_nh_state(jg)%prog(n_now_rcf)            & !in
                 &                         ,p_nh_state(jg)%prog(nnew(jg))             & !inout
                 &                         ,p_nh_state(jg)%prog(n_new_rcf)            & !inout
                 &                         ,p_nh_state(jg)%diag                       )
@@ -2748,6 +2755,7 @@ MODULE mo_nh_stepping
       ! compute diffusion at every dynamics substep (.NOT. lhdiff_rcf)
       IF (diffusion_config(jg)%lhdiff_vn .AND. .NOT. lhdiff_rcf) THEN
 
+        ! Use here the dynamics substep time step dt_dyn, for which the diffusion is computed here.
         CALL diffusion(p_nh_state%prog(nnew(jg)), p_nh_state%diag, &
           &            p_nh_state%metrics, p_patch, p_int_state,   &
           &            dt_dyn, .FALSE.)
@@ -2897,37 +2905,11 @@ MODULE mo_nh_stepping
 
       CASE (iecham) ! iforcing
         !
-        IF (echam_phy_config(jg)%ldcphycpl) THEN
-          !
-          ! echam physics, slow physics coupling
-          ! physics tendencies used as forcing in the dynamical core
-          !
-          IF (ltimer) CALL timer_start(timer_iconam_echam)
-          !
-          CALL interface_iconam_echam( dt_loc                                    & !in
-            &                         ,mtime_current                             & !in
-            &                         ,p_patch(jg)                               & !in
-            &                         ,p_int_state(jg)                           & !in
-            &                         ,p_nh_state(jg)%metrics                    & !in
-            &                         ,p_nh_state(jg)%prog(nnow(jg))             & !inout
-            &                         ,p_nh_state(jg)%prog(n_now_rcf)            & !inout
-            &                         ,p_nh_state(jg)%prog(nnow(jg))             & !inout
-            &                         ,p_nh_state(jg)%prog(n_now_rcf)            & !inout
-            &                         ,p_nh_state(jg)%diag                       )
-          !
-          IF (ltimer) CALL timer_stop(timer_iconam_echam)
-          !
-        ELSE
-
-          ! echam physics, fast physics coupling
-          ! physics tendencies used for updating the model state
-          ! the dynamical core evolves without forcing
-          !
-          p_nh_state(jg)%diag%ddt_exner_phy(:,:,:)   = 0._wp
-          p_nh_state(jg)%diag%ddt_vn_phy(:,:,:)      = 0._wp
-          prm_tend  (jg)%qtrc(:,:,:,:)               = 0._wp
-          !
-        END IF
+        ! fast physics coupling only
+        ! assure that physics tendencies for dynamical core are zero
+        p_nh_state(jg)%diag%ddt_exner_phy(:,:,:)   = 0._wp
+        p_nh_state(jg)%diag%ddt_vn_phy(:,:,:)      = 0._wp
+        prm_tend  (jg)%qtrc(:,:,:,:)               = 0._wp
 
       END SELECT ! iforcing
 
@@ -3006,8 +2988,101 @@ MODULE mo_nh_stepping
       p_vn  => p_nh_state(jg)%prog(nnow(jg))%vn
 
 
+      ! Reconstruct zonal and meridional wind components
+      !
+      ! - wind
       CALL rbf_vec_interpol_cell(p_vn,p_patch(jg),p_int_state(jg),&
                                  p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
+      !
+      ! - wind tendencies, if fields exist, testing for the ua component is sufficient
+      !
+      IF (p_nh_state(jg)%diag%ddt_ua_dyn_is_associated) THEN
+         CALL sync_patch_array(SYNC_E, p_patch(jg), p_nh_state(jg)%diag%ddt_vn_dyn)
+         CALL rbf_vec_interpol_cell(p_nh_state(jg)%diag%ddt_vn_dyn, &
+              &                     p_patch(jg), p_int_state(jg),   &
+              &                     p_nh_state(jg)%diag%ddt_ua_dyn, &
+              &                     p_nh_state(jg)%diag%ddt_va_dyn)
+      END IF
+      !
+      IF (p_nh_state(jg)%diag%ddt_ua_dmp_is_associated) THEN
+         CALL sync_patch_array(SYNC_E, p_patch(jg), p_nh_state(jg)%diag%ddt_vn_dmp)
+         CALL rbf_vec_interpol_cell(p_nh_state(jg)%diag%ddt_vn_dmp, &
+              &                     p_patch(jg), p_int_state(jg),   &
+              &                     p_nh_state(jg)%diag%ddt_ua_dmp, &
+              &                     p_nh_state(jg)%diag%ddt_va_dmp)
+      END IF
+      !
+      IF (p_nh_state(jg)%diag%ddt_ua_hdf_is_associated) THEN
+         CALL sync_patch_array(SYNC_E, p_patch(jg), p_nh_state(jg)%diag%ddt_vn_hdf)
+         CALL rbf_vec_interpol_cell(p_nh_state(jg)%diag%ddt_vn_hdf, &
+              &                     p_patch(jg), p_int_state(jg),   &
+              &                     p_nh_state(jg)%diag%ddt_ua_hdf, &
+              &                     p_nh_state(jg)%diag%ddt_va_hdf)
+      END IF
+      !
+      IF (p_nh_state(jg)%diag%ddt_ua_adv_is_associated) THEN
+         CALL sync_patch_array(SYNC_E, p_patch(jg), p_nh_state(jg)%diag%ddt_vn_adv)
+         CALL rbf_vec_interpol_cell(p_nh_state(jg)%diag%ddt_vn_adv, &
+              &                     p_patch(jg), p_int_state(jg),   &
+              &                     p_nh_state(jg)%diag%ddt_ua_adv, &
+              &                     p_nh_state(jg)%diag%ddt_va_adv)
+      END IF
+      !
+      IF (p_nh_state(jg)%diag%ddt_ua_cor_is_associated) THEN
+         CALL sync_patch_array(SYNC_E, p_patch(jg), p_nh_state(jg)%diag%ddt_vn_cor)
+         CALL rbf_vec_interpol_cell(p_nh_state(jg)%diag%ddt_vn_cor, &
+              &                     p_patch(jg), p_int_state(jg),   &
+              &                     p_nh_state(jg)%diag%ddt_ua_cor, &
+              &                     p_nh_state(jg)%diag%ddt_va_cor)
+      END IF
+      !
+      IF (p_nh_state(jg)%diag%ddt_ua_pgr_is_associated) THEN
+         CALL sync_patch_array(SYNC_E, p_patch(jg), p_nh_state(jg)%diag%ddt_vn_pgr)
+         CALL rbf_vec_interpol_cell(p_nh_state(jg)%diag%ddt_vn_pgr, &
+              &                     p_patch(jg), p_int_state(jg),   &
+              &                     p_nh_state(jg)%diag%ddt_ua_pgr, &
+              &                     p_nh_state(jg)%diag%ddt_va_pgr)
+      END IF
+      !
+      IF (p_nh_state(jg)%diag%ddt_ua_phd_is_associated) THEN
+         CALL sync_patch_array(SYNC_E, p_patch(jg), p_nh_state(jg)%diag%ddt_vn_phd)
+         CALL rbf_vec_interpol_cell(p_nh_state(jg)%diag%ddt_vn_phd, &
+              &                     p_patch(jg), p_int_state(jg),   &
+              &                     p_nh_state(jg)%diag%ddt_ua_phd, &
+              &                     p_nh_state(jg)%diag%ddt_va_phd)
+      END IF
+      !
+      IF (p_nh_state(jg)%diag%ddt_ua_cen_is_associated) THEN
+         CALL sync_patch_array(SYNC_E, p_patch(jg), p_nh_state(jg)%diag%ddt_vn_cen)
+         CALL rbf_vec_interpol_cell(p_nh_state(jg)%diag%ddt_vn_cen, &
+              &                     p_patch(jg), p_int_state(jg),   &
+              &                     p_nh_state(jg)%diag%ddt_ua_cen, &
+              &                     p_nh_state(jg)%diag%ddt_va_cen)
+      END IF
+      !
+      IF (p_nh_state(jg)%diag%ddt_ua_iau_is_associated) THEN
+         CALL sync_patch_array(SYNC_E, p_patch(jg), p_nh_state(jg)%diag%ddt_vn_iau)
+         CALL rbf_vec_interpol_cell(p_nh_state(jg)%diag%ddt_vn_iau, &
+              &                     p_patch(jg), p_int_state(jg),   &
+              &                     p_nh_state(jg)%diag%ddt_ua_iau, &
+              &                     p_nh_state(jg)%diag%ddt_va_iau)
+      END IF
+      !
+      IF (p_nh_state(jg)%diag%ddt_ua_ray_is_associated) THEN
+         CALL sync_patch_array(SYNC_E, p_patch(jg), p_nh_state(jg)%diag%ddt_vn_ray)
+         CALL rbf_vec_interpol_cell(p_nh_state(jg)%diag%ddt_vn_ray, &
+              &                     p_patch(jg), p_int_state(jg),   &
+              &                     p_nh_state(jg)%diag%ddt_ua_ray, &
+              &                     p_nh_state(jg)%diag%ddt_va_ray)
+      END IF
+      !
+      IF (p_nh_state(jg)%diag%ddt_ua_grf_is_associated) THEN
+         CALL sync_patch_array(SYNC_E, p_patch(jg), p_nh_state(jg)%diag%ddt_vn_grf)
+         CALL rbf_vec_interpol_cell(p_nh_state(jg)%diag%ddt_vn_grf, &
+              &                     p_patch(jg), p_int_state(jg),   &
+              &                     p_nh_state(jg)%diag%ddt_ua_grf, &
+              &                     p_nh_state(jg)%diag%ddt_va_grf)
+      END IF
 
 
       !CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
@@ -3531,6 +3606,29 @@ MODULE mo_nh_stepping
     ENDIF
 
   END SUBROUTINE allocate_nh_stepping
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE init_ddt_vn_diagnostics(p_nh_diag)
+
+    TYPE(t_nh_diag), INTENT(inout) :: p_nh_diag  !< p_nh_state(jg)%diag
+
+!$OMP PARALLEL
+    IF (p_nh_diag%ddt_vn_dyn_is_associated) CALL init(p_nh_diag%ddt_vn_dyn)
+    IF (p_nh_diag%ddt_vn_dmp_is_associated) CALL init(p_nh_diag%ddt_vn_dmp)
+    IF (p_nh_diag%ddt_vn_hdf_is_associated) CALL init(p_nh_diag%ddt_vn_hdf)
+    IF (p_nh_diag%ddt_vn_adv_is_associated) CALL init(p_nh_diag%ddt_vn_adv)
+    IF (p_nh_diag%ddt_vn_cor_is_associated) CALL init(p_nh_diag%ddt_vn_cor)
+    IF (p_nh_diag%ddt_vn_pgr_is_associated) CALL init(p_nh_diag%ddt_vn_pgr)
+    IF (p_nh_diag%ddt_vn_phd_is_associated) CALL init(p_nh_diag%ddt_vn_phd)
+    IF (p_nh_diag%ddt_vn_cen_is_associated) CALL init(p_nh_diag%ddt_vn_cen)
+    IF (p_nh_diag%ddt_vn_iau_is_associated) CALL init(p_nh_diag%ddt_vn_iau)
+    IF (p_nh_diag%ddt_vn_ray_is_associated) CALL init(p_nh_diag%ddt_vn_ray)
+    IF (p_nh_diag%ddt_vn_grf_is_associated) CALL init(p_nh_diag%ddt_vn_grf)
+!$OMP END PARALLEL
+
+  END SUBROUTINE init_ddt_vn_diagnostics
+
   !-----------------------------------------------------------------------------
 
 END MODULE mo_nh_stepping

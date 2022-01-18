@@ -97,7 +97,7 @@ MODULE mo_atmo_model
   USE mo_icon_comm_interface,     ONLY: construct_icon_communication,                         &
     &                                   destruct_icon_communication
   ! Vertical grid
-  USE mo_vertical_coord_table,    ONLY: vct_a, vct_b, vct, allocate_vct_atmo
+  USE mo_vertical_coord_table,    ONLY: apzero, vct_a, vct_b, vct, allocate_vct_atmo
   USE mo_init_vgrid,              ONLY: nflatlev
   USE mo_util_vgrid,              ONLY: construct_vertical_grid
 
@@ -593,7 +593,9 @@ CONTAINS
     !---------------------------------------------------------------------
 
 
-    CALL configure_diffusion(n_dom, dynamics_parent_grid_id)
+    CALL configure_diffusion( n_dom, dynamics_parent_grid_id,       &
+      &                       p_patch(1)%nlev, vct_a, vct_b, apzero )
+
 
     CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_phys_dom)
 

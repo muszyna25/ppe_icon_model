@@ -78,6 +78,16 @@ MODULE mo_nh_diffusion
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
+  ! On the vectorizing DWD-NEC the diagnostics for the tendencies of the normal wind
+  ! from terms xyz, ddt_vn_xyz, is disabled by default due to the fear that the
+  ! conditional storage in conditionally allocated global fields is attempted even if
+  ! the condition is not given and therefore the global field not allocated. If this
+  ! happens, this would results in a corrupted memory.
+  ! (Requested by G. Zängl based on earlier problems with similar constructs.)
+#ifndef __SX__
+#define __ENABLE_DDT_VN_XYZ__
+#endif
+
   CONTAINS
 
   !>
@@ -131,6 +141,8 @@ MODULE mo_nh_diffusion
     REAL(vp), DIMENSION(p_patch%nlev) :: smag_limit, diff_multfac_smag, enh_smag_fac
     INTEGER  :: nblks_zdiffu, nproma_zdiffu, npromz_zdiffu, nlen_zdiffu
 
+    REAL(wp) :: alin, dz32, df32, dz42, df42, bqdr, aqdr, zf, dzlin, dzqdr
+
     ! Additional variables for 3D Smagorinsky coefficient
     REAL(wp):: z_w_v(nproma,p_patch%nlevp1,p_patch%nblks_v)
     REAL(wp), DIMENSION(nproma,p_patch%nlevp1) :: z_vn_ie, z_vt_ie
@@ -155,10 +167,21 @@ MODULE mo_nh_diffusion
     REAL(vp), DIMENSION(nproma,p_patch%nlev-1:p_patch%nlev,p_patch%nblks_c) :: enh_diffu_3d
 #endif
 
+    ! Variables for tendency diagnostics
+    REAL(wp) :: z_d_vn_hdf
+    REAL(wp) :: r_dtimensubsteps
+
     !--------------------------------------------------------------------------
 
     ! get patch ID
     jg = p_patch%id
+
+    ! prepare for tendency diagnostics
+    IF (lhdiff_rcf) THEN
+       r_dtimensubsteps = 1._wp/dtime                          ! without substepping, no averaging is necessary
+    ELSE
+       r_dtimensubsteps = 1._wp/(dtime*REAL(ndyn_substeps,wp)) ! with substepping the tendency is averaged over the substeps
+    END IF
 
     start_bdydiff_e = 5 ! refin_ctrl level at which boundary diffusion starts
 
@@ -256,16 +279,37 @@ MODULE mo_nh_diffusion
       ! temperature diffusion is used only in combination with Smagorinsky diffusion
       ltemp_diffu = diffusion_config(jg)%lhdiff_temp
 
-      ! enhanced factor for Smagorinsky diffusion above the stratopause in order to
-      ! properly damp breaking gravity waves
+      ! The Smagorinsky diffusion factor enh_divdamp_fac is defined as a profile in height z
+      ! above sea level with 4 height sections:
       !
+      ! enh_smag_fac(z) = hdiff_smag_fac                                                    !                  z <= hdiff_smag_z
+      ! enh_smag_fac(z) = hdiff_smag_fac  + (z-hdiff_smag_z )* alin                         ! hdiff_smag_z  <= z <= hdiff_smag_z2
+      ! enh_smag_fac(z) = hdiff_smag_fac2 + (z-hdiff_smag_z2)*(aqdr+(z-hdiff_smag_z2)*bqdr) ! hdiff_smag_z2 <= z <= hdiff_smag_z4
+      ! enh_smag_fac(z) = hdiff_smag_fac4                                                   ! hdiff_smag_z4 <= z
+      !
+      alin = (diffusion_config(jg)%hdiff_smag_fac2-diffusion_config(jg)%hdiff_smag_fac)/ &
+           & (diffusion_config(jg)%hdiff_smag_z2  -diffusion_config(jg)%hdiff_smag_z)
+      !
+      df32 = diffusion_config(jg)%hdiff_smag_fac3-diffusion_config(jg)%hdiff_smag_fac2
+      df42 = diffusion_config(jg)%hdiff_smag_fac4-diffusion_config(jg)%hdiff_smag_fac2
+      !
+      dz32 = diffusion_config(jg)%hdiff_smag_z3-diffusion_config(jg)%hdiff_smag_z2
+      dz42 = diffusion_config(jg)%hdiff_smag_z4-diffusion_config(jg)%hdiff_smag_z2
+      !
+      bqdr = (df42*dz32-df32*dz42)/(dz32*dz42*(dz42-dz32))
+      aqdr =  df32/dz32-bqdr*dz32
+      ! 
       DO jk = 1, nlev
         jk1 = jk + nshift
-        ! linear increase starting at 25 km, reaching a value of 0.1 at 75 km
-        enh_smag_fac(jk) = MIN(0.1_wp,MAX(0._wp,(0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-25000._wp)/500000._wp))
-        ! ... combined with quadratic increase starting at 50 km, reaching a value of 1 at 90 km
-        enh_smag_fac(jk) = MIN(1._wp,MAX(REAL(enh_smag_fac(jk),wp),                              &
-                           MAX(0._wp,(0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-50000._wp)/40000._wp)**2) )
+        !
+        zf = 0.5_wp*(vct_a(jk1)+vct_a(jk1+1))
+        dzlin = MIN( diffusion_config(jg)%hdiff_smag_z2-diffusion_config(jg)%hdiff_smag_z , &
+             &  MAX( 0._wp,                          zf-diffusion_config(jg)%hdiff_smag_z ) )
+        dzqdr = MIN( diffusion_config(jg)%hdiff_smag_z4-diffusion_config(jg)%hdiff_smag_z2, &
+             &  MAX( 0._wp,                          zf-diffusion_config(jg)%hdiff_smag_z2) )
+        !
+        enh_smag_fac(jk) = REAL(diffusion_config(jg)%hdiff_smag_fac + dzlin*alin + dzqdr*(aqdr+dzqdr*bqdr),vp)
+        !
       ENDDO
 
       ! Smagorinsky coefficient is also enhanced in the six model levels beneath a vertical nest interface
@@ -279,9 +323,7 @@ MODULE mo_nh_diffusion
       ENDIF
 
       ! empirically determined scaling factor
-      diff_multfac_smag(:) = MAX(diffusion_config(jg)%hdiff_smag_fac,REAL(enh_smag_fac(:),wp))*dtime
-
-      IF (lhdiff_rcf) diff_multfac_smag(:) = diff_multfac_smag(:)*REAL(ndyn_substeps,vp)
+      diff_multfac_smag(:) = enh_smag_fac(:)*REAL(dtime,vp)
 
     ELSE
       ltemp_diffu = .FALSE.
@@ -873,7 +915,7 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%edges%start_block(rl_start)
       i_endblk   = p_patch%edges%end_block(rl_end)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,nabv_tang,nabv_norm,z_nabla4_e2), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,nabv_tang,nabv_norm,z_nabla4_e2,z_d_vn_hdf), ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -921,43 +963,92 @@ MODULE mo_nh_diffusion
 
         ! Apply diffusion for the case of diffu_type = 5
         IF ( jg == 1 .AND. l_limited_area .OR. jg > 1 .AND. .NOT. lfeedback(jg)) THEN
-!$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+          !
+          ! Domains with lateral boundary and nests without feedback
+          !
+!$ACC PARALLEL LOOP DEFAULT(NONE) PRIVATE(z_d_vn_hdf) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                             &
-                p_patch%edges%area_edge(je,jb) *                                             &
-                (MAX(nudgezone_diff*p_int%nudgecoeff_e(je,jb),REAL(kh_smag_e(je,jk,jb),wp))* &
-                z_nabla2_e(je,jk,jb) - diff_multfac_vn(jk) * z_nabla4_e2(je,jk)   *          &
-                p_patch%edges%area_edge(je,jb))
+              !
+              z_d_vn_hdf =   p_patch%edges%area_edge(je,jb)                              &
+                &          * (  MAX(nudgezone_diff*p_int%nudgecoeff_e(je,jb),            &
+                &                   REAL(kh_smag_e(je,jk,jb),wp)) * z_nabla2_e(je,jk,jb) &
+                &             - p_patch%edges%area_edge(je,jb)                           &
+                &             * diff_multfac_vn(jk) * z_nabla4_e2(je,jk)   )
+              !
+              p_nh_prog%vn(je,jk,jb)            =  p_nh_prog%vn(je,jk,jb)         + z_d_vn_hdf
+              !
+#ifdef __ENABLE_DDT_VN_XYZ__
+              IF (p_nh_diag%ddt_vn_hdf_is_associated) THEN
+                p_nh_diag%ddt_vn_hdf(je,jk,jb)  =  p_nh_diag%ddt_vn_hdf(je,jk,jb) + z_d_vn_hdf * r_dtimensubsteps
+              END IF
+              !
+              IF (p_nh_diag%ddt_vn_dyn_is_associated) THEN
+                p_nh_diag%ddt_vn_dyn(je,jk,jb)  =  p_nh_diag%ddt_vn_dyn(je,jk,jb) + z_d_vn_hdf * r_dtimensubsteps
+              END IF
+#endif
+              !
             ENDDO
           ENDDO
 !$ACC END PARALLEL LOOP
 
         ELSE IF (jg > 1) THEN
-!$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+          !
+          ! Nests with feedback
+          !
+!$ACC PARALLEL LOOP DEFAULT(NONE) PRIVATE(z_d_vn_hdf) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +               &
-                p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*         &
-                z_nabla2_e(je,jk,jb) - z_nabla4_e2(je,jk) *                    &
-                MAX(diff_multfac_vn(jk),bdy_diff*p_int%nudgecoeff_e(je,jb)) *  &
-                p_patch%edges%area_edge(je,jb))
+              !
+              z_d_vn_hdf =   p_patch%edges%area_edge(je,jb)                                                       &
+                &          * (  kh_smag_e(je,jk,jb) * z_nabla2_e(je,jk,jb)                                        &
+                &             - p_patch%edges%area_edge(je,jb)                                                    &
+                &             * MAX(diff_multfac_vn(jk),bdy_diff*p_int%nudgecoeff_e(je,jb)) * z_nabla4_e2(je,jk) )
+              !
+              p_nh_prog%vn(je,jk,jb)            =  p_nh_prog%vn(je,jk,jb)         + z_d_vn_hdf
+              !
+#ifdef __ENABLE_DDT_VN_XYZ__
+              IF (p_nh_diag%ddt_vn_hdf_is_associated) THEN
+                p_nh_diag%ddt_vn_hdf(je,jk,jb)  =  p_nh_diag%ddt_vn_hdf(je,jk,jb) + z_d_vn_hdf * r_dtimensubsteps
+              END IF
+              !
+              IF (p_nh_diag%ddt_vn_dyn_is_associated) THEN
+                p_nh_diag%ddt_vn_dyn(je,jk,jb)  =  p_nh_diag%ddt_vn_dyn(je,jk,jb) + z_d_vn_hdf * r_dtimensubsteps
+              END IF
+#endif
+              !
             ENDDO
           ENDDO
 !$ACC END PARALLEL LOOP
 
         ELSE
-
-!$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+          !
+          ! Global domains
+          !
+!$ACC PARALLEL LOOP DEFAULT(NONE) PRIVATE(z_d_vn_hdf) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                 &
-                p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*           &
-                z_nabla2_e(je,jk,jb) - diff_multfac_vn(jk) * z_nabla4_e2(je,jk) *&
-                p_patch%edges%area_edge(je,jb))
+              !
+              z_d_vn_hdf =   p_patch%edges%area_edge(je,jb)                 &
+                &          * (  kh_smag_e(je,jk,jb) * z_nabla2_e(je,jk,jb)  &
+                &             - p_patch%edges%area_edge(je,jb)              &
+                &             * diff_multfac_vn(jk) * z_nabla4_e2(je,jk)   )
+              !
+              p_nh_prog%vn(je,jk,jb)            =  p_nh_prog%vn(je,jk,jb)         + z_d_vn_hdf
+              !
+#ifdef __ENABLE_DDT_VN_XYZ__
+              IF (p_nh_diag%ddt_vn_hdf_is_associated) THEN
+                p_nh_diag%ddt_vn_hdf(je,jk,jb)  =  p_nh_diag%ddt_vn_hdf(je,jk,jb) + z_d_vn_hdf * r_dtimensubsteps
+              END IF
+              !
+              IF (p_nh_diag%ddt_vn_dyn_is_associated) THEN
+                p_nh_diag%ddt_vn_dyn(je,jk,jb)  =  p_nh_diag%ddt_vn_dyn(je,jk,jb) + z_d_vn_hdf * r_dtimensubsteps
+              END IF
+#endif
+              !
             ENDDO
           ENDDO
 !$ACC END PARALLEL LOOP
@@ -982,19 +1073,33 @@ MODULE mo_nh_diffusion
     IF (diffu_type == 3) THEN ! Only Smagorinsky diffusion
       IF ( jg == 1 .AND. l_limited_area .OR. jg > 1 .AND. .NOT. lfeedback(jg)) THEN
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_d_vn_hdf) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL LOOP DEFAULT(NONE) PRIVATE(z_d_vn_hdf) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                         &
-                p_patch%edges%area_edge(je,jb) * z_nabla2_e(je,jk,jb) *                  &
-                MAX(nudgezone_diff*p_int%nudgecoeff_e(je,jb),REAL(kh_smag_e(je,jk,jb),wp))
+              !
+              z_d_vn_hdf =   p_patch%edges%area_edge(je,jb)                                             &
+                &          * MAX(nudgezone_diff*p_int%nudgecoeff_e(je,jb),REAL(kh_smag_e(je,jk,jb),wp)) &
+                &          * z_nabla2_e(je,jk,jb) 
+              !
+              p_nh_prog%vn(je,jk,jb)            =  p_nh_prog%vn(je,jk,jb)         + z_d_vn_hdf
+              !
+#ifdef __ENABLE_DDT_VN_XYZ__
+              IF (p_nh_diag%ddt_vn_hdf_is_associated) THEN
+                p_nh_diag%ddt_vn_hdf(je,jk,jb)  =  p_nh_diag%ddt_vn_hdf(je,jk,jb) + z_d_vn_hdf * r_dtimensubsteps
+              END IF
+              !
+              IF (p_nh_diag%ddt_vn_dyn_is_associated) THEN
+                p_nh_diag%ddt_vn_dyn(je,jk,jb)  =  p_nh_diag%ddt_vn_dyn(je,jk,jb) + z_d_vn_hdf * r_dtimensubsteps
+              END IF
+#endif
+              !
             ENDDO
           ENDDO
 !$ACC END PARALLEL LOOP
@@ -1003,18 +1108,31 @@ MODULE mo_nh_diffusion
 
       ELSE
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_d_vn_hdf) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL LOOP DEFAULT(NONE) PRIVATE(z_d_vn_hdf) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                        &
-                p_patch%edges%area_edge(je,jb) * kh_smag_e(je,jk,jb)* z_nabla2_e(je,jk,jb)
+              !
+              z_d_vn_hdf = p_patch%edges%area_edge(je,jb) * kh_smag_e(je,jk,jb) * z_nabla2_e(je,jk,jb)
+              !
+              p_nh_prog%vn(je,jk,jb)            =  p_nh_prog%vn(je,jk,jb)         + z_d_vn_hdf
+              !
+#ifdef __ENABLE_DDT_VN_XYZ__
+              IF (p_nh_diag%ddt_vn_hdf_is_associated) THEN
+                p_nh_diag%ddt_vn_hdf(je,jk,jb)  =  p_nh_diag%ddt_vn_hdf(je,jk,jb) + z_d_vn_hdf * r_dtimensubsteps
+              END IF
+              !
+              IF (p_nh_diag%ddt_vn_dyn_is_associated) THEN
+                p_nh_diag%ddt_vn_dyn(je,jk,jb)  =  p_nh_diag%ddt_vn_dyn(je,jk,jb) + z_d_vn_hdf * r_dtimensubsteps
+              END IF
+#endif
+              !
             ENDDO
           ENDDO
 !$ACC END PARALLEL LOOP
@@ -1025,19 +1143,32 @@ MODULE mo_nh_diffusion
 
     ELSE IF (diffu_type == 4) THEN
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_d_vn_hdf) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL LOOP DEFAULT(NONE) PRIVATE(z_d_vn_hdf) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO je = i_startidx, i_endidx
-            p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  -    &
-              diff_multfac_vn(jk) * z_nabla4_e(je,jk,jb) *        &
-              p_patch%edges%area_edge(je,jb)*p_patch%edges%area_edge(je,jb)
+            !
+            z_d_vn_hdf = - p_patch%edges%area_edge(je,jb)*p_patch%edges%area_edge(je,jb) &
+              &          * diff_multfac_vn(jk) * z_nabla4_e(je,jk,jb)
+            !
+            p_nh_prog%vn(je,jk,jb)            =  p_nh_prog%vn(je,jk,jb)         + z_d_vn_hdf
+            !
+#ifdef __ENABLE_DDT_VN_XYZ__
+            IF (p_nh_diag%ddt_vn_hdf_is_associated) THEN
+              p_nh_diag%ddt_vn_hdf(je,jk,jb)  =  p_nh_diag%ddt_vn_hdf(je,jk,jb) + z_d_vn_hdf * r_dtimensubsteps
+            END IF
+            !
+            IF (p_nh_diag%ddt_vn_dyn_is_associated) THEN
+              p_nh_diag%ddt_vn_dyn(je,jk,jb)  =  p_nh_diag%ddt_vn_dyn(je,jk,jb) + z_d_vn_hdf * r_dtimensubsteps
+            END IF
+#endif
+            !
           ENDDO
         ENDDO
 !$ACC END PARALLEL LOOP
@@ -1052,20 +1183,31 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%edges%start_block(start_bdydiff_e)
       i_endblk   = p_patch%edges%end_block(grf_bdywidth_e)
 
-!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,z_d_vn_hdf) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, start_bdydiff_e, grf_bdywidth_e)
 
-!$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL LOOP DEFAULT(NONE) PRIVATE(z_d_vn_hdf) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO je = i_startidx, i_endidx
-            p_nh_prog%vn(je,jk,jb) =   &
-              p_nh_prog%vn(je,jk,jb) + &
-              z_nabla2_e(je,jk,jb) * &
-              p_patch%edges%area_edge(je,jb)*fac_bdydiff_v
+            !
+            z_d_vn_hdf = p_patch%edges%area_edge(je,jb) * fac_bdydiff_v * z_nabla2_e(je,jk,jb)
+            !
+            p_nh_prog%vn(je,jk,jb)            =  p_nh_prog%vn(je,jk,jb)         + z_d_vn_hdf
+            !
+#ifdef __ENABLE_DDT_VN_XYZ__
+            IF (p_nh_diag%ddt_vn_hdf_is_associated) THEN
+              p_nh_diag%ddt_vn_hdf(je,jk,jb)  =  p_nh_diag%ddt_vn_hdf(je,jk,jb) + z_d_vn_hdf * r_dtimensubsteps
+            END IF
+            !
+            IF (p_nh_diag%ddt_vn_dyn_is_associated) THEN
+              p_nh_diag%ddt_vn_dyn(je,jk,jb)  =  p_nh_diag%ddt_vn_dyn(je,jk,jb) + z_d_vn_hdf * r_dtimensubsteps
+            END IF
+#endif
+            !
           ENDDO
         ENDDO
 !$ACC END PARALLEL LOOP

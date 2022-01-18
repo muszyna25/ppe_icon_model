@@ -61,3 +61,4 @@ machine=dwd_nec
 ./addbuilder DWD_nec_hybrid      --machine $machine  --build_script="./config/buildbot/dwd_nec_hybrid" --builderflags="Active"  --list $list
 ./addbuilder DWD_nec_yac2        --machine $machine  --build_script="./config/buildbot/dwd_nec_yac2"   --builderflags="Active"  --list $list
 
+

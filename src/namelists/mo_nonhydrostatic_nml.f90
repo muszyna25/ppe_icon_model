@@ -33,6 +33,13 @@ MODULE mo_nonhydrostatic_nml
                                     & config_lhdiff_rcf       => lhdiff_rcf       , &
                                     & config_lextra_diffu     => lextra_diffu     , &
                                     & config_divdamp_fac      => divdamp_fac      , &
+                                    & config_divdamp_fac2     => divdamp_fac2     , &
+                                    & config_divdamp_fac3     => divdamp_fac3     , &
+                                    & config_divdamp_fac4     => divdamp_fac4     , &
+                                    & config_divdamp_z        => divdamp_z        , &
+                                    & config_divdamp_z2       => divdamp_z2       , &
+                                    & config_divdamp_z3       => divdamp_z3       , &
+                                    & config_divdamp_z4       => divdamp_z4       , &
                                     & config_divdamp_fac_o2   => divdamp_fac_o2   , &
                                     & config_divdamp_order    => divdamp_order    , &
                                     & config_divdamp_type     => divdamp_type     , &
@@ -107,7 +114,14 @@ CONTAINS
     LOGICAL :: lhdiff_rcf              ! if true: compute horizontal diffusion only at the large time step
     LOGICAL :: lextra_diffu            ! if true: apply additional diffusion at grid points close
     ! to the CFL stability limit for vertical advection
-    REAL(wp):: divdamp_fac             ! Scaling factor for divergence damping (if lhdiff_rcf = true)
+    REAL(wp):: divdamp_fac             ! Scaling factor for divergence damping at height divdamp_z and below  (used if lhdiff_rcf = true)
+    REAL(wp):: divdamp_fac2            ! Scaling factor for divergence damping at height divdamp_z2           (used if lhdiff_rcf = true)
+    REAL(wp):: divdamp_fac3            ! Scaling factor for divergence damping at height divdamp_z3           (used if lhdiff_rcf = true)
+    REAL(wp):: divdamp_fac4            ! Scaling factor for divergence damping at height divdamp_z4 and above (used if lhdiff_rcf = true)
+    REAL(wp):: divdamp_z               ! Height up to which divdamp_fac is used, start of linear profile      (used if lhdiff_rcf = true)
+    REAL(wp):: divdamp_z2              ! Height of divdamp_fac2, end of linear and start of quadratic profile (used if lhdiff_rcf = true)
+    REAL(wp):: divdamp_z3              ! Height of divdamp_fac3, to define quadratic profile                  (used if lhdiff_rcf = true)
+    REAL(wp):: divdamp_z4              ! Height from which divdamp_fac4, end of quadratic profile             (used if lhdiff_rcf = true)
     INTEGER :: divdamp_order           ! Order of divergence damping
     INTEGER :: divdamp_type            ! Type of divergence damping (2D or 3D divergence)
     REAL(wp):: divdamp_trans_start     ! Lower bound of transition zone between 2D and 3D div damping in case of divdamp_type = 32
@@ -146,7 +160,9 @@ CONTAINS
     NAMELIST /nonhydrostatic_nml/ itime_scheme, ndyn_substeps, ivctype, htop_moist_proc,    &
          & hbot_qvsubstep, damp_height, rayleigh_type,               &
          & rayleigh_coeff, vwind_offctr, iadv_rhotheta, lhdiff_rcf,  &
-         & divdamp_fac, igradp_method, exner_expol, l_open_ubc,      &
+         & divdamp_fac, divdamp_fac2, divdamp_fac3, divdamp_fac4,    &
+         & divdamp_z, divdamp_z2, divdamp_z3, divdamp_z4,            &
+         & igradp_method, exner_expol, l_open_ubc,                   &
          & nest_substeps, l_masscorr_nest, l_zdiffu_t,               &
          & thslp_zdiffu, thhgtd_zdiffu, divdamp_order, divdamp_type, &
          & rhotheta_offctr, lextra_diffu, veladv_offctr,             &
@@ -171,7 +187,14 @@ CONTAINS
     lextra_diffu = .TRUE.
 
     ! scaling factor for divergence damping (used only if lhdiff_rcf = true)
-    divdamp_fac = 0.0025_wp
+    divdamp_fac  = 0.0025_wp
+    divdamp_fac2 = 0.0040_wp
+    divdamp_fac3 = 0.0040_wp
+    divdamp_fac4 = 0.0040_wp
+    divdamp_z    = 32500._wp
+    divdamp_z2   = 40000._wp
+    divdamp_z3   = 60000._wp
+    divdamp_z4   = 80000._wp
 
     ! Order of divergence damping
     divdamp_order = 4
@@ -312,6 +335,32 @@ CONTAINS
       CALL finish( TRIM(routine),'Invalid value for divdamp_order (must be 2, 24 or 4)' )
     END SELECT
 
+    ! Checks for divdamp parameters
+    IF ( divdamp_fac  < 0.0_wp ) THEN
+       CALL finish( TRIM(routine), 'divdamp_fac  < 0 not allowed')
+    ENDIF
+    IF ( divdamp_fac2 < 0.0_wp ) THEN
+       CALL finish( TRIM(routine), 'divdamp_fac2 < 0 not allowed')
+    ENDIF
+    IF ( divdamp_fac3 < 0.0_wp ) THEN
+       CALL finish( TRIM(routine), 'divdamp_fac3 < 0 not allowed')
+    ENDIF
+    IF ( divdamp_fac4 < 0.0_wp ) THEN
+       CALL finish( TRIM(routine), 'divdamp_fac4 < 0 not allowed')
+    ENDIF
+    IF ( divdamp_z2 <= divdamp_z  ) THEN
+       CALL finish( TRIM(routine), 'divdamp_z2 <= divdamp_z  not allowed')
+    ENDIF
+    IF ( divdamp_z2 >= divdamp_z4 ) THEN
+       CALL finish( TRIM(routine), 'divdamp_z2 >= divdamp_z4 not allowed')
+    ENDIF
+    IF ( divdamp_z3 == divdamp_z2 ) THEN
+       CALL finish( TRIM(routine), 'divdamp_z3 == divdamp_z2 not allowed')
+    ENDIF
+    IF ( divdamp_z3 == divdamp_z4 ) THEN
+       CALL finish( TRIM(routine), 'divdamp_z3 == divdamp_z4 not allowed')
+    ENDIF
+
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
@@ -329,6 +378,13 @@ CONTAINS
        config_lhdiff_rcf        = lhdiff_rcf
        config_lextra_diffu      = lextra_diffu
        config_divdamp_fac       = divdamp_fac
+       config_divdamp_fac2      = divdamp_fac2
+       config_divdamp_fac3      = divdamp_fac3
+       config_divdamp_fac4      = divdamp_fac4
+       config_divdamp_z         = divdamp_z
+       config_divdamp_z2        = divdamp_z2
+       config_divdamp_z3        = divdamp_z3
+       config_divdamp_z4        = divdamp_z4
        config_divdamp_fac_o2    = divdamp_fac ! initialization - divdamp_fac_o2 is a derived variable that may change during runtime
        config_divdamp_order     = divdamp_order
        config_divdamp_type      = divdamp_type

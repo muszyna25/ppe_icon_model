@@ -15,6 +15,7 @@
 MODULE mo_diffusion_nml
 
   USE mo_diffusion_config,    ONLY: diffusion_config
+  USE mo_dynamics_config,     ONLY: iequations
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: my_process_is_stdio 
   USE mo_exception,           ONLY: message, finish
@@ -39,13 +40,36 @@ MODULE mo_diffusion_nml
                           ! 3: Smagorinsky diffusion without background diffusion
                           ! 4: 4th order linear diffusion on all vertical levels 
                           ! 5: Smagorinsky diffusion with fourth-order background diffusion
+                          ! 24 or 42: 2nd order linear diffusion for upper levels,
+                          !           4th order for lower levels
+
+  REAL(wp) :: k2_pres_max ! (relevant only when hdiff_order = 24 or 42)
+                          ! pressure (in Pa) specified by the user
+                          ! to determine the lowest vertical level 
+                          ! to which 2nd order linear diffusion is applied.
+                          ! For the levels with pressure > k2_pres_max, 
+                          ! 4th order linear diffusion is applied. 
+
+  INTEGER  :: k2_klev_max ! (relevant only when hdiff_order = 24 or 42)
+                          ! vertical level index specified by the user
+                          ! to determine the lowest vertical level 
+                          ! to which 2nd order linear diffusion is applied.
+                          ! For the levels with k > k2_klev_max, 
+                          ! 4th order linear diffusion is applied. 
 
   REAL(wp) :: hdiff_efdt_ratio      ! ratio of e-folding time to (2*)time step
   REAL(wp) :: hdiff_w_efdt_ratio    ! ratio of e-folding time to time step for w diffusion (NH only)
   REAL(wp) :: hdiff_min_efdt_ratio  ! minimum value of hdiff_efdt_ratio 
                                     ! (for upper sponge layer)
   REAL(wp) :: hdiff_tv_ratio        ! the ratio of diffusion coefficient: temp:mom
-  REAL(wp) :: hdiff_smag_fac        ! scaling factor for Smagorinsky diffusion
+  REAL(wp) :: hdiff_smag_fac        ! scaling factor for Smagorinsky diffusion at height hdiff_smag_z and below
+  REAL(wp) :: hdiff_smag_fac2       ! scaling factor for Smagorinsky diffusion at height hdiff_smag_z2
+  REAL(wp) :: hdiff_smag_fac3       ! scaling factor for Smagorinsky diffusion at height hdiff_smag_z3
+  REAL(wp) :: hdiff_smag_fac4       ! scaling factor for Smagorinsky diffusion at height hdiff_smag_z4 and above
+  REAL(wp) :: hdiff_smag_z          ! height up to which hdiff_smag_fac is used, start of linear profile
+  REAL(wp) :: hdiff_smag_z2         ! height of hdiff_smag_fac2, end of linear and start of quadratic profile
+  REAL(wp) :: hdiff_smag_z3         ! height of hdiff_smag_fac3, to define quadratic profile
+  REAL(wp) :: hdiff_smag_z4         ! height from which hdiff_smag_fac4, end of quadratic profile
   REAL(wp) :: hdiff_multfac         ! multiplication factor of normalized diffusion
                                     ! coefficient for nested domains
   INTEGER  :: itype_vn_diffu        ! options for discretizing the Smagorinsky momentum diffusion
@@ -55,10 +79,11 @@ MODULE mo_diffusion_nml
   LOGICAL :: lhdiff_w      ! if .TRUE., apply horizontal diffusion to vertical momentum.
   LOGICAL :: lsmag_3d      ! if .TRUE., compute 3D Smagorinsky diffusion coefficient.
 
-  NAMELIST/diffusion_nml/ hdiff_order,           &
-                          hdiff_efdt_ratio, hdiff_min_efdt_ratio,             &
-                          hdiff_tv_ratio, hdiff_smag_fac, hdiff_multfac,      &
-                          lhdiff_temp, lhdiff_vn, itype_vn_diffu,             &
+  NAMELIST/diffusion_nml/ hdiff_order, k2_klev_max, k2_pres_max,                             &
+                          hdiff_efdt_ratio, hdiff_min_efdt_ratio, hdiff_tv_ratio,            &
+                          hdiff_smag_fac, hdiff_smag_fac2, hdiff_smag_fac3, hdiff_smag_fac4, &
+                          hdiff_smag_z,   hdiff_smag_z2,   hdiff_smag_z3,   hdiff_smag_z4,   &
+                          hdiff_multfac, lhdiff_temp, lhdiff_vn, itype_vn_diffu,             &
                           itype_t_diffu, hdiff_w_efdt_ratio, lhdiff_w, lsmag_3d
 
 CONTAINS
@@ -93,9 +118,33 @@ CONTAINS
     lhdiff_vn            = .TRUE.
     lhdiff_w             = .TRUE.
     lsmag_3d             = .FALSE.
-    hdiff_order          = 5
-    hdiff_efdt_ratio     = 36.0_wp
-    hdiff_smag_fac       = 0.015_wp
+
+    IF (iequations == 3) THEN
+      hdiff_order          = 5
+      hdiff_efdt_ratio     = 36.0_wp
+      hdiff_smag_fac       = 0.015_wp
+      hdiff_smag_fac2      = REAL(2.e-6*(1600. + 25000. + SQRT(1600.*(1600.+50000.))),wp) ! (1)
+      hdiff_smag_fac3      = 0.000_wp
+      hdiff_smag_fac4      = 1.000_wp
+      hdiff_smag_z         = 32500._wp
+      hdiff_smag_z2        = REAL(       1600. + 50000. + SQRT(1600.*(1600.+50000.)) ,wp) ! (1)
+      hdiff_smag_z3        = 50000._wp
+      hdiff_smag_z4        = 90000._wp
+      !
+      ! (1) These irrational values are computed in single precision and then converted
+      !     to working precision, meaning double precision, to prevent that these values
+      !     differ after writing to and reading from the restart file. If this happens,
+      !     then a restart changes results compared to a reference simulation without restart.
+      !     This problem was found in restart tests with executables built with Intel compilers
+      !     when these values were computed with all numbers in working precision.
+      !     Using single precision computations solved the problem.
+      !
+    ELSE
+      hdiff_order          = 4
+      hdiff_efdt_ratio     = 1.0_wp
+      hdiff_smag_fac       = 0.15_wp
+    ENDIF
+
     hdiff_min_efdt_ratio = 1.0_wp
     hdiff_w_efdt_ratio   = 15.0_wp
     hdiff_multfac        = 1.0_wp
@@ -103,6 +152,8 @@ CONTAINS
     itype_vn_diffu       = 1
     itype_t_diffu        = 2
 
+    k2_pres_max          = -99.0_wp                                                    
+    k2_klev_max          = 0
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -143,7 +194,7 @@ CONTAINS
       lhdiff_vn   = .FALSE.
       lhdiff_w    = .FALSE.
 
-    CASE(2,3,4,5)
+    CASE(2,3,4,5,24,42)
 
       IF ((.NOT.lhdiff_temp).AND.(.NOT.lhdiff_vn)) THEN
         CALL message('','')
@@ -157,11 +208,37 @@ CONTAINS
     CASE DEFAULT
       CALL finish(TRIM(routine),                         &
         & 'Error: Invalid choice of  hdiff_order. '// &                
-        & 'Choose from -1, 2, 3, 4, and 5.')
+        & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
     END SELECT
 
     IF ( hdiff_efdt_ratio<=0._wp) THEN
       CALL message(TRIM(routine),'No horizontal background diffusion is used')
+    ENDIF
+
+    ! Checks for hdiff_smag parameters
+    IF ( hdiff_smag_fac  < 0.0_wp ) THEN
+       CALL finish( TRIM(routine), 'hdiff_smag_fac  < 0 not allowed')
+    ENDIF
+    IF ( hdiff_smag_fac2 < 0.0_wp ) THEN
+       CALL finish( TRIM(routine), 'hdiff_smag_fac2 < 0 not allowed')
+    ENDIF
+    IF ( hdiff_smag_fac3 < 0.0_wp ) THEN
+       CALL finish( TRIM(routine), 'hdiff_smag_fac3 < 0 not allowed')
+    ENDIF
+    IF ( hdiff_smag_fac4 < 0.0_wp ) THEN
+       CALL finish( TRIM(routine), 'hdiff_smag_fac4 < 0 not allowed')
+    ENDIF
+    IF ( hdiff_smag_z2 <= hdiff_smag_z  ) THEN
+       CALL finish( TRIM(routine), 'hdiff_smag_z2 <= hdiff_smag_z  not allowed')
+    ENDIF
+    IF ( hdiff_smag_z2 >= hdiff_smag_z4 ) THEN
+       CALL finish( TRIM(routine), 'hdiff_smag_z2 >= hdiff_smag_z4 not allowed')
+    ENDIF
+    IF ( hdiff_smag_z3 == hdiff_smag_z2 ) THEN
+       CALL finish( TRIM(routine), 'hdiff_smag_z3 == hdiff_smag_z2 not allowed')
+    ENDIF
+    IF ( hdiff_smag_z3 == hdiff_smag_z4 ) THEN
+       CALL finish( TRIM(routine), 'hdiff_smag_z3 == hdiff_smag_z4 not allowed')
     ENDIF
 
     !----------------------------------------------------
@@ -172,10 +249,19 @@ CONTAINS
     diffusion_config(:)% lhdiff_w             =  lhdiff_w
     diffusion_config(:)% lsmag_3d             =  lsmag_3d
     diffusion_config(:)% hdiff_order          =  hdiff_order
+    diffusion_config(:)% k2_klev_max          =  k2_klev_max
+    diffusion_config(:)% k2_pres_max          =  k2_pres_max
     diffusion_config(:)% hdiff_efdt_ratio     =  hdiff_efdt_ratio
     diffusion_config(:)% hdiff_w_efdt_ratio   =  hdiff_w_efdt_ratio
     diffusion_config(:)% hdiff_min_efdt_ratio =  hdiff_min_efdt_ratio
     diffusion_config(:)% hdiff_smag_fac       =  hdiff_smag_fac
+    diffusion_config(:)% hdiff_smag_fac2      =  hdiff_smag_fac2
+    diffusion_config(:)% hdiff_smag_fac3      =  hdiff_smag_fac3
+    diffusion_config(:)% hdiff_smag_fac4      =  hdiff_smag_fac4
+    diffusion_config(:)% hdiff_smag_z         =  hdiff_smag_z
+    diffusion_config(:)% hdiff_smag_z2        =  hdiff_smag_z2
+    diffusion_config(:)% hdiff_smag_z3        =  hdiff_smag_z3
+    diffusion_config(:)% hdiff_smag_z4        =  hdiff_smag_z4
     diffusion_config(:)% hdiff_multfac        =  hdiff_multfac
     diffusion_config(:)% hdiff_tv_ratio       =  hdiff_tv_ratio 
     diffusion_config(:)%itype_vn_diffu        =  itype_vn_diffu

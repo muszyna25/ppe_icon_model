@@ -59,7 +59,7 @@ $addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_update --builders DAINT_GP
 #-----------------------------------------------------------
 # AES
 # add amip binary-identical test on mistral
-$addexp checksuite.icon-dev/check.atm_amip_update \
+$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_update \
  --machines mistral --machines mistral --runflags "queue=compute" --list $list
 
 #DWD machines

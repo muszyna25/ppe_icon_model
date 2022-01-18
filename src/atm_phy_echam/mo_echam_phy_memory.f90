@@ -1,7 +1,4 @@
 !NEC$ options "-O1"
-#if (defined (__GNUC__) || defined(__SUNPRO_F95) || defined(__SX__))
-#define HAVE_F95
-#endif
 !>
 !! Data types and variables used by the ECHAM6 physics package.
 !!
@@ -548,16 +545,10 @@ MODULE mo_echam_phy_memory
       !
       ! tendency due to all processes
       !
-      &   ua     (:,:,:)=>NULL()  , & !< [m/s2]    u-wind
-      &   va     (:,:,:)=>NULL()  , & !< [m/s2]    v-wind
-      &   ta     (:,:,:)=>NULL()  , & !< [K/s]     temperature
       & qtrc     (:,:,:,:)=>NULL(), & !< [kg/kg/s] tracer mass mixing ratio
       !
       ! tendency due to resolved dynamics
       !
-      &   ua_dyn (:,:,:)=>NULL()  , & !< [m/s2]    u-wind
-      &   va_dyn (:,:,:)=>NULL()  , & !< [m/s2]    v-wind
-      &   ta_dyn (:,:,:)=>NULL()  , & !< [K/s]     temperature (for const. volume)
       & qtrc_dyn (:,:,:,:)=>NULL(), & !< [kg/kg/s] tracer mass mixing ratio
       !
       ! tendency due to parameterized processes
@@ -2570,6 +2561,7 @@ CONTAINS
          &        lrestart = .TRUE.,                             &
          &        isteptype=TSTEP_INSTANT,                       &
          &        lopenacc=.TRUE.)
+     __acc_attach(field%rain_gsp_rate)
 
     cf_desc    = t_cf_var('ice_gsp_rate', 'kg m-2 s-1',    &
                & 'gridscale ice rate ', datatype_flt)
@@ -2592,6 +2584,7 @@ CONTAINS
          &        lrestart = .TRUE.,                             &
          &        isteptype=TSTEP_INSTANT,                       &
          &        lopenacc=.TRUE.)
+     __acc_attach(field%snow_gsp_rate)
 
     cf_desc    = t_cf_var('graupel_gsp_rate', 'kg m-2 s-1',    &
                & 'gridscale graupel rate ', datatype_flt)
@@ -2614,6 +2607,7 @@ CONTAINS
          &        lrestart = .TRUE.,                             &
          &        isteptype=TSTEP_INSTANT,                       &
          &        lopenacc=.TRUE.)
+     __acc_attach(field%graupel_gsp_rate)
 
     cf_desc    = t_cf_var('pr', 'kg m-2 s-1',                    &
          &                'precipitation flux',                  &
@@ -3148,7 +3142,7 @@ CONTAINS
 
       IF (is_variable_in_output(var_name=prefix//'ri_atm')) THEN
          cf_desc    = t_cf_var('richardson_number', ' ', 'moist Richardson number', datatype_flt)
-         grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+         grib2_desc = grib2_var(0, 19, 202, ibits, GRID_UNSTRUCTURED, GRID_CELL)
          CALL add_var( field_list, prefix//'ri_atm', field%ri_atm,              &
                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                    & lrestart = .FALSE., ldims=shape3d,                         &
@@ -3157,8 +3151,8 @@ CONTAINS
       END IF
 
       IF (is_variable_in_output(var_name=prefix//'mixlen')) THEN
-         cf_desc    = t_cf_var('mixing_length', 'm', 'mixing_length', datatype_flt)
-         grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+         cf_desc    = t_cf_var('mixing_length', 'm', 'mixing length', datatype_flt)
+         grib2_desc = grib2_var(0, 19, 201, ibits, GRID_UNSTRUCTURED, GRID_CELL)
          CALL add_var( field_list, prefix//'mixlen', field%mixlen,              &
                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                    & lrestart = .FALSE., initval = -999._wp, ldims=shape3d,     &
@@ -4363,34 +4357,6 @@ CONTAINS
     !------------------------------
     ! Temperature tendencies
     !------------------------------
-    ! &       tend% ta      (nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('temperature_tendency', 'K s-1',                               &
-                &         'temperature tendency (cv)',                                   &
-                &         datatype_flt)
-    grib2_desc = grib2_var(0,0,200, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ta', tend%ta,                                      &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
-                & vert_interp=create_vert_interp_metadata(                               &
-                &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                &   l_extrapol=.FALSE. ),                                                &
-                & lopenacc=.TRUE.)
-    __acc_attach(tend%ta)
-
-    ! &       tend% ta_dyn  (nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('temperature_tendency_dyn', 'K s-1',                           &
-                &         'temperature tendency due to resolved dynamics (cv)',          &
-                &         datatype_flt)
-    grib2_desc = grib2_var(0,0,201, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ta_dyn', tend%  ta_dyn,                            &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
-                & vert_interp=create_vert_interp_metadata(                               &
-                &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                &   l_extrapol=.FALSE. ),                                                &
-                & lopenacc=.TRUE.)
-    __acc_attach(tend%  ta_dyn)
-
     ! &       tend% ta_phy  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_phy', 'K s-1',                           &
                 &         'temperature tendency due to parameterized processes (cv)',    &
@@ -4598,34 +4564,6 @@ CONTAINS
     !------------------------------
     ! U-wind tendencies
     !------------------------------
-    ! &       tend%    ua     (nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('u_wind_tendency', 'm s-2',                                    &
-                &         'u-wind tendency',                                             &
-                &         datatype_flt)
-    grib2_desc = grib2_var(0,2,200, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ua', tend%ua,                                      &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
-                & vert_interp=create_vert_interp_metadata(                               &
-                &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                &   l_extrapol=.FALSE. ),                                                &
-                & lopenacc=.TRUE.)
-    __acc_attach(tend%ua)
-
-    ! &       tend%    ua_dyn (nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('u_wind_tendency_dyn', 'm s-2',                                &
-                &         'u-wind tendency due to resolved dynamics',                    &
-                &         datatype_flt)
-    grib2_desc = grib2_var(0,2,201, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ua_dyn', tend%ua_dyn,                              &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
-                & vert_interp=create_vert_interp_metadata(                               &
-                &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                &   l_extrapol=.FALSE. ),                                                &
-                & lopenacc=.TRUE.)
-    __acc_attach(tend%ua_dyn)
-
     ! &       tend%    ua_phy (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_phy', 'm s-2',                                &
                 &         'u-wind tendency due to parameterized processes',              &
@@ -4723,34 +4661,6 @@ CONTAINS
     !------------------------------
     ! V-wind tendencies
     !------------------------------
-    ! &       tend%    va     (nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('v_wind_tendency', 'm s-2',                                    &
-                &         'v-wind tendency',                                             &
-                &         datatype_flt)
-    grib2_desc = grib2_var(0,2,210, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'va', tend%va,                                      &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
-                & vert_interp=create_vert_interp_metadata(                               &
-                &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                &   l_extrapol=.FALSE. ),                                                &
-                & lopenacc=.TRUE.)
-    __acc_attach(tend%va)
-
-    ! &       tend%    va_dyn (nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('v_wind_tendency_dyn', 'm s-2',                                &
-                &         'v-wind tendency due to resolved dynamics',                    &
-                &         datatype_flt)
-    grib2_desc = grib2_var(0,2,211, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'va_dyn', tend%va_dyn,                              &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
-                & vert_interp=create_vert_interp_metadata(                               &
-                &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                &   l_extrapol=.FALSE. ),                                                &
-                & lopenacc=.TRUE.)
-    __acc_attach(tend%va_dyn)
-
     ! &       tend%    va_phy (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency_phy', 'm s-2',                                &
                 &         'v-wind tendency due to parameterized processes',              &

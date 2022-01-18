@@ -141,6 +141,8 @@ CONTAINS
        is_active = isCurrentEventActive(echam_phy_tc(jg)%ev_rad,   datetime_old)
        !
 #ifdef __NO_RTE_RRTMGP__
+       ! PSRAD
+       !
 #if defined( _OPENACC )
        IF ( is_active ) THEN
           CALL warning('GPU:echam_rad_main','GPU host synchronization should be removed when port is done!')
@@ -156,6 +158,7 @@ CONTAINS
        CALL interface_echam_rad(is_in_sd_ed_interval, is_active, &
             &                   patch,                           &
             &                   datetime_old                     )
+       !
 #if defined( _OPENACC )
        IF ( is_active ) THEN
           CALL warning('GPU:echam_rad_main','GPU device synchronization should be removed when port is done!')
@@ -163,8 +166,14 @@ CONTAINS
           CALL gpu_update_var_list('prm_tend_D', .true., jg)
        END IF
 #endif
+       !
 #else
-! RTE-RRTMGP
+       ! RTE-RRTMGP
+       !
+       CALL message_forcing_action('LW and SW radiation (rad:fluxes )' ,&
+            &                      is_in_sd_ed_interval, is_active )
+       !
+       ! radiative fluxes
        CALL omp_loop_cell_prog(patch, interface_echam_rad      ,&
             &                  is_in_sd_ed_interval, is_active ,&
             &                  datetime_old, pdtime            )
