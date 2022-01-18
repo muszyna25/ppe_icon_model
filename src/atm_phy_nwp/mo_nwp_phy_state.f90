@@ -538,7 +538,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                 & ldims=shape2d,                                             &
                 & loutput=.false., lrestart=.TRUE.,                          &
-                & isteptype=TSTEP_ACCUM )
+                & isteptype=TSTEP_ACCUM, lopenacc=.TRUE. )
+    __acc_attach(diag%rain_gsp0)
 
 
     ! &      diag%snow_gsp(nproma,nblks_c)
@@ -564,7 +565,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                 & ldims=shape2d,                                             &
                 & loutput=.false., lrestart=.TRUE.,                          &
-                & isteptype=TSTEP_ACCUM )
+                & isteptype=TSTEP_ACCUM, lopenacc=.TRUE. )
+    __acc_attach(diag%snow_gsp0)
 
 
     !Surface precipitation variables for graupel scheme and two moment microphysics
@@ -799,7 +801,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & hor_interp=create_hor_interp_metadata(                      &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
-                & ) )
+                & ), lopenacc=.TRUE. )
+    __acc_attach(diag%cape)
 
     ! &      diag%cape_ml(nproma,nblks_c)
     ! typeOfLevel ZA_SURFACE is changed to 192 in vlistDefVarIntKey
@@ -810,7 +813,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d, lrestart=.FALSE.,                            &
                 & hor_interp=create_hor_interp_metadata(                      &
-                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & lopenacc=.TRUE. )
+    __acc_attach(diag%cape_ml)
 
     ! &      diag%cin_ml(nproma,nblks_c)
     ! typeOfLevel ZA_SURFACE is changed to 192 in vlistDefVarIntKey
@@ -822,7 +827,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & ldims=shape2d, lrestart=.FALSE.,                            &
 !!$                & lmiss=.TRUE., missval=-999.9_wp,                            &
                 & hor_interp=create_hor_interp_metadata(                      &
-                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & lopenacc=.TRUE. )
+    __acc_attach(diag%cin_ml)
 
 
     ! &      diag%gust10(nproma,nblks_c)
@@ -1005,7 +1012,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & loutput=.TRUE.,                                              &
                 & lmiss=.TRUE., missval=-999._wp,                              &
                 & hor_interp=create_hor_interp_metadata(                       &
-                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ),                    &
+                & lopenacc=.TRUE.  )
+    __acc_attach(diag%snowlmt)
 
 
     ! &      diag%clc(nproma,nlev,nblks_c)
@@ -1053,7 +1062,9 @@ __acc_attach(diag%clct)
       & ldims=shape2d, lrestart=.FALSE.,                                      &
       & in_group=groups("additional_precip_vars"),                            &
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
-      &                                       fallback_type=HINTP_TYPE_LONLAT_RBF))
+      &                                       fallback_type=HINTP_TYPE_LONLAT_RBF), &
+      & lopenacc=.TRUE.  )
+    __acc_attach(diag%clct_mod)
 
     ! &      diag%clch(nproma,nblks_c)
     cf_desc      = t_cf_var('clch', '', 'high level clouds',  datatype_flt)
@@ -1105,7 +1116,9 @@ __acc_attach(diag%clct)
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
       & ldims=shape2d, lrestart=.FALSE.,                                      &
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
-      &                                       fallback_type=HINTP_TYPE_LONLAT_RBF))
+      &                                       fallback_type=HINTP_TYPE_LONLAT_RBF), &
+      & lopenacc=.TRUE.  )
+    __acc_attach(diag%cldepth)
 
 
     ! &      diag%hbas_con(nproma,nblks_c)
@@ -1116,7 +1129,9 @@ __acc_attach(diag%clct)
       & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_BASE, cf_desc, grib2_desc,           &
       & ldims=shape2d, lrestart=.FALSE.,                                      &
 !!$      & lmiss=.TRUE., missval=-500._wp,                                       &
-      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB))
+      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB), &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%hbas_con)
 
     ! &      diag%htop_con(nproma,nblks_c)
     cf_desc    = t_cf_var('htop_con', 'm', 'height of convective cloud top', datatype_flt)
@@ -1126,7 +1141,10 @@ __acc_attach(diag%clct)
       & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,            &
       & ldims=shape2d, lrestart=.FALSE.,                                      &
 !!$      & lmiss=.TRUE., missval=-500._wp,                                       &
-      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB))
+      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB), &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%htop_con)
+
 
     ! &      diag%htop_dc(nproma,nblks_c)
     cf_desc    = t_cf_var('htop_dc', 'm', 'height of top of dry convection', datatype_flt)
@@ -1136,7 +1154,9 @@ __acc_attach(diag%clct)
       & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,            &
       & ldims=shape2d, lrestart=.FALSE.,                                      &
 !!$      & lmiss=.TRUE., missval=-999._wp,                                       &
-      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB))
+      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB), &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%htop_dc)
 
     ! &      diag%acdnc(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('acdnc', 'm-3', 'cloud droplet number concentration', datatype_flt)
@@ -3477,13 +3497,17 @@ __acc_attach(diag%clct_avg)
 
     cf_desc    = t_cf_var('drag_u_grid', 'N m-2', 'zonal resolved surface stress', datatype_flt)
     grib2_desc = grib2_var(192, 150, 168, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( diag_list, 'drag_u_grid', diag%drag_u_grid,                 &
-      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( diag_list, 'drag_u_grid', diag%drag_u_grid,                   &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d, &
+      & lopenacc=.TRUE.                                                         )
+    __acc_attach(diag%drag_u_grid)
 
     cf_desc    = t_cf_var('drag_v_grid', 'N m-2', 'meridional resolved surface stress', datatype_flt)
     grib2_desc = grib2_var(192, 150, 169, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( diag_list, 'drag_v_grid', diag%drag_v_grid,                 &
-      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( diag_list, 'drag_v_grid', diag%drag_v_grid,                   &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d, &
+      & lopenacc=.TRUE.                                                         )
+    __acc_attach(diag%drag_v_grid)
 
     WRITE(name,'(A,A11)') TRIM(prefix),"drag_u_grid"
     WRITE(long_name,'(A30,A4,A18)') "zonal resolved surface stress ", meaning, " since model start"
@@ -4348,7 +4372,9 @@ __acc_attach(diag%clct_avg)
     CALL add_var( diag_list, 'ww', diag%iww,                                         &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,           &
                 & ldims=shape2d, lrestart=.FALSE.,                                   &
-                & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
+                & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB), &
+                & lopenacc=.TRUE. )
+    __acc_attach(diag%iww)
       
     ! mask field to distinguish between tropics and extratropics (for tuning purposes)
     cf_desc    = t_cf_var('tropics_mask', '', 'tropics_mask', datatype_flt)

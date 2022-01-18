@@ -1157,23 +1157,18 @@ MODULE mo_nh_stepping
       !$ser verbatim ENDDO
 
       IF (iforcing == inwp) THEN
-#ifdef _OPENACC
-        CALL message('mo_nh_stepping', 'Device to host copy before nwp_diag_for_output. This needs to be removed once port is finished!')
-        DO jg = 1, n_dom
-           CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg))
-        ENDDO
-        i_am_accel_node = .FALSE.
-#endif
         !$ser verbatim DO jg = 1, n_dom
         !$ser verbatim   CALL serialize_all(nproma, jg, "output_diag", .TRUE., opt_lupdate_cpu=.TRUE.)
         !$ser verbatim ENDDO
-        CALL aggr_landvars
+        !$ACC WAIT
+        CALL aggr_landvars(use_acc=.TRUE.)
 
         DO jg = 1, n_dom
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
           IF(.NOT.atm_phy_nwp_config(jg)%is_les_phy) THEN
             ! diagnostics which are only required for output
+            !$ACC WAIT
             CALL nwp_diag_for_output(mtime_current, kstart_moist(jg),           & !in
                  &                      ih_clch(jg), ih_clcm(jg),               & !in
                  &                      phy_params(jg),                         & !in
@@ -1181,16 +1176,23 @@ MODULE mo_nh_stepping
                  &                      p_nh_state(jg)%metrics,                 & !in
                  &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
                  &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
-                 &                      p_nh_state(jg)%diag,                    & !in
+                 &                      p_nh_state(jg)%diag,                    & !inout
                  &                      p_lnd_state(jg)%diag_lnd,               & !in
                  &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
                  &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
                  &                      ext_data(jg),                           & !in
-                 &                      prm_diag(jg)                            ) !inout
+                 &                      prm_diag(jg),                           & !inout
+                 &                      use_acc=.TRUE.                          ) !in
 
 
           ELSE !is_les_phy
 
+#ifdef _OPENACC
+            IF (i_am_accel_node) THEN
+              CALL finish ('perform_nh_timeloop', &
+                &  'atm_phy_nwp_config(jg)%is_les_phy: OpenACC version currently not implemented')
+            ENDIF
+#endif
             !LES specific diagnostics only for output
             CALL les_cloud_diag    ( kstart_moist(jg),                       & !in
               &                      ih_clch(jg), ih_clcm(jg),               & !in
@@ -1206,7 +1208,7 @@ MODULE mo_nh_stepping
 
         ENDDO!jg
 
-        CALL fill_nestlatbc_phys
+        CALL fill_nestlatbc_phys(use_acc=.TRUE.)
 
       ! Compute synthetic satellite images if requested
         DO jg = 1, n_dom
@@ -1216,18 +1218,11 @@ MODULE mo_nh_stepping
           DO jn = 1, p_patch(jg)%n_childdom
             jgc = p_patch(jg)%child_id(jn)
             IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
-            IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
+            IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc, use_acc=.TRUE.)
           ENDDO
-          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
+          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg), use_acc=.TRUE.)
 
         ENDDO!jg
-#ifdef _OPENACC
-        CALL message('mo_nh_stepping', 'Host to device copy after nwp_diag_for_output. This needs to be removed once port is finished!')
-        DO jg = 1, n_dom
-           CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg))
-        ENDDO
-        i_am_accel_node = my_process_is_work()
-#endif
         !$ser verbatim DO jg = 1, n_dom
         !$ser verbatim   CALL serialize_all(nproma, jg, "output_diag", .FALSE., opt_lupdate_cpu=.TRUE.)
         !$ser verbatim ENDDO
@@ -3137,7 +3132,9 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2014-07-21)
   !!
-  SUBROUTINE aggr_landvars
+  SUBROUTINE aggr_landvars(use_acc)
+
+    LOGICAL, OPTIONAL,   INTENT(IN)   :: use_acc
 
     ! Local variables
     INTEGER :: jg ! loop indices
@@ -3151,7 +3148,8 @@ MODULE mo_nh_stepping
 
       IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
         CALL aggregate_landvars( p_patch(jg), ext_data(jg),                 &
-             p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), p_lnd_state(jg)%diag_lnd)
+             p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), p_lnd_state(jg)%diag_lnd, &
+             use_acc=use_acc)
       ENDIF
 
     ENDDO ! jg-loop
@@ -3168,12 +3166,24 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2014-07-21)
   !!
-  SUBROUTINE fill_nestlatbc_phys
+  SUBROUTINE fill_nestlatbc_phys(use_acc)
+
+    LOGICAL, OPTIONAL,   INTENT(IN)   :: use_acc
 
     ! Local variables
     INTEGER :: jg, jgc, jn ! loop indices
+    LOGICAL :: lacc
 
     IF (ltimer) CALL timer_start(timer_nh_diagnostics)
+
+    IF (PRESENT(use_acc)) THEN
+      lacc = use_acc
+    ELSE
+      lacc = .FALSE.
+    ENDIF
+#ifdef _OPENACC
+    IF( lacc /= i_am_accel_node ) CALL finish ( 'fill_nestlatbc_phys', 'lacc /= i_am_accel_node' )
+#endif
 
     ! Fill boundaries of nested domains
     DO jg = n_dom, 1, -1
@@ -3187,7 +3197,8 @@ MODULE mo_nh_stepping
         jgc = p_patch(jg)%child_id(jn)
         IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
-        CALL interpol_phys_grf(ext_data, jg, jgc, jn)
+        !$ACC WAIT
+        CALL interpol_phys_grf(ext_data, jg, jgc, jn, use_acc=lacc)
 
         IF (lfeedback(jgc) .AND. ifeedback_type==1) CALL feedback_phys_diag(jgc, jg)
 

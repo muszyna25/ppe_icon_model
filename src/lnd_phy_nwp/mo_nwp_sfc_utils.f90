@@ -1228,12 +1228,13 @@ CONTAINS
 
 !-------------------------------------------------------------------------
 
-  SUBROUTINE aggregate_landvars( p_patch, ext_data, lnd_prog, lnd_diag)
+  SUBROUTINE aggregate_landvars( p_patch, ext_data, lnd_prog, lnd_diag, use_acc)
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch       !< grid/patch info
     TYPE(t_external_data),       INTENT(in)   :: ext_data      !< external data
     TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog      !< prog vars for sfc
     TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag      !< diag vars for sfc
+    LOGICAL, OPTIONAL,   INTENT(IN)   :: use_acc
 
     ! Local scalars:
     INTEGER :: rl_start, rl_end
@@ -1251,6 +1252,16 @@ CONTAINS
     INTEGER :: ic
     INTEGER :: styp           ! soil type index
 
+    LOGICAL :: lacc
+
+    IF (PRESENT(use_acc)) THEN
+      lacc = use_acc
+    ELSE
+      lacc = .FALSE.
+    END IF
+
+    !$ACC DATA CREATE(lmask) PRESENT(ext_data, lnd_prog, lnd_diag, &
+    !$ACC   var_in_output, dzsoil) IF(lacc)
     ! patch ID
     jg = p_patch%id
 
@@ -1274,6 +1285,9 @@ CONTAINS
 
       IF (ntiles_total == 1) THEN  ! just copy prognostic variables from tile 1
                                    ! to diagnostic aggregated variable
+#ifdef _OPENACC
+        IF (lacc) CALL finish ('aggregate_landvars', 'ntiles_total == 1: OpenACC version currently not implemented')
+#endif
         DO jc = i_startidx, i_endidx
           lnd_diag%t_snow   (jc,jb) = lnd_prog%t_snow_t   (jc,jb,1)
           lnd_diag%t_s      (jc,jb) = lnd_prog%t_s_t      (jc,jb,1)
@@ -1289,11 +1303,6 @@ CONTAINS
           lnd_diag%rstom    (jc,jb) = lnd_diag%rstom_t    (jc,jb,1)
           IF (var_in_output(jg)%res_soilwatb) THEN
             lnd_diag%resid_wso(jc,jb) = lnd_diag%resid_wso_t(jc,jb,1)
-          ENDIF
-
-
-          IF(lmulti_snow) THEN
-            lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
           ENDIF
         ENDDO
 
@@ -1335,6 +1344,9 @@ CONTAINS
               lnd_diag%dzh_snow     (jc,jk,jb) = lnd_prog%dzh_snow_t(jc,jk,jb,1)
             ENDDO
           ENDDO
+          DO jc = i_startidx, i_endidx
+            lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
+          ENDDO
         ENDIF
 
       ELSE ! aggregate fields over tiles
@@ -1347,45 +1359,85 @@ CONTAINS
         !   over the tiles needs to be treated like this: starting from the value
         !   of the former timestep they are updated using the area-weighted mean 
         !   of instanteneous values
-        lnd_diag%t_snow   (i_startidx:i_endidx,jb)  = 0._wp
-        lnd_diag%t_s      (i_startidx:i_endidx,jb)  = 0._wp
-        lnd_diag%t_sk     (i_startidx:i_endidx,jb)  = 0._wp
-        lnd_diag%w_snow   (i_startidx:i_endidx,jb)  = 0._wp
-        lnd_diag%w_i      (i_startidx:i_endidx,jb)  = 0._wp
-        lnd_diag%h_snow   (i_startidx:i_endidx,jb)  = 0._wp
-        lnd_diag%freshsnow(i_startidx:i_endidx,jb)  = 0._wp
-        lnd_diag%snowfrac (i_startidx:i_endidx,jb)  = 0._wp
-        lnd_diag%rstom    (i_startidx:i_endidx,jb)  = 0._wp
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+        !$ACC LOOP GANG VECTOR
+        DO jc = i_startidx, i_endidx
+          lnd_diag%t_snow   (jc,jb)  = 0._wp
+          lnd_diag%t_s      (jc,jb)  = 0._wp
+          lnd_diag%t_sk     (jc,jb)  = 0._wp
+          lnd_diag%w_snow   (jc,jb)  = 0._wp
+          lnd_diag%w_i      (jc,jb)  = 0._wp
+          lnd_diag%h_snow   (jc,jb)  = 0._wp
+          lnd_diag%freshsnow(jc,jb)  = 0._wp
+          lnd_diag%snowfrac (jc,jb)  = 0._wp
+          lnd_diag%rstom    (jc,jb)  = 0._wp
+        ENDDO
         
 
-        lnd_diag%t_so    (i_startidx:i_endidx,:,jb) = 0._wp
-        lnd_diag%w_so    (i_startidx:i_endidx,:,jb) = 0._wp
-        lnd_diag%w_so_ice(i_startidx:i_endidx,:,jb) = 0._wp
+        !$ACC LOOP SEQ
+        DO jk = 1, nlev_soil+1
+          !$ACC LOOP GANG VECTOR
+          DO jc = i_startidx, i_endidx
+            lnd_diag%t_so    (jc,jk,jb) = 0._wp
+          ENDDO
+        ENDDO
+        !$ACC LOOP SEQ
+        DO jk = 1, nlev_soil
+          !$ACC LOOP GANG VECTOR
+          DO jc = i_startidx, i_endidx
+            lnd_diag%w_so    (jc,jk,jb) = 0._wp
+            lnd_diag%w_so_ice(jc,jk,jb) = 0._wp
+          ENDDO
+        ENDDO
 
         IF (itype_interception == 2) THEN
-          lnd_diag%w_p    (i_startidx:i_endidx,jb)  = 0._wp
-          lnd_diag%w_s    (i_startidx:i_endidx,jb)  = 0._wp
+          !$ACC LOOP GANG VECTOR
+          DO jc = i_startidx, i_endidx
+            lnd_diag%w_p    (jc,jb)  = 0._wp
+            lnd_diag%w_s    (jc,jb)  = 0._wp
+          ENDDO
         ENDIF
 
         IF (itype_trvg == 3) THEN
-          lnd_diag%plantevap(i_startidx:i_endidx,jb) = 0._wp
+          !$ACC LOOP GANG VECTOR
+          DO jc = i_startidx, i_endidx
+            lnd_diag%plantevap(jc,jb) = 0._wp
+          ENDDO
         ENDIF
 
         IF (l2lay_rho_snow .OR. lmulti_snow) THEN
-          lnd_diag%rho_snow_mult(i_startidx:i_endidx,:,jb) = 0._wp
+          !$ACC LOOP SEQ
+          DO jk = 1, nlev_snow
+            !$ACC LOOP GANG VECTOR
+            DO jc = i_startidx, i_endidx
+              lnd_diag%rho_snow_mult(jc,jk,jb) = 0._wp
+            ENDDO
+          ENDDO
         ENDIF
+        !$ACC END PARALLEL
 
         IF (lmulti_snow) THEN
-          lnd_diag%t_snow_mult  (i_startidx:i_endidx,:,jb) = 0._wp
-          lnd_diag%wliq_snow    (i_startidx:i_endidx,:,jb) = 0._wp
-          lnd_diag%wtot_snow    (i_startidx:i_endidx,:,jb) = 0._wp
-          lnd_diag%dzh_snow     (i_startidx:i_endidx,:,jb) = 0._wp
+          DO jk = 1, nlev_snow+1
+            DO jc = i_startidx, i_endidx
+              lnd_diag%t_snow_mult  (jc,jk,jb) = 0._wp
+            ENDDO
+          ENDDO
+          DO jk = 1, nlev_snow
+            DO jc = i_startidx, i_endidx
+              lnd_diag%wliq_snow    (jc,jk,jb) = 0._wp
+              lnd_diag%wtot_snow    (jc,jk,jb) = 0._wp
+              lnd_diag%dzh_snow     (jc,jk,jb) = 0._wp
+            ENDDO
+          ENDDO
         ENDIF
 
 
         ! Aggregate fields without water tiles
         !
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+        !$ACC LOOP SEQ
         DO isubs = 1,ntiles_total
+          !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE(tilefrac)
           DO jc = i_startidx, i_endidx
             !
             ! note that frac_t must be re-scaled such that SUM(frac_t(1:ntiles_lnd)) = 1
@@ -1417,14 +1469,10 @@ CONTAINS
               lnd_diag%resid_wso(jc,jb) = lnd_diag%resid_wso(jc,jb) + tilefrac &
               &                         * lnd_diag%resid_wso_inst_t(jc,jb,isubs) 
             ENDIF
-
-            IF(lmulti_snow) THEN
-              lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_diag%t_snow_mult(jc,nlev_snow+1,jb)+ &
-                                        tilefrac * lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,isubs)
-            ENDIF
           ENDDO
 
           IF (itype_interception == 2) THEN
+            !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE(tilefrac)
             DO jc = i_startidx, i_endidx
               !
               ! note that frac_t must be re-scaled such that SUM(frac_t(1:ntiles_lnd)) = 1
@@ -1440,6 +1488,7 @@ CONTAINS
           ENDIF
 
           IF (itype_trvg == 3) THEN
+            !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE(tilefrac)
             DO jc = i_startidx, i_endidx
               !
               ! note that frac_t must be re-scaled such that SUM(frac_t(1:ntiles_lnd)) = 1
@@ -1452,7 +1501,9 @@ CONTAINS
             ENDDO
           ENDIF
 
+          !$ACC LOOP SEQ
           DO jk=1,nlev_soil
+            !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE(tilefrac)
             DO jc = i_startidx, i_endidx
               !
               ! note that frac_t must be re-scaled such that SUM(frac_t(1:ntiles_lnd)) = 1
@@ -1470,7 +1521,9 @@ CONTAINS
           ENDDO
 
           IF (l2lay_rho_snow .OR. lmulti_snow) THEN
+            !$ACC LOOP SEQ
             DO jk=1,nlev_snow
+              !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE(tilefrac)
               DO jc = i_startidx, i_endidx
                 tilefrac = ext_data%atm%frac_t(jc,jb,isubs)        &
                   &      * ext_data%atm%inv_frland_from_tiles(jc,jb)
@@ -1481,7 +1534,12 @@ CONTAINS
             ENDDO
           ENDIF
 
-          IF (lmulti_snow) THEN
+        ENDDO  ! isubs
+        !$ACC END PARALLEL
+
+
+        IF (lmulti_snow) THEN
+          DO isubs = 1,ntiles_total
             DO jk=1,nlev_snow
               DO jc = i_startidx, i_endidx
                 !
@@ -1500,13 +1558,23 @@ CONTAINS
                                                    * lnd_prog%dzh_snow_t(jc,jk,jb,isubs)
               ENDDO
             ENDDO
-          ENDIF
+            !
+            DO jc = i_startidx, i_endidx
+              tilefrac = ext_data%atm%frac_t(jc,jb,isubs)        &
+                &      * ext_data%atm%inv_frland_from_tiles(jc,jb)
 
-        ENDDO  ! isubs
+              lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_diag%t_snow_mult(jc,nlev_snow+1,jb)+ &
+                                        tilefrac * lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,isubs)
+            ENDDO
+          ENDDO  ! isubs
+        ENDIF  ! lmulti_snow
 
 
         ! Aggregate fields with water tiles
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+        !$ACC LOOP SEQ
         DO isubs = 1,ntiles_total + ntiles_water
+          !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE(tilefrac)
           DO jc = i_startidx, i_endidx
             tilefrac = ext_data%atm%frac_t(jc,jb,isubs)
 
@@ -1519,37 +1587,53 @@ CONTAINS
 
         ! diagnose rho_snow from aggregated values of w_snow and h_snow; 
         ! by convention, snow density is zero in the absence of snow
+        !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE(rho_snow_lim)
         DO jc = i_startidx, i_endidx
           rho_snow_lim             = rhoh2o*(lnd_diag%w_snow(jc,jb)/MAX(dbl_eps,lnd_diag%h_snow(jc,jb)))
           rho_snow_lim             = MAX(MIN(rho_snow_lim,crhosmax_ml),crhosmin_ml)
           lnd_diag%rho_snow(jc,jb) = MERGE(rho_snow_lim,0._wp,lnd_diag%w_snow(jc,jb)>0._wp)
         ENDDO
+        !$ACC END PARALLEL
 
       ENDIF  ! ntiles_total == 1
 
-      ! copy aggregated snowfrac field to snowfrac_lc
-      lnd_diag%snowfrac_lc(i_startidx:i_endidx,jb) = lnd_diag%snowfrac(i_startidx:i_endidx,jb)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+      !$ACC LOOP GANG VECTOR
+      DO jc = i_startidx, i_endidx
+        ! copy aggregated snowfrac field to snowfrac_lc
+        lnd_diag%snowfrac_lc(jc,jb) = lnd_diag%snowfrac(jc,jb)
 
-      ! fill t_so(1) with t_s
-      lnd_diag%t_so(i_startidx:i_endidx,1,jb) = lnd_diag%t_s(i_startidx:i_endidx,jb)
+        ! fill t_so(1) with t_s
+        lnd_diag%t_so(jc,1,jb) = lnd_diag%t_s(jc,jb)
+      ENDDO
 
       ! Fill t_so(2:nlev_soil+1) with SST for non-land points (fr_land <= frlnd_thrhld) 
       ! Note that all points with fr_land > frlnd_thrhld are stored in the 
       ! land point index list list_land
       !
       ! create mask array
-      lmask(i_startidx:i_endidx) = .FALSE.
+      !$ACC LOOP GANG VECTOR
+      DO jc = i_startidx, i_endidx
+        lmask(jc) = .FALSE.
+      ENDDO
+      !$ACC END PARALLEL
       !
       icount = ext_data%atm%list_land%ncount(jb)
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) PRIVATE(jc) ASYNC(1) &
+      !$ACC   IF(lacc)
       DO ic = 1, icount
         jc = ext_data%atm%list_land%idx(ic,jb)
         lmask(jc) = .TRUE.
       ENDDO  ! ic
+      !$ACC END PARALLEL
       !
       ! fill non-land points with SST
       ! It is assured that all mixed land/water points only contain pure land temperatures
       ! Note that the climatological layer is explicitly omitted.
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+      !$ACC LOOP SEQ
       DO jk = 2, nlev_soil
+        !$ACC LOOP GANG VECTOR
         DO jc = i_startidx, i_endidx
           lnd_diag%t_so(jc,jk,jb) = MERGE(lnd_diag%t_so(jc,jk,jb),lnd_diag%t_s(jc,jb),lmask(jc))
         ENDDO  ! jc
@@ -1557,6 +1641,7 @@ CONTAINS
       !
       ! climatological layer: Fill with T_CL over non-land points. 
       ! Land points are already filled with T_CL
+      !$ACC LOOP GANG VECTOR
       DO jc = i_startidx, i_endidx
         lnd_diag%t_so(jc,nlev_soil+1,jb) = MERGE(lnd_diag%t_so(jc,nlev_soil+1,jb), &
           &                                      ext_data%atm%t_cl(jc,jb),         &
@@ -1566,7 +1651,9 @@ CONTAINS
 
       ! Make sure that aggregated w_so is always larger than air dryness point 
       ! at points where the soiltype allows infiltration of water.
+      !$ACC LOOP SEQ
       DO jk=1,nlev_soil
+        !$ACC LOOP GANG VECTOR PRIVATE(styp)
         DO jc = i_startidx, i_endidx
           styp = ext_data%atm%soiltyp(jc,jb)
           IF ( (styp>=3) .AND. (styp<=8)) THEN   ! 3:sand; 8:peat
@@ -1578,10 +1665,14 @@ CONTAINS
           ENDIF
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
 
     ENDDO  ! jb
 !$OMP END DO
 !$OMP END PARALLEL
+
+    !$ACC WAIT
+    !$ACC END DATA
 
   END SUBROUTINE aggregate_landvars
 

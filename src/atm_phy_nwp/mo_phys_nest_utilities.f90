@@ -2038,7 +2038,7 @@ END SUBROUTINE downscale_rad_output
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2010-12-03
 !!
-SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
+SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn, use_acc)
 
   USE mo_nwp_phy_state,      ONLY: prm_diag
   USE mo_nonhydro_state,     ONLY: p_nh_state
@@ -2046,6 +2046,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
   ! Input:
   TYPE(t_external_data), INTENT(in) :: ext_data(:)
   INTEGER              , INTENT(in) :: jg,jgc,jn
+  LOGICAL, OPTIONAL,   INTENT(IN)   :: use_acc
 
   ! Pointers
   TYPE(t_patch),                POINTER :: ptr_pp
@@ -2067,6 +2068,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
   INTEGER :: styp                        ! soiltype at child level
 
   LOGICAL :: lsfc_interp
+  LOGICAL :: lacc
 
   ! Temporary storage to do boundary interpolation for all 2D fields in one step
   REAL(wp) :: z_aux3dp1_p(nproma,nfields_p1,p_patch(jg)%nblks_c),       &  ! 2D pos. def. physics diag fields
@@ -2080,9 +2082,14 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
     &         z_aux3dsn_p(nproma,5*nlev_snow,p_patch(jg)%nblks_c),      &  ! 3D land state fields for multi-layer snow
     &         z_aux3dsn_c(nproma,5*nlev_snow,p_patch(jgc)%nblks_c)         ! (used if lmulti_snow = true))
 
+  IF (PRESENT(use_acc)) THEN
+    lacc = use_acc
+  ELSE
+    lacc = .FALSE.
+  ENDIF
 #ifdef _OPENACC
-  if(i_am_accel_node) &
-    CALL finish('mo_phys_nest_utilities:interpol_phys_grf', 'openACC is not implemented')
+  IF( lacc /= i_am_accel_node ) &
+    CALL finish('mo_phys_nest_utilities:interpol_phys_grf', 'lacc /= i_am_accel_node')
 #endif
 
   ! set pointers
@@ -2107,6 +2114,12 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
     ptr_wprogc => p_lnd_state(jgc)%prog_wtr(nnow_rcf(jgc))
   ENDIF
 
+  !$ACC DATA CREATE(z_aux3dp1_p, z_aux3dp1_c, z_aux3dp2_p, z_aux3dp2_c, &
+  !$ACC   z_aux3dl2_p, z_aux3dl2_c, z_aux3dso_p, z_aux3dso_c, z_aux3dsn_p, &
+  !$ACC   z_aux3dsn_c, indlist) PRESENT(ext_data, prm_diag, p_nh_state, &
+  !$ACC   atm_phy_nwp_config, ptr_ldiagp, ptr_ldiagc, ptr_lprogc, ptr_lprogp, &
+  !$ACC   ptr_wprogc, var_in_output) IF(lacc)
+
   IF (p_test_run) THEN
      z_aux3dp1_p(:,:,:) = 0._wp
      z_aux3dp2_p(:,:,:) = 0._wp
@@ -2125,6 +2138,8 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int)
 !$NEC ivdep
+    !$ACC PARALLEL DEFAULT(PRESENT) ASYNC(1) IF(lacc)
+    !$ACC LOOP GANG VECTOR
     DO jc = i_startidx, i_endidx
       z_aux3dp1_p(jc,1,jb) = prm_diag(jg)%tot_prec(jc,jb)
       z_aux3dp1_p(jc,2,jb) = prm_diag(jg)%prec_gsp(jc,jb)
@@ -2223,8 +2238,11 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
       z_aux3dp2_p(jc,18,jb) = prm_diag(jg)%lwflxtoa_a(jc,jb)
       z_aux3dp2_p(jc,19,jb) = prm_diag(jg)%hbas_con(jc,jb)
     ENDDO
+    !$ACC END PARALLEL
 
     IF (lsfc_interp) THEN
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+      !$ACC LOOP GANG VECTOR
       DO jc = i_startidx, i_endidx
         z_aux3dl2_p(jc,1,jb) = ptr_ldiagp%t_snow(jc,jb)
         z_aux3dl2_p(jc,2,jb) = ptr_ldiagp%t_s(jc,jb)
@@ -2237,20 +2255,32 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
         z_aux3dl2_p(jc,9,jb) = ptr_ldiagp%runoff_s(jc,jb)
         z_aux3dl2_p(jc,10,jb) = ptr_ldiagp%runoff_g(jc,jb)
         z_aux3dl2_p(jc,11,jb) = ptr_ldiagp%t_so(jc,nlev_soil+1,jb)
-        IF (lmulti_snow) THEN
-          z_aux3dl2_p(jc,12,jb) = ptr_ldiagp%t_snow_mult(jc,nlev_snow+1,jb)
+
+        IF (var_in_output(jg)%res_soilwatb) THEN
+          z_aux3dl2_p(jc,12,jb) = ptr_ldiagp%resid_wso(jc,jb)
         ELSE
           z_aux3dl2_p(jc,12,jb) = 0._wp
         ENDIF
-        IF (var_in_output(jg)%res_soilwatb) THEN
-          z_aux3dl2_p(jc,13,jb) = ptr_ldiagp%resid_wso(jc,jb)
-        ELSE
-          z_aux3dl2_p(jc,13,jb) = 0._wp
-        ENDIF
-
       ENDDO
+      !$ACC END PARALLEL
+
+      IF (lmulti_snow) THEN
+        DO jc = i_startidx, i_endidx
+          z_aux3dl2_p(jc,13,jb) = ptr_ldiagp%t_snow_mult(jc,nlev_snow+1,jb)
+        ENDDO
+      ELSE
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+      !$ACC LOOP GANG VECTOR
+        DO jc = i_startidx, i_endidx
+          z_aux3dl2_p(jc,13,jb) = 0._wp
+        ENDDO
+      !$ACC END PARALLEL
+      ENDIF
 
       IF (lseaice) THEN
+#ifdef _OPENACC
+        CALL finish ('interpol_phys_grf', 'lseaice: OpenACC version currently not implemented')
+#endif
         DO jc = i_startidx, i_endidx
           IF (ptr_wprogp%t_ice(jc,jb) > 10._wp) THEN
             z_aux3dl2_p(jc,14,jb) = ptr_wprogp%t_ice(jc,jb)
@@ -2263,31 +2293,49 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
           z_aux3dl2_p(jc,18,jb) = ptr_ldiagp%fr_seaice(jc,jb)
         ENDDO
       ELSE
-        z_aux3dl2_p(:,14:18,jb) = 0._wp
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
+        DO jc = i_startidx, i_endidx
+          z_aux3dl2_p(jc,14:18,jb) = 0._wp
+        ENDDO
+        !$ACC END PARALLEL
       ENDIF
 
       IF (llake) THEN
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
         DO jc = i_startidx, i_endidx
           z_aux3dl2_p(jc,19,jb) = ptr_lprogp%t_g(jc,jb)
         ENDDO
+        !$ACC END PARALLEL
         i_count = ext_data(jg)%atm%list_lake%ncount(jb)
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) PRIVATE(jc) ASYNC(1) IF(lacc)
         DO ic = 1, i_count
           jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
           z_aux3dl2_p(jc,19,jb) = ptr_lprogp%t_g_t(jc,jb,isub_lake)
         ENDDO
+        !$ACC END PARALLEL
       ELSE
+#ifdef _OPENACC
+        CALL finish ('interpol_phys_grf', 'no llake: OpenACC version currently not implemented')
+#endif
         z_aux3dl2_p(:,19,jb) = 0._wp
       ENDIF
 
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+      !$ACC LOOP GANG SEQ
       DO jk = 1, nlev_soil
+        !$ACC LOOP GANG VECTOR
         DO jc = i_startidx, i_endidx
           z_aux3dso_p(jc,3*(jk-1)+1,jb) = ptr_ldiagp%t_so(jc,jk,jb)
           z_aux3dso_p(jc,3*(jk-1)+2,jb) = ptr_ldiagp%w_so(jc,jk,jb)
           z_aux3dso_p(jc,3*(jk-1)+3,jb) = ptr_ldiagp%w_so_ice(jc,jk,jb)
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
 
       IF (lmulti_snow) THEN
+#ifdef _OPENACC
+        CALL finish ('interpol_phys_grf', 'lmulti_snow: OpenACC version currently not implemented')
+#endif
         DO jk = 1, nlev_snow
           DO jc = i_startidx, i_endidx
             z_aux3dsn_p(jc,5*(jk-1)+1,jb) = ptr_ldiagp%t_snow_mult(jc,jk,jb)
@@ -2305,6 +2353,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    !$ACC WAIT
     ! Halo update is needed before interpolation
     IF (lsfc_interp .AND. lmulti_snow) THEN
 
@@ -2342,6 +2391,8 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
 
     CALL get_indices_c(ptr_pc, jb, i_startblk, i_endblk,        &
                        i_startidx, i_endidx, 1, grf_bdywidth_c)
+    !$ACC PARALLEL DEFAULT(PRESENT) ASYNC(1) IF(lacc)
+    !$ACC LOOP GANG VECTOR
 !$NEC ivdep
     DO jc = i_startidx, i_endidx          ! to avoid undershoots when taking time differences:
       prm_diag(jgc)%tot_prec(jc,jb)       = MAX(z_aux3dp1_c(jc,1,jb),prm_diag(jgc)%tot_prec(jc,jb))
@@ -2447,8 +2498,11 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
         prm_diag(jgc)%htop_con(jc,jb) = z_aux3dp1_c(jc,38,jb) + prm_diag(jgc)%hbas_con(jc,jb)
       ENDIF
     ENDDO
+    !$ACC END PARALLEL
 
     IF (lsfc_interp) THEN
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+      !$ACC LOOP GANG VECTOR
       DO jc = i_startidx, i_endidx
         ptr_ldiagc%t_snow(jc,jb)           = z_aux3dl2_c(jc,1,jb)
         ptr_ldiagc%t_s(jc,jb)              = z_aux3dl2_c(jc,2,jb)
@@ -2462,14 +2516,22 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
         ptr_ldiagc%runoff_s(jc,jb)         = z_aux3dl2_c(jc,9,jb)
         ptr_ldiagc%runoff_g(jc,jb)         = z_aux3dl2_c(jc,10,jb)
         ptr_ldiagc%t_so(jc,nlev_soil+1,jb) = z_aux3dl2_c(jc,11,jb)
-        IF (lmulti_snow) &
-          ptr_ldiagc%t_snow_mult(jc,nlev_snow+1,jb) = z_aux3dl2_c(jc,12,jb)
         IF (var_in_output(jg)%res_soilwatb) THEN
-          ptr_ldiagc%resid_wso(jc,jb)     = z_aux3dl2_c(jc,13,jb)
+          ptr_ldiagc%resid_wso(jc,jb)     = z_aux3dl2_c(jc,12,jb)
         ENDIF
       ENDDO
+      !$ACC END PARALLEL
+
+      IF (lmulti_snow) THEN
+        DO jc = i_startidx, i_endidx
+          ptr_ldiagc%t_snow_mult(jc,nlev_snow+1,jb) = z_aux3dl2_c(jc,13,jb)
+        ENDDO
+      ENDIF
 
       IF (lseaice) THEN
+#ifdef _OPENACC
+        CALL finish ('interpol_phys_grf', 'lseaice: OpenACC version currently not implemented')
+#endif
         DO jc = i_startidx, i_endidx
           ptr_wprogc%t_ice(jc,jb)     = MIN(tmelt,z_aux3dl2_c(jc,14,jb))
           ptr_wprogc%h_ice(jc,jb)     = MAX(0._wp,z_aux3dl2_c(jc,15,jb))
@@ -2489,6 +2551,8 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
       IF (llake) THEN
 
         ! preset lake variables on nest boundary points with default values
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+        !$ACC LOOP GANG VECTOR
         DO jc = i_startidx, i_endidx
           ptr_wprogc%t_snow_lk(jc,jb) = tmelt
           ptr_wprogc%h_snow_lk(jc,jb) = 0._wp
@@ -2500,9 +2564,11 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
           ptr_wprogc%t_b1_lk  (jc,jb) = tpl_T_r
           ptr_wprogc%h_b1_lk  (jc,jb) = rflk_depth_bs_ref
         ENDDO
+        !$ACC END PARALLEL
 
         ! ensure that only nest boundary points are processed
         i_count = 0
+        !$ACC SERIAL DEFAULT(NONE) REDUCTION(+:i_count) ASYNC(1) IF(lacc)
         DO ic = 1, ext_data(jgc)%atm%list_lake%ncount(jb)
           jc = ext_data(jgc)%atm%list_lake%idx(ic,jb)
           IF (jc >= i_startidx .AND. jc <= i_endidx) THEN
@@ -2510,6 +2576,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
             indlist(i_count) = jc
           ENDIF
         ENDDO
+        !$ACC END SERIAL
 
         CALL flake_coldinit(                                    &
              nflkgb      = i_count,                             &
@@ -2527,13 +2594,17 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
              h_ml_lk_p   = ptr_wprogc%h_ml_lk  (:,jb),          &
              t_b1_lk_p   = ptr_wprogc%t_b1_lk  (:,jb),          &
              h_b1_lk_p   = ptr_wprogc%h_b1_lk  (:,jb),          &
-             t_g_lk_p    = ptr_lprogc%t_g_t    (:,jb,isub_lake) )
+             t_g_lk_p    = ptr_lprogc%t_g_t    (:,jb,isub_lake),&
+             use_acc=lacc                                       )
 
       ENDIF
 
 
 
+      !$ACC PARALLEL DEFAULT(NONE) PRESENT(dzsoil) ASYNC(1) IF(lacc)
+      !$ACC LOOP SEQ
       DO jk = 1, nlev_soil
+        !$ACC LOOP GANG VECTOR PRIVATE(styp)
         DO jc = i_startidx, i_endidx
           ptr_ldiagc%t_so(jc,jk,jb)     = z_aux3dso_c(jc,3*(jk-1)+1,jb)
           ptr_ldiagc%w_so(jc,jk,jb)     = z_aux3dso_c(jc,3*(jk-1)+2,jb)
@@ -2550,10 +2621,14 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
           ptr_ldiagc%w_so_ice(jc,jk,jb) = z_aux3dso_c(jc,3*(jk-1)+3,jb)
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
 
       ! Copy interpolated values to tile-based variables; this is actually needed in order
       ! to avoid loss of grib encoding accuracy for t_so_t
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+      !$ACC LOOP SEQ
       DO jt = 1, ntiles_total
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = 1, nlev_soil
           DO jc = i_startidx, i_endidx
             ptr_lprogc%t_so_t(jc,jk,jb,jt)     = ptr_ldiagc%t_so(jc,jk,jb)
@@ -2562,8 +2637,12 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
           ENDDO
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
 
       IF (lmulti_snow) THEN
+#ifdef _OPENACC
+        CALL finish ('interpol_phys_grf', 'lmulti_snow: OpenACC version currently not implemented')
+#endif
         DO jk = 1, nlev_snow
           DO jc = i_startidx, i_endidx
             ptr_ldiagc%t_snow_mult(jc,jk,jb)   = z_aux3dsn_c(jc,5*(jk-1)+1,jb)
@@ -2582,6 +2661,8 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
   ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+  !$ACC END DATA
 
 END SUBROUTINE interpol_phys_grf
 

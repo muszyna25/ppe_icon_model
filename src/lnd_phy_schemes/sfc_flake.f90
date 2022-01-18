@@ -811,7 +811,8 @@ CONTAINS
                      &  t_mnw_lk_p, t_wml_lk_p, t_bot_lk_p,     &
                      &  c_t_lk_p, h_ml_lk_p,                    & 
                      &  t_b1_lk_p, h_b1_lk_p,                   &
-                     &  t_g_lk_p                                )
+                     &  t_g_lk_p,                               &
+                     &  use_acc                                 )
 
 
     IMPLICIT NONE
@@ -862,20 +863,33 @@ CONTAINS
                                                 !< at previous time step [m] 
                         &  t_g_lk_p             !< lake surface temperature at previous time [K]
 
+    LOGICAL, OPTIONAL,   INTENT(IN)   :: use_acc
+
 
 
     INTEGER ::      &
             &  ic , &  !< DO loop index
             &  jc      !< icon grid cell index
 
+    LOGICAL :: lacc
 
 
     !===============================================================================================
     !  Start calculations
     !-----------------------------------------------------------------------------------------------
+    IF (PRESENT(use_acc)) THEN
+      lacc = use_acc
+    ELSE
+      lacc = .FALSE.
+    ENDIF
 
     ! Loop over grid boxes with lakes
     !
+    !$ACC PARALLEL DEFAULT(NONE) PRESENT( idx_lst_fp, depth_lk, tskin, &
+    !$ACC   t_snow_lk_p, h_snow_lk_p, t_ice_p, h_ice_p, t_mnw_lk_p, t_wml_lk_p, &
+    !$ACC   t_bot_lk_p, c_t_lk_p, h_ml_lk_p, t_b1_lk_p, h_b1_lk_p, t_g_lk_p) &
+    !$ACC   ASYNC(1) IF(lacc)
+    !$ACC LOOP GANG VECTOR PRIVATE(jc)
 !$NEC ivdep
     DO ic=1, nflkgb
       ! Take index from the lake index list
@@ -929,6 +943,7 @@ CONTAINS
       t_g_lk_p(jc) = t_wml_lk_p(jc)
 
     END DO  ! End of loop over grid boxes with lakes
+    !$ACC END PARALLEL
 
 
   END SUBROUTINE flake_coldinit

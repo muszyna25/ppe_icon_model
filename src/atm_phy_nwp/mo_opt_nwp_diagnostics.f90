@@ -139,7 +139,7 @@ CONTAINS
   !! Inherited from COSMO 5.0 by Daniel Reinert, DWD (2015-03-27)
   !! 
   !!
-  SUBROUTINE calsnowlmt ( snowlmt, temp, pres, qv, hhl, hhlr, istart, iend, wbl)
+  SUBROUTINE calsnowlmt ( snowlmt, temp, pres, qv, hhl, hhlr, istart, iend, wbl, use_acc)
 
     ! Parameter list:
 
@@ -158,6 +158,8 @@ CONTAINS
 
     REAL (wp), INTENT (IN)    ::  &
       wbl               ! (empirical) wet bulb temperature at snowfall limit (1.3C)
+
+    LOGICAL, INTENT(IN), OPTIONAL :: use_acc
     !------------------------------------------------------------------------------
     ! Local variables
 
@@ -191,7 +193,17 @@ CONTAINS
 
     REAL(wp) :: wetblb(SIZE(temp,1),SIZE(temp,2))  ! wet-bulb temperature in Celsius
 
+    LOGICAL :: lacc
+
   !------------------------------------------------------------------------------
+    if (present(use_acc)) then
+      lacc = use_acc
+    else
+      lacc = .false.
+    end if
+
+    !$ACC DATA CREATE(lfound, wetblb) PRESENT(snowlmt, temp, pres, qv, hhl, &
+    !$ACC   hhlr) IF(lacc)
 
     ! Begin subroutine calsnowlmt
 
@@ -200,18 +212,30 @@ CONTAINS
 
     ! Set the uppermost model level for the occurence of a wet bulb temperature (wbl)
     ! to about 8000m above surface
-    ktopmin = 2
+    ktopmin = nlev+2
+    !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) REDUCTION(MIN:ktopmin) IF(lacc)
     DO k = nlev+1, 1, -1
       IF ( hhlr(k) < 8000.0_wp ) THEN
         ktopmin = k
       ENDIF
     ENDDO
+    !$ACC END PARALLEL
+    if( ktopmin>nlev+1 ) ktopmin = 2
 
     ! Initialize the definition mask and the output array snowlmt
-    lfound (:) = .FALSE.
-    snowlmt(:) = -999.0_wp
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+    !$ACC LOOP GANG VECTOR
+    DO i = 1, SIZE(temp,1)
+      lfound (i) = .FALSE.
+      snowlmt(i) = -999.0_wp
+    ENDDO
+    !$ACC END PARALLEL
 
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+    !$ACC LOOP SEQ
     DO k = ktopmin, nlev
+      !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE(zp, ep, CONST, td, tl, tp, ppp, &
+      !$ACC   deltat, zt)
       DO i = istart, iend
         zp     = (pres(i,k))/100._wp     ! in hPa
         ep     = MAX(1.0E-10_wp,qv(i,k))*zp /      &
@@ -235,7 +259,9 @@ CONTAINS
       ENDDO
     ENDDO
 
+    !$ACC LOOP SEQ
     DO k = ktopmin+1, nlev
+      !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE(zh_bot, zh_top, zdt)
       DO i = istart, iend
         IF ( lfound(i) .AND. wetblb(i,k) >= wbl ) THEN
           ! definition of snowlmt is now made once
@@ -248,6 +274,10 @@ CONTAINS
         ENDIF
       ENDDO
     ENDDO
+    !$ACC END PARALLEL
+
+    !$ACC WAIT
+    !$ACC END DATA
 
   END SUBROUTINE calsnowlmt
 
@@ -2164,7 +2194,7 @@ CONTAINS
 
 
   SUBROUTINE cal_cape_cin ( i_startidx, i_endidx, kmoist, te, qve, prs, hhl,  &
-                            cape_ml, cin_ml )
+                            cape_ml, cin_ml, use_acc )
 
   !------------------------------------------------------------------------------
   !
@@ -2240,6 +2270,8 @@ CONTAINS
     cape_ml  (:),   & ! mixed layer CAPE_ML
     cin_ml   (:)      ! mixed layer CIN_ML
 
+  LOGICAL, INTENT(IN), OPTIONAL :: use_acc
+
 ! Local scalars and automatic arrays
 !-----------------------------------
   INTEGER :: nlev
@@ -2296,7 +2328,12 @@ CONTAINS
 
   INTEGER :: lfcfound(SIZE(te,1))   ! flag indicating if a LFC has already been found
                                     ! below, in cases where several EL and LFC's occur
+#ifndef _OPENACC
   LOGICAL :: lexit(SIZE(te,1))
+#endif
+
+  LOGICAL :: lacc
+
 !------------------------------------------------------------------------------
 ! 
 ! A well mixed near surface layer is assumed (its depth is specified with 
@@ -2307,19 +2344,40 @@ CONTAINS
 ! humidity and potential temperature as start values. 
 !
 !------------------------------------------------------------------------------
+    IF (PRESENT(use_acc)) THEN
+      lacc = use_acc
+    ELSE
+      lacc = .FALSE.
+    END IF
+
+    !$ACC DATA CREATE(k_ml, kstart, lcllev, lfclev, cin_help, buo, tp, qvp, thp, &
+    !$ACC   qvp_start, tp_start, lfcfound) PRESENT(te, qve, prs, hhl, cape_ml, &
+    !$ACC   cin_ml) IF(lacc)
 
     nlev = SIZE( te,2)
-    k_ml  (:)  = nlev  ! index used to step through the well mixed layer
-    kstart(:)  = nlev  ! index of model level corresponding to average 
-                       ! mixed layer pressure
-    qvp_start(:) = 0.0_wp ! specific humidities in well mixed layer
-    tp_start (:) = 0.0_wp ! potential temperatures in well mixed layer
-    lexit(:)     = .FALSE.
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+    !$ACC LOOP GANG VECTOR
+    do i = 1, SIZE( te,1)
+      k_ml  (i)  = nlev  ! index used to step through the well mixed layer
+      kstart(i)  = nlev  ! index of model level corresponding to average 
+                        ! mixed layer pressure
+      qvp_start(i) = 0.0_wp ! specific humidities in well mixed layer
+      tp_start (i) = 0.0_wp ! potential temperatures in well mixed layer
+#ifndef _OPENACC
+      lexit(i)     = .FALSE.
+#endif
+    ENDDO
+    !$ACC END PARALLEL
 
     ! now calculate the mixed layer average potential temperature and 
     ! specific humidity
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+    !$ACC LOOP SEQ
     DO k = nlev, kmoist, -1
+#ifndef _OPENACC
       IF (ALL(lexit(i_startidx:i_endidx))) EXIT
+#endif
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO i = i_startidx, i_endidx
 
         IF ( prs(i,k) > (prs(i,nlev) - ml_depth)) THEN
@@ -2335,18 +2393,22 @@ CONTAINS
           ENDIF
 
           k_ml(i) = k - 1
+#ifndef _OPENACC
         ELSE
           lexit(i) = .TRUE.
+#endif
         ENDIF
 
       ENDDO     
     ENDDO
         
     ! Calculate the start values for the parcel ascent, 
+    !$ACC LOOP GANG(STATIC:1) VECTOR
     DO i = i_startidx, i_endidx
       qvp_start(i) =  qvp_start(i) / (nlev-k_ml(i))
       tp_start (i) =  tp_start (i) / (nlev-k_ml(i))
     ENDDO     
+    !$ACC END PARALLEL
   
   !------------------------------------------------------------------------------
   !
@@ -2359,20 +2421,28 @@ CONTAINS
   
   ! Initialization
   
-  cape_ml(:)  = 0.0_wp
-  cin_ml(:)   = 0.0_wp
-  
-  lcllev  (:) = 0
-  lfclev  (:) = 0
-  lfcfound(:) = 0
-  cin_help(:) = 0.0_wp
-  tp (:)      = 0.0_wp
-  qvp(:)      = 0.0_wp               
-  buo(:)      = 0.0_wp
+  !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
+  DO i = 1, SIZE( te,1)
+    cape_ml(i)  = 0.0_wp
+    cin_ml(i)   = 0.0_wp
+    
+    lcllev  (i) = 0
+    lfclev  (i) = 0
+    lfcfound(i) = 0
+    cin_help(i) = 0.0_wp
+    tp (i)      = 0.0_wp
+    qvp(i)      = 0.0_wp               
+    buo(i)      = 0.0_wp
+  ENDDO
+  !$ACC END PARALLEL
   
   ! Loop over all model levels above kstart
+  !$ACC PARALLEL DEFAULT(PRESENT) ASYNC(1) IF(lacc)
+  !$ACC LOOP SEQ
   kloop: DO k = nlev, kmoist, -1
 
+    !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE(buo_belo, esat, esatp, tguess1, tguess2, &
+    !$ACC   thetae1, thetae2, tvp, tve, icount, q1, q2, qvsp)
     DO i = i_startidx, i_endidx
       IF ( k > kstart(i) ) CYCLE
          
@@ -2585,6 +2655,7 @@ CONTAINS
       
     ! Subtract the CIN above the LFC from the total accumulated CIN to 
     ! get only contriubtions from below the LFC as the definition demands.
+  !$ACC LOOP GANG(STATIC:1) VECTOR
   DO i = i_startidx, i_endidx
 
     ! make CIN positive
@@ -2593,7 +2664,10 @@ CONTAINS
     ! set the CIN to missing value if no LFC was found or no CAPE exists
     IF ( (lfclev(i) == 0) .OR. (cape_ml(i) == 0.0_wp)  ) cin_ml(i) = missing_value 
   ENDDO
+  !$ACC END PARALLEL
 
+  !$ACC WAIT
+  !$ACC END DATA
 
 CONTAINS
 
@@ -2605,6 +2679,8 @@ CONTAINS
     REAL(wp), INTENT(IN) :: zpx   ! atmospheric pressure  [Pa]
     REAL(wp), INTENT(IN) :: zqx   ! specific humidity     [kg/kg]
     REAL(wp)             :: fqvs  ! Equivalent potential temperature
+
+  !$ACC ROUTINE SEQ
 
     fqvs = zex/zpx *( rdv + o_m_rdv*zqx )        
 
@@ -2619,6 +2695,8 @@ CONTAINS
 !   REAL(wp), INTENT(IN) :: zrx     ! mixing ratio          [kg/kg]
     REAL(wp), INTENT(IN) :: zqx     ! specific humidity     [kg/kg]
     REAL(wp)             :: fthetae ! Equivalent potential temperature [K]
+
+    !$ACC ROUTINE SEQ
 
 !   fthetae = (p0/zpx)**rd_o_cpd *ztx*exp( alvdcp*zrx/ztx)  
     fthetae = (p0/zpx)**rd_o_cpd *ztx*EXP( alvdcp*zqx/(ztx*(1._wp-zqx)) )

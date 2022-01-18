@@ -35,6 +35,7 @@ MODULE mo_nwp_gpu_util
 
     !$ACC UPDATE HOST(ext_data%atm%gp_count_t, ext_data%atm%lp_count_t, ext_data%atm%list_seaice%ncount, &
     !$ACC             ext_data%atm%list_seaice%idx, ext_data%atm%list_lake%ncount, ext_data%atm%list_lake%idx, &
+    !$ACC             ext_data%atm%list_land%ncount, ext_data%atm%list_land%idx, &
     !$ACC             ext_data%atm%list_seawtr%ncount, ext_data%atm%list_seawtr%idx, ext_data%atm%emis_rad, &
     !$ACC             ext_data%atm%z0_lcc, ext_data%atm%z0_lcc_min, ext_data%atm%plcovmax_lcc, &
     !$ACC             ext_data%atm%laimax_lcc, ext_data%atm%rootdmax_lcc, ext_data%atm%stomresmin_lcc, &
@@ -117,6 +118,7 @@ MODULE mo_nwp_gpu_util
 
     !$ACC UPDATE DEVICE(ext_data%atm%gp_count_t, ext_data%atm%lp_count_t, ext_data%atm%list_seaice%ncount, &
     !$ACC               ext_data%atm%list_seaice%idx, ext_data%atm%list_lake%ncount, ext_data%atm%list_lake%idx, &
+    !$ACC               ext_data%atm%list_land%ncount, ext_data%atm%list_land%idx, &
     !$ACC               ext_data%atm%list_seawtr%ncount, ext_data%atm%list_seawtr%idx, ext_data%atm%emis_rad, &
     !$ACC               ext_data%atm%z0_lcc, ext_data%atm%z0_lcc_min, ext_data%atm%plcovmax_lcc, &
     !$ACC               ext_data%atm%laimax_lcc, ext_data%atm%rootdmax_lcc, ext_data%atm%stomresmin_lcc, &

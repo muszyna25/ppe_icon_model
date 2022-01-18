@@ -250,10 +250,11 @@ CONTAINS
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2015-04-30
 !!
-SUBROUTINE rttov_driver (jg, jgp, nnow)
+SUBROUTINE rttov_driver (jg, jgp, nnow, use_acc)
 
   INTEGER, INTENT(IN) :: jg, jgp ! grid ID and parent grid ID
   INTEGER, INTENT(IN) :: nnow    ! time level nnow valid for long time step
+  LOGICAL, OPTIONAL,   INTENT(IN)   :: use_acc
 
   TYPE(t_grid_cells),     POINTER :: p_gcp
   TYPE(t_patch),          POINTER :: p_pp
@@ -291,6 +292,18 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
   INTEGER :: nlev_rg, isens, n_profs, ncalc, iprint, &
     &        istatus, synsat_idx, isynsat
 
+  LOGICAL :: lacc
+
+  IF (PRESENT(use_acc)) THEN
+    lacc = use_acc
+  ELSE
+    lacc = .FALSE.
+  END IF
+#ifdef _OPENACC
+  IF (lacc) THEN
+    CALL finish ('rttov_driver', ' : OpenACC version currently not implemented')
+  ENDIF
+#endif
 
   ! first, check if nothing to do:
   IF (MAXVAL(numchans(:)) == 0)  RETURN
@@ -1227,14 +1240,30 @@ END SUBROUTINE define_rttov_levels
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2015-04-26
 !!
-SUBROUTINE copy_rttov_ubc (jg, jgc)
+SUBROUTINE copy_rttov_ubc (jg, jgc, use_acc)
+
+#ifdef _OPENACC
+  USE mo_mpi, ONLY: i_am_accel_node
+#endif
 
   ! Input grid parameters
   INTEGER, INTENT(in) :: jg, jgc
+  LOGICAL, OPTIONAL,   INTENT(IN)   :: use_acc
 
   ! Local fields
 
   INTEGER :: nshift
+  LOGICAL :: lacc
+
+
+  IF (PRESENT(use_acc)) THEN
+    lacc = use_acc
+  ELSE
+    lacc = .FALSE.
+  END IF
+#ifdef _OPENACC
+    IF( lacc /= i_am_accel_node ) CALL finish ( 'copy_rttov_ubc', 'lacc /= i_am_accel_node' )
+#endif
 
   nshift = p_patch(jgc)%nshift
   CALL exchange_data_mult(p_patch_local_parent(jgc)%comm_pat_glb_to_loc_c, 5, 5*nshift,                            &

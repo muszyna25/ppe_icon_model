@@ -369,6 +369,7 @@ CONTAINS
     config_sst_td_filename    = sst_td_filename
     config_ci_td_filename     = ci_td_filename
     config_nlev_soil          = nlev_soil
+    !$ACC UPDATE DEVICE(config_itype_interception)
 
     !-----------------------------------------------------
     ! 6. Store the namelist for restart

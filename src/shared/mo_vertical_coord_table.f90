@@ -160,6 +160,7 @@ CONTAINS
           CALL finish (TRIM(routine), 'reading vct_a and vct_b failed')
        ENDIF
     END DO
+    !$ACC UPDATE DEVICE(vct_a)
 
     CLOSE(iunit)
 
@@ -429,6 +430,7 @@ CONTAINS
 
     ! Allocate input for init routines
     ALLOCATE(vct_a(nlevp1), vct_b(nlevp1), STAT=error_status)
+    !$ACC ENTER DATA CREATE(vct_a)
     IF (error_status/=SUCCESS) CALL finish (TRIM(routine), 'allocation of vct_a/vct_b failed')
     
     ! Allocate input for derived variables of input

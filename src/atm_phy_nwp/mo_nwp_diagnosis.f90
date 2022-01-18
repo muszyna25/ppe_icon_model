@@ -1131,12 +1131,13 @@ CONTAINS
                             & phy_params,                 & !in
                             & pt_patch, p_metrics,        & !in
                             & pt_prog, pt_prog_rcf,       & !in
-                            & pt_diag,                    & !in
+                            & pt_diag,                    & !inout
                             & lnd_diag,                   & !in
                             & p_prog_lnd_now,             & !in
-                            & p_prog_wtr_now,             & !in
-                            & ext_data,                   & !in 
-                            & prm_diag                    ) !inout
+                            & p_prog_wtr_now,             & !inout
+                            & ext_data,                   & !in
+                            & prm_diag,                   & !inout
+                            & use_acc                     ) !in
               
     TYPE(datetime),   POINTER     :: mtime_current     ! current datetime (mtime)
     INTEGER,         INTENT(IN)   :: kstart_moist
@@ -1155,6 +1156,8 @@ CONTAINS
     TYPE(t_wtr_prog),    INTENT(INOUT):: p_prog_wtr_now ! water prognostic state (now)
     TYPE(t_external_data),INTENT(IN)  :: ext_data       !< external data
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag
+
+    LOGICAL, OPTIONAL,   INTENT(IN)   :: use_acc
 
     ! Local
     INTEGER :: jc,jk,jb,jg             !< loop index
@@ -1175,9 +1178,20 @@ CONTAINS
 
     TYPE(timeDelta), POINTER :: time_diff
 
+    LOGICAL :: lacc
+
   !-----------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_nh_diagnostics)
+
+    IF (PRESENT(use_acc)) THEN
+      lacc = use_acc
+    ELSE
+      lacc = .FALSE.
+    END IF
+
+    !$ACC DATA CREATE(ztp, zqp, mlab) PRESENT(p_metrics, pt_prog_rcf, pt_diag, &
+    !$ACC   lnd_diag, p_prog_wtr_now, ext_data, prm_diag) IF(lacc)
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -1202,7 +1216,9 @@ CONTAINS
                             & pt_prog, pt_prog_rcf,       & !in
                             & ext_data, kstart_moist,     & !in
                             & ih_clch, ih_clcm,           & !in
-                            & pt_diag, prm_diag           ) !inout
+                            & pt_diag, prm_diag,          & !inout
+                            & lacc                        ) !in
+
 
     ! time difference since last call of ww_diagnostics
     time_diff => newTimedelta("PT0S")
@@ -1220,6 +1236,7 @@ CONTAINS
       !
       SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
       CASE(4,5,6,7)
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
         DO jc =  i_startidx, i_endidx
           prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)  &
                &                        + prm_diag%ice_gsp_rate(jc,jb)   &
@@ -1228,7 +1245,9 @@ CONTAINS
                &                        + prm_diag%graupel_gsp_rate(jc,jb)
           prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
         ENDDO
+        !$ACC END PARALLEL
       CASE(2)
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
         DO jc =  i_startidx, i_endidx
           prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)  &
                ! not sure what to do with ice. To be consistent to prm_diag%prec_gsp, where ice is neglected
@@ -1238,7 +1257,9 @@ CONTAINS
                &                        + prm_diag%graupel_gsp_rate(jc,jb)
           prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
         ENDDO
+        !$ACC END PARALLEL
       CASE (1)
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
         DO jc =  i_startidx, i_endidx
           prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)  &
                ! not sure what to do with ice. To be consistent to prm_diag%prec_gsp, where ice is neglected
@@ -1247,25 +1268,32 @@ CONTAINS
                &                        + prm_diag%snow_gsp_rate(jc,jb)
           prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
         ENDDO
+        !$ACC END PARALLEL
       CASE (9)
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
         DO jc =  i_startidx, i_endidx
           prm_diag%prec_gsp_rate(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)
           prm_diag%tot_prec_rate(jc,jb) = prm_diag%prec_gsp_rate(jc,jb)
         ENDDO
+        !$ACC END PARALLEL
       CASE default
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
         DO jc =  i_startidx, i_endidx
           prm_diag%prec_gsp_rate(jc,jb) = 0.0_wp
           prm_diag%tot_prec_rate(jc,jb) = 0.0_wp
         ENDDO
+        !$ACC END PARALLEL
       END SELECT
       !
       ! Add convective contributions to the total precipitation rate:
       !
       IF (atm_phy_nwp_config(jg)%inwp_convection > 0) THEN
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
         DO jc = i_startidx, i_endidx
           prm_diag%tot_prec_rate(jc,jb) = prm_diag%tot_prec_rate(jc,jb) + prm_diag%rain_con_rate(jc,jb) + &
                &                          prm_diag%snow_con_rate(jc,jb)
         ENDDO  ! jc
+        !$ACC END PARALLEL
       END IF
 
    
@@ -1273,6 +1301,8 @@ CONTAINS
         !
         ! height of convection base and top, hbas_con, htop_con
         ! 
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+        !$ACC LOOP GANG(STATIC:1) VECTOR
         DO jc = i_startidx, i_endidx
           IF ( prm_diag%locum(jc,jb) ) THEN
             prm_diag%hbas_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mbas_con(jc,jb), jb)
@@ -1292,6 +1322,7 @@ CONTAINS
         !
         ! height of the top of dry convection
         !
+        !$ACC LOOP GANG(STATIC:1) VECTOR
         DO jc = i_startidx, i_endidx 
           prm_diag%htop_dc(jc,jb) = zundef
           mlab(jc) = 1
@@ -1299,7 +1330,9 @@ CONTAINS
           zqp (jc) = pt_prog_rcf%tracer(jc,nlev,jb,iqv)
         ENDDO
 
+        !$ACC LOOP SEQ
         DO jk = nlev-1, mtop_min, -1
+          !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE(zbuoy, zqsat, zcond)
           DO jc = i_startidx, i_endidx 
             IF ( mlab(jc) == 1) THEN
               ztp(jc) = ztp(jc)  - grav_o_cpd*( p_metrics%z_mc(jc,jk,jb)    &
@@ -1317,6 +1350,7 @@ CONTAINS
           ENDDO
         ENDDO
 
+        !$ACC LOOP GANG(STATIC:1) VECTOR
         DO jc = i_startidx, i_endidx 
           IF ( prm_diag%htop_dc(jc,jb) > zundef) THEN
             prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),        &
@@ -1329,7 +1363,7 @@ CONTAINS
             prm_diag%htop_dc(jc,jb) = MIN( 0._wp, p_metrics%z_ifc(jc,nlevp1,jb) )
           END IF
         ENDDO
-
+        !$ACC END PARALLEL
       END IF !convection parameterization on
 
 
@@ -1338,25 +1372,33 @@ CONTAINS
       ! occurrences, use orography height if temperature is below freezing in all levels
       !
       ! Initialization with orography height
-      prm_diag%hzerocl(i_startidx:i_endidx,jb) = p_metrics%z_ifc(i_startidx:i_endidx,nlevp1,jb)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+      !$ACC LOOP GANG(STATIC:1) VECTOR
+      DO jc = i_startidx, i_endidx 
+        prm_diag%hzerocl(jc,jb) = p_metrics%z_ifc(jc,nlevp1,jb)
+      ENDDO
 
+      !$ACC LOOP SEQ
       DO jk = kstart_moist+1, nlev
+        !$ACC LOOP GANG(STATIC:1) VECTOR
         DO jc = i_startidx, i_endidx 
-          IF ( prm_diag%hzerocl(jc,jb) > p_metrics%z_ifc(jc,nlevp1,jb)) THEN ! freezing level found
-            CYCLE
-          ELSE IF (pt_diag%temp(jc,jk-1,jb) < tmelt .AND. pt_diag%temp(jc,jk,jb) >= tmelt) THEN
-            prm_diag%hzerocl(jc,jb) = p_metrics%z_mc(jc,jk-1,jb) -            &
-           &      ( p_metrics%z_mc(jc,jk-1,jb) - p_metrics%z_mc(jc,jk,jb) )*  &
-           &      (    pt_diag%temp(jc,jk-1,jb) - tmelt ) /                   &
-           &      (    pt_diag%temp(jc,jk-1,jb) - pt_diag%temp(jc,jk,jb) )
+          IF ( prm_diag%hzerocl(jc,jb) <= p_metrics%z_ifc(jc,nlevp1,jb)) THEN ! freezing level found
+            IF (pt_diag%temp(jc,jk-1,jb) < tmelt .AND. pt_diag%temp(jc,jk,jb) >= tmelt) THEN
+              prm_diag%hzerocl(jc,jb) = p_metrics%z_mc(jc,jk-1,jb) -            &
+            &      ( p_metrics%z_mc(jc,jk-1,jb) - p_metrics%z_mc(jc,jk,jb) )*  &
+            &      (    pt_diag%temp(jc,jk-1,jb) - tmelt ) /                   &
+            &      (    pt_diag%temp(jc,jk-1,jb) - pt_diag%temp(jc,jk,jb) )
+            END IF
           END IF
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
 
 
       !
       !  Height of snow fall limit above MSL (snow line)
       !
+      !$ACC WAIT
       CALL calsnowlmt ( snowlmt = prm_diag%snowlmt(:,jb)        , & !inout
         &               temp    = pt_diag%temp(:,:,jb)          , & !in
         &               pres    = pt_diag%pres(:,:,jb)          , & !in
@@ -1365,7 +1407,8 @@ CONTAINS
         &               hhlr    = vct_a(pt_patch%nshift_total+1:),& !in
         &               istart  = i_startidx                    , & !in
         &               iend    = i_endidx                      , & !in
-        &               wbl     = 1.3_wp )
+        &               wbl     = 1.3_wp                        , & !in
+        &               use_acc = lacc)                             !in
 
 
       ! Fill t_ice with t_so(1) for ice-free points (h_ice<=0)
@@ -1379,23 +1422,26 @@ CONTAINS
       ! the temperatures of sea-ice tiles and frozen lake tiles. Mixing this field 
       ! with aggeregated t_so values makes no sense from my point of view.
       IF ( (ntiles_total == 1) .AND. (atm_phy_nwp_config(jg)%inwp_surface > 0)) THEN
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
         DO jc = i_startidx, i_endidx 
           p_prog_wtr_now%t_ice(jc,jb) = MERGE(                               &
             &                           lnd_diag%t_so(jc,1,jb),              &
             &                           p_prog_wtr_now%t_ice(jc,jb),         &
             &                           p_prog_wtr_now%h_ice(jc,jb) <= 0._wp )
         ENDDO  !jc
+        !$ACC END PARALLEL
       ENDIF
 
 
 
       ! Compute resolved surface drag: ps * del(orog)
  
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
       DO jc = i_startidx, i_endidx
          prm_diag%drag_u_grid(jc,jb) = pt_diag%pres_ifc(jc,nlevp1,jb) * ext_data%atm%grad_topo(1,jc,jb)
          prm_diag%drag_v_grid(jc,jb) = pt_diag%pres_ifc(jc,nlevp1,jb) * ext_data%atm%grad_topo(2,jc,jb)
       ENDDO
-
+      !$ACC END PARALLEL
 
       IF (atm_phy_nwp_config(jg)%inwp_gscp > 0 ) THEN
 
@@ -1414,14 +1460,16 @@ CONTAINS
             &                prm_diag%snow_gsp0(:,jb), prm_diag%snow_gsp(:,jb),          &
             &                prm_diag%snow_con0(:,jb), prm_diag%snow_con(:,jb),          &
             &                prm_diag%mbas_con (:,jb), prm_diag%mtop_con(:,jb),          &
-            &                time_diff, prm_diag%iww(:,jb) )
+            &                time_diff, prm_diag%iww(:,jb), use_acc=lacc )
 !       Save precipitation and time until next call of ww_diagnostics
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
         DO jc = i_startidx, i_endidx
           prm_diag%rain_gsp0(jc,jb) = prm_diag%rain_gsp(jc,jb)
           prm_diag%rain_con0(jc,jb) = prm_diag%rain_con(jc,jb)
           prm_diag%snow_gsp0(jc,jb) = prm_diag%snow_gsp(jc,jb)
           prm_diag%snow_con0(jc,jb) = prm_diag%snow_con(jc,jb)
         ENDDO
+        !$ACC END PARALLEL
       ENDIF
 
       !
@@ -1430,14 +1478,16 @@ CONTAINS
       !  start level (kmoist) is limited to pressure heights above p=60hPa, 
       !  in order to avoid unphysically low test parcel temperature.
       !  Otherwise computation crashes in sat_pres_water  
+      !$ACC WAIT
       CALL cal_cape_cin( i_startidx, i_endidx,                     &
         &                kmoist  = MAX(kstart_moist,phy_params%k060), & !in
         &                te      = pt_diag%temp(:,:,jb)          , & !in
         &                qve     = pt_prog_rcf%tracer(:,:,jb,iqv), & !in
         &                prs     = pt_diag%pres(:,:,jb)          , & !in
         &                hhl     = p_metrics%z_ifc(:,:,jb)       , & !in
-        &                cape_ml = prm_diag%cape_ml(:,jb)        , & !in
-        &                cin_ml  = prm_diag%cin_ml(:,jb) )
+        &                cape_ml = prm_diag%cape_ml(:,jb)        , & !out
+        &                cin_ml  = prm_diag%cin_ml(:,jb)         , & !out
+        &                use_acc = lacc                            ) !in
 
     ENDDO  ! jb
 !$OMP END DO
@@ -1446,8 +1496,11 @@ CONTAINS
     ww_datetime(jg) = time_config%tc_current_date
 
     ! compute modified cloud parameters for TV presentation
-    CALL calcmod( pt_patch, pt_diag, prm_diag )
+    !$ACC WAIT
+    CALL calcmod( pt_patch, pt_diag, prm_diag, use_acc=lacc )
 
+    !$ACC WAIT
+    !$ACC END DATA
     IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
     CALL deallocateTimedelta(time_diff)
 
@@ -1474,11 +1527,12 @@ CONTAINS
   !! - Adapted to and implemented into ICON
   !!
   !!
-  SUBROUTINE calcmod( pt_patch, pt_diag, prm_diag )    
+  SUBROUTINE calcmod( pt_patch, pt_diag, prm_diag, use_acc )    
               
     TYPE(t_patch)       ,INTENT(IN)   :: pt_patch  !<grid/patch info.
     TYPE(t_nh_diag)     ,INTENT(IN)   :: pt_diag
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag
+    LOGICAL, OPTIONAL,   INTENT(IN)   :: use_acc
 
     ! Local
     INTEGER :: jc,jk,jb                !< loop index
@@ -1498,7 +1552,14 @@ CONTAINS
     REAL(wp), PARAMETER :: p_clbas_max = 600.0E2_wp ! upper bound for reduction factor
     REAL(wp), PARAMETER :: clct_min    = 0.5_wp     ! threshold for significant cloudiness
 
+    LOGICAL :: lacc
+
   !--------------------------------------------------------------------
+    IF (PRESENT(use_acc)) THEN
+      lacc = use_acc
+    ELSE
+      lacc = .FALSE.
+    END IF
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
 
@@ -1529,9 +1590,16 @@ CONTAINS
       ! normalized by 700hPa. Thus, cldepth=1 for a cloud extending vertically over a 
       ! range of 700 hPa. Only used for visualization purpose (i.e. gray-scale pictures)
       !
-      prm_diag%cldepth(i_startidx:i_endidx,jb) = 0._wp
+      !$ACC PARALLEL DEFAULT(NONE) CREATE(iclbas, p_clbas) PRESENT(pt_diag, &
+      !$ACC   prm_diag) IF(lacc)
+      !$ACC LOOP GANG(STATIC:1) VECTOR
+      DO jc = i_startidx, i_endidx
+        prm_diag%cldepth(jc,jb) = 0._wp
+      ENDDO  ! jc
       !
+      !$ACC LOOP SEQ
       DO jk=1, nlev
+        !$ACC LOOP GANG(STATIC:1) VECTOR
         DO jc = i_startidx, i_endidx 
            prm_diag%cldepth(jc,jb) = prm_diag%cldepth(jc,jb)   & 
              &                     + prm_diag%clc(jc,jk,jb) * pt_diag%dpres_mc(jc,jk,jb)
@@ -1539,6 +1607,7 @@ CONTAINS
       ENDDO  ! jk
       !
       ! Normalize:
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jc = i_startidx, i_endidx 
         prm_diag%cldepth(jc,jb) = MIN(1._wp,prm_diag%cldepth(jc,jb)/700.E2_wp)
       ENDDO
@@ -1551,14 +1620,19 @@ CONTAINS
       ! at this grid point. The computation of the cloud cover uses maximum overlapping. 
       !
       ! initialize
-      prm_diag%clct_mod(i_startidx:i_endidx,jb) = 0._wp  ! modified cloud cover
-      p_clbas(i_startidx:i_endidx)              = 0._wp  ! pressure at base of significant cloudiness
-      iclbas(i_startidx:i_endidx)               = 1      ! level at base of significant cloudiness
+      !$ACC LOOP GANG(STATIC:1) VECTOR
+      DO jc = i_startidx, i_endidx 
+        prm_diag%clct_mod(jc,jb) = 0._wp  ! modified cloud cover
+        p_clbas(jc)              = 0._wp  ! pressure at base of significant cloudiness
+        iclbas(jc)               = 1      ! level at base of significant cloudiness
+      ENDDO  ! jc
 
       ! Determine base level of significant cloudiness
       ! Cloudiness is assumed to be significant, if clc>clct_min (=0.5)
       ! If there is no significant cloudiness within a column: iclbas = 1
+      !$ACC LOOP SEQ
       DO jk=1, nlev
+        !$ACC LOOP GANG(STATIC:1) VECTOR
         DO jc = i_startidx, i_endidx 
           IF ( prm_diag%clc(jc,jk,jb) >= clct_min ) THEN
             ! half-level index at base of significant cloudiness
@@ -1584,6 +1658,7 @@ CONTAINS
       ! |
       ! |--------------------------------------
       !
+      !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE(jk_bot, jk_top)
       DO jc = i_startidx, i_endidx
         IF (iclbas(jc) == 1) THEN     ! no cloud at this grid point
           p_clbas(jc) = 0._wp
@@ -1600,7 +1675,9 @@ CONTAINS
       ENDDO
 
       ! compute cloud cover using maximum overlapping
+      !$ACC LOOP SEQ
       DO jk = 1,nlev
+        !$ACC LOOP GANG(STATIC:1) VECTOR
         DO jc = i_startidx, i_endidx
           prm_diag%clct_mod(jc,jb) = MAX (prm_diag%clct_mod(jc,jb), prm_diag%clc(jc,jk,jb))
         ENDDO
@@ -1624,6 +1701,7 @@ CONTAINS
       ! |      zred = 1
       ! |__________________________________>
 
+      !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE(zred)
       DO jc = i_startidx, i_endidx
         zred = 1._wp
         IF (p_clbas(jc) < p_clbas_min) THEN
@@ -1634,6 +1712,7 @@ CONTAINS
         ENDIF
         prm_diag%clct_mod(jc,jb) = zred * prm_diag%clct_mod(jc,jb)
       ENDDO  ! jc
+      !$ACC END PARALLEL
 
 
     ENDDO  ! jb

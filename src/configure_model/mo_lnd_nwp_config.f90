@@ -79,6 +79,7 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  itype_root         !< type of root density distribution
   INTEGER ::  itype_heatcond     !< type of soil heat conductivity
   INTEGER ::  itype_interception !< type of plant interception
+  !$ACC DECLARE CREATE(itype_interception)
   REAL(wp)::  cwimax_ml          !< scaling parameter for maximum interception storage
   REAL(wp)::  c_soil             !< surface area density of the (evaporative) soil surface
   REAL(wp)::  c_soil_urb         !< surface area density of the (evaporative) soil surface, urban areas
@@ -170,6 +171,7 @@ CONTAINS
       ! layer thickness betw. half levels
       dzsoil(js)   = depth_hl(js) - depth_hl(js-1)
     ENDDO
+    !$ACC ENTER DATA COPYIN(dzsoil)
 
     ! Determine ibot_w_so
     DO js=1,nlev_soil
