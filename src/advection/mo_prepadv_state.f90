@@ -83,9 +83,15 @@ CONTAINS
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: shape3d_e(3), shape3d_chalf(3), shape3d_tracer(3)
+    INTEGER :: shape3d_e(3), shape3d_chalf(3), shape3d_tracer(3), &
+      &        shape2d_c(2)
     INTEGER :: ibits         !< "entropy" of horizontal slice                                                      
     INTEGER :: datatype_flt
+
+    CHARACTER(LEN=2) :: ctrnam
+    CHARACTER(LEN=vname_len+LEN(ctrnam)) :: tracer_name
+    INTEGER :: tlen
+    INTEGER :: jt
 #endif
     CHARACTER(*), PARAMETER :: routine = 'mo_prepadv_state:construct_prepadv_state'
 
@@ -114,9 +120,10 @@ CONTAINS
       ! number of vertical levels
       nlev   = p_patch(jg)%nlev
       nlevp1 = p_patch(jg)%nlevp1
-      shape3d_e     = (/nproma, nlev   , nblks_e/)
-      shape3d_chalf = (/nproma, nlevp1 , nblks_c/)
-      shape3d_tracer= (/nproma, nblks_c, MAX(1,ntracer)/)
+      shape3d_e     = (/nproma, nlev          , nblks_e/)
+      shape3d_chalf = (/nproma, nlevp1        , nblks_c/)
+      shape3d_tracer= (/nproma, MAX(1,ntracer), nblks_c/)
+      shape2d_c     = (/nproma,                 nblks_c/)
 
       !------------------------------
       ! Ensure that all pointers have a defined association status
@@ -124,7 +131,8 @@ CONTAINS
       NULLIFY(prep_adv(jg)%mass_flx_me, &
         &     prep_adv(jg)%mass_flx_ic, &
         &     prep_adv(jg)%vn_traj,     &
-        &     prep_adv(jg)%topflx_tra   )
+        &     prep_adv(jg)%q_int,       &
+        &     prep_adv(jg)%q_ubc        )
 
       !
       ! Register a field list and apply default settings
@@ -164,16 +172,56 @@ CONTAINS
                   & isteptype=TSTEP_INSTANT, lopenacc=.TRUE. )
       __acc_attach(prep_adv(jg)%vn_traj)
 
-      ! topflx_tra       prep_adv(jg)%topflx_tra(nproma,nblks_c,ntracer)
-      cf_desc    = t_cf_var('topflx_tra', 'kg m-2 s-1', &
-        &                   'tracer mass flux at upper boundary',  &
-        &                   datatype_flt)
-      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( prep_adv_list(jg), 'topflx_tra', prep_adv(jg)%topflx_tra,                &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
-                  & ldims=shape3d_tracer, loutput=.FALSE.,                           &
-                  & isteptype=TSTEP_INSTANT, lopenacc=.TRUE. )
-      __acc_attach(prep_adv(jg)%topflx_tra)
+      ! q_int        prep_adv(jg)%q_int(nproma,ntracer,nblks_c)
+      !
+      cf_desc    = t_cf_var('q_int', 'kg kg-1',                        &
+        &                   'q at parent interface level', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( prep_adv_list(jg), 'q_int', prep_adv(jg)%q_int,             &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_tracer,                                       &
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
+                  & lopenacc = .TRUE. )
+      __acc_attach(prep_adv(jg)%q_int)
+
+      ALLOCATE(prep_adv(jg)%q_int_ptr(ntracer))
+      DO jt =1,ntracer
+        WRITE(ctrnam,'(I2)') jt
+        tracer_name = 'q_int'//ctrnam(1+MERGE(1,0,jt<=9):)
+        tlen = LEN_TRIM(tracer_name)
+        CALL add_ref( prep_adv_list(jg), 'q_int',                                   &
+                    & tracer_name(1:tlen), prep_adv(jg)%q_int_ptr(jt)%p_2d,         &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                    & t_cf_var(tracer_name(1:tlen), 'kg kg-1','', datatype_flt),    &
+                    & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+                    & ref_idx=jt, opt_var_ref_pos=2,                                &
+                    & ldims=shape2d_c, lrestart=.FALSE. )
+      ENDDO
+
+      ! q_ubc        prep_adv(jg)%q_ubc(nproma,ntracer,nblks_c)
+      !
+      cf_desc    = t_cf_var('q_ubc', 'kg kg-1',                      &
+        &                   'q at child upper boundary', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( prep_adv_list(jg), 'q_ubc', prep_adv(jg)%q_ubc,             &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_tracer,                                       &
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
+                  & lopenacc = .TRUE. )
+      __acc_attach(prep_adv(jg)%q_ubc)
+
+      ALLOCATE(prep_adv(jg)%q_ubc_ptr(ntracer))
+      DO jt =1,ntracer
+        WRITE(ctrnam,'(I2)') jt
+        tracer_name = 'q_ubc'//ctrnam(1+MERGE(1,0,jt<=9):)
+        tlen = LEN_TRIM(tracer_name)
+        CALL add_ref( prep_adv_list(jg), 'q_ubc',                                   &
+                    & tracer_name(1:tlen), prep_adv(jg)%q_ubc_ptr(jt)%p_2d,         &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                    & t_cf_var(tracer_name(1:tlen), 'kg kg-1','', datatype_flt),    &
+                    & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+                    & ref_idx=jt, opt_var_ref_pos=2,                                &
+                    & ldims=shape2d_c, lrestart=.FALSE. )
 #endif
     ENDDO
 
