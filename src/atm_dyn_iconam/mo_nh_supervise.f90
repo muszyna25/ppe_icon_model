@@ -596,11 +596,6 @@ CONTAINS
         & max_vn, max_vn_level, max_vn_process, &
         & max_w, max_w_level, max_w_process )
 
-#ifdef _OPENACC
-    IF (msg_level >= 13) THEN
-      CALL printGPUMem("print_maxwinds")
-    END IF
-#endif
 
     !--- Get max over all PEs
     IF (msg_level >= 7) THEN

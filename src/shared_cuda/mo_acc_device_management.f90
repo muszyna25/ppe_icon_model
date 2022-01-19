@@ -725,7 +725,7 @@ SUBROUTINE printGPUMem(mtag)
   END IF
   IF (p_comm_rank(p_comm_work) == 0) THEN
     WRITE(message_text,'(a,E12.6,a,E12.6)') 'used GB ', output(2)-output(1), ' free GB ', output(1)
-    CALL message(TRIM(mtag)//" GPU Mem usage: ", message_text)
+    CALL message(TRIM(mtag), message_text)
   ENDIF
 !------------------------------------------------------------------------------
 ! End of module procedure printGPUMem
