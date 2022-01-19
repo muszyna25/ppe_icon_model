@@ -163,11 +163,7 @@ MODULE mo_solve_nonhydro
     ! The data type vp (variable precision) is by default the same as wp but reduces
     ! to single precision when the __MIXED_PRECISION cpp flag is set at compile time
 #ifdef __SWAPDIM
-    REAL(vp) &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-             :: z_th_ddz_exner_c(nproma,p_patch%nlev  ,p_patch%nblks_c), &
+    REAL(vp) :: z_th_ddz_exner_c(nproma,p_patch%nlev  ,p_patch%nblks_c), &
                 z_dexner_dz_c   (nproma,p_patch%nlev  ,p_patch%nblks_c,2), &
                 z_vt_ie         (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_kin_hor_e     (nproma,p_patch%nlev  ,p_patch%nblks_e), &
