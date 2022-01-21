@@ -19,6 +19,7 @@ function copy_experiment
     # check for the existence of either
     #   - a restart file, or
     #   - a (multifile) "*.nc"-restart directory
+    #   - a (multifile) "*.mfr"-restart directory
     #
     COMPS=''
     if [ -f ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc ]; then
@@ -55,10 +56,9 @@ function copy_experiment
             done
         done
 
-    else
-        if [ -d ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc ]; then
+    elif [ -d ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc ]; then
 
-            # CASE 2: Multifile restart
+            # CASE 2: Multifile restart with directory name extension .nc and with domain index DOM00
 
             echo "Multifile restart"
             if [ -d ${EXP_ORI}/${EXP_ORI}_restart_atm_*${RESTART_DATE}.nc ]; then
@@ -78,13 +78,35 @@ function copy_experiment
                 ln -sf ${EXP_ORI}_restart_${COMP}_DOM00_${RESTART_DATE}.nc multifile_restart_${COMP}.mfr
             done
 
-        else
+    elif [ -d ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.mfr ]; then
+
+            # CASE 3: Multifile restart with directory name extension .mfr and without domain index
+
+            echo "Multifile restart"
+            if [ -d ${EXP_ORI}/${EXP_ORI}_restart_atm_*${RESTART_DATE}.mfr ]; then
+                COMPS=${COMPS}' atm'
+            fi
+            if [ -d ${EXP_ORI}/${EXP_ORI}_restart_oce_*${RESTART_DATE}.mfr ]; then
+                COMPS=${COMPS}' oce'
+            fi
+            if [ -d ${EXP_ORI}/${EXP_ORI}_restart_lnd_*${RESTART_DATE}.mfr ]; then
+                COMPS=${COMPS}' lnd'
+            fi
+
+	    cd ${EXP_NEW}
+
+            for COMP in ${COMPS}; do
+                cp -r ../${EXP_ORI}/${EXP_ORI}_restart_${COMP}_*${RESTART_DATE}.mfr .
+                ln -sf ${EXP_ORI}_restart_${COMP}_${RESTART_DATE}.mfr multifile_restart_${COMP}.mfr
+            done
+
+    else
 
             echo "Cannot find restart file: ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc "
-            echo "and no multifile restart directory ../${EXP_ORI}/${EXP_ORI}_restart_atm_*${RESTART_DATE}.nc, too! "
+            echo "and no multifile restart directory ../${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc"
+            echo "and no multifile restart directory ../${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.mfr"
             echo "The run ${EXP_ORI} did not write any restart at ${RESTART_DATE}"
             exit 1
-        fi
     fi
 }
 #------------------------------------------------------------------------
@@ -248,23 +270,26 @@ function diff_results
 
                 echo "Compare for TYPE=$TYPE"
                 cdo diffn ${FILE1} ${FILE2} > ${DIFF_FILE}
-    
-                STATUS=`echo $?`
-                if [ "$STATUS" -ne 0 ]; then
-                    echo " File 1 and file 2 cannot be compared"
+
+		# does FILE2 contain the same variables as FILE1?
+		not_found=$(grep 'not found' ${DIFF_FILE}|wc -l)
+                if [ $not_found -ge 1 ]; then
+                    echo " $not_found variable(s) of file 1 not found in file 2 -> files cannot be compared"
                     echo " - file 1: ${FILE1}"
                     echo " - file 2: ${FILE2}"
                     DIFFERENT_TYPES="$DIFFERENT_TYPES $TYPE"
                 fi
-                if [ -s ${DIFF_FILE} ]; then
-		    # The diff file is not empty, because "cdo diffn" has found differences.
+
+		# have differences been reported?
+		Max_Absdiff=$(grep 'Max_Absdiff' ${DIFF_FILE}|wc -l)
+                if [ $Max_Absdiff -ne 0 ]; then
                     echo " File 1 and file 2 differ"
                     echo " - file 1: ${FILE1}"
                     echo " - file 2: ${FILE2}"
                     if [ "$CAT_CDO_DIFFN" == 'yes' ]; then
                         cat ${DIFF_FILE}
-                        rm  ${DIFF_FILE}
                     fi
+                    rm  ${DIFF_FILE}
                     IS_DIFFERENT='yes'
                     DIFFERENT_TYPES="$DIFFERENT_TYPES $TYPE"
                     if [ "$SUB_FILES" == 'yes' ]; then
@@ -274,7 +299,7 @@ function diff_results
                         cdo sub ${FILE2} ${FILE1} ${WDIR}/diff_${BFILE2%.nc}-${BFILE1}
                     fi
                 else
-                    # The diff file is empty because "cdo diffn" has not found any differences.
+                    # No differences are reported.
                     # Thus the diff file can be deleted.
                     rm ${DIFF_FILE}
                 fi

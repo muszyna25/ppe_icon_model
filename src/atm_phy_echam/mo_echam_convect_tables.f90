@@ -592,15 +592,13 @@ CONTAINS
 
     need_dua = PRESENT(dua)
 
-    !$ACC DATA PRESENT( dua ) IF ( need_dua )
-    !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT( ua, idx, zalpha, table ) GANG VECTOR COLLAPSE(2) ASYNC(1)
+    !$ACC PARALLEL LOOP DEFAULT(PRESENT) NO_CREATE( dua ) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO batch = 1,batch_size
       DO jl = jcs,jce
         CALL ua_spline(table, zalpha(jl,batch), idx(jl,batch), ua(jl,batch), mydua)
         IF ( need_dua ) dua(jl,batch) = mydua
       END DO
     END DO
-    !$ACC END DATA
 
   END SUBROUTINE fetch_ua_spline_batch
 
@@ -623,10 +621,7 @@ CONTAINS
 
     need_dua = PRESENT(dua)
 
-    !$ACC DATA PRESENT( iphase, lookup_idx, zalpha, table, tablew, ua )
-    !$ACC DATA PRESENT( dua ) IF ( need_dua )
-    
-    !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) COLLAPSE(2) ASYNC(1)
+    !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(PRESENT) NO_CREATE( dua ) COLLAPSE(2) ASYNC(1)
     DO batch = 1, batch_size
       DO jl = jcs, jce
 
@@ -643,8 +638,6 @@ CONTAINS
       END DO
     END DO
 
-    !$ACC END DATA
-    !$ACC END DATA
   END SUBROUTINE fetch_ua_list_spline_batch
   !----------------------------------------------------------------------------
   SUBROUTINE fetch_ua_list(size, kidx, store_idx, lookup_idx, table, u)
@@ -819,7 +812,7 @@ CONTAINS
 
   END SUBROUTINE lookup_uaw
   !----------------------------------------------------------------------------
-  SUBROUTINE prepare_ua_index_spline(jg, name, jcs, size, temp, idx, zalpha, &
+SUBROUTINE prepare_ua_index_spline(jg, name, jcs, size, temp, idx, zalpha, &
     &                                xi, nphase, zphase, iphase,             &
     &                                klev, kblock, kblock_size)
     INTEGER,            INTENT(in)  :: jg
@@ -845,11 +838,8 @@ CONTAINS
     !
     REAL(wp) :: csecfrl, cthomi
     !
-    !$ACC DATA PRESENT( temp, idx, zalpha )
-    !$ACC DATA PRESENT( xi ) IF( PRESENT(xi) )
-    !$ACC DATA PRESENT( zphase ) IF( PRESENT(zphase) )
-    !$ACC DATA PRESENT( iphase ) IF( PRESENT(iphase) )
-
+    !$ACC DATA   PRESENT( temp, idx, zalpha ) &
+    !$ACC      NO_CREATE( xi, zphase, iphase )
     !
     csecfrl = echam_cld_config(jg)%csecfrl
     cthomi  = echam_cld_config(jg)%cthomi
@@ -860,7 +850,7 @@ CONTAINS
     IF (PRESENT(xi)) THEN
       znphase = 0.0_wp
       !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR PRIVATE( ztshft, ztt, ztest ) REDUCTION( +:znphase ) REDUCTION( *:zinbounds )
+      !$ACC LOOP GANG VECTOR PRIVATE( ztshft, ztt, ztest ) REDUCTION( +:znphase ) PRIVATE( zinbounds )
       DO jl = jcs,size
         ztshft = FSEL(tmelt-temp(jl),1.0_wp,0.0_wp)
         ztt = rsdeltat*temp(jl)
@@ -883,7 +873,7 @@ CONTAINS
       nphase = INT(znphase)
     ELSE
       !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR PRIVATE( ztshft, ztt ) REDUCTION( *:zinbounds )
+      !$ACC LOOP GANG VECTOR PRIVATE( ztshft, ztt ) PRIVATE( zinbounds )
       DO jl = jcs, size
         ztshft = FSEL(tmelt-temp(jl),1.0_wp,0.0_wp)
         ztt = rsdeltat*temp(jl)
@@ -894,6 +884,8 @@ CONTAINS
       END DO
       !$ACC END PARALLEL
     END IF
+
+#ifndef _OPENACC
     ! if one index was out of bounds -> print error and exit
     IF (zinbounds == 0.0_wp) THEN
       IF ( PRESENT(kblock) .AND. PRESENT(kblock_size) .AND. PRESENT(klev) ) THEN
@@ -914,10 +906,8 @@ CONTAINS
       ENDIF
       CALL lookuperror(name, 'prepare_ua_index_spline')
     END IF
+#endif
 
-    !$ACC END DATA
-    !$ACC END DATA
-    !$ACC END DATA
     !$ACC END DATA
 
   END SUBROUTINE prepare_ua_index_spline
@@ -971,9 +961,6 @@ CONTAINS
     END IF
 
     IF (PRESENT(xi)) THEN
-      ! DA: This part has to better be implemented
-      ! with array reduction coming in the OpenACC 2.7
-      
       !$ACC DATA PRESENT( xi, zphase, iphase, nphase ) &
       !$ACC      CREATE ( znphase, zoutofbounds_vec )
 
@@ -1039,6 +1026,7 @@ CONTAINS
         END IF
       END IF
 
+      !$ACC WAIT
       !$ACC END DATA
       
     ELSE
@@ -1169,10 +1157,9 @@ CONTAINS
     REAL(wp) :: ztt, ztshft, zinbounds, ztmax, ztmin
     INTEGER :: nl, jl
 
-    !$ACC DATA PRESENT( list, temp )                                           &
-    !$ACC       CREATE( idx, zalpha )
-    !$ACC DATA PRESENT( ua ) IF( PRESENT(ua) )
-    !$ACC DATA PRESENT( dua ) IF( PRESENT(dua) )
+    !$ACC DATA   PRESENT( list, temp )  &
+    !$ACC      NO_CREATE( ua, dua )     &
+    !$ACC         CREATE( idx, zalpha )
 
     zinbounds = 1.0_wp
     ztmin = flucupmin
@@ -1181,8 +1168,8 @@ CONTAINS
     ! first compute all lookup indices and check if they are all within allowed bounds
 
 !IBM* ASSERT(NODEPS)
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG VECTOR PRIVATE( jl, ztshft, ztt ) REDUCTION( *:zinbounds )
+    !$ACC PARALLEL DEFAULT(NONE)
+    !$ACC LOOP GANG VECTOR PRIVATE( jl, ztshft, ztt ) PRIVATE( zinbounds )
     DO nl = jcs, kidx
       jl = list(nl)
       ztshft = FSEL(tmelt-temp(jl),1.0_wp,0.0_wp)
@@ -1193,6 +1180,8 @@ CONTAINS
       zinbounds = FSEL(ztt-ztmax,0.0_wp,zinbounds)
     END DO
     !$ACC END PARALLEL
+
+#ifndef _OPENACC
     ! if one index was out of bounds -> print error and exit
     IF (zinbounds == 0.0_wp) THEN
       IF ( PRESENT(kblock) .AND. PRESENT(kblock_size) .AND. PRESENT(klev) ) THEN
@@ -1213,10 +1202,9 @@ CONTAINS
       ENDIF
       CALL lookuperror(name, 'lookup_ua_list_spline')
     ENDIF
+#endif
     CALL fetch_ua_spline(jcs, kidx, idx, zalpha, tlucu, ua, dua)
 
-    !$ACC END DATA
-    !$ACC END DATA
     !$ACC END DATA
   END SUBROUTINE lookup_ua_list_spline
   !----------------------------------------------------------------------------

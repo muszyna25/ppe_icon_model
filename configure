@@ -6775,7 +6775,9 @@ fi
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
-  -enable-openacc|-enable-openacc=*|--enable-openacc|--enable-openacc=*|-disable-openacc|--disable-openacc) :
+  -enable-gpu|-enable-gpu=*|--enable-gpu|--enable-gpu=*|-disable-gpu|--disable-gpu) :
+     ;; #(
+  -enable-tests|-enable-tests=*|--enable-tests|--enable-tests=*|-disable-tests|--disable-tests) :
      ;; #(
   *) :
 
@@ -6791,7 +6793,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-         set dummy CFLAGS="$subdir_CFLAGS $ICON_RTE_RRTMGP_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_RTE_RRTMGP_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-openacc="$enable_gpu" --enable-silent-rules="$enable_silent_rules" ; shift
+         set dummy CFLAGS="$subdir_CFLAGS $ICON_RTE_RRTMGP_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_RTE_RRTMGP_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-gpu="$enable_gpu" --enable-tests=no --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :

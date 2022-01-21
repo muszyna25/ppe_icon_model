@@ -53,7 +53,16 @@ MODULE mo_nonhydrostatic_config
     LOGICAL :: lhdiff_rcf               ! if true: compute horizontal diffusion also at the large time step
     LOGICAL :: lextra_diffu             ! if true: apply additional diffusion at grid points close 
                                         ! to the CFL stability limit for vertical advection
-    REAL(wp):: divdamp_fac              ! Scaling factor for divergence damping (used if lhdiff_rcf = true)
+
+    REAL(wp):: divdamp_fac              ! Scaling factor for divergence damping at height divdamp_z and below  (used if lhdiff_rcf = true)
+    REAL(wp):: divdamp_fac2             ! Scaling factor for divergence damping at height divdamp_z2           (used if lhdiff_rcf = true)
+    REAL(wp):: divdamp_fac3             ! Scaling factor for divergence damping at height divdamp_z3           (used if lhdiff_rcf = true)
+    REAL(wp):: divdamp_fac4             ! Scaling factor for divergence damping at height divdamp_z4 and above (used if lhdiff_rcf = true)
+    REAL(wp):: divdamp_z                ! Height up to which divdamp_fac is used, start of linear profile      (used if lhdiff_rcf = true)
+    REAL(wp):: divdamp_z2               ! Height of divdamp_fac2, end of linear and start of quadratic profile (used if lhdiff_rcf = true)
+    REAL(wp):: divdamp_z3               ! Height of divdamp_fac3, to define quadratic profile                  (used if lhdiff_rcf = true)
+    REAL(wp):: divdamp_z4               ! Height from which divdamp_fac4, end of quadratic profile             (used if lhdiff_rcf = true)
+
     REAL(wp):: divdamp_fac_o2           ! Scaling factor for second-order divergence damping 
                                         ! (derived variable; used if lhdiff_rcf = true and divdamp_order = 2 or 24)
     INTEGER :: divdamp_order            ! Order of divergence damping

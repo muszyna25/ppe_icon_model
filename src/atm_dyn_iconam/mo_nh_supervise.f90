@@ -43,7 +43,6 @@ MODULE mo_nh_supervise
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
 #ifdef _OPENACC
   USE mo_mpi,                   ONLY: i_am_accel_node
-  USE mo_acc_device_management, ONLY: printGPUMem
 #endif
   USE mo_upatmo_impl_const,   ONLY: idamtr
 
@@ -608,9 +607,6 @@ CONTAINS
         WRITE(message_text,'(a,i3,a,2(e18.10,a,i5,a,i3,a))') 'MAXABS VN, W in domain', patch%id, ':', &
           & max_vn, " (on proc #", max_vn_process, ", level ", max_vn_level, "), ", &
           & max_w,  " (on proc #", max_w_process,  ", level ", max_w_level,  "), "
-#ifdef _OPENACC
-        CALL printGPUMem("GPU mem usage")
-#endif
       ELSE
         WRITE(message_text,'(a,i3,a,2(e18.10,a,i3,a))') 'MAXABS VN, W in domain', patch%id, ':', &
           & max_vn, " at level ",  max_vn_level, ", ", &
@@ -680,7 +676,7 @@ CONTAINS
 !$ACC UPDATE DEVICE ( vn, w ) IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
     IF (jg > 1 .OR. l_limited_area) THEN
-!$ACC KERNELS PRESENT( vn_aux, w_aux ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF ( i_am_accel_node .AND. acc_on )
       vn_aux(1:MIN(istartblk_e,iendblk_e),:) = 0._wp
       w_aux (1:MIN(istartblk_c,iendblk_c),:) = 0._wp
 !$ACC END KERNELS
@@ -697,7 +693,7 @@ CONTAINS
       CALL get_indices_e(patch, jb, istartblk_e, iendblk_e, i_startidx, i_endidx, &
                          grf_bdywidth_e+1, min_rledge_int)
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG PRIVATE( vn_aux_tmp )
 !$NEC novector
       DO jk = 1, patch%nlev
@@ -726,7 +722,7 @@ CONTAINS
       CALL get_indices_c(patch, jb, istartblk_c, iendblk_c, i_startidx, i_endidx, &
                          grf_bdywidth_c+1, min_rlcell_int)
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG PRIVATE( w_aux_tmp )
 !$NEC novector
       DO jk = 1, patch%nlevp1
@@ -745,6 +741,7 @@ CONTAINS
     END DO
 !$OMP END DO
 
+!$ACC WAIT
 !$ACC END DATA
 
 ! At this point vn_aux and w_aux reside on the host.  

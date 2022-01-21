@@ -727,8 +727,8 @@ SUBROUTINE printGPUMem(mtag)
     output = input
   END IF
   IF (p_comm_rank(p_comm_work) == 0) THEN
-    WRITE(message_text,'(a,E12.6,a,E12.6)') 'used GB', output(2)-output(1), ' free GB ', output(1)
-    CALL message("print_maxwinds: ", message_text)
+    WRITE(message_text,'(a,E12.6,a,E12.6)') 'used GB ', output(2)-output(1), ' free GB ', output(1)
+    CALL message(mtag, message_text)
   ENDIF
 !------------------------------------------------------------------------------
 ! End of module procedure printGPUMem

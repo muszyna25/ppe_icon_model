@@ -87,12 +87,12 @@ CONTAINS
     ! local arrays
     REAL(wp) :: ztropo(kproma)
 
-    REAL(wp) :: zpmk(kproma,klev), zpm(kproma,klev),   za(kproma,klev)
-    REAL(wp) :: zb(kproma,klev),   ztm(kproma,klev),   zdtdz(kproma,klev)
+    REAL(wp) :: zpmk(kproma,klev), zpm(kproma,klev)
+    REAL(wp) :: ztm(kproma,klev),  zdtdz(kproma,klev)
     REAL(wp) :: zplimb(kproma), zplimt(kproma)
 
     REAL(wp) :: zptph, zp2km, zkappa, zzkap, zfaktor, zgwmo, zdeltaz
-    REAL(wp) :: zag, zbg
+    REAL(wp) :: zag, zbg, za, zb
 
     INTEGER :: jl, jk, jj
 
@@ -124,11 +124,11 @@ CONTAINS
     END IF
 
     !$ACC DATA PRESENT( ptm1, papm1, ptropo ) &
-    !$ACC       CREATE( ztropo, zpmk, zpm, za, zb, ztm, zdtdz, zplimb, zplimt, zpapm1 )
+    !$ACC       CREATE( ztropo, zpmk, zpm, ztm, zdtdz, zplimb, zplimt, zpapm1 )
 
     ! Calculate the height of the tropopause
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs, kproma
       ztropo(jl) = -999.0_wp
@@ -139,20 +139,18 @@ CONTAINS
 
     ! compute dt/dz
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = iplimt-2, iplimb+1
-      !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
         zpapm1(jl,jk)=papm1(jl,jk)**zkappa
       ENDDO
     ENDDO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = iplimt-1, iplimb+1
-      !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
 
         ! ztm   lineare Interpolation in p**kappa
@@ -160,18 +158,18 @@ CONTAINS
 
         zpmk(jl,jk) = 0.5_wp*(zpapm1(jl,jk-1)+zpapm1(jl,jk))
         zpm(jl,jk)  = zpmk(jl,jk)**zzkap                   ! p centre
-        za(jl,jk)   = (ptm1(jl,jk-1)-ptm1(jl,jk)) &
-             /(zpapm1(jl,jk-1)-zpapm1(jl,jk))
-        zb(jl,jk)   = ptm1(jl,jk)-(za(jl,jk)*zpapm1(jl,jk))
-        ztm(jl,jk)  = za(jl,jk)*zpmk(jl,jk)+zb(jl,jk)      ! T centre
+        za          = (ptm1(jl,jk-1)-ptm1(jl,jk)) &
+                        /(zpapm1(jl,jk-1)-zpapm1(jl,jk))
+        zb          = ptm1(jl,jk)-(za*zpapm1(jl,jk))
+        ztm(jl,jk)  = za*zpmk(jl,jk)+zb      ! T centre
 
-        zdtdz(jl,jk)=zfaktor*zkappa*za(jl,jk)*zpmk(jl,jk)/ztm(jl,jk)
+        zdtdz(jl,jk)=zfaktor*zkappa*za*zpmk(jl,jk)/ztm(jl,jk)
       ENDDO
     ENDDO
     !$ACC END PARALLEL
 
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR PRIVATE( zag, zbg, zptph, zp2km, zasum, kcount, zamean )
     nproma_loop: DO jl = jcs, kproma
       !$ACC LOOP SEQ
@@ -219,7 +217,7 @@ CONTAINS
 
     ! if tropopause not found use previous value in time
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       IF (ztropo(jl) > 0.0_wp) THEN
@@ -228,6 +226,7 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
+    !$ACC WAIT
     !$ACC END DATA
 
   END SUBROUTINE WMO_tropopause

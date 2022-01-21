@@ -71,6 +71,10 @@ MODULE mo_echam_vdf_config
      REAL(wp) :: fsl             !< fraction of first-level height at which surface fluxes
      !                              are nominally evaluated, tuning param for sfc stress
      REAL(wp) :: fbl             !< 1/fbl: fraction of BL height at which lmix hat its max
+     REAL(wp) :: lmix_max        !< maximum mixing length in neutral and stable conditions
+     REAL(wp) :: z0m_min         !< zepzzo in sbr. vdiff of ECHAM5
+     REAL(wp) :: z0m_ice         !< cz0ice in sbr. vdiff of ECHAM5
+     REAL(wp) :: z0m_oce         !< see mo_surface_ocean.f90 of ECHAM6
      !
      INTEGER :: turb             !< 1: TTE scheme, 2: 3D Smagorinsky
      REAL(wp) :: smag_constant
@@ -111,6 +115,10 @@ CONTAINS
     echam_vdf_config(:)% wmc      =  0.5_wp
     echam_vdf_config(:)% fsl      =  0.4_wp
     echam_vdf_config(:)% fbl      =  3._wp
+    echam_vdf_config(:)% lmix_max =  150.0_wp
+    echam_vdf_config(:)% z0m_min  =  1.5e-5_wp
+    echam_vdf_config(:)% z0m_ice  =  1.e-3_wp
+    echam_vdf_config(:)% z0m_oce  =  1.e-3_wp
     echam_vdf_config(:)%turb      =  1
     echam_vdf_config(:)%smag_constant = 0.23_wp
     echam_vdf_config(:)%max_turb_scale= 300._wp
@@ -182,6 +190,10 @@ CONTAINS
        CALL print_value('    echam_vdf_config('//TRIM(cg)//')% wmc            ',echam_vdf_config(jg)% wmc            )
        CALL print_value('    echam_vdf_config('//TRIM(cg)//')% fsl            ',echam_vdf_config(jg)% fsl            )
        CALL print_value('    echam_vdf_config('//TRIM(cg)//')% fbl            ',echam_vdf_config(jg)% fbl            )
+       CALL print_value('    echam_vdf_config('//TRIM(cg)//')% lmix_max       ',echam_vdf_config(jg)% lmix_max       )
+       CALL print_value('    echam_vdf_config('//TRIM(cg)//')% z0m_min        ',echam_vdf_config(jg)% z0m_min        )
+       CALL print_value('    echam_vdf_config('//TRIM(cg)//')% z0m_ice        ',echam_vdf_config(jg)% z0m_ice        )
+       CALL print_value('    echam_vdf_config('//TRIM(cg)//')% z0m_oce        ',echam_vdf_config(jg)% z0m_oce        )
        CALL print_value('    echam_vdf_config('//TRIM(cg)//')% turb           ',echam_vdf_config(jg)% turb           )
        CALL print_value('    echam_vdf_config('//TRIM(cg)//')% smag_constant  ',echam_vdf_config(jg)% smag_constant  )
        CALL print_value('    echam_vdf_config('//TRIM(cg)//')% turb_prandtl   ',echam_vdf_config(jg)% turb_prandtl   )

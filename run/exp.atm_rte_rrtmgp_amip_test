@@ -106,7 +106,7 @@ cat > ${atmo_namelist} << EOF
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
- restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
+ restart_filename = "${EXPNAME}_restart_atm_<rsttime>.mfr"
  activate_sync_timers = .TRUE.
 /
 &extpar_nml
@@ -301,8 +301,8 @@ fi
 
 # model files
 #
-add_link_file ${basedir}/data/rrtmgp-data-lw-g256-2018-12-04.nc         ./coefficients_lw.nc
-add_link_file ${basedir}/data/rrtmgp-data-sw-g224-2018-12-04.nc         ./coefficients_sw.nc
+add_link_file ${basedir}/externals/rte-rrtmgp/rrtmgp/data/rrtmgp-data-lw-g128-210809.nc         ./coefficients_lw.nc
+add_link_file ${basedir}/externals/rte-rrtmgp/rrtmgp/data/rrtmgp-data-sw-g112-210809.nc         ./coefficients_sw.nc
 add_link_file ${basedir}/data/ECHAM6_CldOptProps_rrtmgp_lw.nc           ./rrtmgp-cloud-optics-coeffs-lw.nc
 add_link_file ${basedir}/data/ECHAM6_CldOptProps_rrtmgp_sw.nc           ./rrtmgp-cloud-optics-coeffs-sw.nc
 
@@ -434,7 +434,7 @@ cat >> ${atmo_namelist} << EOF
  lnetcdf_flt64_output = .TRUE.
  itype_pres_msl   = 4
  restart_file_type= 5
- !restart_write_mode = "joint procs multifile"    !not necessary/useful in default r2b4 setup
+ restart_write_mode = "joint procs multifile"
 /
 EOF
 
@@ -549,17 +549,17 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ps'           , 'pfull'        , 'zg'           ,
-                    'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
+                    'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
                     'tend_ta_vdf'  , 'tend_ta_gwd'  , 'tend_ta_sso'  ,
                     'tend_ta_cnv'  , 'tend_ta_cld'  ,
-                    'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
+                    'tend_ua_phy'  ,
                     'tend_ua_vdf'  , 'tend_ua_gwd'  , 'tend_ua_sso'  ,
                     'tend_ua_cnv'  ,
-                    'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
+                    'tend_va_phy'  ,
                     'tend_va_vdf'  , 'tend_va_gwd'  , 'tend_va_sso'  ,
                     'tend_va_cnv'  ,
-                    'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
+                    'tend_qhus_phy',
                     'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
                     !'tend_qhus_mox'
 /

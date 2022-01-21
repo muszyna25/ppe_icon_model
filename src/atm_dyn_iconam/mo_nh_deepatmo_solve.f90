@@ -24,7 +24,9 @@ MODULE mo_nh_deepatmo_solve
 
   USE mo_kind,                   ONLY: wp, vp
   USE mo_nonhydrostatic_config,  ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
-    &                                  kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
+    &                                  kstart_moist, lhdiff_rcf, divdamp_order,               &
+    &                                  divdamp_fac, divdamp_fac2, divdamp_fac3, divdamp_fac4, &
+    &                                  divdamp_z, divdamp_z2, divdamp_z3, divdamp_z4,         &
     &                                  divdamp_type, rayleigh_type, rhotheta_offctr,          &
     &                                  veladv_offctr, divdamp_fac_o2, kstart_dd3d, ndyn_substeps_var
   USE mo_dynamics_config,        ONLY: idiv_method
@@ -77,6 +79,16 @@ MODULE mo_nh_deepatmo_solve
 
 #ifdef _CRAYFTN
 #define __CRAY_FTN_VERSION (_RELEASE_MAJOR * 100 + _RELEASE_MINOR)
+#endif
+
+  ! On the vectorizing DWD-NEC the diagnostics for the tendencies of the normal wind
+  ! from terms xyz, ddt_vn_xyz, is disabled by default due to the fear that the
+  ! conditional storage in conditionally allocated global fields is attempted even if
+  ! the condition is not given and therefore the global field not allocated. If this
+  ! happens, this would results in a corrupted memory.
+  ! (Requested by G. Zängl based on earlier problems with similar constructs.)
+#ifndef __SX__
+#define __ENABLE_DDT_VN_XYZ__
 #endif
 
   CONTAINS
@@ -189,13 +201,20 @@ MODULE mo_nh_deepatmo_solve
                 z_w_backtraj, z_theta_v_pr_mc_m1, z_theta_v_pr_mc
 
     REAL(wp) :: z_theta1, z_theta2, wgt_nnow_vel, wgt_nnew_vel,     &
-               dt_shift, wgt_nnow_rth, wgt_nnew_rth, dthalf, zf, &
-               r_nsubsteps, scal_divdamp_o2
+               dt_shift, wgt_nnow_rth, wgt_nnew_rth, dthalf,        &
+               r_nsubsteps, r_dtimensubsteps, scal_divdamp_o2,      &
+               alin, dz32, df32, dz42, df42, bqdr, aqdr,            &
+               zf, dzlin, dzqdr
     REAL(wp) :: dt_linintp_ubc               ! time increment for linear interpolation of nest UBC
     REAL(wp) :: z_raylfac(nrdmax(p_patch%id))
     REAL(wp) :: z_ntdistv_bary_1, distv_bary_1, z_ntdistv_bary_2, distv_bary_2
 
     REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
+
+    ! Local variables for normal wind tendencies and differentials
+    REAL(wp) :: z_ddt_vn_dyn, z_ddt_vn_apc, z_ddt_vn_cor, &
+      &         z_ddt_vn_pgr, z_ddt_vn_cen, z_ddt_vn_ray, &
+      &         z_d_vn_dmp, z_d_vn_iau
 
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only, lvn_pos
@@ -263,6 +282,9 @@ MODULE mo_nh_deepatmo_solve
     ! Inverse value of ndyn_substeps for tracer advection precomputations
     r_nsubsteps = 1._wp/REAL(ndyn_substeps_var(jg),wp)
 
+    ! Inverse value of dtime * ndyn_substeps_var
+    r_dtimensubsteps = 1._wp/(dtime*REAL(ndyn_substeps_var(jg),wp))
+
     ! number of vertical levels
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
@@ -303,16 +325,32 @@ MODULE mo_nh_deepatmo_solve
 
     ! Fourth-order divergence damping
     !
-    ! Impose a minimum value to divergence damping factor that, starting at 20 km, increases linearly
-    ! with height to a value of 0.004 (= the namelist default) at 40 km
+    ! The divergence damping factor enh_divdamp_fac is defined as a profile in height z
+    ! above sea level with 4 height sections:
+    !
+    ! enh_divdamp_fac(z) = divdamp_fac                                              !               z <= divdamp_z
+    ! enh_divdamp_fac(z) = divdamp_fac  + (z-divdamp_z )* alin                      ! divdamp_z  <= z <= divdamp_z2
+    ! enh_divdamp_fac(z) = divdamp_fac2 + (z-divdamp_z2)*(aqdr+(z-divdamp_z2)*bqdr) ! divdamp_z2 <= z <= divdamp_z4
+    ! enh_divdamp_fac(z) = divdamp_fac4                                             ! divdamp_z4 <= z
+    !
+    alin = (divdamp_fac2-divdamp_fac)/(divdamp_z2-divdamp_z)
+    !
+    df32 = divdamp_fac3-divdamp_fac2; dz32 = divdamp_z3-divdamp_z2
+    df42 = divdamp_fac4-divdamp_fac2; dz42 = divdamp_z4-divdamp_z2
+    !
+    bqdr = (df42*dz32-df32*dz42)/(dz32*dz42*(dz42-dz32))
+    aqdr = df32/dz32-bqdr*dz32
+    !
     DO jk = 1, nlev
       jks = jk + nshift_total
       zf = 0.5_wp*(vct_a(jks)+vct_a(jks+1))
+      dzlin = MIN(divdamp_z2-divdamp_z ,MAX(0._wp,zf-divdamp_z ))
+      dzqdr = MIN(divdamp_z4-divdamp_z2,MAX(0._wp,zf-divdamp_z2))
+      !
       IF (divdamp_order == 24) THEN
-        enh_divdamp_fac(jk) = MAX( 0._wp, -0.25_wp*divdamp_fac_o2 + MAX(divdamp_fac, &
-        MIN(0.004_wp,0.004_wp*(zf-20000._wp)/20000._wp)) )
+        enh_divdamp_fac(jk) = MAX( 0._wp, divdamp_fac + dzlin*alin + dzqdr*(aqdr+dzqdr*bqdr) - 0.25_wp*divdamp_fac_o2 )
       ELSE
-        enh_divdamp_fac(jk) = MAX(divdamp_fac,MIN(0.004_wp,0.004_wp*(zf-20000._wp)/20000._wp))
+        enh_divdamp_fac(jk) =             divdamp_fac + dzlin*alin + dzqdr*(aqdr+dzqdr*bqdr)
       ENDIF
     ENDDO
 
@@ -1159,30 +1197,75 @@ MODULE mo_nh_deepatmo_solve
 !$OMP END DO
       ENDIF
 
-      ! Update horizontal velocity field: advection (including Coriolis force) and pressure-gradient term
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_graddiv2_vn) ICON_OMP_DEFAULT_SCHEDULE
+      ! Update horizontal velocity field: advection, Coriolis force, pressure-gradient term, and physics
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_graddiv2_vn,                                                                 &
+!$OMP            z_ddt_vn_dyn, z_ddt_vn_apc, z_ddt_vn_cor, z_ddt_vn_pgr, z_ddt_vn_cen, z_ddt_vn_ray, z_d_vn_dmp, z_d_vn_iau  &
+!$OMP           ) ICON_OMP_DEFAULT_SCHEDULE
+
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
           i_startidx, i_endidx, rl_start, rl_end)
 
         IF ((itime_scheme >= 4) .AND. istep == 2) THEN ! use temporally averaged velocity advection terms
+
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime                  &
-                & *(wgt_nnow_vel*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)                                &
-                & + wgt_nnew_vel*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl2)+p_nh%diag%ddt_vn_phy(je,jk,jb) &
-                & -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb))
+              !
+              z_ddt_vn_apc                      =  p_nh%diag%ddt_vn_apc_pc(je,jk,jb,ntl1)*wgt_nnow_vel  &
+                &                                 +p_nh%diag%ddt_vn_apc_pc(je,jk,jb,ntl2)*wgt_nnew_vel
+              z_ddt_vn_pgr                      = -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb)
+              !
+              z_ddt_vn_dyn                      =  z_ddt_vn_apc                   & ! advection plus Coriolis
+                &                                 +z_ddt_vn_pgr                   & ! pressure gradient
+                &                                 +p_nh%diag%ddt_vn_phy(je,jk,jb)   ! physics applied in dynamics
+              !
+              p_nh%prog(nnew)%vn(je,jk,jb)      =  p_nh%prog(nnow)%vn(je,jk,jb)   + dtime       * z_ddt_vn_dyn
+              !
+#ifdef __ENABLE_DDT_VN_XYZ__
+              IF (p_nh%diag%ddt_vn_adv_is_associated .OR. p_nh%diag%ddt_vn_cor_is_associated) THEN
+                z_ddt_vn_cor                    =  p_nh%diag%ddt_vn_cor_pc(je,jk,jb,ntl1)*wgt_nnow_vel  &
+                  &                               +p_nh%diag%ddt_vn_cor_pc(je,jk,jb,ntl2)*wgt_nnew_vel
+                !
+                IF (p_nh%diag%ddt_vn_adv_is_associated) THEN
+                  p_nh%diag%ddt_vn_adv(je,jk,jb)=  p_nh%diag%ddt_vn_adv(je,jk,jb) + r_nsubsteps *(z_ddt_vn_apc-z_ddt_vn_cor)
+                END IF
+                !
+                IF (p_nh%diag%ddt_vn_cor_is_associated) THEN
+                  p_nh%diag%ddt_vn_cor(je,jk,jb)=  p_nh%diag%ddt_vn_cor(je,jk,jb) + r_nsubsteps * z_ddt_vn_cor
+                END IF
+                !
+              END IF
+              !
+              IF (p_nh%diag%ddt_vn_pgr_is_associated) THEN
+                p_nh%diag%ddt_vn_pgr(je,jk,jb)  =  p_nh%diag%ddt_vn_pgr(je,jk,jb) + r_nsubsteps * z_ddt_vn_pgr
+              END IF
+              !
+              IF (p_nh%diag%ddt_vn_phd_is_associated) THEN
+                p_nh%diag%ddt_vn_phd(je,jk,jb)  =  p_nh%diag%ddt_vn_phd(je,jk,jb) + r_nsubsteps * p_nh%diag%ddt_vn_phy(je,jk,jb)
+              END IF
+              !
+              IF (p_nh%diag%ddt_vn_dyn_is_associated) THEN
+                p_nh%diag%ddt_vn_dyn(je,jk,jb)  =  p_nh%diag%ddt_vn_dyn(je,jk,jb) + r_nsubsteps * z_ddt_vn_dyn
+              END IF
+#endif
+              !
             ENDDO
           ENDDO
+
         ELSE
+
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime     &
-                & *(p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)+p_nh%diag%ddt_vn_phy(je,jk,jb) &
-                & -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb))
+              !
+              p_nh%prog(nnew)%vn(je,jk,jb)      =  p_nh%prog(nnow)%vn(je,jk,jb)   + dtime *                 &
+                &                                ( p_nh%diag%ddt_vn_apc_pc(je,jk,jb,ntl1)                   &
+                &                                 -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb)        &
+                &                                 +p_nh%diag%ddt_vn_phy(je,jk,jb)                        )
+              !
             ENDDO
           ENDDO
         ENDIF
@@ -1195,14 +1278,26 @@ MODULE mo_nh_deepatmo_solve
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb) + dtime &
-                & * p_patch%edges%cn_e(je,jb) * p_nh%metrics%deepatmo_t1mc(jk,idamtr%t1mc%centri)
+              !
+              z_ddt_vn_cen = p_patch%edges%cn_e(je,jb) * p_nh%metrics%deepatmo_t1mc(jk,idamtr%t1mc%centri)
+              !
+              p_nh%prog(nnew)%vn(je,jk,jb)      =  p_nh%prog(nnew)%vn(je,jk,jb)   + z_ddt_vn_cen * dtime
+              !
+#ifdef __ENABLE_DDT_VN_XYZ__
+              IF (p_nh%diag%ddt_vn_cen_is_associated) THEN
+                p_nh%diag%ddt_vn_cen(je,jk,jb)  =  p_nh%diag%ddt_vn_cen(je,jk,jb) + z_ddt_vn_cen * r_nsubsteps
+              END IF
+              !
+              IF (p_nh%diag%ddt_vn_dyn_is_associated) THEN
+                p_nh%diag%ddt_vn_dyn(je,jk,jb)  =  p_nh%diag%ddt_vn_dyn(je,jk,jb) + z_ddt_vn_cen * r_nsubsteps
+              END IF
+#endif
+              !
             ENDDO
           ENDDO
         ENDIF
 
-        IF (lhdiff_rcf .AND. istep == 2 .AND. ANY( (/24,4/) == divdamp_order)) THEN ! fourth-order divergence damping
-
+        IF (lhdiff_rcf .AND. istep == 2 .AND. (divdamp_order == 4 .OR. divdamp_order == 24)) THEN ! fourth-order divergence damping
         ! Compute gradient of divergence of gradient of divergence for fourth-order divergence damping
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
@@ -1229,17 +1324,30 @@ MODULE mo_nh_deepatmo_solve
 
         IF (lhdiff_rcf .AND. istep == 2) THEN
           ! apply divergence damping if diffusion is not called every sound-wave time step
-          IF (divdamp_order == 2 .OR. (divdamp_order == 24 .AND. scal_divdamp_o2 > 1.e-6_wp) ) THEN ! second-order divergence damping
+          IF (divdamp_order == 2 .OR. (divdamp_order == 24 .AND. scal_divdamp_o2 > 1.e-6_wp) ) THEN ! 2nd-order divergence damping
 
             DO jk = 1, nlev
 !DIR$ IVDEP
               DO je = i_startidx, i_endidx
-                p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb) + scal_divdamp_o2* &
+                !
 #ifdef __LOOP_EXCHANGE
-                  z_graddiv_vn(jk,je,jb)
+                z_d_vn_dmp = scal_divdamp_o2*z_graddiv_vn(jk,je,jb)
 #else
-                  z_graddiv_vn(je,jk,jb)
+                z_d_vn_dmp = scal_divdamp_o2*z_graddiv_vn(je,jk,jb)
 #endif
+                !
+                p_nh%prog(nnew)%vn(je,jk,jb)      =  p_nh%prog(nnew)%vn(je,jk,jb)   + z_d_vn_dmp
+                !
+#ifdef __ENABLE_DDT_VN_XYZ__
+                IF (p_nh%diag%ddt_vn_dmp_is_associated) THEN
+                  p_nh%diag%ddt_vn_dmp(je,jk,jb)  =  p_nh%diag%ddt_vn_dmp(je,jk,jb) + z_d_vn_dmp * r_dtimensubsteps
+                END IF
+                !
+                IF (p_nh%diag%ddt_vn_dyn_is_associated) THEN
+                  p_nh%diag%ddt_vn_dyn(je,jk,jb)  =  p_nh%diag%ddt_vn_dyn(je,jk,jb) + z_d_vn_dmp * r_dtimensubsteps
+                END IF
+#endif
+                !
               ENDDO
             ENDDO
           ENDIF
@@ -1252,8 +1360,21 @@ MODULE mo_nh_deepatmo_solve
               DO jk = 1, nlev
 !DIR$ IVDEP
                 DO je = i_startidx, i_endidx
-                  p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)                         &
-                    + (scal_divdamp(jk)+bdy_divdamp(jk)*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk)
+                  !
+                  z_d_vn_dmp = (scal_divdamp(jk)+bdy_divdamp(jk)*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk)
+                  !
+                  p_nh%prog(nnew)%vn(je,jk,jb)      =  p_nh%prog(nnew)%vn(je,jk,jb)   + z_d_vn_dmp
+                  !
+#ifdef __ENABLE_DDT_VN_XYZ__
+                  IF (p_nh%diag%ddt_vn_dmp_is_associated) THEN
+                    p_nh%diag%ddt_vn_dmp(je,jk,jb)  =  p_nh%diag%ddt_vn_dmp(je,jk,jb) + z_d_vn_dmp * r_dtimensubsteps
+                  END IF
+                  !
+                  IF (p_nh%diag%ddt_vn_dyn_is_associated) THEN
+                    p_nh%diag%ddt_vn_dyn(je,jk,jb)  =  p_nh%diag%ddt_vn_dyn(je,jk,jb) + z_d_vn_dmp * r_dtimensubsteps
+                  END IF
+#endif
+                  !
                 ENDDO
               ENDDO
             ELSE ! fourth-order divergence damping
@@ -1261,8 +1382,21 @@ MODULE mo_nh_deepatmo_solve
               DO jk = 1, nlev
 !DIR$ IVDEP
                 DO je = i_startidx, i_endidx
-                  p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
-                    + scal_divdamp(jk)*z_graddiv2_vn(je,jk)
+                  !
+                  z_d_vn_dmp = scal_divdamp(jk)*z_graddiv2_vn(je,jk)
+                  !
+                  p_nh%prog(nnew)%vn(je,jk,jb)      =  p_nh%prog(nnew)%vn(je,jk,jb)   + z_d_vn_dmp
+                  !
+#ifdef __ENABLE_DDT_VN_XYZ__
+                  IF (p_nh%diag%ddt_vn_dmp_is_associated) THEN
+                    p_nh%diag%ddt_vn_dmp(je,jk,jb)  =  p_nh%diag%ddt_vn_dmp(je,jk,jb) + z_d_vn_dmp * r_dtimensubsteps
+                  END IF
+                  !
+                  IF (p_nh%diag%ddt_vn_dyn_is_associated) THEN
+                    p_nh%diag%ddt_vn_dyn(je,jk,jb)  =  p_nh%diag%ddt_vn_dyn(je,jk,jb) + z_d_vn_dmp * r_dtimensubsteps
+                  END IF
+#endif
+                  !
                 ENDDO
               ENDDO
             ENDIF
@@ -1274,8 +1408,23 @@ MODULE mo_nh_deepatmo_solve
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb) +  &
-                iau_wgt_dyn*p_nh%diag%vn_incr(je,jk,jb)
+              !
+              z_d_vn_iau = iau_wgt_dyn*p_nh%diag%vn_incr(je,jk,jb)
+              !
+              p_nh%prog(nnew)%vn(je,jk,jb)        =  p_nh%prog(nnew)%vn(je,jk,jb)   + z_d_vn_iau
+              !
+#ifdef __ENABLE_DDT_VN_XYZ__
+              IF (istep == 2) THEN
+                IF (p_nh%diag%ddt_vn_iau_is_associated) THEN
+                  p_nh%diag%ddt_vn_iau(je,jk,jb)  =  p_nh%diag%ddt_vn_iau(je,jk,jb) + z_d_vn_iau * r_dtimensubsteps
+                END IF
+                !
+                IF (p_nh%diag%ddt_vn_dyn_is_associated) THEN
+                  p_nh%diag%ddt_vn_dyn(je,jk,jb)  =  p_nh%diag%ddt_vn_dyn(je,jk,jb) + z_d_vn_iau * r_dtimensubsteps
+                END IF
+              END IF
+#endif
+              !
             ENDDO
           ENDDO
         ENDIF
@@ -1287,10 +1436,23 @@ MODULE mo_nh_deepatmo_solve
           DO jk = 1, nrdmax(jg)
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)       &
-                &                          - dtime*p_nh%metrics%rayleigh_vn(jk) &
-                &                          * (p_nh%prog(nnew)%vn(je,jk,jb)      &
-                &                          - p_nh%ref%vn_ref(je,jk,jb))
+              !
+              z_ddt_vn_ray = -p_nh%metrics%rayleigh_vn(jk) * (p_nh%prog(nnew)%vn(je,jk,jb) - p_nh%ref%vn_ref(je,jk,jb))
+              !
+              p_nh%prog(nnew)%vn(je,jk,jb)        =  p_nh%prog(nnew)%vn(je,jk,jb)   + z_ddt_vn_ray * dtime
+              !
+#ifdef __ENABLE_DDT_VN_XYZ__
+              IF (istep == 2) THEN
+                IF (p_nh%diag%ddt_vn_ray_is_associated) THEN
+                  p_nh%diag%ddt_vn_ray(je,jk,jb)  =  p_nh%diag%ddt_vn_ray(je,jk,jb) + z_ddt_vn_ray * r_nsubsteps
+                END IF
+                !
+                IF (p_nh%diag%ddt_vn_dyn_is_associated) THEN
+                  p_nh%diag%ddt_vn_dyn(je,jk,jb)  =  p_nh%diag%ddt_vn_dyn(je,jk,jb) + z_ddt_vn_ray * r_nsubsteps
+                END IF
+              END IF
+#endif
+              !
             ENDDO
           ENDDO
         ENDIF
@@ -1314,8 +1476,19 @@ MODULE mo_nh_deepatmo_solve
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb) + &
-                dtime*p_nh%diag%grf_tend_vn(je,jk,jb)
+              !
+              p_nh%prog(nnew)%vn(je,jk,jb)      =  p_nh%prog(nnow)%vn(je,jk,jb)   + p_nh%diag%grf_tend_vn(je,jk,jb) * dtime
+              !
+#ifdef __ENABLE_DDT_VN_XYZ__
+              IF (p_nh%diag%ddt_vn_grf_is_associated) THEN
+                p_nh%diag%ddt_vn_grf(je,jk,jb)  =  p_nh%diag%ddt_vn_grf(je,jk,jb) + p_nh%diag%grf_tend_vn(je,jk,jb) * r_nsubsteps
+              END IF
+              !
+              IF (p_nh%diag%ddt_vn_dyn_is_associated) THEN
+                p_nh%diag%ddt_vn_dyn(je,jk,jb)  =  p_nh%diag%ddt_vn_dyn(je,jk,jb) + p_nh%diag%grf_tend_vn(je,jk,jb) * r_nsubsteps
+              END IF
+#endif
+              !
             ENDDO
           ENDDO
         ENDDO
@@ -1823,8 +1996,8 @@ MODULE mo_nh_deepatmo_solve
               ! explicit part for w - use temporally averaged advection terms for better numerical stability
               ! the explicit weight for the pressure-gradient term is already included in z_th_ddz_exner_c
               z_w_expl(jc,jk) = p_nh%prog(nnow)%w(jc,jk,jb) + dtime *   &
-                (wgt_nnow_vel*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl1) +      &
-                 wgt_nnew_vel*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl2)        &
+                (wgt_nnow_vel*p_nh%diag%ddt_w_adv_pc(jc,jk,jb,ntl1) +   &
+                 wgt_nnew_vel*p_nh%diag%ddt_w_adv_pc(jc,jk,jb,ntl2)     &
                  -cpd*z_th_ddz_exner_c(jc,jk,jb) )
 
               ! contravariant vertical velocity times density for explicit part
@@ -1840,8 +2013,8 @@ MODULE mo_nh_deepatmo_solve
             DO jc = i_startidx, i_endidx
 
               ! explicit part for w
-              z_w_expl(jc,jk) = p_nh%prog(nnow)%w(jc,jk,jb) + dtime *             &
-                (p_nh%diag%ddt_w_adv(jc,jk,jb,ntl1)-cpd*z_th_ddz_exner_c(jc,jk,jb))
+              z_w_expl(jc,jk) = p_nh%prog(nnow)%w(jc,jk,jb) + dtime *                &
+                (p_nh%diag%ddt_w_adv_pc(jc,jk,jb,ntl1)-cpd*z_th_ddz_exner_c(jc,jk,jb))
 
               ! contravariant vertical velocity times density for explicit part
               z_contr_w_fl_l(jc,jk) = p_nh%diag%rho_ic(jc,jk,jb)*(-p_nh%diag%w_concorr_c(jc,jk,jb) &

@@ -1048,8 +1048,8 @@ CONTAINS
 
         IF ( advection_config(jg)%ihadv_tracer(jt) /= 0 ) THEN
 
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
             DO jk = iadv_slev_jt, nlev
@@ -1067,10 +1067,7 @@ CONTAINS
 
             ENDDO
           ENDDO
-!$ACC END PARALLEL
-
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
 !NEC$ nofuse
           DO jk = iadv_slev_jt, nlev
 !DIR$ IVDEP
@@ -1082,7 +1079,9 @@ CONTAINS
 
             ENDDO  !jc
           ENDDO  !jk
+          !$ACC END PARALLEL
 
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           ! set tracer(nnew) to tracer(nnow) at levels where advection is turned off
           DO jk = 1, iadv_slev_jt-1
@@ -1090,11 +1089,11 @@ CONTAINS
               tracer_new(jc,jk,jb,jt) = tracer_now(jc,jk,jb,jt)
             END DO
           END DO
-!$ACC END PARALLEL
+          !$ACC END PARALLEL
 
         ELSE  ! horizontal advection switched off
 
-!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           ! copy
           DO jk = 1, nlev
@@ -1102,7 +1101,7 @@ CONTAINS
               tracer_new(jc,jk,jb,jt) = tracer_now(jc,jk,jb,jt)
             ENDDO  !jc
           ENDDO  !jk
-!$ACC END PARALLEL
+          !$ACC END PARALLEL
 
         ENDIF  ! ihadv_tracer(jt) /= 0
 

@@ -477,7 +477,7 @@ Diffusion on the vertical wind field&
 \tabularnewline
 
 %\hline
-hdiff\_order&
+\textbf{hdiff\_order}&
 I& 5 & &
 Order of $\nabla$ operator for diffusion:\\
 -1: no diffusion\\
@@ -489,14 +489,14 @@ background diffusion as specified via hdiff\_efdt\_ratio  &
 \tabularnewline
 
 %\hline
-lsmag\_3d&
+\textbf{lsmag\_3d}&
 L& .FALSE. & &
 .TRUE.: Use 3D Smagorinsky formulation for computing the horizontal diffusion coefficient (recommended at mesh sizes
 finer than 1 km if the LES turbulence scheme is not used)& hdiff\_order=3 or 5; itype\_vn\_diffu=1
 \tabularnewline
 
 %\hline
-itype\_vn\_diffu&
+\textbf{itype\_vn\_diffu} &
 I& 1 & &
 Reconstruction method used for Smagorinsky diffusion: \\
 1: u/v reconstruction at vertices only \\
@@ -504,7 +504,7 @@ Reconstruction method used for Smagorinsky diffusion: \\
 \tabularnewline
 
 %\hline
-itype\_t\_diffu&
+\textbf{itype\_t\_diffu} &
 I& 2 & &
 Discretization of temperature diffusion: \\
 1: $K_h \nabla^2 T$ \\
@@ -513,41 +513,90 @@ Discretization of temperature diffusion: \\
 
 
 %\hline
-hdiff\_efdt\_ratio&
+\textbf{hdiff\_efdt\_ratio}&
 R& 36.0 & &
 ratio of e-folding time to time step (or 2{*} time step when using
 a 3 time level time stepping scheme) (for triangular NH model, values above 30 are recommended when using hdiff\_order=5) &
 \tabularnewline
 
 %\hline
-hdiff\_w\_efdt\_ratio&
+\textbf{hdiff\_w\_efdt\_ratio}&
 R& 15.0  & &
 ratio of e-folding time to time step for diffusion on vertical wind speed & iequations=3
 \tabularnewline
 
 %\hline
-hdiff\_min\_efdt\_ratio&
+\textbf{hdiff\_min\_efdt\_ratio}&
 R& 1.0 & &
 minimum value of hdiff\_efdt\_ratio near model top & iequations=3  .AND. hdiff\_order=4
 \tabularnewline
 
 %\hline
-hdiff\_tv\_ratio&
+\textbf{hdiff\_tv\_ratio}&
 R& 1.0& &
 Ratio of diffusion coefficients for temperature and normal wind: $T:v_{n}$&
 \tabularnewline
 
 %\hline
-hdiff\_multfac&
+\textbf{hdiff\_multfac}&
 R& 1.0& &
 Multiplication factor of normalized diffusion coefficient for nested
 domains&
 n\_dom$>$1\tabularnewline
 
 %\hline
-\textbf{hdiff\_smag\_fac}&
+\textbf{hdiff\_smag\_faci}&
 R& 0.015 & &
-Scaling factor for Smagorinsky diffusion&
+Scaling factor for Smagorinsky diffusion at height \(hdiff\_smag\_z\) and below. \(hdiff\_smag\_fac \geq 0\). &
+iequations=3
+\tabularnewline
+
+%\hline
+\textbf{hdiff\_smag\_fac2}&
+R& \(2\cdot10^{-6}\cdot(1600+25000+\sqrt(1600\cdot(1600+50000))) \approx 0.071\)& &
+Scaling factor for Smagorinsky diffusion at height \(hdiff\_smag\_z2\). \(hdiff\_smag\_fac2 \geq 0\). Between \(hdiff\_smag\_z\) and \(hdiff\_smag\_z2\) the scaling factor changes linearly from \(hdiff\_smag\_fac\) to \(hdiff\_smag\_fac2\). &
+iequations=3
+\tabularnewline
+
+%\hline
+\textbf{hdiff\_smag\_fac3}&
+R& 0. & &
+Scaling factor for Smagorinsky diffusion at height \(hdiff\_smag\_z3\). \(hdiff\_smag\_fac3 \geq 0\). The three points \((hdiff\_smag\_z2, hdiff\_smag\_fac2)\), \((hdiff\_smag\_z3, hdiff\_smag\_fac3)\),  and  \((hdiff\_smag\_z4, hdiff\_smag\_fac4)\) determine the quadratic function for the scaling factor between \(hdiff\_smag\_z2\) and \(hdiff\_smag\_z4\). &
+iequations=3
+\tabularnewline
+
+%\hline
+\textbf{hdiff\_smag\_fac4}&
+R& 1.0 & &
+Scaling factor for Smagorinsky diffusion at height \(hdiff\_smag\_z4\) and higher. \(hdiff\_smag\_fac4 \geq 0\). &
+iequations=3
+\tabularnewline
+
+%\hline
+\textbf{hdiff\_smag\_z}&
+R& 32500. & m&
+Height up to which \(hdiff\_smag\_fac\) is used, and where the linear profile up to height \(hdiff\_smag\_z2\) starts.&
+iequations=3
+\tabularnewline
+
+%\hline
+\textbf{hdiff\_smag\_z2}&
+R& \(1600+50000+\sqrt(1600\cdot(1600+50000)) \approx 60686\) & m&
+Height with scaling factor \(hdiff\_smag\_fac2\) where the linear profile starting at \(hdiff\_smag\_z\) ends, and where the quadratic profile up to \(hdiff\_smag\_z4\) starts. \(hdiff\_smag\_z < hdiff\_smag\_z2 < hdiff\_smag\_z4\).&
+iequations=3
+\tabularnewline
+
+%\hline
+\textbf{hdiff\_smag\_z3} &
+R& 50000.& m&
+Height with scaling factor \(hdiff\_smag\_fac3\). Needed to determine the quadratic function between \(hdiff\_smag\_z2\) and \(hdiff\_smag\_z4\). \(hdiff\_smag\_z3 \neq hdiff\_smag\_z2 \land hdiff\_smag\_z3 \neq hdiff\_smag\_z4\).&
+iequations=3
+\tabularnewline
+
+%\hline
+\textbf{hdiff\_smag\_z4} &
+R& 90000.& m&
+Height from which \(hdiff\_smag\_fac4\) is used.  \(hdiff\_smag\_z4 > hdiff\_smag\_z2\).&
 iequations=3
 \tabularnewline
 
@@ -1115,7 +1164,7 @@ echam\_phy\_config(jg)\% dt\_gwd > 0.000s
 %------------------------------------------------------------------------------
 \subsection{echam\_phy\_nml}
 
-The ECHAM physics is configured by a data structure \textit{echam\_phy\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains several parameters providing time control for the atmospheric forcing by the different parameterizations and additional logical switches for controlling the coupling between the parameterizations of the physics and between the dynamics and the physics. Further logical switches control how the atmospheric boundary conditions for the ECHAM physics are determined. Time control parameters are available for the following atmospheric processes:
+The ECHAM physics is configured by a data structure \textit{echam\_phy\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains several parameters providing time control for the atmospheric forcing by the different parameterizations. Further logical switches control how the atmospheric boundary conditions for the ECHAM physics are determined. Time control parameters are available for the atmospheric processes tabulated below.
 
 \begin{table}[htbp]
 \begin{center}
@@ -1142,7 +1191,7 @@ If \textit{dt\_prc} is not specified, or an empty string or a string of blanks o
 
 If \textit{sd\_prc} or \textit{ed\_prc} are not specified, or an empty string or a string of blanks are given, then the experiment start date and the experiment stop date are used, respectively.
 
-Further the forcing control switch fc\_prc can be used to decide if an active process (dt\_prc > 0) is used for the integration (fc\_prc = 1) or only computed for diagnostic purposes (fc\_prc = 0).
+Further the forcing control switch \textit{fc\_prc} can be used to decide if an active process (\textit{dt\_prc} > 0) is used for the integration (\textit{fc\_prc} = 1) or only computed for diagnostic purposes (\textit{fc\_prc} = 0).
 
 \begin{longtab}
 %
@@ -1190,7 +1239,7 @@ If negative tracer mass fractions are found in the dynamics to physics interface
 run\_nml/iforcing = 2 \tabularnewline
 %
 echam\_phy\_config(jg)\% iqneg\_p2d& I & 0 & &
-If negative tracer mass fractions are found in the dynamics to physics interface, then: \\
+If negative tracer mass fractions are found in the physics to dynamics interface, then: \\
 1,3: they are reported; \\
 2,3: they are replaced with zero &
 run\_nml/iforcing = 2 \tabularnewline
@@ -1471,6 +1520,22 @@ echam\_phy\_config(jg)\% dt\_vdf > 0.000s \tabularnewline
 %
 echam\_vdf\_config(jg)\% fbl & R & 3.0 & &
 1/fbl: fraction of BL height at which lmix hat its max &
+echam\_phy\_config(jg)\% dt\_vdf > 0.000s \tabularnewline
+%
+echam\_vdf\_config(jg)\% lmix\_max & R & 150. & m &
+maximum mixing length &
+echam\_phy\_config(jg)\% dt\_vdf > 0.000s \tabularnewline
+%
+echam\_vdf\_config(jg)\% z0m\_min & R & 0.000015 & m &
+minimum roughness length &
+echam\_phy\_config(jg)\% dt\_vdf > 0.000s \tabularnewline
+%
+echam\_vdf\_config(jg)\% z0m\_ice & R & 0.001 & m &
+roughness length for sea ice surfaces &
+echam\_phy\_config(jg)\% dt\_vdf > 0.000s \tabularnewline
+%
+echam\_vdf\_config(jg)\% z0m\_oce & R & 0.001 & m &
+roughness length for sea water surfaces &
 echam\_phy\_config(jg)\% dt\_vdf > 0.000s \tabularnewline
 %
 \end{longtab}
@@ -4448,7 +4513,56 @@ extremely rarely in practice; this is mostly an emergency fix for pathological c
 %\hline
 divdamp\_fac&
 R& 0.0025& &
-Scaling factor for divergence damping&
+Scaling factor for divergence damping at height \(divdamp\_z\) and below. \(divdamp\_fac \geq 0\).&
+lhdiff\_rcf = .TRUE.
+\tabularnewline
+
+%\hline
+divdamp\_fac2&
+R& 0.004& &
+Scaling factor for divergence damping at height \(divdamp\_z2\). \(divdamp\_fac2 \geq 0\). Between \(divdamp\_z\) and \(divdamp\_z2\) the scaling factor changes linearly from \(divdamp\_fac\) to \(divdamp\_fac2\).  &
+lhdiff\_rcf = .TRUE.
+\tabularnewline
+
+%\hline
+divdamp\_fac3&
+R& 0.004& &
+Scaling factor for divergence damping at height \(divdamp\_z3\). \(divdamp\_fac3 \geq 0\). The three points \((divdamp\_z2, divdamp\_fac2)\), \((divdamp\_z3, divdamp\_fac3)\),  and  \((divdamp\_z4, divdamp\_fac4)\) determine the quadratic function for the scaling factor between \(divdamp\_z2\) and \(divdamp\_z4\). &
+lhdiff\_rcf = .TRUE.
+\tabularnewline
+
+%\hline
+divdamp\_fac4&
+R& 0.004& &
+Scaling factor for divergence damping at height \(divdamp\_z4\) and higher. \(divdamp\_fac4 \geq 0\).&
+lhdiff\_rcf = .TRUE.
+\tabularnewline
+
+%\hline
+divdamp\_z&
+R& 32500.& m&
+Height up to which \(divdamp\_fac\) is used, and where the linear profile up to height \(divdamp\_z2\) starts.&
+lhdiff\_rcf = .TRUE.
+\tabularnewline
+
+%\hline
+divdamp\_z2&
+R& 40000.& m&
+Height with scaling factor \(divdamp\_fac2\) where the linear profile starting at \(divdamp\_z\) ends, and where the quadratic profile up to \(divdamp\_z4\) starts. \(divdamp\_z < divdamp\_z2 < divdamp\_z4\).&
+lhdiff\_rcf = .TRUE.
+\tabularnewline
+
+%\hline
+divdamp\_z3&
+R& 60000.& m&
+Height with scaling factor \(divdamp\_fac3\). Needed to determine the quadratic function between \(divdamp\_z2\) and \(divdamp\_z4\). \(divdamp\_z3 \neq divdamp\_z2 \land divdamp\_z3 \neq divdamp\_z4\).&
+lhdiff\_rcf = .TRUE.
+\tabularnewline
+
+%\hline
+divdamp\_z4&
+R& 80000.& m&
+Height from which \(divdamp\_fac4\) is used.  \(divdamp\_z4 > divdamp\_z2\).&
 lhdiff\_rcf = .TRUE.
 \tabularnewline
 

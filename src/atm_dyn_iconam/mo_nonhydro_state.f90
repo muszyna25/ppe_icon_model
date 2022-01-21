@@ -1646,6 +1646,39 @@ MODULE mo_nonhydro_state
     &       p_diag%omega_z, &
     &       p_diag%vor, &
     &       p_diag%ddt_vn_phy, &
+    &       p_diag%ddt_vn_dyn, &
+    &       p_diag%ddt_ua_dyn, &
+    &       p_diag%ddt_va_dyn, &
+    &       p_diag%ddt_vn_dmp, &
+    &       p_diag%ddt_ua_dmp, &
+    &       p_diag%ddt_va_dmp, &
+    &       p_diag%ddt_vn_hdf, &
+    &       p_diag%ddt_ua_hdf, &
+    &       p_diag%ddt_va_hdf, &
+    &       p_diag%ddt_vn_adv, &
+    &       p_diag%ddt_ua_adv, &
+    &       p_diag%ddt_va_adv, &
+    &       p_diag%ddt_vn_cor, &
+    &       p_diag%ddt_ua_cor, &
+    &       p_diag%ddt_va_cor, &
+    &       p_diag%ddt_vn_pgr, &
+    &       p_diag%ddt_ua_pgr, &
+    &       p_diag%ddt_va_pgr, &
+    &       p_diag%ddt_vn_phd, &
+    &       p_diag%ddt_ua_phd, &
+    &       p_diag%ddt_va_phd, &
+    &       p_diag%ddt_vn_cen, &
+    &       p_diag%ddt_ua_cen, &
+    &       p_diag%ddt_va_cen, &
+    &       p_diag%ddt_vn_iau, &
+    &       p_diag%ddt_ua_iau, &
+    &       p_diag%ddt_va_iau, &
+    &       p_diag%ddt_vn_ray, &
+    &       p_diag%ddt_ua_ray, &
+    &       p_diag%ddt_va_ray, &
+    &       p_diag%ddt_vn_grf, &
+    &       p_diag%ddt_ua_grf, &
+    &       p_diag%ddt_va_grf, &
     &       p_diag%ddt_exner_phy, &
     &       p_diag%ddt_temp_dyn, &
     &       p_diag%ddt_tracer_adv, &
@@ -1677,8 +1710,9 @@ MODULE mo_nonhydro_state
     &       p_diag%theta_v_ic, &
     &       p_diag%w_concorr_c, &
     &       p_diag%vn_ie, &
-    &       p_diag%ddt_vn_adv, &
-    &       p_diag%ddt_w_adv, &
+    &       p_diag%ddt_vn_apc_pc, &
+    &       p_diag%ddt_vn_cor_pc, &
+    &       p_diag%ddt_w_adv_pc, &
     &       p_diag%airmass_now, &
     &       p_diag%airmass_new, &
     &       p_diag%grf_tend_vn, &
@@ -1811,6 +1845,546 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_e,                                              &
                 & lopenacc = .TRUE. )
     __acc_attach(p_diag%ddt_vn_phy)
+
+
+    IF (var_in_output%ddt_vn_dyn .OR. var_in_output%ddt_ua_dyn .OR. var_in_output%ddt_va_dyn) THEN
+      ! ddt_vn_dyn   p_diag%ddt_vn_dyn(nproma,nlev,nblks_e)
+      cf_desc    = t_cf_var('normal_wind_tendency_by_dynamics', 'm s-2', &
+        &                   'normal wind tendency by dynamics', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 220, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      CALL add_var( p_diag_list, 'ddt_vn_dyn', p_diag%ddt_vn_dyn,                &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_e ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_vn_dyn)
+      p_diag%ddt_vn_dyn_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_vn_dyn_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_dyn .OR. var_in_output%ddt_va_dyn) THEN
+      ! ddt_ua_dyn   p_diag%ddt_ua_dyn(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('zonal_wind_tendency_by_dynamics', 'm s-2', &
+        &                   'zonal wind tendency by dynamics', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 230, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_ua_dyn', p_diag%ddt_ua_dyn,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_ua_dyn)
+      p_diag%ddt_ua_dyn_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_ua_dyn_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_dyn .OR. var_in_output%ddt_va_dyn) THEN
+      ! ddt_va_dyn   p_diag%ddt_va_dyn(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('meridional_wind_tendency_by_dynamics', 'm s-2', &
+        &                   'meridional wind tendency by dynamics', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 240, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_va_dyn', p_diag%ddt_va_dyn,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_va_dyn)
+      p_diag%ddt_va_dyn_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_va_dyn_is_associated)
+    END IF
+
+
+    IF (var_in_output%ddt_vn_dmp .OR. var_in_output%ddt_ua_dmp .OR. var_in_output%ddt_va_dmp) THEN
+     ! ddt_vn_dmp   p_diag%ddt_vn_dmp(nproma,nlev,nblks_e)
+      cf_desc    = t_cf_var('normal_wind_tendency_by_divergence_damping', 'm s-2', &
+        &                   'normal wind tendency by divergence damping', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 221, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      CALL add_var( p_diag_list, 'ddt_vn_dmp', p_diag%ddt_vn_dmp,                &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_e ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_vn_dmp)
+      p_diag%ddt_vn_dmp_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_vn_dmp_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_dmp .OR. var_in_output%ddt_va_dmp) THEN
+      ! ddt_ua_dmp   p_diag%ddt_ua_dmp(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('zonal_wind_tendency_by_divergence_damping', 'm s-2', &
+        &                   'zonal wind tendency by divergence damping', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 231, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_ua_dmp', p_diag%ddt_ua_dmp,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_ua_dmp)
+      p_diag%ddt_ua_dmp_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_ua_dmp_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_dmp .OR. var_in_output%ddt_va_dmp) THEN
+      ! ddt_va_dmp   p_diag%ddt_va_dmp(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('meridional_wind_tendency_by_divergence_damping', 'm s-2', &
+        &                   'meridional wind tendency by divergence damping', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 241, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_va_dmp', p_diag%ddt_va_dmp,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_va_dmp)
+      p_diag%ddt_va_dmp_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_va_dmp_is_associated)
+    END IF
+
+
+    IF (var_in_output%ddt_vn_hdf .OR. var_in_output%ddt_ua_hdf .OR. var_in_output%ddt_va_hdf) THEN
+      ! ddt_vn_hdf   p_diag%ddt_vn_hdf(nproma,nlev,nblks_e)
+      cf_desc    = t_cf_var('normal_wind_tendency_by_horizontal_diffusion', 'm s-2', &
+        &                   'normal wind tendency by horizontal diffusion', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 222, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      CALL add_var( p_diag_list, 'ddt_vn_hdf', p_diag%ddt_vn_hdf,                &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_e ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_vn_hdf)
+      p_diag%ddt_vn_hdf_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_vn_hdf_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_hdf .OR. var_in_output%ddt_va_hdf) THEN
+      ! ddt_ua_hdf   p_diag%ddt_ua_hdf(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('zonal_wind_tendency_by_horizontal_diffusion', 'm s-2', &
+        &                   'zonal wind tendency by horizontal diffusion', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 232, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_ua_hdf', p_diag%ddt_ua_hdf,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_ua_hdf)
+      p_diag%ddt_ua_hdf_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_ua_hdf_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_hdf .OR. var_in_output%ddt_va_hdf) THEN
+      ! ddt_va_hdf   p_diag%ddt_va_hdf(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('meridional_wind_tendency_by_horizontal_diffusion', 'm s-2', &
+        &                   'meridional wind tendency by horizontal diffusion', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 242, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_va_hdf', p_diag%ddt_va_hdf,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_va_hdf)
+      p_diag%ddt_va_hdf_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_va_hdf_is_associated)
+    END IF
+
+
+    IF (var_in_output%ddt_vn_adv .OR. var_in_output%ddt_ua_adv .OR. var_in_output%ddt_va_adv) THEN
+      ! ddt_vn_adv   p_diag%ddt_vn_adv(nproma,nlev,nblks_e)
+      cf_desc    = t_cf_var('normal_wind_tendency_by_advection', 'm s-2', &
+        &                   'normal wind tendency by advection', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 223, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      CALL add_var( p_diag_list, 'ddt_vn_adv', p_diag%ddt_vn_adv,                &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_e ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_vn_adv)
+      p_diag%ddt_vn_adv_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_vn_adv_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_adv .OR. var_in_output%ddt_va_adv) THEN
+      ! ddt_ua_adv   p_diag%ddt_ua_adv(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('zonal_wind_tendency_by_advection', 'm s-2', &
+        &                   'zonal wind tendency by advection', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 233, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_ua_adv', p_diag%ddt_ua_adv,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_ua_adv)
+      p_diag%ddt_ua_adv_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_ua_adv_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_adv .OR. var_in_output%ddt_va_adv) THEN
+      ! ddt_va_adv   p_diag%ddt_va_adv(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('meridional_wind_tendency_by_advection', 'm s-2', &
+        &                   'meridional wind tendency by advection', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 243, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_va_adv', p_diag%ddt_va_adv,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_va_adv)
+      p_diag%ddt_va_adv_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_va_adv_is_associated)
+    END IF
+
+
+    IF (var_in_output%ddt_vn_cor .OR. var_in_output%ddt_ua_cor .OR. var_in_output%ddt_va_cor) THEN
+      ! ddt_vn_cor   p_diag%ddt_vn_cor(nproma,nlev,nblks_e)
+      cf_desc    = t_cf_var('normal_wind_tendency_by_coriolis_effect', 'm s-2', &
+        &                   'normal wind tendency by coriolis effect', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 224, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      CALL add_var( p_diag_list, 'ddt_vn_cor', p_diag%ddt_vn_cor,                &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_e ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_vn_cor)
+      p_diag%ddt_vn_cor_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_vn_cor_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_cor .OR. var_in_output%ddt_va_cor) THEN
+      ! ddt_ua_cor   p_diag%ddt_ua_cor(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('zonal_wind_tendency_by_coriolis_effect', 'm s-2', &
+        &                   'zonal wind tendency by coriolis effect', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 234, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_ua_cor', p_diag%ddt_ua_cor,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_ua_cor)
+      p_diag%ddt_ua_cor_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_ua_cor_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_cor .OR. var_in_output%ddt_va_cor) THEN
+      ! ddt_va_cor   p_diag%ddt_va_cor(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('meridional_wind_tendency_by_coriolis_effect', 'm s-2', &
+        &                   'meridional wind tendency by coriolis effect', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 244, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_va_cor', p_diag%ddt_va_cor,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_va_cor)
+      p_diag%ddt_va_cor_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_va_cor_is_associated)
+    END IF
+
+
+    IF (var_in_output%ddt_vn_pgr .OR. var_in_output%ddt_ua_pgr .OR. var_in_output%ddt_va_pgr) THEN
+      ! ddt_vn_pgr   p_diag%ddt_vn_pgr(nproma,nlev,nblks_e)
+      cf_desc    = t_cf_var('normal_wind_tendency_by_pressure_gradient', 'm s-2', &
+        &                   'normal wind tendency by pressure gradient', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 225, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      CALL add_var( p_diag_list, 'ddt_vn_pgr', p_diag%ddt_vn_pgr,                &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_e ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_vn_pgr)
+      p_diag%ddt_vn_pgr_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_vn_pgr_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_pgr .OR. var_in_output%ddt_va_pgr) THEN
+      ! ddt_ua_pgr   p_diag%ddt_ua_pgr(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('zonal_wind_tendency_by_pressure_gradient', 'm s-2', &
+        &                   'zonal wind tendency by pressure gradient', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 235, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_ua_pgr', p_diag%ddt_ua_pgr,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_ua_pgr)
+      p_diag%ddt_ua_pgr_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_ua_pgr_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_pgr .OR. var_in_output%ddt_va_pgr) THEN
+      ! ddt_va_pgr   p_diag%ddt_va_pgr(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('meridional_wind_tendency_by_pressure_gradient', 'm s-2', &
+        &                   'meridional wind tendency by pressure gradient', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 245, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_va_pgr', p_diag%ddt_va_pgr,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_va_pgr)
+      p_diag%ddt_va_pgr_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_va_pgr_is_associated)
+    END IF
+
+
+    IF (var_in_output%ddt_vn_phd .OR. var_in_output%ddt_ua_phd .OR. var_in_output%ddt_va_phd) THEN
+      ! ddt_vn_phd   p_diag%ddt_vn_phd(nproma,nlev,nblks_e)
+      cf_desc    = t_cf_var('normal_wind_tendency_by_physics_in_dynamics', 'm s-2', &
+        &                   'normal wind tendency by physics in dynamics', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 226, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      CALL add_var( p_diag_list, 'ddt_vn_phd', p_diag%ddt_vn_phd,                &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_e ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_vn_phd)
+      p_diag%ddt_vn_phd_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_vn_phd_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_phd .OR. var_in_output%ddt_va_phd) THEN
+      ! ddt_ua_phd   p_diag%ddt_ua_phd(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('zonal_wind_tendency_by_physics_in_dynamics', 'm s-2', &
+        &                   'zonal wind tendency by physics in dynamics', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 236, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_ua_phd', p_diag%ddt_ua_phd,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_ua_phd)
+      p_diag%ddt_ua_phd_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_ua_phd_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_phd .OR. var_in_output%ddt_va_phd) THEN
+      ! ddt_va_phd   p_diag%ddt_va_phd(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('meridional_wind_tendency_by_physics_in_dynamics', 'm s-2', &
+        &                   'meridional wind tendency by physics in dynamics', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 246, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_va_phd', p_diag%ddt_va_phd,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_va_phd)
+      p_diag%ddt_va_phd_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_va_phd_is_associated)
+    END IF
+
+
+    IF (var_in_output%ddt_vn_cen .OR. var_in_output%ddt_ua_cen .OR. var_in_output%ddt_va_cen) THEN
+      ! ddt_vn_cen   p_diag%ddt_vn_cen(nproma,nlev,nblks_e)
+      cf_desc    = t_cf_var('normal_wind_tendency_by_centrifugal_acceleration', 'm s-2', &
+        &                   'normal wind tendency by centrifugal acceleration', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 227, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      CALL add_var( p_diag_list, 'ddt_vn_cen', p_diag%ddt_vn_cen,                &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_e ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_vn_cen)
+      p_diag%ddt_vn_cen_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_vn_cen_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_cen .OR. var_in_output%ddt_va_cen) THEN
+      ! ddt_ua_cen   p_diag%ddt_ua_cen(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('zonal_wind_tendency_by_centrifugal_acceleration', 'm s-2', &
+        &                   'zonal wind tendency by centrifugal acceleration', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 237, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_ua_cen', p_diag%ddt_ua_cen,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_ua_cen)
+      p_diag%ddt_ua_cen_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_ua_cen_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_cen .OR. var_in_output%ddt_va_cen) THEN
+      ! ddt_va_cen   p_diag%ddt_va_cen(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('meridional_wind_tendency_by_centrifugal_acceleration', 'm s-2', &
+        &                   'meridional wind tendency by centrifugal acceleration', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 247, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_va_cen', p_diag%ddt_va_cen,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_va_cen)
+      p_diag%ddt_va_cen_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_va_cen_is_associated)
+    END IF
+
+
+    IF (var_in_output%ddt_vn_iau .OR. var_in_output%ddt_ua_iau .OR. var_in_output%ddt_va_iau) THEN
+      ! ddt_vn_iau   p_diag%ddt_vn_iau(nproma,nlev,nblks_e)
+      cf_desc    = t_cf_var('normal_wind_tendency_by_incremental_analysis_update', 'm s-2', &
+        &                   'normal wind tendency by incremental analysis update', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 228, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      CALL add_var( p_diag_list, 'ddt_vn_iau', p_diag%ddt_vn_iau,                &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_e ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_vn_iau)
+      p_diag%ddt_vn_iau_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_vn_iau_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_iau .OR. var_in_output%ddt_va_iau) THEN
+      ! ddt_ua_iau   p_diag%ddt_ua_iau(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('zonal_wind_tendency_by_incremental_analysis_update', 'm s-2', &
+        &                   'zonal wind tendency by incremental analysis update', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 238, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_ua_iau', p_diag%ddt_ua_iau,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_ua_iau)
+      p_diag%ddt_ua_iau_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_ua_iau_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_iau .OR. var_in_output%ddt_va_iau) THEN
+      ! ddt_va_iau   p_diag%ddt_va_iau(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('meridional_wind_tendency_by_incremental_analysis_update', 'm s-2', &
+        &                   'meridional wind tendency by incremental analysis update', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 248, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_va_iau', p_diag%ddt_va_iau,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_va_iau)
+      p_diag%ddt_va_iau_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_va_iau_is_associated)
+    END IF
+
+
+    IF (var_in_output%ddt_vn_ray .OR. var_in_output%ddt_ua_ray .OR. var_in_output%ddt_va_ray) THEN
+      ! ddt_vn_ray   p_diag%ddt_vn_ray(nproma,nlev,nblks_e)
+      cf_desc    = t_cf_var('normal_wind_tendency_by_rayleigh_damping', 'm s-2', &
+         &                  'normal wind tendency by rayleigh damping', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 229, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      CALL add_var( p_diag_list, 'ddt_vn_ray', p_diag%ddt_vn_ray,                &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_e ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_vn_ray)
+      p_diag%ddt_vn_ray_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_vn_ray_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_ray .OR. var_in_output%ddt_va_ray) THEN
+      ! ddt_ua_ray   p_diag%ddt_ua_ray(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('zonal_wind_tendency_by_rayleigh_damping', 'm s-2', &
+        &                   'zonal wind tendency by rayleigh damping', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 239, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_ua_ray', p_diag%ddt_ua_ray,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_ua_ray)
+      p_diag%ddt_ua_ray_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_ua_ray_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_ray .OR. var_in_output%ddt_va_ray) THEN
+      ! ddt_va_ray   p_diag%ddt_va_ray(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('meridional_wind_tendency_by_rayleigh_damping', 'm s-2', &
+        &                   'meridional wind tendency by rayleigh damping', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 249, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_va_ray', p_diag%ddt_va_ray,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_va_ray)
+      p_diag%ddt_va_ray_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_va_ray_is_associated)
+    END IF
+
+
+    IF (var_in_output%ddt_vn_grf .OR. var_in_output%ddt_ua_grf .OR. var_in_output%ddt_va_grf) THEN
+      ! ddt_vn_grf   p_diag%ddt_vn_grf(nproma,nlev,nblks_e)
+      cf_desc    = t_cf_var('normal_wind_tendency_by_grid_refinement', 'm s-2',  &
+         &                  'normal wind tendency by grid refinement', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 250, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      CALL add_var( p_diag_list, 'ddt_vn_grf', p_diag%ddt_vn_grf,                &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_e ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_vn_grf)
+      p_diag%ddt_vn_grf_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_vn_grf_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_grf .OR. var_in_output%ddt_va_grf) THEN
+      ! ddt_ua_grf   p_diag%ddt_ua_grf(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('zonal_wind_tendency_by_grid_refinement', 'm s-2',   &
+        &                   'zonal wind tendency by grid refinement', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 251, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_ua_grf', p_diag%ddt_ua_grf,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_ua_grf)
+      p_diag%ddt_ua_grf_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_ua_grf_is_associated)
+    END IF
+
+    IF (var_in_output%ddt_ua_grf .OR. var_in_output%ddt_va_grf) THEN
+      ! ddt_va_grf   p_diag%ddt_va_grf(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('meridional_wind_tendency_by_grid_refinement', 'm s-2', &
+        &                   'meridional wind tendency by grid refinement', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 252, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_va_grf', p_diag%ddt_va_grf,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                  & cf_desc, grib2_desc,                                         &
+                  & ldims=shape3d_c ,                                            &
+                  & lrestart=.FALSE., loutput=.TRUE.,                            &
+                  & lopenacc = .TRUE.                                            )
+      __acc_attach(p_diag%ddt_va_grf)
+      p_diag%ddt_va_grf_is_associated=.TRUE.
+      !$ACC UPDATE DEVICE(p_diag%ddt_va_grf_is_associated)
+    END IF
+
 
     ! ddt_exner_phy  p_diag%ddt_exner_phy(nproma,nlev,nblks_c)
     ! *** needs to be saved for restart ***
@@ -2129,325 +2703,352 @@ MODULE mo_nonhydro_state
     __acc_attach(p_diag%theta_v_ic)
 
 
-      ! vn_ie        p_diag%vn_ie(nproma,nlevp1,nblks_e)
-      !
-      cf_desc    = t_cf_var('normal_wind_at_half_level', 'm s-1',                  &
-        &                   'normal wind at half level', datatype_flt)
-      grib2_desc = grib2_var( 0, 2, 34, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
-      CALL add_var( p_diag_list, 'vn_ie', p_diag%vn_ie,                         &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
-                  & ldims=shape3d_ehalf, lrestart=.FALSE.,                         &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%vn_ie)
+    ! vn_ie        p_diag%vn_ie(nproma,nlevp1,nblks_e)
+    !
+    cf_desc    = t_cf_var('normal_wind_at_half_level', 'm s-1',                  &
+      &                   'normal wind at half level', datatype_flt)
+    grib2_desc = grib2_var( 0, 2, 34, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+    CALL add_var( p_diag_list, 'vn_ie', p_diag%vn_ie,                         &
+                & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
+                & ldims=shape3d_ehalf, lrestart=.FALSE.,                         &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%vn_ie)
 
 
-      ! ddt_vn_adv   p_diag%ddt_vn_adv(nproma,nlev,nblks_e,n_timlevs)
-      cf_desc    = t_cf_var('advective_normal_wind_tendency', 'm s-2',             &
-        &                   'advective normal wind tendency', datatype_flt)
+    ! ddt_vn_apc_pc   p_diag%ddt_vn_apc_pc(nproma,nlev,nblks_e,n_timlevs)
+    cf_desc    = t_cf_var('advective+coriolis_normal_wind_tendency__predictor_corrector', 'm s-2',    &
+      &                   'advective+coriolis normal wind tendency, predictor/corrector', datatype_flt)
+    grib2_desc = grib2_var( 0, 2, 201, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+    CALL add_var( p_diag_list, 'ddt_vn_apc_pc', p_diag%ddt_vn_apc_pc,            &
+                & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                & ldims=shape4d_entl ,&
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,          &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%ddt_vn_apc_pc)
+
+    ALLOCATE(p_diag%ddt_vn_apc_pc_ptr(n_timlevs))
+    DO jt =1,n_timlevs
+      suffix = get_timelevel_string(jt)
+      CALL add_ref( p_diag_list, 'ddt_vn_apc_pc',                                &
+                  & 'ddt_vn_apc_pc'//suffix, p_diag%ddt_vn_apc_pc_ptr(jt)%p_3d,  &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                        &
+                  & t_cf_var('ddt_vn_apc_pc'//suffix, 'm s-2','', datatype_flt), &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_EDGE),&
+                  & ref_idx=jt,                                                  &
+                  & ldims=shape3d_e, lrestart=.FALSE. )
+    ENDDO
+
+
+    IF (var_in_output%ddt_vn_adv .OR. var_in_output%ddt_ua_adv .OR. var_in_output%ddt_va_adv .OR. &
+      & var_in_output%ddt_vn_cor .OR. var_in_output%ddt_ua_cor .OR. var_in_output%ddt_va_cor) THEN
+      ! ddt_vn_cor_pc   p_diag%ddt_vn_cor_pc(nproma,nlev,nblks_e,n_timlevs)
+      cf_desc    = t_cf_var('coriolis_normal_wind_tendency__predictor_corrector', 'm s-2',    &
+        &                   'coriolis normal wind tendency, predictor/corrector', datatype_flt)
       grib2_desc = grib2_var( 0, 2, 201, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
-      CALL add_var( p_diag_list, 'ddt_vn_adv', p_diag%ddt_vn_adv,                  &
+      CALL add_var( p_diag_list, 'ddt_vn_cor_pc', p_diag%ddt_vn_cor_pc,            &
                   & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,     &
                   & ldims=shape4d_entl ,&
                   & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,          &
                   & lopenacc = .TRUE. )
-      __acc_attach(p_diag%ddt_vn_adv)
+      __acc_attach(p_diag%ddt_vn_cor_pc)
 
-      ALLOCATE(p_diag%ddt_vn_adv_ptr(n_timlevs))
+      ALLOCATE(p_diag%ddt_vn_cor_pc_ptr(n_timlevs))
       DO jt =1,n_timlevs
         suffix = get_timelevel_string(jt)
-        CALL add_ref( p_diag_list, 'ddt_vn_adv',                                   &
-                    & 'ddt_vn_adv'//suffix, p_diag%ddt_vn_adv_ptr(jt)%p_3d,        &
+        CALL add_ref( p_diag_list, 'ddt_vn_cor_pc',                                &
+                    & 'ddt_vn_cor_pc'//suffix, p_diag%ddt_vn_cor_pc_ptr(jt)%p_3d,  &
                     & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                        &
-                    & t_cf_var('ddt_adv_vn'//suffix, 'm s-2','', datatype_flt),    &
+                    & t_cf_var('ddt_vn_cor_pc'//suffix, 'm s-2','', datatype_flt), &
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_EDGE),&
                     & ref_idx=jt,                                                  &
                     & ldims=shape3d_e, lrestart=.FALSE. )
       ENDDO
+    END IF
 
 
-      ! ddt_w_adv    p_diag%ddt_w_adv(nproma,nlevp1,nblks_c,n_timlevs)
-      ! *** needs to be saved for restart (TL nnow) ***
-      cf_desc    = t_cf_var('advective_vertical_wind_tendency', 'm s-2',           &
-        &                   'advective vertical wind tendency', datatype_flt)
-      grib2_desc = grib2_var( 0, 2, 202, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'ddt_w_adv', p_diag%ddt_w_adv,                    &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
-                  & ldims=shape4d_chalfntl,                                        &
-                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,          &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%ddt_w_adv)
+    ! ddt_w_adv_pc    p_diag%ddt_w_adv_pc(nproma,nlevp1,nblks_c,n_timlevs)
+    ! *** needs to be saved for restart (TL nnow) ***
+    cf_desc    = t_cf_var('advective_vertical_wind_tendency__predictor_corrector', 'm s-2',    &
+      &                   'advective vertical wind tendency, predictor/corrector', datatype_flt)
+    grib2_desc = grib2_var( 0, 2, 202, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'ddt_w_adv_pc', p_diag%ddt_w_adv_pc,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
+                & ldims=shape4d_chalfntl,                                        &
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,          &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%ddt_w_adv_pc)
 
-      ALLOCATE(p_diag%ddt_w_adv_ptr(n_timlevs))
-      DO jt =1,n_timlevs
-        suffix = get_timelevel_string(jt)
-        CALL add_ref( p_diag_list, 'ddt_w_adv',                                     &
-                    & 'ddt_w_adv'//suffix, p_diag%ddt_w_adv_ptr(jt)%p_3d,           &
-                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF,                    &
-                    & t_cf_var('ddt_adv_w'//suffix, 'm s-2','', datatype_flt),      &
-                    & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-                    & ref_idx=jt,                                                   &
-                    & ldims=shape3d_chalf )
-      ENDDO
+    ALLOCATE(p_diag%ddt_w_adv_pc_ptr(n_timlevs))
+    DO jt =1,n_timlevs
+      suffix = get_timelevel_string(jt)
+      CALL add_ref( p_diag_list, 'ddt_w_adv_pc',                                  &
+                  & 'ddt_w_adv_pc'//suffix, p_diag%ddt_w_adv_pc_ptr(jt)%p_3d,     &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF,                    &
+                  & t_cf_var('ddt_w_adv_pc'//suffix, 'm s-2','', datatype_flt),   &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+                  & ref_idx=jt,                                                   &
+                  & ldims=shape3d_chalf, lrestart=.TRUE. )
+    ENDDO
 
 
 
-      ! airmass_now   p_diag%airmass_now(nproma,nlev,nblks_c)
-      !
-      cf_desc    = t_cf_var('airmass_now', 'kg m-2',&
-        &                   'mass of air in layer at physics time step now', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'airmass_now', p_diag%airmass_now,                &
+    ! airmass_now   p_diag%airmass_now(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('airmass_now', 'kg m-2',&
+      &                   'mass of air in layer at physics time step now', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'airmass_now', p_diag%airmass_now,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, loutput=.FALSE., lrestart=.FALSE.,              &
                 & lopenacc = .TRUE. )
-      __acc_attach(p_diag%airmass_now)
+    __acc_attach(p_diag%airmass_now)
 
 
-      ! airmass_new   p_diag%airmass_new(nproma,nlev,nblks_c)
-      !
-      cf_desc    = t_cf_var('airmass_new', 'kg m-2',&
-        &                   'mass of air in layer at physics time step new', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'airmass_new', p_diag%airmass_new,                &
+    ! airmass_new   p_diag%airmass_new(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('airmass_new', 'kg m-2',&
+      &                   'mass of air in layer at physics time step new', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'airmass_new', p_diag%airmass_new,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, loutput=.FALSE., lrestart=.FALSE.,              &
                 & lopenacc = .TRUE. )
-      __acc_attach(p_diag%airmass_new)
+    __acc_attach(p_diag%airmass_new)
       
 
-      ! grf_tend_vn  p_diag%grf_tend_vn(nproma,nlev,nblks_e)
-      !
-      ! restart needed for boundary nudging in case l_limited_area
-      lrestart = p_patch%id == 1 .AND. l_limited_area
+    ! grf_tend_vn  p_diag%grf_tend_vn(nproma,nlev,nblks_e)
+    !
+    ! restart needed for boundary nudging in case l_limited_area
+    lrestart = p_patch%id == 1 .AND. l_limited_area
 
-      cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2',                       &
-        &                   'normal wind tendency (grid refinement)', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
-      CALL add_var( p_diag_list, 'grf_tend_vn', p_diag%grf_tend_vn,             &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_e, lrestart=lrestart,                            &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%grf_tend_vn)
-
-
-      ! grf_tend_mflx  p_diag%grf_tend_mflx(nproma,nlev,nblks_e)
-      !
-      cf_desc    = t_cf_var('normal_mass_flux_tendency', 'kg m-2 s-2',             &
-        &                   'normal mass flux tendency (grid refinement)', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
-      CALL add_var( p_diag_list, 'grf_tend_mflx', p_diag%grf_tend_mflx,         &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_e, lrestart=.FALSE.,                             &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%grf_tend_mflx)
+    cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2',                       &
+      &                   'normal wind tendency (grid refinement)', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+    CALL add_var( p_diag_list, 'grf_tend_vn', p_diag%grf_tend_vn,             &
+                & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                & ldims=shape3d_e, lrestart=lrestart,                            &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%grf_tend_vn)
 
 
-      ! grf_tend_w  p_diag%grf_tend_w(nproma,nlevp1,nblks_c)
-      !
-      cf_desc    = t_cf_var('vertical_wind_tendency', 'm s-2',                     &
-        &                   'vertical wind tendency (grid refinement)', datatype_flt)
-      grib2_desc = grib2_var( 0, 2, 214, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'grf_tend_w', p_diag%grf_tend_w,               &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
-                  & ldims=shape3d_chalf, lrestart=.FALSE.,                         &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%grf_tend_w)
-
-      ! grf_tend_rho   p_diag%grf_tend_rho(nproma,nlev,nblks_c)
-      !
-      cf_desc    = t_cf_var('density_tendency', 'kg m-3 s-1',                      &
-        &                   'density tendency (grid refinement)', datatype_flt)
-      grib2_desc = grib2_var( 0, 3, 198, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'grf_tend_rho', p_diag%grf_tend_rho,              &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_c, lrestart=.FALSE.,                             &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%grf_tend_rho)
-
-      ! grf_tend_thv   p_diag%grf_tend_thv(nproma,nlev,nblks_c)
-      !
-      cf_desc    = t_cf_var('virtual_potential_temperature_tendency', 'K s-1',     &
-        &                   'virtual potential temperature tendency (grid refinement)', &
-        &                   datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'grf_tend_thv', p_diag%grf_tend_thv,              &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_c, lrestart=.FALSE.,                             &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%grf_tend_thv)
+    ! grf_tend_mflx  p_diag%grf_tend_mflx(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('normal_mass_flux_tendency', 'kg m-2 s-2',             &
+      &                   'normal mass flux tendency (grid refinement)', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+    CALL add_var( p_diag_list, 'grf_tend_mflx', p_diag%grf_tend_mflx,         &
+                & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                & ldims=shape3d_e, lrestart=.FALSE.,                             &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%grf_tend_mflx)
 
 
-      ! Storage fields for vertical nesting; the middle index (2) addresses 
-      ! the field and its temporal tendency
+    ! grf_tend_w  p_diag%grf_tend_w(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('vertical_wind_tendency', 'm s-2',                     &
+      &                   'vertical wind tendency (grid refinement)', datatype_flt)
+    grib2_desc = grib2_var( 0, 2, 214, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'grf_tend_w', p_diag%grf_tend_w,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
+                & ldims=shape3d_chalf, lrestart=.FALSE.,                         &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%grf_tend_w)
 
-      ! dvn_ie_int   p_diag%dvn_ie_int(nproma,nblks_e)
-      !
-      cf_desc    = t_cf_var('normal_velocity_parent_interface_level', 'm s-1',  &
-        &                   'normal velocity at parent interface level', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
-      CALL add_var( p_diag_list, 'dvn_ie_int', p_diag%dvn_ie_int,               &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape2d_e, lrestart=.FALSE.,                          &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%dvn_ie_int)
+    ! grf_tend_rho   p_diag%grf_tend_rho(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('density_tendency', 'kg m-3 s-1',                      &
+      &                   'density tendency (grid refinement)', datatype_flt)
+    grib2_desc = grib2_var( 0, 3, 198, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'grf_tend_rho', p_diag%grf_tend_rho,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                & ldims=shape3d_c, lrestart=.FALSE.,                             &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%grf_tend_rho)
 
-
-      ! dvn_ie_ubc   p_diag%dvn_ie_ubc(nproma,nblks_e)
-      !
-      cf_desc    = t_cf_var('normal_velocity_child_upper_boundary', 'm s-1',    &
-        &                   'normal velocity at child upper boundary', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
-      CALL add_var( p_diag_list, 'dvn_ie_ubc', p_diag%dvn_ie_ubc,               &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape2d_e, lrestart=.FALSE.,                          &
-                  & lopenacc = .TRUE.  )
-      __acc_attach(p_diag%dvn_ie_ubc)
-
-
-      ! w_int       p_diag%w_int(nproma,nblks_c,ndyn_substeps_max+2)
-      !
-      cf_desc    = t_cf_var('w_int', 'm s-1',                                   &
-        &                   'vertical velocity at parent interface level', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'w_int', p_diag%w_int,                         &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp2, lrestart=.FALSE., loutput=.FALSE.,     &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%w_int)
+    ! grf_tend_thv   p_diag%grf_tend_thv(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('virtual_potential_temperature_tendency', 'K s-1',     &
+      &                   'virtual potential temperature tendency (grid refinement)', &
+      &                   datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'grf_tend_thv', p_diag%grf_tend_thv,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                & ldims=shape3d_c, lrestart=.FALSE.,                             &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%grf_tend_thv)
 
 
-      ! w_ubc       p_diag%w_ubc(nproma,nblks_c,2)
-      !
-      cf_desc    = t_cf_var('w_ubc', 'm s-1',                                   &
-        &                   'vertical velocity and tendency at child upper boundary', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'w_ubc', p_diag%w_ubc,                         &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcc, lrestart=.FALSE.,                       &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%w_ubc)
+    ! Storage fields for vertical nesting; the middle index (2) addresses 
+    ! the field and its temporal tendency
+
+    ! dvn_ie_int   p_diag%dvn_ie_int(nproma,nblks_e)
+    !
+    cf_desc    = t_cf_var('normal_velocity_parent_interface_level', 'm s-1',  &
+      &                   'normal velocity at parent interface level', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+    CALL add_var( p_diag_list, 'dvn_ie_int', p_diag%dvn_ie_int,               &
+                & GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape2d_e, lrestart=.FALSE.,                          &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%dvn_ie_int)
 
 
-      ! theta_v_ic_int    p_diag%theta_v_ic_int(nproma,nblks_c,ndyn_substeps_max+2)
-      !
-      cf_desc    = t_cf_var('theta_v_ic_int', 'K',                              &
-        &                   'potential temperature at parent interface level', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'theta_v_ic_int', p_diag%theta_v_ic_int,       &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp2, lrestart=.FALSE., loutput=.FALSE.,     &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%theta_v_ic_int)
+    ! dvn_ie_ubc   p_diag%dvn_ie_ubc(nproma,nblks_e)
+    !
+    cf_desc    = t_cf_var('normal_velocity_child_upper_boundary', 'm s-1',    &
+      &                   'normal velocity at child upper boundary', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+    CALL add_var( p_diag_list, 'dvn_ie_ubc', p_diag%dvn_ie_ubc,               &
+                & GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape2d_e, lrestart=.FALSE.,                          &
+                & lopenacc = .TRUE.  )
+    __acc_attach(p_diag%dvn_ie_ubc)
 
 
-      ! theta_v_ic_ubc    p_diag%theta_v_ic_ubc(nproma,nblks_c,2)
-      !
-      cf_desc    = t_cf_var('theta_v_ic_ubc', 'K',                              &
-        &                   'potential temperature and tendency at child upper boundary', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'theta_v_ic_ubc', p_diag%theta_v_ic_ubc,       &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcc, lrestart=.FALSE., loutput=.TRUE.,       &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%theta_v_ic_ubc)
+    ! w_int       p_diag%w_int(nproma,nblks_c,ndyn_substeps_max+2)
+    !
+    cf_desc    = t_cf_var('w_int', 'm s-1',                                   &
+      &                   'vertical velocity at parent interface level', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'w_int', p_diag%w_int,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape3d_ubcp2, lrestart=.FALSE., loutput=.FALSE.,     &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%w_int)
 
 
-      ! rho_ic_int    p_diag%rho_ic_int(nproma,nblks_c,ndyn_substeps_max+2)
-      !
-      cf_desc    = t_cf_var('rho_ic_int', 'K',                                  &
-        &                   'density at parent interface level', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'rho_ic_int', p_diag%rho_ic_int,               &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp2, lrestart=.FALSE., loutput=.FALSE.,     &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%rho_ic_int)
+    ! w_ubc       p_diag%w_ubc(nproma,nblks_c,2)
+    !
+    cf_desc    = t_cf_var('w_ubc', 'm s-1',                                   &
+      &                   'vertical velocity and tendency at child upper boundary', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'w_ubc', p_diag%w_ubc,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape3d_ubcc, lrestart=.FALSE.,                       &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%w_ubc)
 
 
-      ! rho_ic_ubc    p_diag%rho_ic_ubc(nproma,nblks_c,2)
-      !
-      cf_desc    = t_cf_var('rho_ic_ubc', 'K',                                  &
-        &                   'density and tendency at child upper boundary', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'rho_ic_ubc', p_diag%rho_ic_ubc,               &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcc, lrestart=.FALSE., loutput=.TRUE.,       &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%rho_ic_ubc)
+    ! theta_v_ic_int    p_diag%theta_v_ic_int(nproma,nblks_c,ndyn_substeps_max+2)
+    !
+    cf_desc    = t_cf_var('theta_v_ic_int', 'K',                              &
+      &                   'potential temperature at parent interface level', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'theta_v_ic_int', p_diag%theta_v_ic_int,       &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape3d_ubcp2, lrestart=.FALSE., loutput=.FALSE.,     &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%theta_v_ic_int)
 
 
-      ! mflx_ic_int  p_diag%mflx_ic_int(nproma,nblks_c,ndyn_substeps_max+2)
-      !
-      cf_desc    = t_cf_var('mflx_ic_int', 'kg m-3',                            &
-        &                   'mass flux at parent interface level', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'mflx_ic_int', p_diag%mflx_ic_int,             &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcp2, lrestart=.FALSE., loutput=.FALSE.,     &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%mflx_ic_int)
+    ! theta_v_ic_ubc    p_diag%theta_v_ic_ubc(nproma,nblks_c,2)
+    !
+    cf_desc    = t_cf_var('theta_v_ic_ubc', 'K',                              &
+      &                   'potential temperature and tendency at child upper boundary', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'theta_v_ic_ubc', p_diag%theta_v_ic_ubc,       &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape3d_ubcc, lrestart=.FALSE., loutput=.TRUE.,       &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%theta_v_ic_ubc)
 
 
-      ! mflx_ic_ubc  p_diag%mflx_ic_ubc(nproma,nblks_c,2)
-      !
-      cf_desc    = t_cf_var('mflx_ic_ubc', 'kg m-3',                            &
-        &                   'mass flux and tendency at child upper boundary', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'mflx_ic_ubc', p_diag%mflx_ic_ubc,             &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ubcc, lrestart=.FALSE., loutput=.TRUE.,       &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%mflx_ic_ubc)
+    ! rho_ic_int    p_diag%rho_ic_int(nproma,nblks_c,ndyn_substeps_max+2)
+    !
+    cf_desc    = t_cf_var('rho_ic_int', 'K',                                  &
+      &                   'density at parent interface level', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'rho_ic_int', p_diag%rho_ic_int,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape3d_ubcp2, lrestart=.FALSE., loutput=.FALSE.,     &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%rho_ic_int)
 
 
-      ! q_int        p_diag%q_int(nproma,nblks_c,ntracer)
-      !
-      cf_desc    = t_cf_var('q_at_parent_interface_level', 'kg kg-1',           &
-        &                   'q at parent interface level', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'q_int', p_diag%q_int,                         &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ctra ,                                        &
-                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%q_int)
-
-      ALLOCATE(p_diag%q_int_ptr(ntracer))
-      DO jt =1,ntracer
-        WRITE(ctrc,'(I3.3)')jt
-        CALL add_ref( p_diag_list, 'q_int',                                         &
-                    & 'q_int'//ctrc, p_diag%q_int_ptr(jt)%p_2d,                     &
-                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                    & t_cf_var('q_int'//ctrc, 'kg kg-1','', datatype_flt),          &
-                    & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-                    & ref_idx=jt,                                                   &
-                    & ldims=shape2d_c, lrestart=.FALSE. )
-      ENDDO
+    ! rho_ic_ubc    p_diag%rho_ic_ubc(nproma,nblks_c,2)
+    !
+    cf_desc    = t_cf_var('rho_ic_ubc', 'K',                                  &
+      &                   'density and tendency at child upper boundary', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'rho_ic_ubc', p_diag%rho_ic_ubc,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape3d_ubcc, lrestart=.FALSE., loutput=.TRUE.,       &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%rho_ic_ubc)
 
 
-      ! q_ubc        p_diag%q_ubc(nproma,nblks_c,ntracer)
-      !
-      cf_desc    = t_cf_var('q_at_child_upper_boundary', 'kg kg-1',             &
-        &                   'q at child upper boundary', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'q_ubc', p_diag%q_ubc,                         &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d_ctra,                                         &
-                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
-                  & lopenacc = .TRUE. )
-      __acc_attach(p_diag%q_ubc)
+    ! mflx_ic_int  p_diag%mflx_ic_int(nproma,nblks_c,ndyn_substeps_max+2)
+    !
+    cf_desc    = t_cf_var('mflx_ic_int', 'kg m-3',                            &
+      &                   'mass flux at parent interface level', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'mflx_ic_int', p_diag%mflx_ic_int,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape3d_ubcp2, lrestart=.FALSE., loutput=.FALSE.,     &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%mflx_ic_int)
 
-      ALLOCATE(p_diag%q_ubc_ptr(ntracer))
-      DO jt =1,ntracer
-        WRITE(ctrc,'(I3.3)')jt
-        CALL add_ref( p_diag_list, 'q_ubc',                                         &
-                    & 'q_ubc'//ctrc, p_diag%q_ubc_ptr(jt)%p_2d,                     &
-                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                    & t_cf_var('q_ubc'//ctrc, 'kg kg-1','', datatype_flt),          &
-                    & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-                    & ref_idx=jt,                                                   &
-                    & ldims=shape2d_c, lrestart=.FALSE. )
-      ENDDO
+
+    ! mflx_ic_ubc  p_diag%mflx_ic_ubc(nproma,nblks_c,2)
+    !
+    cf_desc    = t_cf_var('mflx_ic_ubc', 'kg m-3',                            &
+      &                   'mass flux and tendency at child upper boundary', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'mflx_ic_ubc', p_diag%mflx_ic_ubc,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape3d_ubcc, lrestart=.FALSE., loutput=.TRUE.,       &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%mflx_ic_ubc)
+
+
+    ! q_int        p_diag%q_int(nproma,nblks_c,ntracer)
+    !
+    cf_desc    = t_cf_var('q_at_parent_interface_level', 'kg kg-1',           &
+      &                   'q at parent interface level', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'q_int', p_diag%q_int,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape3d_ctra ,                                        &
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%q_int)
+
+    ALLOCATE(p_diag%q_int_ptr(ntracer))
+    DO jt =1,ntracer
+      WRITE(ctrc,'(I3.3)')jt
+      CALL add_ref( p_diag_list, 'q_int',                                         &
+                  & 'q_int'//ctrc, p_diag%q_int_ptr(jt)%p_2d,                     &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                  & t_cf_var('q_int'//ctrc, 'kg kg-1','', datatype_flt),          &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+                  & ref_idx=jt,                                                   &
+                  & ldims=shape2d_c, lrestart=.FALSE. )
+    ENDDO
+
+
+    ! q_ubc        p_diag%q_ubc(nproma,nblks_c,ntracer)
+    !
+    cf_desc    = t_cf_var('q_at_child_upper_boundary', 'kg kg-1',             &
+      &                   'q at child upper boundary', datatype_flt)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( p_diag_list, 'q_ubc', p_diag%q_ubc,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape3d_ctra,                                         &
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
+                & lopenacc = .TRUE. )
+    __acc_attach(p_diag%q_ubc)
+
+    ALLOCATE(p_diag%q_ubc_ptr(ntracer))
+    DO jt =1,ntracer
+      WRITE(ctrc,'(I3.3)')jt
+      CALL add_ref( p_diag_list, 'q_ubc',                                         &
+                  & 'q_ubc'//ctrc, p_diag%q_ubc_ptr(jt)%p_2d,                     &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                  & t_cf_var('q_ubc'//ctrc, 'kg kg-1','', datatype_flt),          &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+                  & ref_idx=jt,                                                   &
+                  & ldims=shape2d_c, lrestart=.FALSE. )
+    ENDDO
 
 
 
@@ -2570,46 +3171,46 @@ MODULE mo_nonhydro_state
       ALLOCATE(p_diag%tracer_vi_ptr(iqm_max))
 
       ! Q1 vertical integral: tqv(nproma,nblks_c)
-     IF ( iqv /= 0 ) THEN
-      cf_desc    = t_cf_var('tqv', 'kg m-2', 'total column integrated water vapour', &
-        &          datatype_flt)
-      grib2_desc = grib2_var( 0, 1, 64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_ref( p_diag_list, 'tracer_vi', 'tqv',                             &
-                  & p_diag%tracer_vi_ptr(iqv)%p_2d,                              &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-                  & cf_desc, grib2_desc,                                         &
-                  & ref_idx=iqv,                                                 &
-                  & ldims=shape2d_c, lrestart=.FALSE.)
-     END IF
+      IF ( iqv /= 0 ) THEN
+        cf_desc    = t_cf_var('tqv', 'kg m-2', 'total column integrated water vapour', &
+          &          datatype_flt)
+        grib2_desc = grib2_var( 0, 1, 64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_ref( p_diag_list, 'tracer_vi', 'tqv',                             &
+                    & p_diag%tracer_vi_ptr(iqv)%p_2d,                              &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                    & cf_desc, grib2_desc,                                         &
+                    & ref_idx=iqv,                                                 &
+                    & ldims=shape2d_c, lrestart=.FALSE.)
+      END IF
 
       ! Q2 vertical integral: tqc(nproma,nblks_c)
-     IF ( iqc /= 0 ) THEN
-      cf_desc    = t_cf_var('tqc', 'kg m-2', 'total column integrated cloud water', &
-        &          datatype_flt)
-      grib2_desc = grib2_var( 0, 1, 69, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_ref( p_diag_list, 'tracer_vi', 'tqc',                             &
-                  & p_diag%tracer_vi_ptr(iqc)%p_2d,                              &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-                  & cf_desc, grib2_desc,                                         &
-                  & ref_idx=iqc,                                                 &
-                  & ldims=shape2d_c, lrestart=.FALSE.)
-     END IF
+      IF ( iqc /= 0 ) THEN
+        cf_desc    = t_cf_var('tqc', 'kg m-2', 'total column integrated cloud water', &
+          &          datatype_flt)
+        grib2_desc = grib2_var( 0, 1, 69, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_ref( p_diag_list, 'tracer_vi', 'tqc',                             &
+                    & p_diag%tracer_vi_ptr(iqc)%p_2d,                              &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                    & cf_desc, grib2_desc,                                         &
+                    & ref_idx=iqc,                                                 &
+                    & ldims=shape2d_c, lrestart=.FALSE.)
+      END IF
 
       ! Q3 vertical integral: tqi(nproma,nblks_c)
-     IF ( iqi /= 0 ) THEN
-      cf_desc    = t_cf_var('tqi', 'kg m-2', 'total column integrated cloud ice', &
-        &          datatype_flt)
-      grib2_desc = grib2_var( 0, 1, 70, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_ref( p_diag_list, 'tracer_vi', 'tqi',                             &
-                  & p_diag%tracer_vi_ptr(iqi)%p_2d,                              &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-                  & cf_desc, grib2_desc,                                         &
-                  & ref_idx=iqi,                                                 &
-                  & ldims=shape2d_c, lrestart=.FALSE.)
-     END IF
+      IF ( iqi /= 0 ) THEN
+        cf_desc    = t_cf_var('tqi', 'kg m-2', 'total column integrated cloud ice', &
+          &          datatype_flt)
+        grib2_desc = grib2_var( 0, 1, 70, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_ref( p_diag_list, 'tracer_vi', 'tqi',                             &
+                    & p_diag%tracer_vi_ptr(iqi)%p_2d,                              &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                    & cf_desc, grib2_desc,                                         &
+                    & ref_idx=iqi,                                                 &
+                    & ldims=shape2d_c, lrestart=.FALSE.)
+      END IF
 
-     IF ( iqr /= 0 ) THEN
-     ! IF ( iqm_max >= 4 ) THEN
+      IF ( iqr /= 0 ) THEN
+      ! IF ( iqm_max >= 4 ) THEN
         ! Q4 vertical integral: tqr(nproma,nblks_c)
         cf_desc    = t_cf_var('tqr', 'kg m-2', 'total column integrated rain',     &
           &          datatype_flt)
@@ -2620,10 +3221,10 @@ MODULE mo_nonhydro_state
                     & cf_desc, grib2_desc,                                         &
                     & ref_idx=iqr,                                                 &
                     & ldims=shape2d_c, lrestart=.FALSE.)
-      ENDIF ! iqm_max >= 4
+      ENDIF ! iqr /= 0
 
-     IF ( iqs /= 0 ) THEN
-     ! IF ( iqm_max >= 5 ) THEN
+      IF ( iqs /= 0 ) THEN
+      ! IF ( iqm_max >= 5 ) THEN
         ! Q5 vertical integral: tqs(nproma,nblks_c)
         cf_desc    = t_cf_var('tqs', 'kg m-2', 'total column integrated snow',     &
           &          datatype_flt)
@@ -2634,11 +3235,11 @@ MODULE mo_nonhydro_state
                     & cf_desc, grib2_desc,                                         &
                     & ref_idx=iqs,                                                 &
                     & ldims=shape2d_c, lrestart=.FALSE.)
-     ENDIF  ! iqm_max >= 5
+      ENDIF  ! iqs /= 0
 
 
-     IF ( iqg /= 0 ) THEN
-     ! IF ( ANY((/2,4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
+      IF ( iqg /= 0 ) THEN
+      ! IF ( ANY((/2,4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
         !
         ! Q6 vertical integral: tqg(nproma,nblks_c)
         cf_desc    = t_cf_var('tqg', 'kg m-2', 'total column integrated graupel',  &
@@ -2650,12 +3251,12 @@ MODULE mo_nonhydro_state
                     & cf_desc, grib2_desc,                                         &
                     & ref_idx=iqg,                                                 &
                     & ldims=shape2d_c, lrestart=.FALSE.)
-     ENDIF
+      ENDIF
 
-     ! Note that hail is only taken into account by schemes 4, 5, 6 and 7
-     !
-     IF ( iqh /= 0 ) THEN
-     !   IF ( ANY((/4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
+      ! Note that hail is only taken into account by schemes 4, 5, 6 and 7
+      !
+      IF ( iqh /= 0 ) THEN
+      !   IF ( ANY((/4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
         ! Q7 vertical integral: tqh(nproma,nblks_c)
         cf_desc    = t_cf_var('tqh', 'kg m-2', 'total column integrated hail',     &
           &          datatype_flt)
@@ -2666,7 +3267,7 @@ MODULE mo_nonhydro_state
                     & cf_desc, grib2_desc,                                         &
                     & ref_idx=iqh,                                                 &
                     & ldims=shape2d_c, lrestart=.FALSE.)
-     ENDIF
+      ENDIF
 
 
 

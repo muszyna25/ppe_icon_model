@@ -80,7 +80,7 @@ CONTAINS
       &                         pevap_lnd, pevap_lwtr, pevap_lice
 
     INTEGER  :: jsfc, jk, jl
-    REAL(wp) :: zconst, zdqv, zdcpt
+    REAL(wp) :: zconst, zdqv, zdcptv
 
     !$ACC DATA PRESENT( pfrc, lsmask, alake, pcfh_tile, pfac_sfc, pcpt_tile,  &
     !$ACC               pqsat_tile, pca, pcs, bb_btm, plhflx_gbm, plhflx_lice, &
@@ -89,17 +89,14 @@ CONTAINS
     !$ACC               pevap_lice, pevap_tile, plhflx_lnd, plhflx_lwtr,       &
     !$ACC               pshflx_tile )
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jsfc = 1,ksfc_type
-      !$ACC LOOP GANG VECTOR
       DO jk = 1, kbdim
         plhflx_tile(jk,jsfc) = 0._wp
         pshflx_tile(jk,jsfc) = 0._wp
         pevap_tile (jk,jsfc) = 0._wp
       END DO
     END DO
-    !$ACC END PARALLEL
 
     !===================================================================
     ! Otherwise compute diagnostics
@@ -114,7 +111,7 @@ CONTAINS
     !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
-      !$ACC LOOP GANG VECTOR PRIVATE( zdqv )
+      !$ACC LOOP GANG(static:1) VECTOR PRIVATE( zdqv )
       DO jl = jcs, kproma
         ! Vertical gradient of specific humidity scaled by factor (1/tpfac1).
         ! Formula: ( qv_{tavg,klev} - qs_tile )/tpfac1
@@ -168,27 +165,6 @@ CONTAINS
 
       ENDDO
     ENDDO
-    !$ACC END PARALLEL
-
-    ! Compute grid box mean and time integral
-    ! The instantaneous grid box mean moisture flux will be passed on
-    ! to the cumulus convection scheme.
-
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-    !$ACC LOOP GANG VECTOR
-    DO jk = 1, kbdim
-      pevap_gbm(jk) = 0._wp   ! "pqhfla" in echam
-    END DO
-    !$ACC END PARALLEL
-
-    DO jsfc = 1,ksfc_type
-      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-      !$ACC LOOP GANG VECTOR
-      DO jl = jcs, kproma
-        pevap_gbm(jl) = pevap_gbm(jl) + pfrc(jl,jsfc) * pevap_tile(jl,jsfc)
-      END DO
-      !$ACC END PARALLEL
-    ENDDO
 
     !-------------------------------------------------------------------
     ! Latent heat flux
@@ -196,18 +172,15 @@ CONTAINS
     ! Instantaneous values
 
     IF (idx_lnd <= ksfc_type) THEN
-      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-      !$ACC LOOP GANG VECTOR
+      !$ACC LOOP GANG(static:1) VECTOR
       DO jl = jcs, kproma
         IF (lsmask(jl) > 0._wp) THEN
           plhflx_tile(jl,idx_lnd) = plhflx_lnd(jl)
         END IF
       END DO
-      !$ACC END PARALLEL
     END IF
     IF (idx_wtr <= ksfc_type) THEN
-      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-      !$ACC LOOP GANG VECTOR
+      !$ACC LOOP GANG(static:1) VECTOR
       DO jl = jcs, kproma
         IF (alake(jl) > 0._wp) THEN
           plhflx_tile(jl,idx_wtr) = plhflx_lwtr(jl)
@@ -215,11 +188,9 @@ CONTAINS
           plhflx_tile(jl,idx_wtr) = alv * pevap_tile(jl,idx_wtr)
         END IF
       END DO
-      !$ACC END PARALLEL
     END IF
     IF (idx_ice <= ksfc_type) THEN
-      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-      !$ACC LOOP GANG VECTOR
+      !$ACC LOOP GANG(static:1) VECTOR
       DO jl = jcs, kproma
         IF (alake(jl) > 0._wp) THEN
           plhflx_tile(jl,idx_ice) = plhflx_lice(jl)
@@ -227,36 +198,16 @@ CONTAINS
           plhflx_tile(jl,idx_ice) = als * pevap_tile(jl,idx_ice)
         END IF
       END DO
-      !$ACC END PARALLEL
     END IF
-
-    ! Accumulated grid box mean
-
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-    !$ACC LOOP GANG VECTOR
-    DO jk = 1, kbdim
-       plhflx_gbm(jk) = 0.0_wp
-    END DO
-    !$ACC END PARALLEL
-
-    DO jsfc = 1,ksfc_type
-      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-      !$ACC LOOP GANG VECTOR
-      DO jl = jcs, kproma
-        plhflx_gbm(jl) = plhflx_gbm(jl) + pfrc(jl,jsfc)*plhflx_tile(jl,jsfc)
-      END DO
-      !$ACC END PARALLEL
-    ENDDO
 
     !-------------------------------------------------------------------
     ! Sensible heat flux
     !-------------------------------------------------------------------
     ! Instantaneous flux on each tile
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
-      !$ACC LOOP GANG VECTOR PRIVATE( zdcpt )
+      !$ACC LOOP GANG(static:1) VECTOR PRIVATE( zdcptv )
       DO jl = jcs, kproma
 
         ! Vertical gradient of dry static energy.
@@ -265,7 +216,7 @@ CONTAINS
         ! bb was replaced by bb_btm (according to E. Roeckner), now not blended
         ! quantity used.
 
-        zdcpt = bb_btm(jl,jsfc,ih) - tpfac2 * pcpt_tile(jl,jsfc)
+        zdcptv = bb_btm(jl,jsfc,ih) - tpfac2 * pcpt_tile(jl,jsfc)
         ! Flux of dry static energy
 
         IF (jsfc == idx_lnd) THEN
@@ -277,14 +228,14 @@ CONTAINS
           IF (alake(jl) > 0._wp) THEN
             pshflx_tile(jl,jsfc) = pshflx_lwtr(jl)
           ELSE
-            pshflx_tile(jl,jsfc) = zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) * zdcpt
+            pshflx_tile(jl,jsfc) = zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) * zdcptv
           END IF
         END IF
         IF (jsfc == idx_ice) THEN
           IF (alake(jl) > 0._wp) THEN
             pshflx_tile(jl,jsfc) = pshflx_lice(jl)
           ELSE
-            pshflx_tile(jl,jsfc) = zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) * zdcpt
+            pshflx_tile(jl,jsfc) = zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) * zdcptv
           END IF
         END IF
 
@@ -292,23 +243,28 @@ CONTAINS
     ENDDO
     !$ACC END PARALLEL
 
-    ! grid box mean
+    ! Compute grid box mean and time integral
+    ! The instantaneous grid box mean moisture flux will be passed on
+    ! to the cumulus convection scheme.
+    
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
+    DO jk = 1, kbdim
+      pevap_gbm(jk)  = 0._wp   ! "pqhfla" in echam
+      plhflx_gbm(jk) = 0._wp
+      pshflx_gbm(jk) = 0._wp
+    END DO
 
     !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-    !$ACC LOOP GANG VECTOR
-    DO jk = 1, kbdim
-      pshflx_gbm(jk) = 0.0_wp
-    END DO
-    !$ACC END PARALLEL
-
+    !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
-      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-      !$ACC LOOP GANG VECTOR
+      !$ACC LOOP GANG VECTOR 
       DO jl = jcs, kproma
+        pevap_gbm (jl) = pevap_gbm (jl) + pfrc(jl,jsfc) * pevap_tile (jl,jsfc)
+        plhflx_gbm(jl) = plhflx_gbm(jl) + pfrc(jl,jsfc) * plhflx_tile(jl,jsfc)
         pshflx_gbm(jl) = pshflx_gbm(jl) + pfrc(jl,jsfc) * pshflx_tile(jl,jsfc)
       END DO
-      !$ACC END PARALLEL
     ENDDO
+    !$ACC END PARALLEL
 
     !$ACC END DATA
 
@@ -375,9 +331,7 @@ CONTAINS
         pv_stress_tile(jl,jsfc) = 0.0_wp
       END DO
     END DO
-    !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = 1, kbdim
       pu_stress_gbm (jl)   = 0.0_wp
@@ -385,6 +339,7 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
+    ! DA: can't collapse due to the jls bounds depending on jsfc
     !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
@@ -399,17 +354,15 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
+    !DA: can't move this loop into OpenACC w/o atomics
     DO jsfc = 1,ksfc_type
-       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-       !$ACC LOOP GANG VECTOR PRIVATE( js )
-       DO jls = 1,is(jsfc)
-          ! set index
-          js=loidx(jls,jsfc)
-
-          pu_stress_gbm(js)       = pu_stress_gbm(js) + pu_stress_tile(js,jsfc)*pfrc(js,jsfc)
-          pv_stress_gbm(js)       = pv_stress_gbm(js) + pv_stress_tile(js,jsfc)*pfrc(js,jsfc)
-       END DO
-       !$ACC END PARALLEL
+      !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR PRIVATE(js) ASYNC(1)
+      DO jls = 1,is(jsfc)
+        ! set index
+        js=loidx(jls,jsfc)
+        pu_stress_gbm(js) = pu_stress_gbm(js) + pu_stress_tile(js,jsfc)*pfrc(js,jsfc)
+        pv_stress_gbm(js) = pv_stress_gbm(js) + pv_stress_tile(js,jsfc)*pfrc(js,jsfc)
+      END DO
     END DO
 
     !$ACC END DATA
@@ -489,8 +442,9 @@ CONTAINS
     INTEGER  :: jls, jl, jsfc, js
     REAL(wp)     :: zhuv, zhtq, zephum, zc2es, zc3les, zc3ies, zc4les, zc4ies
     REAL(wp)     :: zrat, zcbn, zcbs, zcbu, zmerge, zred
-    REAL(wp)     :: zh2m(kbdim), zqs1(kbdim), zrh2m(kbdim), zcvm3(kbdim), zcvm4(kbdim)
-    REAL(wp)     :: zaph2m(kbdim), zqs2(kbdim), zq2m(kbdim), zfrac(kbdim)
+    REAL(wp)     :: zh2m, zqs1, zqs2, zq2m, zcvm3, zcvm4
+    REAL(wp)     :: zrh2m(kbdim)
+    REAL(wp)     :: zaph2m(kbdim), zfrac(kbdim)
     REAL(wp)     :: ua(kbdim)
     REAL(wp), POINTER :: pbtile(:,:)
 
@@ -501,8 +455,7 @@ CONTAINS
     !$ACC      PRESENT( psfcWind_gbm, psfcWind_tile, ptas_gbm, ptas_tile,      &
     !$ACC               pdew2_gbm, pdew2_tile, puas_gbm, puas_tile, pvas_gbm,  &
     !$ACC               pvas_tile )                                            &
-    !$ACC      PCREATE( zh2m, zqs1, zrh2m, zcvm3, zcvm4, zaph2m, zqs2, zq2m,   &
-    !$ACC               zfrac, ua, is, loidx, icond )
+    !$ACC      PCREATE( zrh2m, zaph2m, zfrac, ua, is, loidx, icond )
 
     !CONSTANTS
     zhuv          =  10._wp ! 10m
@@ -517,10 +470,8 @@ CONTAINS
 
     ! set total- and tile-fields to zero in order to avoid uninitialised values
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jsfc = 1,ksfc_type
-      !$ACC LOOP GANG VECTOR
       DO jl = 1,kbdim
         psfcWind_tile(jl,jsfc) = cdimissval
         puas_tile    (jl,jsfc) = cdimissval
@@ -529,9 +480,8 @@ CONTAINS
         pdew2_tile   (jl,jsfc) = cdimissval
       END DO
     END DO
-    !$ACC END PARALLEL
 
-    !$ACC PARALLEL LOOP DEFAULT(PRESENT)
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jsfc = 1,ksfc_type
       DO jl = jcs,kproma
         icond(jl,jsfc) = MERGE(1, 0, pfrc(jl,jsfc).GT.0.0_wp)
@@ -541,10 +491,15 @@ CONTAINS
     CALL generate_index_list_batched(icond(jcs:,:), loidx(jcs:,:), jcs, kproma, is, 1)
     !$ACC UPDATE WAIT SELF(is)
 
-    !     Compute new t2m
+    !
+    !           5.96   2M DEW POINT
     !
 
     DO jsfc = 1,ksfc_type
+
+      !$ACC WAIT
+      CALL lookup_ua_list_spline('nsurf_diag(1)', jcs, kproma, is(jsfc), loidx(:,jsfc), ptm1, ua)
+
       IF ( jsfc == idx_lnd ) THEN
         ! land only
         pbtile => pbhn_tile
@@ -552,68 +507,48 @@ CONTAINS
         ! water and ice
         pbtile => pbn_tile
       END IF
-      !$ACC DATA PRESENT( pbtile )
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR PRIVATE( jl, zrat, zcbn, zcbs, zcbu, zmerge, zred )
-      DO jls=jcs,is(jsfc)
-       jl = loidx(jls,jsfc)
-       zrat   = zhtq / (pzf(jl)-pzs(jl))
-       zcbn   = LOG(1._wp + (EXP(pbtile(jl,jsfc)) - 1._wp) * zrat )
-       zcbs   = -(pbtile(jl,jsfc) - pbh_tile(jl,jsfc)) * zrat
-       zcbu   = -LOG(1._wp + (EXP(pbtile(jl,jsfc) - pbh_tile(jl,jsfc)) - 1._wp) * zrat)
-       zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
-       zred   = (zcbn + zmerge) / pbh_tile(jl,jsfc)
-       zh2m(jl)   = pcpt_tile(jl,jsfc) + zred * (pcptgz(jl) - pcpt_tile(jl,jsfc))
-       ptas_tile(jl,jsfc) = (zh2m(jl) - zhtq*grav ) / cpd
-     ENDDO
-     !$ACC END PARALLEL
-     !$ACC END DATA
-    ENDDO
-    !
-    !           5.96   2M DEW POINT
-    !
 
-    DO jsfc = 1,ksfc_type
-
-      CALL lookup_ua_list_spline('nsurf_diag(1)', jcs, kproma, is(jsfc), loidx(:,jsfc), ptm1, ua)
-
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR PRIVATE( jl )
+      !$ACC PARALLEL DEFAULT(NONE) PRESENT( pbtile ) ASYNC(1)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zrat, zcbn, zcbs, zcbu, zmerge, zred, zh2m, zqs1 )
       DO jls=jcs,is(jsfc)
         jl = loidx(jls,jsfc)
-        zqs1(jl)      = ua(jls) / papm1(jl)
-        zqs1(jl)      = zqs1(jl) / (1._wp- vtmpc1 * zqs1(jl))
-        zrh2m(jl)     = MAX(zephum, pqm1(jl) / zqs1(jl))
+        zrat   = zhtq / (pzf(jl)-pzs(jl))
+        zcbn   = LOG(1._wp + (EXP(pbtile(jl,jsfc)) - 1._wp) * zrat )
+        zcbs   = -(pbtile(jl,jsfc) - pbh_tile(jl,jsfc)) * zrat
+        zcbu   = -LOG(1._wp + (EXP(pbtile(jl,jsfc) - pbh_tile(jl,jsfc)) - 1._wp) * zrat)
+        zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
+        zred   = (zcbn + zmerge) / pbh_tile(jl,jsfc)
+        zh2m   = pcpt_tile(jl,jsfc) + zred * (pcptgz(jl) - pcpt_tile(jl,jsfc))
+        ptas_tile(jl,jsfc) = (zh2m - zhtq*grav ) / cpd 
 
-        zaph2m(jl)     = paphm1(jl) * &  ! = paphm1(jcs:kproma, klevp1)
+        zqs1       = ua(jls) / papm1(jl)
+        zqs1       = zqs1 / (1._wp - vtmpc1 * zqs1)
+        zrh2m(jl)  = MAX(zephum, pqm1(jl) / zqs1)
+ 
+        zaph2m(jl) = paphm1(jl) * &  ! = paphm1(jcs:kproma, klevp1)
             (1._wp - zhtq*grav / ( rd * ptas_tile(jl,jsfc) * (1._wp + vtmpc1 * pqm1(jl) - pxm1(jl))))
       ENDDO
       !$ACC END PARALLEL
 
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR
-      DO jl = jcs,kproma
-        IF(ptas_tile(jl,jsfc) .GT. tmelt) THEN
-          zcvm3(jl)   = zc3les
-          zcvm4(jl)   = zc4les
-        ELSE
-          zcvm3(jl)   = zc3ies
-          zcvm4(jl)   = zc4ies
-        ENDIF
-      ENDDO
-      !$ACC END PARALLEL
-
+      !$ACC WAIT
       CALL lookup_ua_list_spline('nsurf_diag(2)', jcs, kbdim, is(jsfc), loidx(:,jsfc), ptas_tile(:,jsfc), ua)
 
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR PRIVATE( jl )
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zqs2, zq2m, zcvm3, zcvm4 )
       DO jls=jcs,is(jsfc)
         jl = loidx(jls,jsfc)
-        zqs2(jl)      = ua(jls) / zaph2m(jl)
-        zqs2(jl)      = zqs2(jl) / (1._wp- vtmpc1 * zqs2(jl))
-        zq2m(jl)      = zrh2m(jl) * zqs2(jl)
-        zfrac(jl)     = LOG(zaph2m(jl) * zq2m(jl) / (zc2es * (1._wp + vtmpc1 * zq2m(jl)))) / zcvm3(jl)
-        pdew2_tile(jl,jsfc) = MIN(ptas_tile(jl,jsfc), (tmelt - zfrac(jl) * zcvm4(jl)) / (1._wp - zfrac(jl)))
+        IF(ptas_tile(jl,jsfc) .GT. tmelt) THEN
+          zcvm3 = zc3les
+          zcvm4 = zc4les
+        ELSE
+          zcvm3 = zc3ies
+          zcvm4 = zc4ies
+        ENDIF
+        zqs2      = ua(jls) / zaph2m(jl)
+        zqs2      = zqs2 / (1._wp - vtmpc1 * zqs2)
+        zq2m      = zrh2m(jl) * zqs2
+        zfrac(jl) = LOG(zaph2m(jl) * zq2m / (zc2es * (1._wp + vtmpc1 * zq2m))) / zcvm3
+        pdew2_tile(jl,jsfc) = MIN(ptas_tile(jl,jsfc), (tmelt - zfrac(jl) * zcvm4) / (1._wp - zfrac(jl)))
        ENDDO
        !$ACC END PARALLEL
     ENDDO
@@ -621,36 +556,31 @@ CONTAINS
     !
     !*          5.97   10M WIND COMPONENTS
     !
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    ! DA: can't collapse due to the jls bounds depending on jsfc
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
       !$ACC LOOP GANG VECTOR PRIVATE( jl, zrat, zcbn, zcbs, zcbu, zmerge, zred )
       DO jls=jcs,is(jsfc)
-         jl = loidx(jls,jsfc)
-         zrat = zhuv / (pzf(jl)-pzs(jl))
-         IF (zrat >= ABS(1.0_wp-EPSILON(1.0_wp))) THEN
-           puas_tile(jl,jsfc) = pum1(jl)
-           pvas_tile(jl,jsfc) = pvm1(jl)
-         ELSE
-           zcbn   = LOG(1._wp + (EXP(pbn_tile(jl,jsfc)) - 1._wp) * zrat)
-           !alternative: zcbn   = LOG((1._wp - zrat) + EXP(pbn_tile(jl,jsfc)) * zrat)
-           zcbs   = -(pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) * zrat
-           zcbu   = -LOG(1._wp + (EXP(pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) - 1._wp) * zrat)
-           !alternative: zcbu   = -LOG((1._wp - zrat) + EXP(pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) * zrat)
-           zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
-           zred   = (zcbn + zmerge) / pbm_tile(jl,jsfc)
-           puas_tile(jl,jsfc) = zred * ( pum1(jl) - pocu(jl) ) + pocu(jl)
-           pvas_tile(jl,jsfc) = zred * ( pvm1(jl) - pocv(jl) ) + pocv(jl)
-         ENDIF
-         psfcWind_tile(jl,jsfc) = SQRT(puas_tile(jl,jsfc)**2 + pvas_tile(jl,jsfc)**2)
-       ENDDO
-     ENDDO
+        jl = loidx(jls,jsfc)
+        zrat   = zhuv / (pzf(jl)-pzs(jl))
+        zcbn   = LOG(1._wp + (EXP (pbn_tile(jl,jsfc)) - 1._wp) * zrat )
+        zcbs   = -(pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) * zrat
+        zcbu   = -LOG(1._wp + (EXP (pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) - 1._wp) * zrat)
+        zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
+        zred   = (zcbn + zmerge) / pbm_tile(jl,jsfc)
+        puas_tile(jl,jsfc)    = zred * pum1(jl)
+        pvas_tile(jl,jsfc)    = zred * pvm1(jl)
+        psfcWind_tile(jl,jsfc)   = zred*SQRT((pum1(jl)-pocu(jl))**2+(pvm1(jl)-pocv(jl))**2)
+        ! for ice and land this is identical to
+        ! psfcWind_tile(jl,jsfc)   = SQRT(puas_tile(jl,jsfc)**2+pvas_tile(jl,jsfc)**2)
+      ENDDO
+    ENDDO
     !$ACC END PARALLEL
 
     ! Aggregate all diagnostics
     !
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG VECTOR
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
     DO jl = 1,kbdim
       psfcWind_gbm (jl)   = 0._wp
       puas_gbm     (jl)   = 0._wp
@@ -658,33 +588,31 @@ CONTAINS
       ptas_gbm     (jl)   = 0._wp
       pdew2_gbm    (jl)   = 0._wp
     END DO
-    !$ACC END PARALLEL
-    !
+
+    !DA: can't move this loop into OpenACC w/o atomics
     DO jsfc = 1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR PRIVATE( js )
-      DO jls = jcs,is(jsfc)
-! set index
-      js=loidx(jls,jsfc)
+      !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR PRIVATE(js) ASYNC(1)
+      DO jls = 1,is(jsfc)
+        ! set index
+        js=loidx(jls,jsfc)
         psfcWind_gbm(js) = psfcWind_gbm(js) + pfrc(js,jsfc)*psfcWind_tile(js,jsfc)
-        puas_gbm    (js) = puas_gbm (js)    + pfrc(js,jsfc)*puas_tile (js,jsfc)
-        pvas_gbm    (js) = pvas_gbm (js)    + pfrc(js,jsfc)*pvas_tile (js,jsfc)
-        ptas_gbm    (js) = ptas_gbm  (js)   + pfrc(js,jsfc)*ptas_tile  (js,jsfc)
-        pdew2_gbm   (js) = pdew2_gbm (js)   + pfrc(js,jsfc)*pdew2_tile (js,jsfc)
-      ENDDO
-      !$ACC END PARALLEL
-    ENDDO
-!
-! find max and min values for 2m temperature
-!
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG VECTOR
+        puas_gbm    (js) = puas_gbm    (js) + pfrc(js,jsfc)*puas_tile    (js,jsfc)
+        pvas_gbm    (js) = pvas_gbm    (js) + pfrc(js,jsfc)*pvas_tile    (js,jsfc)
+        ptas_gbm    (js) = ptas_gbm    (js) + pfrc(js,jsfc)*ptas_tile    (js,jsfc)
+        pdew2_gbm   (js) = pdew2_gbm   (js) + pfrc(js,jsfc)*pdew2_tile   (js,jsfc)
+      END DO
+    END DO
+
+    !
+    ! find max and min values for 2m temperature
+    !
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
     DO jl=jcs,kproma
         ptasmax  (jl) = MAX(ptasmax(jl),ptas_gbm(jl))
         ptasmin  (jl) = MIN(ptasmin(jl),ptas_gbm(jl))
     ENDDO
-    !$ACC END PARALLEL
 
+  !$ACC WAIT
   !$ACC END DATA
 
   END SUBROUTINE nsurf_diag

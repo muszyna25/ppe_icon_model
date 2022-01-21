@@ -49,7 +49,7 @@ LIBS="-Wl,--as-needed ${XML2_LIBS} ${MKL_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS}"
 
 MPI_LAUNCH='mpiexec'
 
-EXTRA_CONFIG_ARGS='--enable-active-target-sync'
+EXTRA_CONFIG_ARGS='--enable-rte-rrtmgp --enable-active-target-sync'
 
 ################################################################################
 

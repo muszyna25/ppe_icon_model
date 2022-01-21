@@ -60,16 +60,12 @@ CONTAINS
     INTEGER                             :: jc
 
     field => prm_field(jg)
-
-    !$ACC DATA PRESENT( field%lsmask, field%alake, field%seaice, field%lake_ice_frc, field%ts_tile, &
-    !$ACC               field%frac_tile )                                                           &
-    !$ACC       CREATE( zfrw, zfri, zfrl )
  
     ! 3.3 Weighting factors for fractional surface coverage
     !     Accumulate ice portion for diagnostics
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG VECTOR
+    !$ACC PARALLEL DEFAULT(PRESENT) CREATE( zfrw, zfri, zfrl )
+    !$ACC LOOP GANG(static:1) VECTOR
     DO jc=jcs,jce
 
       ! fraction of solid land in the grid box, i.e. land without lakes if lakes are used
@@ -118,35 +114,28 @@ CONTAINS
       END IF
 
     END DO
-    !$ACC END PARALLEL
 
     ! 3.4 Merge three pieces of information into one array for vdiff
     IF (ilnd.LE.nsfc_type) THEN
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR
+      !$ACC LOOP GANG(static:1) VECTOR
       DO jc=jcs,jce
         field%frac_tile(jc,jb,ilnd) = zfrl(jc)
       END DO
-      !$ACC END PARALLEL
     END IF
     IF (iwtr.LE.nsfc_type) THEN
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR
+      !$ACC LOOP GANG(static:1) VECTOR
       DO jc=jcs,jce
         field%frac_tile(jc,jb,iwtr) = zfrw(jc)
       END DO
-      !$ACC END PARALLEL
     END IF
     IF (iice.LE.nsfc_type) THEN
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR
+      !$ACC LOOP GANG(static:1) VECTOR
       DO jc=jcs,jce
         field%frac_tile(jc,jb,iice) = zfri(jc)
       END DO
-      !$ACC END PARALLEL
     END IF
 
-    !$ACC END DATA
+    !$ACC END PARALLEL
 
     NULLIFY(field)
 
@@ -181,10 +170,10 @@ CONTAINS
 
     field => prm_field(jg)
 
-    !$ACC DATA PRESENT( field%sftlf, field%sftgif, field%pfull, field%acdnc ) &
+    !$ACC DATA PRESENT( field ) &
     !$ACC       CREATE( lland, lglac )
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jc=jcs,jce
       lland(jc) = field%sftlf (jc,jb) > 0._wp
@@ -192,7 +181,7 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE( zprat, zn1, zn2, zcdnc )
     DO jk = 1,nlev
       DO jc = jcs,jce
@@ -217,6 +206,7 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
+    !$ACC WAIT
     !$ACC END DATA
 
     NULLIFY(field)

@@ -430,16 +430,13 @@ CONTAINS
           END DO
           !$ACC END PARALLEL
           !$ACC END DATA
-!!$       CASE(2)
-!!$          ! use tendency as forcing in the dynamics
-!!$          ...
        END SELECT
        !
        ! update physics state for input to the next physics process
        SELECT CASE(fc_cnv)
        CASE(0)
           ! diagnostic, do not use tendency
-       CASE(1,2)
+       CASE(1)
           ! use tendency to update the physics state
           IF (lparamcpl) THEN
              ! prognostic

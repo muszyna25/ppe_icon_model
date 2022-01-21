@@ -65,7 +65,7 @@ LIBS="${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${ECCODES_LIBS} ${NETCDFF_LIBS} ${NETCDF_
 
 MPI_LAUNCH='/sw/spack-rhel6/openmpi-2.0.2p2-xw623x/bin/mpiexec'
 
-EXTRA_CONFIG_ARGS='--enable-parallel-netcdf'
+EXTRA_CONFIG_ARGS='--enable-rte-rrtmgp --enable-parallel-netcdf'
 
 ################################################################################
 

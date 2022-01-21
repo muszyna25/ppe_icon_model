@@ -202,10 +202,10 @@ CONTAINS
     REAL(wp) ::                     &
          &  xsdt  (kbdim)          ,&
          &  rsn   (kbdim,klevp1)   ,&
-         &  rln   (kbdim,klevp1)   ,&
-         &  drlus_dtsr(kbdim)      ,&
-         &  dtsr  (kbdim)
-    INTEGER :: jc, jk
+         &  rln   (kbdim,klevp1)
+
+    REAL(wp) :: drlus_dtsr, dtsr
+    INTEGER  :: jc, jk
 
     !$ACC DATA PRESENT( cosmu0, daylght_frc, emiss, tsr, tsr_rt, rsd_rt, rsu_rt, rsdcs_rt, rsucs_rt, &
     !$ACC               rld_rt, rlu_rt, rldcs_rt, rlucs_rt, rvds_dir_rt, rpds_dir_rt, rnds_dir_rt,   &
@@ -213,7 +213,7 @@ CONTAINS
     !$ACC               rsds, rsus, rsutcs, rsdscs, rsuscs, rvds_dir, rpds_dir, rnds_dir, rvds_dif,  &
     !$ACC               rpds_dif, rnds_dif, rvus, rpus, rnus, rlut, rlds, rlus, rlutcs, rldscs,      &
     !$ACC               q_rsw, q_rlw )                                                               &
-    !$ACC       CREATE( xsdt, rsn, rln, drlus_dtsr, dtsr )
+    !$ACC       CREATE( xsdt, rsn, rln )
 
     ! Shortwave fluxes
     ! ----------------
@@ -227,7 +227,7 @@ CONTAINS
     ! - scaling ratio for fluxes at current time: xsdt    = rsdt / rsdt_rt
     !
     ! top of atmophere
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jc = jcs, jce
       rsdt  (jc)   = rsdt0*cosmu0(jc)*daylght_frc(jc)
@@ -243,17 +243,16 @@ CONTAINS
     !$ACC END PARALLEL
     !
     ! all half levels
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = 1, klevp1
-      !$ACC LOOP VECTOR
       DO jc = jcs, jce
         rsn(jc,jk) = (rsd_rt(jc,jk) - rsu_rt(jc,jk)) * xsdt(jc)
       END DO
     END DO
     !$ACC END PARALLEL
     !
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jc = jcs, jce
       ! surface
@@ -293,28 +292,27 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
     ! all half levels
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = 1, klevp1
-      !$ACC LOOP VECTOR
       DO jc = jcs, jce
         rln(jc,jk) = (rld_rt(jc,jk) - rlu_rt(jc,jk))
       END DO
     END DO
     !$ACC END PARALLEL
     !
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG VECTOR
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP GANG VECTOR PRIVATE( drlus_dtsr, dtsr )
     DO jc = jcs, jce
       ! surface
       rlds  (jc)  = rld_rt  (jc,klevp1)
       rldscs(jc)  = rldcs_rt(jc,klevp1)
       !
       ! - correct upward flux for changed radiative surface temperature
-      drlus_dtsr(jc) = emiss(jc)*4._wp*stbo*tsr(jc)**3 ! derivative
-      dtsr      (jc) = tsr(jc) - tsr_rt(jc)            ! change in tsr
-      rlus(jc)       = rlu_rt(jc,klevp1)                  & ! rlus = rlus_rt
-           &               +drlus_dtsr(jc) * dtsr(jc)       !       + correction
+      drlus_dtsr = emiss(jc)*4._wp*stbo*tsr(jc)**3 ! derivative
+      dtsr       = tsr(jc) - tsr_rt(jc)            ! change in tsr
+      rlus(jc)   = rlu_rt(jc,klevp1)             & ! rlus = rlus_rt
+           &          +drlus_dtsr * dtsr           !       + correction
       !
       rln(jc,klevp1) = rlds(jc) - rlus(jc)
     END DO
@@ -323,10 +321,9 @@ CONTAINS
 
     ! Heating rates in atmosphere
     !----------------------------
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = 1, klev
-      !$ACC LOOP VECTOR
       DO jc = jcs, jce
         q_rsw(jc,jk) = rsn(jc,jk)-rsn(jc,jk+1)
         q_rlw(jc,jk) = rln(jc,jk)-rln(jc,jk+1)
@@ -334,6 +331,7 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
+    !$ACC WAIT
     !$ACC END DATA
 
   END SUBROUTINE radheating
