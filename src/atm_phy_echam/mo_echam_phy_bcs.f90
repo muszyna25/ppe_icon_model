@@ -40,10 +40,12 @@ MODULE mo_echam_phy_bcs
   USE mo_psrad_solar_data           ,ONLY: ssi_radt, tsi_radt, tsi
   USE mo_psrad_radiation            ,ONLY: pre_psrad_radiation
   USE mo_atmo_psrad_interface       ,ONLY: dtrad_shift
+  USE mo_psrad_general              ,ONLY: nbndlw, nbndsw
 #else
   USE mo_radiation_solar_data       ,ONLY: ssi_radt, tsi_radt, tsi
   USE mo_rte_rrtmgp_radiation       ,ONLY: pre_rte_rrtmgp_radiation
   USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
+  USE mo_radiation_general          ,ONLY: nbndlw, nbndsw
 #endif
 
   USE mo_echam_sfc_indices          ,ONLY: nsfc_type, iwtr, iice
@@ -336,19 +338,19 @@ CONTAINS
         ! tropospheric aerosol optical properties after S. Kinne
         IF (echam_rad_config(jg)% irad_aero == 12) THEN
           l_filename_year = .FALSE.
-          CALL read_bc_aeropt_kinne(mtime_old, patch, l_filename_year)
+          CALL read_bc_aeropt_kinne(mtime_old, patch, l_filename_year, nbndlw, nbndsw)
         END IF
         !
         ! tropospheric aerosol optical properties after S. Kinne
         IF (echam_rad_config(jg)% irad_aero == 13) THEN
           l_filename_year = .TRUE.
-          CALL read_bc_aeropt_kinne(mtime_old, patch, l_filename_year)
+          CALL read_bc_aeropt_kinne(mtime_old, patch, l_filename_year, nbndlw, nbndsw)
         END IF
         !
         ! stratospheric aerosol optical properties
         IF (echam_rad_config(jg)% irad_aero == 14) THEN
 #ifdef __NO_RTE_RRTMGP__
-          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
+          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id, nbndlw, nbndsw)
 #else
           CALL read_bc_aeropt_stenchikov(mtime_old, patch)
 #endif
@@ -357,9 +359,9 @@ CONTAINS
         ! tropospheric aerosols after S. Kinne and stratospheric aerosol optical properties
         IF (echam_rad_config(jg)% irad_aero == 15) THEN
           l_filename_year = .TRUE.
-          CALL read_bc_aeropt_kinne     (mtime_old, patch, l_filename_year)
+          CALL read_bc_aeropt_kinne     (mtime_old, patch, l_filename_year, nbndlw, nbndsw)
 #ifdef __NO_RTE_RRTMGP__
-          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
+          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id, nbndlw, nbndsw)
 #else
           CALL read_bc_aeropt_stenchikov(mtime_old, patch)
 #endif
@@ -370,9 +372,9 @@ CONTAINS
         ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
         IF (echam_rad_config(jg)% irad_aero == 18) THEN
           l_filename_year = .FALSE.
-          CALL read_bc_aeropt_kinne     (mtime_old, patch, l_filename_year)
+          CALL read_bc_aeropt_kinne     (mtime_old, patch, l_filename_year, nbndlw, nbndsw)
 #ifdef __NO_RTE_RRTMGP__
-          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
+          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id, nbndlw, nbndsw)
 #else
           CALL read_bc_aeropt_stenchikov(mtime_old, patch)
 #endif
@@ -382,7 +384,7 @@ CONTAINS
         ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
         IF (echam_rad_config(jg)% irad_aero == 19) THEN
           l_filename_year = .FALSE.
-          CALL read_bc_aeropt_kinne     (mtime_old, patch, l_filename_year)
+          CALL read_bc_aeropt_kinne     (mtime_old, patch, l_filename_year, nbndlw, nbndsw)
         END IF
         !
         ! greenhouse gas concentrations, assumed constant in horizontal dimensions

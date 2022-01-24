@@ -22,11 +22,6 @@ MODULE mo_bc_aeropt_kinne
   USE mo_impl_constants,       ONLY: max_dom
   USE mo_grid_config,          ONLY: n_dom
   USE mo_parallel_config,      ONLY: nproma
-#ifdef __NO_RTE_RRTMGP__
-  USE mo_psrad_general,        ONLY: nbndlw, nbndsw
-#else
-  USE mo_radiation_general,    ONLY: nbndlw, nbndsw
-#endif
   USE mo_exception,            ONLY: finish, message, message_text, warning
   USE mo_io_config,            ONLY: default_read_method
   USE mo_time_config,          ONLY: time_config
@@ -82,9 +77,10 @@ CONTAINS
   !>
   !! SUBROUTINE su_bc_aeropt_kinne -- sets up the memory for fields in which
   !! the aerosol optical properties are stored when needed
-SUBROUTINE su_bc_aeropt_kinne(p_patch)
+SUBROUTINE su_bc_aeropt_kinne(p_patch, nbndlw, nbndsw)
 
   TYPE(t_patch), INTENT(in)       :: p_patch
+  INTEGER, INTENT(in)             :: nbndlw, nbndsw
 
   INTEGER                         :: jg
   INTEGER                         :: nblks_len, nblks
@@ -214,16 +210,17 @@ END SUBROUTINE shift_months_bc_aeropt_kinne
   !! of the Kinne aerosols for the whole run at the beginning of the run
   !! before entering the time loop
 
-SUBROUTINE read_bc_aeropt_kinne(mtime_current, p_patch, l_filename_year)
+SUBROUTINE read_bc_aeropt_kinne(mtime_current, p_patch, l_filename_year, nbndlw, nbndsw)
   
   TYPE(datetime), POINTER, INTENT(in) :: mtime_current
   TYPE(t_patch), INTENT(in)           :: p_patch
+  LOGICAL, INTENT(in)                 :: l_filename_year
+  INTEGER, INTENT(in)                 :: nbndlw, nbndsw
  
   !LOCAL VARIABLES
   INTEGER(I8)                   :: iyear
   INTEGER                       :: imonthb, imonthe
   INTEGER                       :: jg
-  LOGICAL                       :: l_filename_year
 
   jg = p_patch%id
 
@@ -236,7 +233,7 @@ SUBROUTINE read_bc_aeropt_kinne(mtime_current, p_patch, l_filename_year)
     IF ( pre_year(jg) > -HUGE(1) ) THEN
       CALL shift_months_bc_aeropt_kinne(p_patch)
     ELSE
-      CALL su_bc_aeropt_kinne(p_patch)
+      CALL su_bc_aeropt_kinne(p_patch, nbndlw, nbndsw)
     ENDIF
 
     ! Restrict reading of data to those months that are needed
@@ -588,7 +585,8 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
                                                ! if month=13, month 1 of subsequent year is read
   CHARACTER(len=*), INTENT(in)   :: cfname     ! file name containing variables
 
-  TYPE(t_patch), INTENT(in) :: p_patch
+  TYPE(t_patch), INTENT(in)      :: p_patch
+  LOGICAL, INTENT(in)            :: l_filename_year
 
   INTEGER                        :: ifile_id, kmonthb, kmonthe, ilen_cfname
   REAL(wp), INTENT(inout)        :: zaod(:,:,:,imonth_beg:)    ! has to be inout, otherwise
@@ -602,8 +600,6 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   INTEGER :: cfname2_tlen
 
   INTEGER                        :: jg
-
-  LOGICAL                        :: l_filename_year
 
   jg = p_patch%id
 

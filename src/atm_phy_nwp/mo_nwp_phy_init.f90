@@ -62,7 +62,7 @@ MODULE mo_nwp_phy_init
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
 #ifdef __ECRAD
   USE mo_nwp_ecrad_init,      ONLY: setup_ecrad
-  USE mo_ecrad,               ONLY: ecrad_conf
+  USE mo_ecrad,               ONLY: ecrad_conf, IGasModelIFSRRTMG
 #endif
 
   ! microphysics
@@ -128,6 +128,9 @@ MODULE mo_nwp_phy_init
   USE mo_nh_torus_exp,        ONLY: read_soil_profile_nc,read_soil_profile_nc_uf
 
   USE mo_cover_koe,           ONLY: cover_koe_config
+  USE mo_bc_aeropt_kinne,     ONLY: read_bc_aeropt_kinne
+  USE mo_bc_aeropt_cmip6_volc,ONLY: read_bc_aeropt_cmip6_volc
+  USE mo_aerosol_util,        ONLY: init_aerosol_props_tegen_ecrad
 
   IMPLICIT NONE
 
@@ -904,7 +907,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     SELECT CASE ( irad_aero )
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
-    CASE (0,2,6,9,12,13)
+    CASE (0,2,6,9,12,13,14,15)
       !ok
     CASE (5)
       !ok for RRTM and captured in mo_nml_crosscheck for ecRad
@@ -968,12 +971,33 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
       CASE(4) ! ecRad init
 #ifdef __ECRAD
-        !
         IF (msg_level >= 12)  CALL message(modname, 'init ECRAD')
         !
         ! Do ecrad initialization only once
-        IF (.NOT.lreset_mode .AND. jg==1) &
-          &  CALL setup_ecrad(p_patch,ecrad_conf,ini_date)
+        IF (.NOT.lreset_mode .AND. jg==1) THEN
+          CALL setup_ecrad(p_patch,ecrad_conf,ini_date)
+          !
+          ! Setup Tegen aerosol needs to be done only once for all domains
+          IF (irad_aero == 6) THEN
+            IF (ecrad_conf%i_gas_model == IGasModelIFSRRTMG) THEN
+              CALL init_aerosol_props_tegen_ecrad(ecrad_conf%n_bands_sw, ecrad_conf%n_bands_lw, .TRUE.)
+            ELSE
+              CALL init_aerosol_props_tegen_ecrad(ecrad_conf%n_bands_sw, ecrad_conf%n_bands_lw, .FALSE.)
+            ENDIF !ecrad_conf%i_gas_model
+          ENDIF !irad_aero==6
+        ENDIF ! .NOT.lreset_mode .AND. jg==1
+        !
+        ! Domain-specific aerosol setups
+        IF (irad_aero == 12) THEN                 ! Use constant Kinne aerosol
+          CALL read_bc_aeropt_kinne(ini_date, p_patch, .FALSE., ecrad_conf%n_bands_lw, ecrad_conf%n_bands_sw)
+        ENDIF
+        IF (ANY( irad_aero == (/13,15/) )) THEN   ! Use Kinne climatology
+          CALL read_bc_aeropt_kinne(ini_date, p_patch, .TRUE., ecrad_conf%n_bands_lw, ecrad_conf%n_bands_sw)
+        ENDIF
+        IF (ANY( irad_aero == (/14,15/) )) THEN   ! Use volcanic aerosol from CMIP6
+          CALL read_bc_aeropt_cmip6_volc(ini_date, p_patch%id, ecrad_conf%n_bands_lw, ecrad_conf%n_bands_sw)
+        ENDIF
+        !
 #else
         CALL finish(routine,  &
           &      'atm_phy_nwp_config(jg)%inwp_radiation = 4 needs -D__ECRAD.')
