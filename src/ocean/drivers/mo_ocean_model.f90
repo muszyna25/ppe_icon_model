@@ -350,6 +350,10 @@ MODULE mo_ocean_model
     !---------------------------------------------------------------------
 
     CALL read_ocean_namelists(oce_namelist_filename,shr_namelist_filename)
+    IF (initialize_fromRestart .AND. .NOT. isRestart()) THEN
+      ocean_initFromRestart_OVERRIDE = initialize_fromRestart
+      CALL read_restart_header(TRIM(get_my_process_name()) )
+    END IF
 
     !---------------------------------------------------------------------
     ! 1.2 Cross-check namelist setups

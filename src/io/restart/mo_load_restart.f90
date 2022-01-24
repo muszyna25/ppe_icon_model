@@ -18,7 +18,7 @@ MODULE mo_load_restart
   USE mo_model_domain,       ONLY: t_patch
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_workroot, my_process_is_stdio
   USE mo_multifile_restart_util, ONLY: multifileRestartLinkName
-  USE mo_restart_nml_and_att,ONLY: restartAttributeList_read, ocean_initFromRestart_OVERRIDE
+  USE mo_restart_nml_and_att,ONLY: restartAttributeList_read
   USE mo_restart_util,       ONLY: restartSymlinkName
   USE mo_var,                ONLY: t_var_ptr
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_load_restart, timer_load_restart_io, &
@@ -140,7 +140,7 @@ CONTAINS
     CHARACTER(LEN=8), ALLOCATABLE :: mTypes(:)
 
     IF(timers_level >= 5) CALL timer_start(timer_load_restart)
-    IF (ocean_initFromRestart_OVERRIDE) CALL read_restart_header(TRIM(get_my_process_name()))
+
     ! Make sure that all the subcounters are recognized as subcounters on all work processes.
     IF(timers_level >= 7) THEN
       CALL timer_start(timer_load_restart_io)
