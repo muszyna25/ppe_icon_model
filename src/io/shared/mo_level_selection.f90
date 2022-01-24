@@ -242,7 +242,6 @@ CONTAINS
     TYPE (t_output_file), POINTER   :: p_of
     INTEGER :: i, log_patch_id
 
-#ifndef __NO_ICON_ATMO__
     DO i=1,SIZE(output_file)
       p_of => output_file(i)
       log_patch_id = p_of%log_patch_id
@@ -252,6 +251,7 @@ CONTAINS
         CALL create_level_selection(p_of%name_list%m_levels,              &
           &                         num_lev(log_patch_id)+1, p_of%level_selection,   &
           &                         opt_nlev_value = num_lev(log_patch_id))
+#ifndef __NO_ICON_ATMO__
       CASE (level_type_pl)
         CALL create_level_selection(p_of%name_list%p_levels, &
           &                         nh_pzlev_config(log_patch_id)%plevels, p_of%level_selection)
@@ -261,11 +261,11 @@ CONTAINS
       CASE (level_type_il)
         CALL create_level_selection(p_of%name_list%i_levels, &
           &                         nh_pzlev_config(log_patch_id)%ilevels, p_of%level_selection)
+#endif
       CASE DEFAULT
         CALL finish(routine, "Internal error!")
       END SELECT
     END DO
-#endif
 
   END SUBROUTINE create_mipz_level_selections
 
