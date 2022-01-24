@@ -53,6 +53,7 @@ MODULE mo_nwp_rad_interface
   USE mo_mpi,                  ONLY: i_am_accel_node, my_process_is_work
 #endif
   USE mo_bc_aeropt_kinne,      ONLY: set_bc_aeropt_kinne
+  USE mo_bc_aeropt_cmip6_volc, ONLY: add_bc_aeropt_cmip6_volc
   USE mo_radiation_config,     ONLY: irad_aero
   USE mo_loopindices,          ONLY: get_indices_c
 
@@ -152,7 +153,7 @@ MODULE mo_nwp_rad_interface
     !-------------------------------------------------------------------------
 
 #ifdef __ECRAD
-    IF (ANY( irad_aero == (/12,13/) )) THEN
+    IF (ANY( irad_aero == (/12,13,14,15/) )) THEN
 
       ALLOCATE(od_lw_vr (nproma,pt_patch%nlev,ecrad_conf%n_bands_lw)                   , &
       &        od_sw_vr (nproma,pt_patch%nlev,ecrad_conf%n_bands_sw)                   , &
@@ -179,14 +180,20 @@ MODULE mo_nwp_rad_interface
         ssa_sw_vr(:,:,:) = 1.0_wp
         g_sw_vr (:,:,:)  = 0.0_wp
 
-        SELECT CASE (irad_aero)
-        CASE (12,13)
+        IF (ANY( irad_aero == (/12,13,15/) )) THEN
           CALL set_bc_aeropt_kinne(mtime_datetime, jg, 1, i_endidx, &
             & nproma, pt_patch%nlev, jb, ecrad_conf%n_bands_sw,     &
             & ecrad_conf%n_bands_lw, zf(:,:,jb), dz(:,:,jb),        &
             & od_sw_vr(:,:,:), ssa_sw_vr(:,:,:),                    &
             & g_sw_vr (:,:,:), od_lw_vr(:,:,:)                      )
-        END SELECT
+        END IF
+        IF (ANY( irad_aero == (/14,15/) )) THEN 
+          CALL add_bc_aeropt_cmip6_volc(mtime_datetime, jg, 1,      &
+            & i_endidx, nproma, pt_patch%nlev, jb,                  &
+            & ecrad_conf%n_bands_sw, ecrad_conf%n_bands_lw,         &
+            & zf(:,:,jb), dz(:,:,jb), od_sw_vr(:,:,:),              &
+            & ssa_sw_vr(:,:,:), g_sw_vr (:,:,:), od_lw_vr(:,:,:)    )
+        END IF
         !
         ! Vertically reverse the fields:
         DO jk = 1, pt_patch%nlev

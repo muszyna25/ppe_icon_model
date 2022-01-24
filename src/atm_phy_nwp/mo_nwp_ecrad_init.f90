@@ -39,8 +39,6 @@ MODULE mo_nwp_ecrad_init
   USE mo_model_domain,         ONLY: t_patch
   USE mo_radiation_config,     ONLY: icld_overlap, irad_aero, ecrad_data_path,           &
                                  &   llw_cloud_scat, iliquid_scat, iice_scat
-  USE mo_aerosol_util,         ONLY: init_aerosol_props_tegen_ecrad
-  USE mo_bc_aeropt_kinne,      ONLY: read_bc_aeropt_kinne
 #ifdef __ECRAD
   USE mo_ecrad,                ONLY: t_ecrad_conf, ecrad_setup,                          &
                                  &   ISolverHomogeneous, ISolverMcICA, ISolverSpartacus, &
@@ -91,8 +89,6 @@ CONTAINS
     INTEGER                   :: &
       &  i_band_in_sw(2),        & !< The albedo band indices corresponding to each interval
       &  i_band_in_lw(1)           !< The emissivity band indices corresponding to each interval
-    LOGICAL                   :: &
-      &  l_rrtm_gas_model =.false. !< Use RRTM gas model
 
     CALL message('', 'Setup of ecRad')
 
@@ -129,7 +125,8 @@ CONTAINS
     SELECT CASE (irad_aero)
       CASE (0) ! No aerosol
         ecrad_conf%use_aerosols = .false.
-      CASE (2,5,6,12,13) ! Constant, Tanre, Tegen, constant Kinne aerosol, Kinne
+      CASE (2,5,6,12,13,14,15) ! Constant, Tanre, Tegen, constant Kinne aerosol, Kinne, 
+                               ! CMIP6 volcanic aerosol, Kinne+CMIP6 volcanic aerosol
         ecrad_conf%use_aerosols = .true.
       CASE DEFAULT
         CALL finish(routine, 'irad_aero not valid for ecRad')
@@ -199,7 +196,6 @@ CONTAINS
     ecrad_conf%i_gas_model           = IGasModelIFSRRTMG  !< Use RRTM gas model (only available option)
     IF (ecrad_conf%i_gas_model == IGasModelIFSRRTMG) THEN
       ecrad_conf%do_setup_ifsrrtm = .true.
-      l_rrtm_gas_model            = .true.
     ELSE
       ecrad_conf%do_setup_ifsrrtm = .false.
     ENDIF
@@ -246,19 +242,6 @@ CONTAINS
     ! external data.
     i_band_in_lw           = 1
     CALL ecrad_conf%define_lw_emiss_intervals(1, wavelength_bound_lw, i_band_in_lw)
-
-    !---------------------------------------------------------------------------------------
-    ! Setup aerosol
-    !---------------------------------------------------------------------------------------
-
-    SELECT CASE (irad_aero)
-      CASE(6) ! Tegen aerosol
-        CALL init_aerosol_props_tegen_ecrad(ecrad_conf%n_bands_sw, ecrad_conf%n_bands_lw, l_rrtm_gas_model)
-      CASE(12)
-        CALL read_bc_aeropt_kinne(ini_date, p_patch, .false.)
-      CASE(13)
-        CALL read_bc_aeropt_kinne(ini_date, p_patch, .true.)
-    END SELECT
 
     !$ACC ENTER DATA COPYIN(ecrad_conf)
     !$ACC ENTER DATA COPYIN(ecrad_conf%cloud_optics, &

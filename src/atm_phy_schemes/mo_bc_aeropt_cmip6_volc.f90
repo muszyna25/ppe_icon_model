@@ -19,8 +19,7 @@
 MODULE mo_bc_aeropt_cmip6_volc
 
   USE mo_kind,                   ONLY: wp, i8
-  USE mo_mpi,                    ONLY: my_process_is_stdio, p_bcast, p_io
-  USE mo_psrad_general,          ONLY: nbndlw, nbndsw
+  USE mo_mpi,                    ONLY: my_process_is_stdio, p_bcast, p_io, p_comm_work
   USE mo_exception,              ONLY: finish
   USE mo_read_interface,         ONLY: openInputFile, closeFile, read_1D, &
     &                                  read_1D_extdim_time, &
@@ -60,11 +59,12 @@ CONTAINS
   !>
   !! SUBROUTINE su_bc_aeropt_cmip6_volc -- sets up the memory for fields in which
   !! the aerosol optical properties are stored when needed
-SUBROUTINE su_bc_aeropt_cmip6_volc( p_patch_id,                          &
-                        clat_dim,          calt_dim,          kyear      )
+SUBROUTINE su_bc_aeropt_cmip6_volc( p_patch_id, clat_dim, calt_dim,  &
+                                    nbndlw    , nbndsw  , kyear      )
   INTEGER, INTENT(IN)          :: p_patch_id
   INTEGER(i8), INTENT(IN)      :: kyear
   CHARACTER(LEN=*), INTENT(IN) :: clat_dim, calt_dim
+  INTEGER, INTENT(IN)          :: nbndlw, nbndsw
 
   CHARACTER(LEN=256)           :: cfname, csubprog_name
   CHARACTER(LEN=32)            :: ckyear
@@ -86,8 +86,8 @@ SUBROUTINE su_bc_aeropt_cmip6_volc( p_patch_id,                          &
     CALL nf(nf_inq_dimlen(ifile_id, idim_id, k_alt_clim), &
            TRIM(ADJUSTL(csubprog_name)))
   END IF
-  CALL p_bcast(lat_clim,p_io)
-  CALL p_bcast(k_alt_clim,p_io)
+  CALL p_bcast(lat_clim,p_io,p_comm_work)
+  CALL p_bcast(k_alt_clim,p_io,p_comm_work)
 ! allocate memory for optical properties
   ALLOCATE(aod_v_s(nbndsw,0:lat_clim+1,nmonths))
   ALLOCATE(ext_v_s(nbndsw,k_alt_clim+1,0:lat_clim+1,nmonths))
@@ -129,9 +129,10 @@ END SUBROUTINE shift_months_bc_aeropt_cmip6_volc
   !> SUBROUTINE read_bc_aeropt_cmip6_volc -- read the aerosol optical properties 
   !! of the volcanic CMIP6 aerosols
 
-SUBROUTINE read_bc_aeropt_cmip6_volc(current_date, p_patch_id)
+SUBROUTINE read_bc_aeropt_cmip6_volc(current_date, p_patch_id, nbndlw, nbndsw)
   TYPE(datetime), POINTER, INTENT(in) :: current_date
   INTEGER, INTENT(in)                 :: p_patch_id
+  INTEGER, INTENT(in)                 :: nbndlw, nbndsw
 
   !LOCAL VARIABLES
   INTEGER(i8) :: iyear(2)
@@ -165,7 +166,7 @@ SUBROUTINE read_bc_aeropt_cmip6_volc(current_date, p_patch_id)
       iyear(2)=iyear(2)+1
     END IF
     CALL read_month_bc_aeropt_cmip6_volc (p_patch_id, &
-         imonth(2),    iyear(2),    2   )
+         imonth(2), iyear(2), 2, nbndlw, nbndsw       )
     
     inm2_time_interpolation=tiw%month2_index
     
@@ -184,11 +185,11 @@ SUBROUTINE read_bc_aeropt_cmip6_volc(current_date, p_patch_id)
     END IF
     nmonths=2
     inm2_time_interpolation=tiw%month2_index
-    CALL su_bc_aeropt_cmip6_volc(p_patch_id,                          &
-                     'latitude',        'altitude',        iyear(1)   )
+    CALL su_bc_aeropt_cmip6_volc(p_patch_id, 'latitude', 'altitude', &
+                                 nbndlw    , nbndsw    , iyear(1)    )
     DO imonths=1,nmonths
-       CALL read_month_bc_aeropt_cmip6_volc (p_patch_id, &
-         imonth(imonths),    iyear(imonths),    imonths   )
+       CALL read_month_bc_aeropt_cmip6_volc (p_patch_id,            &
+         imonth(imonths), iyear(imonths), imonths, nbndlw, nbndsw   )
     END DO
   ENDIF
 END SUBROUTINE read_bc_aeropt_cmip6_volc
@@ -499,13 +500,14 @@ END SUBROUTINE altitude_index
 !!   asymm: asymmetry fractor corresp. to tautl: asymm(time, levels, latitude, longitude)
 !!   levels: non-equidistant pressure levels corresp. to exts, omega, asymm: levels(levels).
 !!     Only the mid-point pressures are given.
-  SUBROUTINE read_month_bc_aeropt_cmip6_volc (p_patch_id,  &
-    kmonth,           kyear,            ktime_step   )
+  SUBROUTINE read_month_bc_aeropt_cmip6_volc (p_patch_id, kmonth, kyear,     &
+                                              ktime_step, nbndlw, nbndsw     )
   !
-  INTEGER, INTENT(in)            :: p_patch_id   ! id number of the patch
-  INTEGER, INTENT(in)            :: kmonth       ! number of month to be read
-  INTEGER(i8), INTENT(in)        :: kyear        ! year of month
-  INTEGER, INTENT(in)            :: ktime_step   ! month that has to be set by new data
+  INTEGER, INTENT(in)            :: p_patch_id     ! id number of the patch
+  INTEGER, INTENT(in)            :: kmonth         ! number of month to be read
+  INTEGER(i8), INTENT(in)        :: kyear          ! year of month
+  INTEGER, INTENT(in)            :: ktime_step     ! month that has to be set by new data
+  INTEGER, INTENT(in)            :: nbndlw, nbndsw ! number of long- and shortwave spectral bands
 
   CHARACTER(len=256)             :: cfname   ! file name containing variables
   CHARACTER(len=32)              :: ckmonth,ckyear
