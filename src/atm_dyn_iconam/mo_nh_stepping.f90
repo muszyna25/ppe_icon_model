@@ -2218,16 +2218,10 @@ MODULE mo_nh_stepping
 
       ENDIF  ! itime_scheme
 
-
       !
       ! lateral nudging and optional upper boundary nudging in limited area mode
       !
       IF ( (l_limited_area .AND. (.NOT. l_global_nudging)) .AND. (.NOT. bench_config%d_n) ) THEN
-#ifdef _OPENACC
-        CALL message('mo_nh_stepping', 'Device to host copy before nudging. This needs to be removed once port is finished!')
-        CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg))
-        i_am_accel_node = .FALSE.
-#endif
         !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
         
         tsrat = REAL(ndyn_substeps,wp) ! dynamics-physics time step ratio
@@ -2271,6 +2265,9 @@ MODULE mo_nh_stepping
 
           ELSE  ! Synchronous LatBC read-in:
 
+#ifdef _OPENACC
+            CALL finish(TRIM(routine), 'Synchronous lateral boundary data is not supported on GPU')
+#endif
             ! Please note that upper boundary nudging for child domains is not implemented 
             ! for the synchronous latbc read-in mode.
             IF (jg==1) THEN
@@ -2288,7 +2285,9 @@ MODULE mo_nh_stepping
           ENDIF
 
         ELSE  ! constant lateral boundary data
-
+#ifdef _OPENACC
+          CALL finish(TRIM(routine), 'Constant lateral boundary data is not ported on GPU')
+#endif
           IF (jg==1) THEN
             ! Model state is nudged towards constant state along the lateral boundaries
             ! Currently only implemented for the base domain
@@ -2300,11 +2299,6 @@ MODULE mo_nh_stepping
           ENDIF
 
         ENDIF
-#ifdef _OPENACC
-        CALL message('mo_nh_stepping', 'Host to device copy after nudging. This needs to be removed once port is finished!')
-        CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg))
-        i_am_accel_node = my_process_is_work()
-#endif
         !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
 
       ELSE IF (l_global_nudging .AND. jg==1) THEN
