@@ -158,6 +158,7 @@ MODULE mo_icon2dace
                             dist_to_bound,   &! determine distance to boundary
                             set_search_grid, &! auxiliary grid for interpolation
                             search_icon_global
+  !use mo_letkf,            lcheck_ptopf      ! discard obs for plev < ptopf?
   !-----------------------
   ! observation processing
   !-----------------------
@@ -188,12 +189,15 @@ MODULE mo_icon2dace
                             TSK_SHRINK,      &!
                             TSK_READ,        &!
                             TSK_R,           &!
-                            TSK_Y             ! flag to process_obs
+                            TSK_Y,           &! flag to process_obs
+                            n_dace_op,     &! lenght of non-empty entries in dace_op
+                            COSMO             ! observation module numbers
   use mo_obs_set,     only: t_obs_set,       &! observation data type set
                             destruct,        &! t_obs_set destructor routine
                             t_obs_block       ! observation data type box
   use mo_obs_tables,  only: read_nml_report, &! set table rept_use from namelist
                             rept_use,        &!     table rept_use
+                            rept_char,       &!     table rept_char
                             derive_rept_stat,&! re-derive obs.statistics
                             gather_rept_stat,&! gather statistics on I/O PE
                             print_rept_stat   ! print observ.type statistics
@@ -212,7 +216,10 @@ MODULE mo_icon2dace
   use mo_std,         only: read_std_nml_dace ! read namelist /STD_OBS/
   use mo_boxes,       only: set_input_boxes, &! distribute files over PEs
                             set_veri_boxes    ! associate obs. with boxes
-  use mo_thinning,    only: check_domain      ! check for out of domain
+  use mo_thinning,    only: check_domain,    &! check for out of domain
+                            thinning,        &! thinning routine
+                            read_nml_thin     ! read namelist /THINNING/ 
+  use mo_blacklist,   only: read_blacklists   ! read blacklist file
   use mo_fg_checks,   only: check_obs,       &! check for valid report
                             check_cons,      &! consistency check
                             check_rule,      &! check for rules
@@ -234,7 +241,8 @@ MODULE mo_icon2dace
   !------------------------
   ! feedback file interface
   !------------------------
-  use mo_fdbk_tables, only: init_fdbk_tables  ! initialise tables
+  use mo_fdbk_tables, only: init_fdbk_tables,&! initialise tables
+                            OT_RAD            ! obstype RAD       
   use mo_fdbk_3dvar,  only: t_fdbk_3dv,      &! 3dvar feedback file derived type
                             destruct,        &! t_fdbk_3dv destructor routine
                             write_fdbk_3dv    ! write (NetCDF) feedback file
@@ -1817,6 +1825,10 @@ contains
     call disable_gh       () ! disable generalized humidity transformation
     call read_nml_report     ! set defaults in table 'rept_use'
     call read_tovs_nml       ! read namelists /TOVS_OBS/ and /TOVS_OBS_CHAN_NML/
+    call read_nml_thin       ! read namelist /THINNING/
+    if (n_dace_op > 0) then
+       call read_blacklists  ! read namelist /BLACKLIST/ (and blacklist file)
+    end if
     flush (6)
 
 
@@ -1862,15 +1874,24 @@ contains
     ! + for COSMO operators do reject,
     ! + dismiss does not work yet
     !------------------------------------------------------
-    rept_use(:)% use (CHK_DOMAIN) = STAT_REJECTED
+    ! check if problems with global conventional operators!
+    ! HA: lecheck_ptopf noetig (wie in dace)?
+    ! Use status rejected only for COSMO operators; not for all observation types
+    where(rept_char(:)% mod == COSMO) rept_use(:)% use(CHK_DOMAIN) = STAT_REJECTED
+         
     call check_domain (obs_in(1), grid, horizontal=.true.)
+    !lcheck_ptopf=lcheck_ptopf)
 
+    obs_in% pe = dace% pe
+    !call stop_time ('thinning routine')
+    call message ('init_dace_op','thinning routine')
+    call thinning (obs_in, grid, 0)
     !------------------------------------------
     ! Set up boxes to run observation operators
     !------------------------------------------
 !   call stop_time ('set up boxes')
     call message ('init_dace_op','set up boxes')
-    obs_in% pe = dace% pe
+    !obs_in% pe = dace% pe
     tinc       = t_time(0,dace_time_ctrl(3))
     mec_slot1  = 1
     mec_slotn  = max (mec_calls, 1)
@@ -2236,6 +2257,10 @@ contains
           ! apply observation specific rules
           !---------------------------------
           call check_rule (obs% o) ! check for specific rules
+          if (n_dace_op > 0) then
+             !call read_blacklists
+             call check_black (obs% o) ! check for blacklisting
+          end if
           if (fg_check >= 4) then
              !----------------------------------------------------
              ! apply quality checks as done in LETKF
