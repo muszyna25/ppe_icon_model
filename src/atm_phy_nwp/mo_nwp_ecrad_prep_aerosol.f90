@@ -116,6 +116,8 @@ CONTAINS
   END SUBROUTINE nwp_ecrad_prep_aerosol_constant
   !---------------------------------------------------------------------------------------
 
+
+
   !---------------------------------------------------------------------------------------
   !>
   !! SUBROUTINE nwp_ecrad_prep_aerosol_tegen
@@ -174,8 +176,10 @@ CONTAINS
     IF (ecrad_conf%do_lw) THEN
       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
       !$ACC LOOP GANG VECTOR COLLAPSE(3) 
-      DO jband = 1, ecrad_conf%n_bands_lw
-        DO jk = slev, nlev
+      DO jk = slev, nlev
+!NEC$ nointerchange
+!NEC$ nounroll
+        DO jband = 1, ecrad_conf%n_bands_lw
           DO jc = i_startidx, i_endidx
             ! LW optical thickness
             ecrad_aerosol%od_lw (jband,jk,jc) =  zaeq1(jc,jk) * scal_abs(jband,1) &
@@ -187,20 +191,22 @@ CONTAINS
             ecrad_aerosol%ssa_lw(jband,jk,jc) = 0._wp
             ecrad_aerosol%g_lw  (jband,jk,jc) = 0._wp
           ENDDO ! jc
-        ENDDO ! jk
-      ENDDO ! jband
+        ENDDO ! jband
+      ENDDO ! jk
       !$ACC END PARALLEL
     ENDIF
 
 ! SHORTWAVE
     IF (ecrad_conf%do_sw) THEN
       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
-      !$ACC LOOP SEQ PRIVATE(jband_shift)
-      DO jband = 1, ecrad_conf%n_bands_sw
-        jband_shift = ecrad_conf%n_bands_lw + jband
-        !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(tau_abs, tau_sca)
-        DO jk = slev, nlev
+      !$ACC LOOP GANG VECTOR COLLAPSE(3) PRIVATE(jband_shift, tau_abs, tau_sca)
+      DO jk = slev, nlev
+!NEC$ nointerchange
+        DO jband = 1, ecrad_conf%n_bands_sw
           DO jc = i_startidx, i_endidx
+
+            jband_shift = ecrad_conf%n_bands_lw + jband
+
             ! SW absorption optical depth
             tau_abs =  zaeq1(jc,jk) * scal_abs(jband_shift,1) &
               &      + zaeq2(jc,jk) * scal_abs(jband_shift,2) &
@@ -228,15 +234,17 @@ CONTAINS
               &   + zaeq4(jc,jk) * scal_sct(jband_shift,4) * scal_asy(jband_shift,4)   &
               &   + zaeq5(jc,jk) * scal_sct(jband_shift,5) * scal_asy(jband_shift,5) ) / tau_sca
           ENDDO ! jc
-        ENDDO ! jk
-      ENDDO ! jband
+        ENDDO ! jband
+      ENDDO ! jk
       !$ACC END PARALLEL
     ENDIF
 
     !$ACC END DATA
 
   END SUBROUTINE nwp_ecrad_prep_aerosol_tegen
+
   !---------------------------------------------------------------------------------------
+
 
   !---------------------------------------------------------------------------------------
   !>
