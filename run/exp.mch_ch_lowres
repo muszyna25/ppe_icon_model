@@ -10,6 +10,8 @@ author_list="Remo Dietlicher, MeteoSwiss"
 # used at MeteoSwiss for production. This simulation computes a few time steps on 
 # a low-resolution grid over Switzerland. The setup is for development purposes.
 #
+# This experiment uses "cloudice" microphysics. (Other mch_opr_r04b07* experiments use
+# "graupel" instead.)
 #--------------------------------------------------------------------------------------------------
 
 # (0) unset some setting of create_target_header for mistral
@@ -280,7 +282,7 @@ cat > ${atmo_namelist} << EOF
 
 ! nwp_phy_nml: switches for the physics schemes ------------------------------
 &nwp_phy_nml
- inwp_gscp                   =                          2         ! cloud microphysics and precipitation
+ inwp_gscp                   =                          1         ! cloud microphysics and precipitation
  inwp_convection             =                          1         ! convection
  lshallowconv_only           =                      .TRUE.        ! only shallow convection
  inwp_radiation              =                          1         ! radiation

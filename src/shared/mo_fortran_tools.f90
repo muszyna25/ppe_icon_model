@@ -145,9 +145,12 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE assign_if_present_real_allocatable_1d
   END INTERFACE assign_if_present_allocatable
 
-  !> this is meant to make it easier for compilers to circumvent
+  !> `copy(b, a)` is meant to make it easier for compilers to circumvent
   !! temporaries as are too often created in a(:, :, :) = b(:, :, :)
-  !! uses omp orphaning
+  !!
+  !! `copy` uses openMP orphaning, i.e. it must be called inside an
+  !! OMP PARALLEL region. However, it must not be called inside another
+  !! OMP DO region. 
   INTERFACE copy
     MODULE PROCEDURE copy_2d_dp
     MODULE PROCEDURE copy_3d_dp
@@ -160,6 +163,7 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE copy_5d_i4
   END INTERFACE copy
 
+  !> `init` uses openMP orphaning (explanation see `copy`)
   INTERFACE init
     MODULE PROCEDURE init_zero_1d_dp
     MODULE PROCEDURE init_zero_1d_sp

@@ -55,7 +55,7 @@ MODULE mo_nwp_sfc_interface
   USE sfc_terra_data                ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt, grav, salinity_fac, rhoh2o
   USE mo_index_list,          ONLY: generate_index_list
-
+  USE mo_fortran_tools,       ONLY: init
   IMPLICIT NONE 
 
   PRIVATE
@@ -262,16 +262,6 @@ CONTAINS
     jg = p_patch%id
 
 
-    IF (atm_phy_nwp_config(jg)%lhave_graupel) THEN
-      ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
-      p_graupel_gsp_rate => prm_diag%graupel_gsp_rate(:,:)
-    ELSE
-      ! initialize dummy variable (precipitation rate of graupel, grid-scale)
-      dummy_graupel_gsp_rate(:,:) = 0._wp
-      p_graupel_gsp_rate => dummy_graupel_gsp_rate(:,:)
-    ENDIF
-
-
     ! local variables related to the blocking
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -298,31 +288,24 @@ CONTAINS
       CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
     ENDIF
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,ic,isubs_snow,i_count_snow,                     &
-!$OMP   tmp1,tmp2,tmp3,fact1,fact2,frac_sv,frac_snow_sv,icount_init,init_list,it1,it2,is1,is2,              &
-!$OMP   rain_gsp_rate,snow_gsp_rate,ice_gsp_rate,rain_con_rate,snow_con_rate,ps_t,prr_con_t,prs_con_t,      &
-!$OMP   prr_gsp_t,prs_gsp_t,pri_gsp_t,u_t,v_t,t_t,qv_t,p0_t,sso_sigma_t,lc_class_t,t_snow_now_t,t_s_now_t,  &
-!$OMP   t_g_t,qv_s_t,w_snow_now_t,rho_snow_now_t,w_i_now_t,w_p_now_t,w_s_now_t,freshsnow_t,                 &
-!$OMP   snowfrac_t,runoff_s_inst_t,runoff_g_inst_t,resid_wso_inst_t,u_10m_t,v_10m_t,tch_t,tcm_t,tfv_t,      &
-!$OMP   sobs_t,thbs_t,pabs_t,                                                                               &
-!$OMP   soiltyp_t,plcov_t,rootdp_t,sai_t,tai_t,eai_t,rsmin2d_t,t_snow_mult_now_t,wliq_snow_now_t,           &
-!$OMP   rho_snow_mult_now_t,wtot_snow_now_t,dzh_snow_now_t,t_so_now_t,w_so_now_t,w_so_ice_now_t,            &
-!$OMP   t_s_new_t,w_snow_new_t,rho_snow_new_t,h_snow_t,w_i_new_t,w_p_new_t,w_s_new_t,t_so_new_t,            &
-!$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,                 &
-!$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,                 &
-!$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t,            &
-!$OMP   meltrate,h_snow_gp_t,conv_frac,t_sk_now_t,t_sk_new_t,skinc_t,tsnred,plevap_t,z0_t,laifac_t,         &
-!$OMP   cond,init_list_tmp,ic_tot,icount_init_tmp,heatcond_fac, heatcap_fac,                                &
-!$OMP   qsat1,dqsdt1,qsat2,dqsdt2,sntunefac,sntunefac2,snowfrac_lcu_t) ICON_OMP_GUIDED_SCHEDULE
+!$OMP PARALLEL PRIVATE(p_graupel_gsp_rate)
 
     !$acc data present(ext_data, p_prog, p_prog_rcf, p_diag, p_metrics, prm_diag, &
     !$acc              lnd_prog_now, lnd_prog_new, p_prog_wtr_now, p_prog_wtr_new, lnd_diag, &
-    !$acc              var_in_output, atm_phy_nwp_config, phy_params)    
-    
+    !$acc              var_in_output, atm_phy_nwp_config, phy_params) &
+    !$acc      create(dummy_graupel_gsp_rate)
+
+    IF (atm_phy_nwp_config(jg)%lhave_graupel) THEN
+      ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
+      p_graupel_gsp_rate => prm_diag%graupel_gsp_rate(:,:)
+    ELSE
+      ! initialize dummy variable (precipitation rate of graupel, grid-scale)
+      CALL init(dummy_graupel_gsp_rate)
+      p_graupel_gsp_rate => dummy_graupel_gsp_rate(:,:)
+    ENDIF
+
     !$acc data create (sntunefac, sntunefac2, rain_con_rate, snow_con_rate,  &
     !$acc              rain_gsp_rate, snow_gsp_rate, graupel_gsp_rate,       &
-    !$acc              dummy_graupel_gsp_rate,                               &
     !$acc              init_list, it1, it2, fact1, fact2, frac_sv,           &
     !$acc              frac_snow_sv, ice_gsp_rate,                           &
     !$acc              cond, init_list_tmp)                                  &
@@ -347,6 +330,22 @@ CONTAINS
     !$acc              qhfl_s_t, plevap_t, z0_t, sso_sigma_t, heatcond_fac, heatcap_fac, &
     !$acc              snowfrac_lcu_t, lc_class_t)
 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,ic,isubs_snow,i_count_snow,                     &
+!$OMP   tmp1,tmp2,tmp3,fact1,fact2,frac_sv,frac_snow_sv,icount_init,init_list,it1,it2,is1,is2,              &
+!$OMP   rain_gsp_rate,snow_gsp_rate,ice_gsp_rate,rain_con_rate,snow_con_rate,ps_t,prr_con_t,prs_con_t,      &
+!$OMP   prr_gsp_t,prs_gsp_t,pri_gsp_t,u_t,v_t,t_t,qv_t,p0_t,sso_sigma_t,lc_class_t,t_snow_now_t,t_s_now_t,  &
+!$OMP   t_g_t,qv_s_t,w_snow_now_t,rho_snow_now_t,w_i_now_t,w_p_now_t,w_s_now_t,freshsnow_t,                 &
+!$OMP   snowfrac_t,runoff_s_inst_t,runoff_g_inst_t,resid_wso_inst_t,u_10m_t,v_10m_t,tch_t,tcm_t,tfv_t,      &
+!$OMP   sobs_t,thbs_t,pabs_t,                                                                               &
+!$OMP   soiltyp_t,plcov_t,rootdp_t,sai_t,tai_t,eai_t,rsmin2d_t,t_snow_mult_now_t,wliq_snow_now_t,           &
+!$OMP   rho_snow_mult_now_t,wtot_snow_now_t,dzh_snow_now_t,t_so_now_t,w_so_now_t,w_so_ice_now_t,            &
+!$OMP   t_s_new_t,w_snow_new_t,rho_snow_new_t,h_snow_t,w_i_new_t,w_p_new_t,w_s_new_t,t_so_new_t,            &
+!$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,                 &
+!$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,                 &
+!$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t,            &
+!$OMP   meltrate,h_snow_gp_t,conv_frac,t_sk_now_t,t_sk_new_t,skinc_t,tsnred,plevap_t,z0_t,laifac_t,         &
+!$OMP   cond,init_list_tmp,ic_tot,icount_init_tmp,heatcond_fac, heatcap_fac,                                &
+!$OMP   qsat1,dqsdt1,qsat2,dqsdt2,sntunefac,sntunefac2,snowfrac_lcu_t) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &

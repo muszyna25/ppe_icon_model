@@ -77,7 +77,7 @@ async def run_checks_loc(test_data, reference):
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ALHFL_S"),  \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ASHFL_S"),  \
         check_rel_avg(test_data, reference, 0.002, grb_metadata(test_data.grb, "shortName") == "W_SO"),     \
-        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "RAIN_GSP"), \
+        check_rel_avg(test_data, reference, 0.005, grb_metadata(test_data.grb, "shortName") == "RAIN_GSP"), # temporarily increased threshold. Can be reverted with nfort>=3.3.1
         check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "RAIN_CON"), \
         check_rel_avg(test_data, reference, 0.01, grb_metadata(test_data.grb, "shortName") == "SNOW_GSP"), \
         check_rel_avg(test_data, reference, 0.01, grb_metadata(test_data.grb, "shortName") == "SNOW_CON"), \
