@@ -901,7 +901,7 @@ MODULE mo_nh_stepping
   IF ( iforcing == inwp ) THEN
      DO jg=1, n_dom
         CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg), &
-          phy_params=phy_params(jg))
+          phy_params=phy_params(jg), atm_phy_nwp_config=atm_phy_nwp_config(jg))
      ENDDO
      CALL devcpy_nwp()
   ENDIF
@@ -2589,7 +2589,8 @@ MODULE mo_nh_stepping
 
 #ifdef _OPENACC
             CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg)) ! necessary as Halo-Data can be modified
-            CALL gpu_h2d_nh_nwp(p_patch(jgc), prm_diag(jgc), ext_data=ext_data(jgc), phy_params=phy_params(jgc)) 
+            CALL gpu_h2d_nh_nwp(p_patch(jgc), prm_diag(jgc), ext_data=ext_data(jgc), phy_params=phy_params(jgc), &
+                                atm_phy_nwp_config=atm_phy_nwp_config(jg))
             i_am_accel_node = my_process_is_work()
             IF (msg_level >= 7) &
               & CALL message (routine, 'NESTING online init: Switching back to GPU')

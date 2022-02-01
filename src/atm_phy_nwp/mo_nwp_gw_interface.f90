@@ -107,6 +107,7 @@ CONTAINS
       lzacc = .FALSE.
     ENDIF
 
+    !$ACC DATA CREATE(ssolim) PRESENT(p_patch, vct_a, prm_nwp_tend) IF(lzacc)
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
     ! number of vertical levels
@@ -124,8 +125,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
     ! Set height-dependent limits for SSO momentum tendencies
-    
-    !$ACC PARALLEL IF(lzacc)
+    !$ACC PARALLEL DEFAULT(NONE) IF(lzacc) 
     !$ACC LOOP GANG VECTOR
     DO jk = 1, nlev
       jks = jk + p_patch%nshift_total
@@ -193,7 +193,7 @@ CONTAINS
         ! Reduce tendencies in uppermost layer by a factor of 8 because they tend to larger than the tendencies
         ! in the second layer by about this factor. This is also true at vertical nest interfaces
 !DIR$ IVDEP
-        !$ACC PARALLEL IF(lzacc)
+        !$ACC PARALLEL DEFAULT(NONE) IF(lzacc)
         !$ACC LOOP GANG VECTOR
         DO jc = i_startidx, i_endidx
           prm_nwp_tend%ddt_u_sso(jc,1,jb) = 0.125_vp*prm_nwp_tend%ddt_u_sso(jc,1,jb)
@@ -205,7 +205,7 @@ CONTAINS
         ! Moreover, they tend to be much too strong in northern hemispheric winter, leading to a huge warm
         ! bias in the north polar middle stratosphere
         
-        !$ACC PARALLEL LOOP GANG VECTOR COLLAPSE(2) IF(lzacc)
+        !$ACC PARALLEL LOOP GANG VECTOR COLLAPSE(2) DEFAULT(NONE) IF(lzacc)
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -219,7 +219,9 @@ CONTAINS
 
       ELSE IF (lcall_sso_jg .AND. atm_phy_nwp_config(jg)%inwp_sso == 2) THEN
         ! SSO from IFS code 41r2
- 
+#ifdef _OPENACC
+        CALL finish('nwp_gwdrag', 'inwp_sso=2 is not supported with ACC')
+#endif
         CALL gwdrag(                                       &
           & klon      =nproma                           ,  & !> in:  actual array size
           & klev      =nlev                             ,  & !< in:  actual array size
@@ -272,7 +274,9 @@ CONTAINS
 ! Non-orgographic gravity wave drag
 
       IF (lcall_gwd_jg .AND. atm_phy_nwp_config(jg)%inwp_gwd == 1) THEN
-
+#ifdef _OPENACC
+        CALL finish('nwp_gwdrag', 'Non-orgographic gravity wave drag is not supported with ACC')
+#endif
         ! get total precipitation rate [kg/m2/s] ==> input for gwdrag_wms
         DO jc =  i_startidx, i_endidx
           ztot_prec_rate(jc) = prm_diag%rain_gsp_rate (jc,jb) &  ! rain_gsp
@@ -327,6 +331,7 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+  !$ACC END DATA
   END SUBROUTINE nwp_gwdrag
 
 END MODULE mo_nwp_gw_interface

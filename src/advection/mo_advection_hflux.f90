@@ -255,8 +255,7 @@ CONTAINS
     CALL btraj_cycl%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
 
 
-!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, p_rhodz_now, p_rhodz_new, p_vn ), &
-!$ACC       PCOPYOUT( p_upflux ),                                          &
+!$ACC DATA  PRESENT( p_cc, p_mass_flx_e, p_rhodz_now, p_rhodz_new, p_vn, p_upflux ), &
 !$ACC       CREATE( z_real_vt ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, p_rhodz_now, p_rhodz_new, p_vn ), &
 !$ACC IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
