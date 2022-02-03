@@ -30,7 +30,7 @@ MODULE mo_advection_nml
   USE mo_run_config,          ONLY: ntracer
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
     &                               MIURA, FFSL_HYB_MCYCL, ippm_v,              &
-    &                               inol, ifluxl_sm, inol_v,                    &
+    &                               inol, ifluxl_m, ifluxl_sm, inol_v,          &
     &                               islopel_vsm, ifluxl_vpd, VNAME_LEN, NO_VADV
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
@@ -310,11 +310,12 @@ CONTAINS
       CALL finish(routine,                                     &
         &  'incorrect settings for itype_vlimit. Permissible choices [0,..,3]')
     ENDIF
-    IF ( ANY(itype_hlimit(1:max_ntracer) < inol ) .OR.                &
-      &  ANY(itype_hlimit(1:max_ntracer) > ifluxl_sm)) THEN
-      CALL finish(routine,                                     &
-        &  'incorrect settings for itype_hlimit. Permissible choices [0,..,4]')
-    ENDIF
+    DO it = 1, max_ntracer
+      IF ( ALL((/inol,ifluxl_m,ifluxl_sm/) /= itype_hlimit(it)) ) THEN
+        CALL finish(routine,                                     &
+          &  'incorrect settings for itype_hlimit. Permissible choices [0,3,4]')
+      ENDIF
+    ENDDO
     IF ( ANY(ivlimit_selective(1:max_ntracer) < 0 ) .OR.              &
       &  ANY(ivlimit_selective(1:max_ntracer) > 1 )) THEN
       CALL finish(routine,                                     &

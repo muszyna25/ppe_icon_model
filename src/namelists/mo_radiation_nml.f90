@@ -29,6 +29,7 @@ MODULE mo_radiation_nml
                                  & config_yr_perp    => yr_perp,     &
                                  & config_isolrad    => isolrad,     &
                                  & config_albedo_type=> albedo_type, &
+                                 & config_albedo_fixed        => albedo_fixed,        &
                                  & config_direct_albedo       => direct_albedo,       &
                                  & config_direct_albedo_water => direct_albedo_water, &
                                  & config_albedo_whitecap     => albedo_whitecap,     &
@@ -52,6 +53,7 @@ MODULE mo_radiation_nml
                                  & config_vmr_cfc11  => vmr_cfc11,   &
                                  & config_vmr_cfc12  => vmr_cfc12,   &
                                  & config_izenith    => izenith,     &
+                                 & config_cos_zenith_fixed => cos_zenith_fixed, &
                                  & config_mmr_co2    => mmr_co2,     &
                                  & config_mmr_ch4    => mmr_ch4,     &
                                  & config_mmr_n2o    => mmr_n2o,     &
@@ -113,6 +115,9 @@ MODULE mo_radiation_nml
   INTEGER :: albedo_type ! 1: albedo based on surface-type specific set of constants
                          !    (see )
                          ! 2: Modis albedo
+                         ! 3: fixed albedo with value albedo_fixed
+
+  REAL(wp) :: albedo_fixed   ! value of fixed albedo for albedo_type=3
 
   INTEGER :: direct_albedo   ! 1: SZA dependence according to Ritter and Geleyn (1992)
                              ! 2: limitation to diffuse albedo according to Zaengl 
@@ -179,6 +184,7 @@ MODULE mo_radiation_nml
   !
   ! --- Different specifications of the zenith angle
   INTEGER  :: izenith
+  REAL(wp) :: cos_zenith_fixed
   !
   ! ecRad specific configuration
   LOGICAL  :: llw_cloud_scat
@@ -191,6 +197,7 @@ MODULE mo_radiation_nml
     &                      lyr_perp, yr_perp,     &
     &                      isolrad,               &
     &                      albedo_type,           &
+    &                      albedo_fixed,          &
     &                      direct_albedo,         &
     &                      direct_albedo_water,   &
     &                      albedo_whitecap,       &
@@ -206,6 +213,7 @@ MODULE mo_radiation_nml
     &                      lrad_aero_diag,        &
     &                      ghg_filename,          &
     &                      izenith, icld_overlap, &
+    &                      cos_zenith_fixed,      &
     &                      islope_rad,            &
     &                      llw_cloud_scat,        &
     &                      iliquid_scat,          &
@@ -249,6 +257,7 @@ CONTAINS
 
     isolrad        = 0
     albedo_type    = 1
+    albedo_fixed   = 0.5_wp ! value of fixed albedo for albedo_type=3
     direct_albedo  = 4      ! Parameterization after Briegleb and Ramanathan (1992)
     direct_albedo_water = 4 ! Parameterization after Yang et al (2008) for sea water, and Ritter and Geleyn (1992) for lakes
     albedo_whitecap= 0      ! no whitecap albedo from breaking ocean waves
@@ -275,7 +284,8 @@ CONTAINS
     vmr_cfc11   =  214.5e-12_wp
     vmr_cfc12   =  371.1e-12_wp
 
-    izenith     = 4  ! Default: seasonal orbit and diurnal cycle
+    izenith          = 4       ! Default: seasonal orbit and diurnal cycle
+    cos_zenith_fixed = 0.5_wp  ! fixed cosine of zenith angle for izenith=6
 
     llw_cloud_scat  = .FALSE.
     iliquid_scat    = 0
@@ -324,6 +334,7 @@ CONTAINS
     config_yr_perp    = yr_perp
     config_isolrad    = isolrad
     config_albedo_type= albedo_type
+    config_albedo_fixed        = albedo_fixed
     config_direct_albedo       = direct_albedo
     config_direct_albedo_water = direct_albedo_water
     config_albedo_whitecap     = albedo_whitecap
@@ -354,6 +365,7 @@ CONTAINS
     config_mmr_cfc12  = vmr_cfc12 * amc12/amd
 
     config_izenith    = izenith
+    config_cos_zenith_fixed = cos_zenith_fixed
 
     config_llw_cloud_scat  = llw_cloud_scat
     config_iliquid_scat    = iliquid_scat

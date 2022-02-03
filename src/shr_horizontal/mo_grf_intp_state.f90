@@ -868,8 +868,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
   INTEGER :: jg, jb, jc, je, jv, i, ic, ib, iv, iv1, iv2, ib1, ib2
   INTEGER :: npoints_lbc, npoints_ubc, icount_lbc, icount_ubc, npoints_lbc_src, icount_lbc_src
   LOGICAL :: lprocess, lfound(2,6)
-  INTEGER, ALLOCATABLE :: inv_ind_c(:,:), inv_ind_e_lbc(:,:), inv_ind_e_ubc(:,:), &
-                          inv_ind_v(:,:)
+  INTEGER, ALLOCATABLE :: inv_ind_v(:,:)
   TYPE(t_glb2loc_index_lookup) :: inv_glb2loc
   INTEGER, ALLOCATABLE :: inv_glb2loc_loc_index_c_grf(:), &
     &                     inv_glb2loc_loc_index_c_ubc(:), &
@@ -1003,7 +1002,6 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
               p_grf_s%blklist_bdyintp_c(10,npoints_lbc),p_grf_s%blklist_ubcintp_c(10,npoints_ubc), &
               p_grf_s%coeff_bdyintp_c(10,2,npoints_lbc),p_grf_s%coeff_ubcintp_c(10,2,npoints_ubc), &
               p_grf_s%dist_pc2cc_bdy(4,2,npoints_lbc),  p_grf_s%dist_pc2cc_ubc(4,2,npoints_ubc),   &
-              inv_ind_c(nproma,p_patch%nblks_c), &
               inv_glb2loc_loc_index_c_grf(p_patch%n_patch_cells),   &
               inv_glb2loc_loc_index_c_ubc(p_patch%n_patch_cells), STAT=ist )
     IF (ist /= SUCCESS) THEN
@@ -1012,6 +1010,14 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
 
     inv_glb2loc_loc_index_c_grf = -1
     inv_glb2loc_loc_index_c_ubc = -1
+    p_grf_s%idxlist_bdyintp_c = -1
+    p_grf_s%blklist_bdyintp_c = -1
+    p_grf_s%coeff_bdyintp_c = 0._wp
+    p_grf_s%dist_pc2cc_bdy = 0._wp
+    p_grf_s%idxlist_ubcintp_c = -1
+    p_grf_s%blklist_ubcintp_c = -1
+    p_grf_s%coeff_ubcintp_c = 0._wp
+    p_grf_s%dist_pc2cc_ubc = 0._wp
 
     npoints_lbc = MAX(1,p_grf_s%npoints_bdyintp_e)
     npoints_ubc = MAX(1,p_grf_s%npoints_ubcintp_e)
@@ -1020,13 +1026,21 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
               p_grf_s%coeff_bdyintp_e12(12,npoints_lbc),p_grf_s%coeff_ubcintp_e12(12,npoints_ubc), &
               p_grf_s%coeff_bdyintp_e34(10,npoints_lbc),p_grf_s%coeff_ubcintp_e34(10,npoints_ubc), &
               p_grf_s%edge_vert_idx(2,npoints_lbc),     p_grf_s%dist_pe2ce(2,npoints_lbc),         &
-              p_grf_s%prim_norm(2,2,npoints_lbc),       inv_ind_e_lbc(nproma,p_patch%nblks_e),     &
+              p_grf_s%prim_norm(2,2,npoints_lbc),                                                  &
               inv_glb2loc_loc_index_e_lbc(p_patch%n_patch_edges),                                  &
-              inv_ind_e_ubc(nproma,p_patch%nblks_e),                                              &
               inv_glb2loc_loc_index_e_ubc(p_patch%n_patch_edges), STAT=ist)
 
     inv_glb2loc_loc_index_e_lbc = -1
     inv_glb2loc_loc_index_e_ubc = -1
+    p_grf_s%blklist_bdyintp_e = -1
+    p_grf_s%coeff_bdyintp_e12 = 0._wp
+    p_grf_s%coeff_bdyintp_e34 = 0._wp
+    p_grf_s%edge_vert_idx = -1
+    p_grf_s%prim_norm = 0._wp
+    p_grf_s%blklist_ubcintp_e = -1
+    p_grf_s%coeff_ubcintp_e12 = 0._wp
+    p_grf_s%coeff_ubcintp_e34 = 0._wp
+    p_grf_s%dist_pe2ce = 0._wp
 
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocation of edge index lists failed')
@@ -1041,6 +1055,10 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocation of vertex index lists failed')
     ENDIF
+
+    p_grf_s%idxlist_rbfintp_v = -1
+    p_grf_s%blklist_rbfintp_v = -1
+    p_grf_s%coeff_rbf_v = 0._wp
 
     ! Part 2: Compute index and coefficient lists
 
@@ -1065,7 +1083,6 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
           icount_lbc = icount_lbc + 1
           p_grf_s%idxlist_bdyintp_c(1,icount_lbc) = jc
           p_grf_s%blklist_bdyintp_c(1,icount_lbc) = jb
-          inv_ind_c(jc,jb) = icount_lbc
           inv_glb2loc_loc_index_c_grf(idx_1d(jc, jb)) = icount_lbc
           p_grf_s%idxlist_bdyintp_c(2:10,icount_lbc)   = p_int%rbf_c2grad_idx(2:10,jc,jb)
           p_grf_s%blklist_bdyintp_c(2:10,icount_lbc)   = p_int%rbf_c2grad_blk(2:10,jc,jb)
@@ -1077,7 +1094,6 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
           icount_ubc = icount_ubc + 1
           p_grf_s%idxlist_ubcintp_c(1,icount_ubc) = jc
           p_grf_s%blklist_ubcintp_c(1,icount_ubc) = jb
-          inv_ind_c(jc,jb) = icount_ubc
           inv_glb2loc_loc_index_c_ubc(idx_1d(jc, jb)) = icount_ubc
           p_grf_s%idxlist_ubcintp_c(2:10,icount_ubc)   = p_int%rbf_c2grad_idx(2:10,jc,jb)
           p_grf_s%blklist_ubcintp_c(2:10,icount_ubc)   = p_int%rbf_c2grad_blk(2:10,jc,jb)
@@ -1158,7 +1174,6 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
           lfound(:,:) = .FALSE.
           p_grf_s%idxlist_bdyintp_e(1,icount_lbc) = je
           p_grf_s%blklist_bdyintp_e(1,icount_lbc) = jb
-          inv_ind_e_lbc(je,jb) = icount_lbc
           inv_glb2loc_loc_index_e_lbc(idx_1d(je,jb)) = icount_lbc
           DO i = 1,p_grf_s%grf_vec_stencil_1a(je,jb)
             IF (p_grf_s%grf_vec_ind_1a(je,i,jb) == je .AND. &
@@ -1294,7 +1309,6 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
           lfound(:,:) = .FALSE.
           p_grf_s%idxlist_ubcintp_e(1,icount_ubc) = je
           p_grf_s%blklist_ubcintp_e(1,icount_ubc) = jb
-          inv_ind_e_ubc(je,jb) = icount_ubc
           inv_glb2loc_loc_index_e_ubc(idx_1d(je,jb)) = icount_ubc
           DO i = 1,p_grf_s%grf_vec_stencil_1a(je,jb)
             IF (p_grf_s%grf_vec_ind_1a(je,i,jb) == je .AND. &
@@ -1405,7 +1419,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
       ENDDO
     ENDDO
 
-    DEALLOCATE (inv_ind_c, inv_ind_e_lbc, inv_ind_e_ubc, inv_ind_v)
+    DEALLOCATE (inv_ind_v)
 
     ! Generate the communication patterns for lateral and upper boundary
     ! interpolation

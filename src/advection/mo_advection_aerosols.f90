@@ -134,7 +134,9 @@ CONTAINS
     TYPE(t_back_traj) :: btraj
 
     ! Horizontal gradient field of aerosols
+    REAL(wp) :: lsq_aero (3,nproma,nclass_aero,p_patch%nblks_c)
     REAL(vp) :: grad_aero(2,nproma,nclass_aero,p_patch%nblks_c)
+    LOGICAL  :: use_zlsq                       !< true if lsq_aero is used to store the gradients
     !
     REAL(wp) :: flx_aero(nproma,nclass_aero,p_patch%nblks_e)
 
@@ -289,9 +291,11 @@ CONTAINS
 
     ! Reconstruct 2D gradient fields of aerosol
     IF (advection_config(jg)%igrad_c_miura == 1 .AND. advection_config(jg)%llsq_svd) THEN
-      CALL recon_lsq_cell_l_svd(aerosol, p_patch, p_int%lsq_lin, grad_aero, opt_rlend=min_rlcell_int-1, &
+      use_zlsq = .TRUE.
+      CALL recon_lsq_cell_l_svd(aerosol, p_patch, p_int%lsq_lin, lsq_aero, opt_rlend=min_rlcell_int-1, &
                                 opt_slev = jtstart, opt_elev = jtend)
     ELSE
+      use_zlsq = .FALSE.
       CALL grad_green_gauss_cell(aerosol, p_patch, p_int, grad_aero, opt_rlend=min_rlcell_int-1, &
                                 opt_slev = jtstart, opt_elev = jtend)
     ENDIF
@@ -310,19 +314,33 @@ CONTAINS
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, i_rlstart, i_rlend)
 
+      IF ( use_zlsq ) THEN 
+        DO jt = jtstart, jtend
+          DO je = i_startidx, i_endidx
 
-      DO jt = jtstart, jtend
-        DO je = i_startidx, i_endidx
+            ilc = btraj%cell_idx(je,ji(jt),jb)
+            ibc = btraj%cell_blk(je,ji(jt),jb)
+            flx_aero(je,jt,jb) = ( lsq_aero(1,ilc,jt,ibc)                                  &
+              &                + btraj%distv_bary(je,ji(jt),jb,1)*lsq_aero(2,ilc,jt,ibc)   &
+              &                + btraj%distv_bary(je,ji(jt),jb,2)*lsq_aero(3,ilc,jt,ibc) ) &
+              &                * mflx_h_int(je,ji(jt),jb)
 
-          ilc = btraj%cell_idx(je,ji(jt),jb)
-          ibc = btraj%cell_blk(je,ji(jt),jb)
-          flx_aero(je,jt,jb) = ( aerosol(ilc,jt,ibc)                                      &
-            &                + btraj%distv_bary(je,ji(jt),jb,1)*grad_aero(1,ilc,jt,ibc)   &
-            &                + btraj%distv_bary(je,ji(jt),jb,2)*grad_aero(2,ilc,jt,ibc) ) &
-            &                * mflx_h_int(je,ji(jt),jb)
-
+          ENDDO
         ENDDO
-      ENDDO
+      ELSE
+        DO jt = jtstart, jtend
+          DO je = i_startidx, i_endidx
+
+            ilc = btraj%cell_idx(je,ji(jt),jb)
+            ibc = btraj%cell_blk(je,ji(jt),jb)
+            flx_aero(je,jt,jb) = ( aerosol(ilc,jt,ibc)                                      &
+              &                + btraj%distv_bary(je,ji(jt),jb,1)*grad_aero(1,ilc,jt,ibc)   &
+              &                + btraj%distv_bary(je,ji(jt),jb,2)*grad_aero(2,ilc,jt,ibc) ) &
+              &                * mflx_h_int(je,ji(jt),jb)
+
+          ENDDO
+        ENDDO
+      ENDIF  ! use_zlsq
 
     ENDDO
 !$OMP END DO

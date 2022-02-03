@@ -86,10 +86,12 @@ MODULE mo_nwp_ww
              ih_950hPa(max_dom),  &    ! index of layer next to 950 hPa for US standard atmosphere
              ihb500hPa(max_dom),  &    ! index of next layer below 500 hPa
              ihb950hPa(max_dom)        ! index of next layer below 950 hPa
+  !$ACC DECLARE CREATE(ih_500hPa, ih_700hPa, ih_850hPa, ih_950hPa, ihb500hpa, ihb950hpa)
 
 ! The following indices are used to calculate a fog index
   INTEGER :: ifog_temp(max_dom),  &    ! calculates minimum spread in this layer
              ifog_wind(max_dom)        ! calculate mean wind in this layer
+  !$ACC DECLARE CREATE(ifog_temp, ifog_wind)
 
   REAL(wp) :: rkgrenz1,   &            ! limit for thunderstorm: convective precipitation in 1 hour
               rkgrenz2                 ! limit for strong thunderstorm: convective precip. in 1 hour
@@ -156,6 +158,7 @@ CONTAINS
         EXIT
       END IF
     ENDDO
+    !$ACC UPDATE DEVICE(ih_500hPa(jg:jg), ihb500hPa(jg:jg)) ASYNC(1)
 
     ih_700hPa(jg) = ihb500hPa(jg)
     DO jk = ihb500hPa(jg), nlev
@@ -170,6 +173,7 @@ CONTAINS
         EXIT
       ENDIF
     ENDDO
+    !$ACC UPDATE DEVICE(ih_700hPa(jg:jg)) ASYNC(1)
 
     ih_850hPa(jg) = ih_700hPa(jg)+1
     DO jk = ih_700hPa(jg)+1, nlev
@@ -184,6 +188,7 @@ CONTAINS
         EXIT
       ENDIF
     ENDDO
+    !$ACC UPDATE DEVICE(ih_850hPa(jg:jg)) ASYNC(1)
 
     ifog_temp(jg) = ih_850hPa(jg)+1
     DO jk = ih_850hPa(jg)+1, nlev
@@ -198,6 +203,7 @@ CONTAINS
         EXIT
       ENDIF
     ENDDO
+    !$ACC UPDATE DEVICE(ifog_temp(jg:jg)) ASYNC(1)
 
     ihb950hPa(jg) = ifog_temp(jg)
     DO jk = ifog_temp(jg), nlev
@@ -213,6 +219,7 @@ CONTAINS
         EXIT
       ENDIF
     ENDDO
+    !$ACC UPDATE DEVICE(ih_950hPa(jg:jg), ihb950hPa(jg:jg)) ASYNC(1)
 
     ifog_wind(jg) = ih_950hPa(jg)
     DO jk = ih_950hPa(jg), nlev
@@ -227,6 +234,7 @@ CONTAINS
         EXIT
       ENDIF
     ENDDO
+    !$ACC UPDATE DEVICE(ifog_wind(jg:jg)) ASYNC(1)
 
     SELECT CASE (ymodel)
       CASE( 'ICON')  ! these values are the same as for COSMO-EU (LME)
@@ -297,7 +305,7 @@ CONTAINS
                              t_2m, td_2m, t_g, clct, clcm, u_10m, v_10m,      &
                              rain_gsp0, rain_gsp, rain_con0, rain_con,        &
                              snow_gsp0, snow_gsp, snow_con0, snow_con,        &
-                             bas_con, top_con, time_diff, iww )
+                             bas_con, top_con, time_diff, iww, use_acc )
 
 !
 ! Description:
@@ -340,6 +348,8 @@ CONTAINS
   INTEGER,  INTENT(IN) :: bas_con(ie),   & ! base index of main convective cloud
                           top_con(ie)      ! top index of main convective cloud
 
+  LOGICAL, INTENT(IN), OPTIONAL :: use_acc
+
 #if ONLYWW
   REAL(wp)                        :: time_diff ! time since previous call in hours
 #else
@@ -376,7 +386,23 @@ CONTAINS
     REAL(wp), PARAMETER :: rkogrenz = 1._wp          ! limit for rko
     REAL(wp), PARAMETER :: ms_kn = 1._wp/0.51444_wp  ! factor to convert numbers in m/s to knots
 
+    LOGICAL :: lacc
 
+    if (present(use_acc)) then
+      lacc = use_acc
+    else
+      lacc = .false.
+    end if
+
+    !$ACC PARALLEL DEFAULT(NONE) PRESENT(t, qv, qc, u, v, clc, pf, ph, t_2m, &
+    !$ACC   td_2m, t_g, clct, clcm, u_10m, v_10m, rain_gsp0, rain_gsp, &
+    !$ACC   rain_con0, rain_con, snow_gsp0, snow_gsp, snow_con0, snow_con, &
+    !$ACC   bas_con, top_con, iww, ih_500hpa, ih_700hpa, ih_850hpa, ih_950hpa, &
+    !$ACC   ifog_temp, ifog_wind) IF(lacc)
+    !$ACC LOOP GANG VECTOR PRIVATE(test_fog, rgdiff, lsnb, irrb, igfb, iwolk, &
+    !$ACC   iwolkc, isprb, rgdiff, rkdiff, rldiff, rrdiff, rsdiff, dp, lconvb, &
+    !$ACC   vbetr, tblmax, tdblmax, rfblmax, vbl, qvmin, zfrac, tdbl, rfbl, &
+    !$ACC   neb_i, e, e_s)
     DO i = i_startidx, i_endidx
       iww(i) = -9
       test_fog = .FALSE.
@@ -429,6 +455,7 @@ WW_PRECIP: IF (rgdiff < rgdiff_th1) THEN
 
           iwolk = 0
           iwolkc = 0
+          !$ACC LOOP SEQ
           DO k = ihb950hPa(jg)+1, ke
             IF ( qc(i,k) > 1.e-8_wp) THEN
               iwolkc = 1
@@ -613,6 +640,7 @@ WW_PRECIP: IF (rgdiff < rgdiff_th1) THEN
       ENDIF
 
 !.... Control Printout
+#ifndef _OPENACC
       IF ( iww(i) == -9 ) THEN
 #ifdef ONLYWW
            WRITE(*,'(a,i7,a,i3,a,f6.3,2(a,f5.1),2(a,L1),4(a,i2),a,L1)') &
@@ -631,8 +659,10 @@ WW_PRECIP: IF (rgdiff < rgdiff_th1) THEN
     CALL message( TRIM(routine), message_text)
 #endif
       ENDIF
+#endif
    
     ENDDO
+    !$ACC END PARALLEL
 
   END SUBROUTINE ww_diagnostics
 
@@ -661,6 +691,8 @@ WW_PRECIP: IF (rgdiff < rgdiff_th1) THEN
 !
       REAL(wp), PARAMETER :: qvmin = 1.e-12_wp            ! minimum value for specific humidity
       REAL(wp)            :: ta950, ta850, ta700, ta500   ! equivalent potential temperature
+
+      !$ACC ROUTINE SEQ
 !
   
 !     950 hPa
@@ -745,6 +777,8 @@ WW_PRECIP: IF (rgdiff < rgdiff_th1) THEN
       REAL(wp), PARAMETER :: xtpsp = -20.e2_wp          ! limit for sumtpsp
       REAL(wp), PARAMETER :: xtsp  = tmelt - 2.0_wp     ! limit for t at level kwug
       REAL(wp), PARAMETER :: xtpr  = 100.e2_wp          ! limit for sumtpr
+
+      !$ACC ROUTINE SEQ
 !
 !- End of header
 !
@@ -815,6 +849,7 @@ WW_PRECIP: IF (rgdiff < rgdiff_th1) THEN
 !   WW key (significant weather) for different cloud covers
 !
       REAL(wp), INTENT(IN) :: clct
+      !$ACC ROUTINE SEQ
       IF (      clct > 0.8125_wp) THEN
         clct2ww = 3
       ELSE IF ( clct > 0.4375_wp) THEN

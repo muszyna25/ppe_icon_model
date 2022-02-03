@@ -1128,7 +1128,7 @@ CONTAINS
 
   !------------------------------------------------------------------------------
   !>
-  ! If is mpi all parallel
+  ! If is mpi all sequential
   LOGICAL FUNCTION my_process_is_mpi_all_seq()
     my_process_is_mpi_all_seq = (process_mpi_all_size <= 1)
   END FUNCTION my_process_is_mpi_all_seq
@@ -10054,7 +10054,6 @@ CONTAINS
     INTEGER,           INTENT(in)    :: p_dest
     INTEGER,           INTENT(in)    :: comm
 
-     ! FIXME: this should probably use comm instead of p_comm_work
 #if !defined(NOMPI)
     CHARACTER(*), PARAMETER :: routine = modname//"::p_gatherv_int2D1D"
     INTEGER :: p_error

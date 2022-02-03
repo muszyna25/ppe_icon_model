@@ -2527,12 +2527,6 @@ MODULE mo_initicon_utils
       IF(ASSOCIATED(p_nh_state(jg)%diag%mflx_ic_ubc)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"mflx_ic_ubc: ", &
         & p_nh_state(jg)%diag%mflx_ic_ubc)
-      IF(ASSOCIATED(p_nh_state(jg)%diag%q_int)) &
-        & CALL printChecksum(prefix(1:pfx_tlen)//"q_int: ", &
-        & p_nh_state(jg)%diag%q_int)
-      IF(ASSOCIATED(p_nh_state(jg)%diag%q_ubc)) &
-        & CALL printChecksum(prefix(1:pfx_tlen)//"q_ubc: ", &
-        & p_nh_state(jg)%diag%q_ubc)
       IF(ASSOCIATED(p_nh_state(jg)%diag%vn_incr)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"vn_incr: ", &
         & p_nh_state(jg)%diag%vn_incr)

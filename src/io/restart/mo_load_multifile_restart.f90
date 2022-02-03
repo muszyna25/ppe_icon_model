@@ -414,11 +414,8 @@ CONTAINS
             max_r = MAX(max_r, MERGE(MAXVAL(files(:)%iCnts(hgrid),1)*lCnt, nblk, en_bloc))
             max_e = MAX(max_e, MERGE(nblk*lCnt, 1, en_bloc))
           ELSE
-            IF (ocean_initFromRestart_OVERRIDE) THEN
-! fatal hack from coding hell to make init_fromRestart=.true. (ocean) work
+            IF (ocean_initFromRestart_OVERRIDE .OR. vDat(iV)%p%info%lrestart_cont) THEN
               CALL warning(routine, "variable not found: "//TRIM(vDat(iV)%p%info%NAME))
-              CALL warning(routine, &
-                & "that MAY be intended if initialize_fromRestart=.true.")
             ELSE
               CALL finish(routine, "variable not found: "//TRIM(vDat(iV)%p%info%NAME))
             END IF

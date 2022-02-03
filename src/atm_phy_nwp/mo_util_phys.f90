@@ -24,7 +24,7 @@ MODULE mo_util_phys
   USE mo_physical_constants,    ONLY: o_m_rdv        , & !! 1 - r_d/r_v &
     &                                 rdv,             & !! r_d / r_v
     &                                 cpd, p0ref, rd,  &
-    &                                 vtmpc1, t3, rd_o_cpd
+    &                                 vtmpc1, t3, rd_o_cpd, grav
   USE mo_exception,             ONLY: finish, message
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
@@ -36,7 +36,8 @@ MODULE mo_util_phys
        &                              iqm_max, nqtendphy, lart, &
        &                              iqh, iqnc, iqnr, iqns, iqng, iqnh
   USE mo_nh_diagnose_pres_temp, ONLY: diag_pres, diag_temp
-  USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
+  USE mo_ls_forcing_nml,        ONLY: is_ls_forcing, is_nudging_tq, &
+       &                              nudge_start_height, nudge_full_height, dt_relax
   USE mo_loopindices,           ONLY: get_indices_c
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_nwp_tuning_config,     ONLY: tune_gust_factor
@@ -713,7 +714,7 @@ CONTAINS
   ! - applies large-scale-forcing tendencies, if ICON is run in single-column-mode.
   ! 
   SUBROUTINE tracer_add_phytend( p_rho_now, prm_nwp_tend, pdtime, prm_diag, &
-    &                            pt_prog_rcf, jg, jb, i_startidx, i_endidx, kend)
+    &                            pt_prog_rcf, p_metrics, dt_loc, jg, jb, i_startidx, i_endidx, kend)
 
     REAL(wp)             &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
@@ -721,13 +722,15 @@ CONTAINS
 #endif
                         ,INTENT(IN)   :: p_rho_now(:,:)  !< total air density
     TYPE(t_nwp_phy_tend),INTENT(IN)   :: prm_nwp_tend    !< atm tend vars
-    REAL(wp),            INTENT(IN)   :: pdtime          !< time step
+    REAL(wp)            ,INTENT(IN)   :: pdtime          !< time step
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag        !< the physics variables
-    TYPE(t_nh_prog),     INTENT(INOUT):: pt_prog_rcf     !< the tracer field at
+    TYPE(t_nh_prog)     ,INTENT(INOUT):: pt_prog_rcf     !< the tracer field at
                                                          !< reduced calling frequency
+    TYPE(t_nh_metrics)  ,INTENT(IN)   :: p_metrics       !< NH metrics variables
+    REAL(wp)            ,INTENT(IN)   :: dt_loc          !< (advective) time step applicable to local grid level
     INTEGER             ,INTENT(IN)   :: jg              !< domain ID
-    INTEGER,             INTENT(IN)   :: jb              !< block index
-    INTEGER,             INTENT(IN)   :: i_startidx, i_endidx
+    INTEGER             ,INTENT(IN)   :: jb              !< block index
+    INTEGER             ,INTENT(IN)   :: i_startidx, i_endidx
     INTEGER             ,INTENT(IN)   :: kend            !< vertical end index                             
 
     ! Local variables
@@ -738,6 +741,8 @@ CONTAINS
     INTEGER  :: iq_start
     REAL(wp) :: zrhox(nproma,kend,5)
     REAL(wp) :: zrhox_clip(nproma,kend)
+    REAL(wp) :: nudgecoeff  ! SCM Nudging
+    REAL(wp) :: z_ddt_q_nudge
     !
     INTEGER, POINTER              :: ptr_conv_list(:)
     INTEGER, DIMENSION(3), TARGET :: conv_list_small
@@ -885,14 +890,37 @@ CONTAINS
       !$acc end parallel
     ENDIF
 
-
+    ! Add LS forcing to moisture variable including nudging
     IF(is_ls_forcing)THEN
       DO jt=1, nqtendphy  ! qv,qc,qi
         DO jk = kstart_moist(jg), kend
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            pt_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt)    &
-              &                       + pdtime*prm_nwp_tend%ddt_tracer_ls(jk,jt))
+
+            ! add q nudging (T, U, V nudging is in mo_nh_interface_nwp)
+            IF ( is_nudging_tq ) THEN
+
+              ! linear nudging profile between "start" and "full" heights - prevent sfc layer instability
+              IF ( nudge_full_height == nudge_start_height ) THEN
+                nudgecoeff = 1.0_wp
+              ELSE
+                nudgecoeff = ( p_metrics%geopot_agl(jc,jk,jb)/grav - nudge_start_height ) / &
+                           & ( nudge_full_height                   - nudge_start_height )
+                nudgecoeff = MAX( MIN( nudgecoeff, 1.0_wp ), 0.0_wp )
+              END IF
+  
+              ! analytic implicit: (q,n+1 - q,n) / dt = (q,nudge - q,n) / dt_relax * exp(-dt/dt_relax)
+              z_ddt_q_nudge =                                                          &
+                &  - ( pt_prog_rcf%tracer(jc,jk,jb,jt) - prm_nwp_tend%q_nudge(jk,jt) ) &
+                &  / dt_relax * exp(-dt_loc/dt_relax) * nudgecoeff
+            ELSE
+              z_ddt_q_nudge = 0.0_wp 
+            END IF
+
+            pt_prog_rcf%tracer(jc,jk,jb,jt) = MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt)   &
+              &                                 + pdtime*prm_nwp_tend%ddt_tracer_ls(jk,jt) &
+              &                                 + pdtime*z_ddt_q_nudge)
+
           ENDDO
         ENDDO
       END DO

@@ -61,16 +61,13 @@ MODULE mo_acc_device_management
 USE, INTRINSIC :: iso_c_binding
 
 USE mo_kind,      ONLY: wp
-USE mo_mpi,       ONLY: p_comm_work, p_comm_rank, num_work_procs, p_max
+USE mo_mpi,       ONLY: p_comm_work, p_comm_rank, num_work_procs, p_max, &
+     &                  mpi_comm_size, mpi_allgather, mpi_integer
 USE mo_exception, ONLY: message, message_text
 !------------------------------------------------------------------------------
 
 IMPLICIT NONE
 
-!------------------------------------------------------------------------------
-
-! include statements
-INCLUDE "mpif.h"
 
 !------------------------------------------------------------------------------
 
@@ -728,7 +725,7 @@ SUBROUTINE printGPUMem(mtag)
   END IF
   IF (p_comm_rank(p_comm_work) == 0) THEN
     WRITE(message_text,'(a,E12.6,a,E12.6)') 'used GB ', output(2)-output(1), ' free GB ', output(1)
-    CALL message(mtag, message_text)
+    CALL message(TRIM(mtag), message_text)
   ENDIF
 !------------------------------------------------------------------------------
 ! End of module procedure printGPUMem

@@ -28,7 +28,7 @@ MODULE mo_echam_rad_config
   USE mo_impl_constants       ,ONLY: max_dom
   USE mo_grid_config          ,ONLY: n_dom
   USE mo_run_config           ,ONLY: iqt, ico2, io3, ntracer, lart
-  USE mo_parallel_config      ,ONLY: nproma
+  USE mo_parallel_config      ,ONLY: nproma, ignore_nproma_use_nblocks_c
 
   IMPLICIT NONE
 
@@ -558,6 +558,8 @@ CONTAINS
 #else
        CASE(5)
           CALL message('','O3    transient 3-dim. volume mixing ratio from file')
+       CASE(6)
+          CALL message('','O3    clim. annual cycle 3-dim. volume mixing ratio from file')
 #endif
        CASE default
           WRITE (message_text, '(a,i0,a)') 'ERROR: irad_o3    =', irad_o3, ' is not supported'
@@ -660,9 +662,8 @@ CONTAINS
        CALL message   ('','')
        !
 
-       ! nproma might be negative in the namelist
-       ! The default value of (rrtmgp_columns_chunk = nproma) might not be initialized correctly in that case
-       IF (rrtmgp_columns_chunk < 0 ) THEN
+       ! in case nblocks is used, rrtmgp_columns_chunk needs to be updated with the "new nproma"
+       IF ( ignore_nproma_use_nblocks_c ) THEN
          rrtmgp_columns_chunk = nproma
        ENDIF
        

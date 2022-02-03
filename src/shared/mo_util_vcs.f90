@@ -50,6 +50,12 @@ MODULE mo_util_vcs
       INTEGER(c_int), INTENT(inout) :: actual_len
     END SUBROUTINE private_util_revision_key
 
+    SUBROUTINE private_util_git_tag_name(name, actual_len) BIND(c,name='git_tag_name')
+      IMPORT :: c_int, c_char
+      CHARACTER(c_char), DIMENSION(*), INTENT(inout) :: name
+      INTEGER(c_int), INTENT(inout) :: actual_len
+    END SUBROUTINE private_util_git_tag_name
+
   END INTERFACE
 
 CONTAINS
@@ -75,6 +81,17 @@ CONTAINS
     END DO char_loop
     name(i:LEN(name)) = ' '
   END SUBROUTINE util_branch_name
+
+  SUBROUTINE util_git_tag_name(name, actual_len)
+    CHARACTER(len=*), INTENT(out) :: name
+    INTEGER, INTENT(inout) :: actual_len
+    INTEGER :: i
+    CALL private_util_git_tag_name(name, actual_len)
+    char_loop: DO i = 1 , LEN(name)
+      IF (name(i:i) == c_null_char) EXIT char_loop
+    END DO char_loop
+    name(i:LEN(name)) = ' '
+  END SUBROUTINE util_git_tag_name
 
   SUBROUTINE util_revision_key(name, actual_len)
     CHARACTER(len=*), INTENT(out) :: name
@@ -112,6 +129,7 @@ CONTAINS
   SUBROUTINE show_version()
     CHARACTER(len=256) :: repository  = ''
     CHARACTER(len=256) :: branch      = ''
+    CHARACTER(len=256) :: git_tag     = ''
     CHARACTER(len=256) :: revision    = ''
     CHARACTER(len=256) :: executable  = ''
     CHARACTER(len=256) :: user_name   = ''
@@ -129,6 +147,8 @@ CONTAINS
     CALL util_branch_name(branch, nlen)
     nlen = 256
     CALL util_revision_key(revision, nlen)
+    nlen = 256
+    CALL util_git_tag_name(git_tag, nlen)
     
     CALL get_command_argument(0, executable, nlend)
     CALL DATE_AND_TIME(date_string, time_string)
@@ -159,6 +179,10 @@ CONTAINS
       CALL message('',message_text)
       WRITE(message_text,'(a,a)') 'Branch    : ', TRIM(branch)
       CALL message('',message_text)
+      IF (LEN_TRIM(git_tag) > 0) THEN
+         WRITE(message_text,'(a,a)') 'Git tag   : ', TRIM(git_tag)
+         CALL message('',message_text)
+      END IF
       WRITE(message_text,'(a,a)') 'Revision  : ', TRIM(revision)
       CALL message('',message_text)
       WRITE(message_text,'(a,a)') 'Executable: ', TRIM(cf_global_info%history)

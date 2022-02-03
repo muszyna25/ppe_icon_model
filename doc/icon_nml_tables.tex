@@ -2161,6 +2161,13 @@ The angular velocity in rad per sec. &
 %\tabularnewline
 
 %\hline
+\textbf{l\_scm\_mode} &
+L & .FALSE.& &
+Single Column Model (SCM) mode. Can be extended to equivalent LES and CRM setups
+by setting ldynamics=.TRUE. . & is\_plane\_torus=.TRUE.
+\tabularnewline
+
+%\hline
 \textbf{l\_limited\_area} &
 L & .FALSE.& & &
 \tabularnewline
@@ -2587,6 +2594,35 @@ Choosing values $>$ 0 requires itype\_vegetation\_cycle=2 (in extpar\_nml) :\\
 (requires assimilation of T2M and RH2M)&
 init\_mode=5
 \tabularnewline
+
+icpl\_da\_snowalb&
+I & 0 & &
+Coupling between temperature bias inferred from data assimilation and snow albedo\\
+0: off \\
+1: on; requires assimilation of T2M and cycling of a time-filtered temperature increment at the lowest model level \\
+2: as option 1, but additional adaptation of sea-ice albedo &
+init\_mode=5; icpl\_da\_sfcevap=3
+\tabularnewline
+
+
+icpl\_da\_skinc&
+I & 0 & &
+Coupling between bias of diurnal temperature amplitude inferred from data assimilation and skin conductivity\\
+0: off \\
+1: on; requires assimilation of T2M and cycling of a time-filtered weighted (with cosine of local time) 
+temperature increment at the lowest model level  \\
+2: as option 1, but additional adaptation of soil heat conductivity and heat capacity &
+init\_mode=5
+\tabularnewline
+
+
+adjust\_tso\_tsnow&
+L & .FALSE. & &
+If .TRUE., apply T increments for lowest model level also to snow and upper soil layers (full to upper 3 cm, half to 3-9 cm layer).
+Requires assimilation of T2M to be meaningful &
+init\_mode=5
+\tabularnewline
+
 
 
 %\hline
@@ -3030,10 +3066,18 @@ iforcing=3
 \tabularnewline
 
 %\hline
+itype\_dursun&
+I &
+0&&
+Type of sunshine. 0 for WMO standard and for sunshine duration counted if >120W/m$^2$. In the case of type 1 (this is the MeteoSwiss definition) the sunshine duration is counted only if >200W/m$^2$ &
+iforcing=3
+\tabularnewline
+
+%\hline
 echotop\_meta \\[2\baselineskip]
-\squeezeme{The type contains:}\\[\baselineskip]
-\squeezeme{echotop\_meta(1:n\_dom)\%time\_interval}\\[\baselineskip]
-\squeezeme{echotop\_meta(1:n\_dom)\%dbzthresh}   &
+\squeezeme{\hspace*{3ex} This type contains:}\\[\baselineskip]
+\squeezeme{\hspace*{3ex} echotop\_meta(1:n\_dom)\%time\_interval}\\[\baselineskip]
+\squeezeme{\hspace*{3ex} echotop\_meta(1:n\_dom)\%dbzthresh}   &
 \squeezeme{TYPE(n\_dom)} \\[4\baselineskip]
 R(1)\\[\baselineskip]
 \squeezeme{R(max\_echotop)}\\[2\baselineskip]
@@ -4088,52 +4132,100 @@ Defined and used in: \verb+src/namelists/mo_lnd_nwp_nml.f90+
 %------------------------------------------------------------------------------
 % ls_forcing_nml:
 %------------------------------------------------------------------------------
-\subsection{ls\_forcing\_nml (parameters for large-scale forcing; valid for torus geometry)}
+\subsection{ls\_forcing\_nml (parameters for large-scale forcing; valid for torus geometry; is\_plane\_torus=.TRUE.)}
 
 \begin{longtab}
 
 %\hline
+is\_ls\_forcing & L & .TRUE. && 
+switch for enabling LS forcing &
+\tabularnewline
+
+%\hline
 is\_subsidence\_moment & L & .FALSE. &  &
 switch for enabling LS vertical advection due to subsidence for momentum equations&
-is\_plane\_torus=.TRUE.
 \tabularnewline
 
 %\hline
 is\_subsidence\_heat & L & .FALSE. &  &
 switch for enabling LS vertical advection due to subsidence for thermal equations &
-is\_plane\_torus=.TRUE.
 \tabularnewline
-
 
 %\hline
 is\_advection & L & .FALSE. &  &
-switch for enabling LS horizontal advection (currently only for thermal equations)&
-is\_plane\_torus=.TRUE.
+switch for enabling LS horizontal advection &
+\tabularnewline
+
+%\hline
+is\_advection\_uv & L & .TRUE. & &
+switch for enabling LS horizontal advection for u and v &
+is\_advection=.TRUE.
+\tabularnewline
+
+%\hline 
+is\_advection\_tq & L & .TRUE. &  &
+switch for enabling LS horizontal advection for temperature and moisture &
+is\_advection=.TRUE.
 \tabularnewline
 
 %\hline
 is\_nudging & L & .FALSE. &  &
-switch for enabling LS Newtonian relaxation (nudging) for horizontal winds, temperature and specific humidity&
-is\_plane\_torus=.TRUE.
+switch for enabling LS Newtonian relaxation (nudging) &
+\tabularnewline
+
+%\hline
+is\_nudging\_uv & L & .TRUE. &  &
+switch for enabling LS Newtonian relaxation (nudging) for horizontal winds
+only &
+is\_nudging=.TRUE.
+\tabularnewline
+
+%\hline
+is\_nudging\_tq & L & .TRUE. &  &
+switch for enabling LS Newtonian relaxation (nudging) for temperature and
+specific humidity only &
+is\_nudging=.TRUE.
+\tabularnewline
+
+%\hline
+nudge\_start\_height & R & 1000. & m &
+height where nudging starts &
+is\_nudging=.TRUE.
+\tabularnewline
+
+%\hline
+nudge\_full\_height & R & 2000. & m &
+height where nudging reaches full strength &
+is\_nudging=.TRUE.
+\tabularnewline
+
+% \hline
+dt\_relax & R & 3600. & s &
+relaxation time scale for the nudging &
+is\_nudging=.TRUE.
 \tabularnewline
 
 %\hline
 is\_geowind & L & .FALSE. &  &
 switch for enabling geostrophic wind &
-is\_plane\_torus=.TRUE.
 \tabularnewline
 
 %\hline
 is\_rad\_forcing & L & .FALSE. &  &
 switch for enabling radiative forcing &
-is\_plane\_torus=.TRUE. \\
 inwp\_rad=.FALSE.
 \tabularnewline
 
 %\hline
+is\_sim\_rad & L & .FALSE. &  &
+switch for enabling a simplified radiation scheme &
+inwp\_rad=.FALSE.
+\tabularnewline
+
+
+%\hline
 is\_theta & L & .FALSE. &  &
 switch to indicate that the prescribed radiative forcing is for potential temperature &
-is\_plane\_torus=.TRUE. \\
 is\_rad\_forcing=.TRUE.
 \tabularnewline
 
@@ -4382,7 +4474,6 @@ meteogram
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_mtgrm_nml.f90+
-
 
 %-----------------------------------------------------------------------------
 % nonhydrostatic_nml:
@@ -5632,6 +5723,15 @@ run\_nml:iforcing = inwp; inwp\_cldcover = 1
 \tabularnewline
 
 \hline
+allow\_overcast&
+R&
+1.0&
+&
+Tuning factor for the dependence of liquid cloud cover on relative humidity. This is an unphysical ad-hoc parameter to improve the cloud cover in the Mediterranean&
+run\_nml:iforcing = inwp; inwp\_cldcover = 1
+\tabularnewline
+
+\hline
 tune\_sgsclifac&
 R&
 0.0 &
@@ -6307,7 +6407,13 @@ variable rather than the name of the corresponding tile container (i.e.\ in the 
 %\hline
 \textbf{nproma} &
 I & 1& &
-chunk length. nproma can also be set to a negative value. In that case, the negative number is interpreted as the number of chunks. &
+chunk length. &
+\tabularnewline
+
+%\hline
+\textbf{nblocks\_c} &
+I & 0& &
+Number of looping chunks used for cells. For values <= 0 this is ignored. For bigger values, this overwrites \textbf{nproma}. &
 \tabularnewline
 
 %\hline
@@ -6709,7 +6815,19 @@ Choice of zenith angle formula for the radiative transfer computation.\par
 2: Zenith angle depends only on latitude. Local time of day fixed at 07:14:15 for radiative transfer computation (sin(time of day) = 1/pi\par
 3: Zenith angle changing with latitude and time of day\par
 4: Zenith angle and irradiance changing with season, latitude, and time of day (iforcing=inwp only)
+5: Zenith angel for radiative convective equilibrium test: perpetual equinox with 340 W/m2
+6: Zenith angle with prescribed cosine of solar zenith angle (see parameter cos\_zenith\_fixed)
 &
+\tabularnewline
+
+%\hline
+cos\_zenith\_fixed&
+R&
+0.5 &
+&
+Cosine of zenith angle for test cases including SCM
+&
+izenith=6
 \tabularnewline
 
 %\hline
@@ -6731,10 +6849,24 @@ I&
 &
 Type of surface albedo\\
 1: based on soil type specific tabulated values (dry soil)\\
-2: MODIS albedo
+2: MODIS albedo \\
+3: fixed albedo for SCM and other testcases
 &
 iforcing=inwp
 \tabularnewline
+
+
+%\hline
+\textbf{albedo\_fixed}&
+R&
+0.5&
+&
+Fixed albedo value for SCM and various testcases
+&
+iforcing=inwp\\
+albedo\_type=3
+\tabularnewline
+
 
 %\hline
 \textbf{direct\_albedo}&
@@ -6824,8 +6956,8 @@ irad\_h2o = 1: vapor, cloud water and cloud ice from tracer variables\par
 irad\_co2 = 1: CO\textsubscript{2} from tracer variable\par
 irad\_co2/ch4/n2o/o2/cfc11/cfc12 = 2: concentration given by vmr\_co2/ch4/n2o/o2/cfc11/cfc12\par
 irad\_ch4/n2o = 3: tanh-profile with surface concentration given by vmr\_ch4/n2o\par
-irad\_co2/cfc11/cfc12 = 4: time dependent concentration from greenhouse gas file
-irad\_ch4/n2o = 4: time dependent tanh-profile with surface concentration from greenhouse gas file
+irad\_co2/cfc11/cfc12 = 4: time dependent concentration from greenhouse gas file\par
+irad\_ch4/n2o = 4: time dependent tanh-profile with surface concentration from greenhouse gas file\par
 irad\_o3 = 2: ozone climatology from MPI \par
 irad\_o3 = 4: ozone clim for Aqua Planet Exp \par
 irad\_o3 = 6: ozone climatology with T5 geographical distribution and Fourier series for seasonal cycle {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
@@ -6834,7 +6966,8 @@ irad\_o3 = 8: ozone climatology for AMIP \par
 irad\_o3 = 9: MACC ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
 irad\_o3 = 79: Blending between GEMS and MACC ozone climatologies (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)}; MACC is used over Antarctica \par
 irad\_o3 = 97: As 79, but MACC is also used above 1 hPa with transition zone between 5 hPa and 1 hPa \par
-irad\_o3 = 10: Linearized ozone chemistry (ART extension necessary) {\color{red}for run\_nml/iforcing = 3 (NWP)}
+irad\_o3 = 10: Linearized ozone chemistry (ART extension necessary) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
+irad\_o3 = 11: Ozone from SCM input file
 &
 \tabularnewline
 %\hline
@@ -6891,7 +7024,15 @@ Aerosols\\
 3: externally specified\\
 5: Tanre aerosol climatology {\color{red}for run\_nml/iforcing = 3 (NWP) }\\
 6: Tegen aerosol climatology {\color{red}for run\_nml/iforcing = 3 (NWP) .AND. itopo =1 }\\
-9: ART online aerosol radiation interaction, uses Tegen for aerosols not chosen to be represented in ART {\color{red}for run\_nml/iforcing = 3 (NWP) .AND. itopo =1 .AND. lart=TRUE .AND. iart\_ari=1}
+9: ART online aerosol radiation interaction, uses Tegen for aerosols not chosen to be represented in ART {\color{red}for run\_nml/iforcing = 3 (NWP) .AND. itopo =1 .AND. lart=TRUE .AND. iart\_ari=1}\\
+12: tropospheric 'Kinne' aerosols, constant in time\\
+13: tropospheric 'Kinne' aerosols, time dependent from file
+(if the 1850--file is given for all simulated years, only the
+natural background of aerosols is applied)\\
+14: volcanic stratospheric aerosols for CMIP6, time dependent from file\\
+15: tropospheric 'Kinne' aerosols + volcanic stratospheric aerosols for CMIP6,
+time dependent, both from file.
+If the 1850--file of the 'Kinne' aerosols is given, only the natural background from Kinne aerosol is applied.\\
 &
 \tabularnewline
 
@@ -7154,13 +7295,58 @@ EMVORADO needs its own namelist(s) for each radar-active model domain in a separ
 namelist input file \verb+RADARSIM_PARAMS+. More details can be found in the \textcolor{red}{EMVORADO User's Guide} available from
 the COSMO web page (\mbox{www.cosmo-model.org} $\rightarrow$ Documentation $\rightarrow$ EMVORADO) or from the
 submodule \verb+./externals/emvorado/DOC/TEX/emvorado_userguide.pdf+.
-& iequations=3,  iforcing=3
+& iequations=3,  iforcing=3, \\ICON configure'd with \verb+--enable-emvorado+
 \tabularnewline
 
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_run_nml.f90+
 
+%-----------------------------------------------------------------------------
+% scm_nml:
+%-----------------------------------------------------------------------------
+\subsection{scm\_nml (relevant if l\_scm\_mode)}
+\begin{longtab}
+
+%\hline
+i\_scm\_netcdf & I & 1 & & reading SCM input data from \\ 0: ASCII file \\ 1: normal ICON netcdf file \\ 2: DEPHY unified netcdf file &
+\tabularnewline
+
+%\hline
+lscm\_icon\_ini & L & .FALSE. & & read initial conditions produced
+by ICON on the native grid& 
+\tabularnewline
+%\hline
+lscm\_random\_noise & L & .FALSE. & & initialize with random noise - for LEM runs
+by ICON on the native grid& 
+\tabularnewline
+
+%\hline
+lscm\_read\_tke & L & .FALSE. & & read init. tke from netcdf & 
+\tabularnewline
+
+%\hline
+lscm\_read\_z0 & L & .FALSE. & & read z0 from netcdf &
+\tabularnewline
+
+%\hline
+scm\_sfc\_mom & I & 0 & & prescribed surface boundary condition for
+momentum using \\ 0: TERRA \\ 2: friction velocity \\ 4: drag coefficient \\ 5: Louis surface layer scheme &
+\tabularnewline
+
+%\hline
+scm\_sfc\_qv & I & 0 & & prescribed surface boundary condition for
+moisture using \\ 0: TERRA \\ 1: surface moisture (qv\_s) \\ 2: latent heat flux \\ 3: saturation \\4: draf coefficient \\ 5: Louis surface layer scheme &
+\tabularnewline
+
+%\hline
+scm\_sfc\_temp & I & 0 & & prescribed surface boundary condition for
+temperature using \\ 0: TERRA \\ 1: surface temperature (t\_g) \\ 2: sensible heat flux (shfl\_s)   \\4: drag coefficient \\ 5: Louis surface layer scheme &
+\tabularnewline
+  
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_scm_nml.f90+
 
 
 %-----------------------------------------------------------------------------
@@ -7315,6 +7501,78 @@ supplemented by the channel name.
 
 Defined and used in: \verb+src/namelists/mo_synsat_nml.f90+
 
+%-----------------------------------------------------------------------------
+% synradar_nml:
+%-----------------------------------------------------------------------------
+\subsection[synradar\_nml]{synradar\_nml}%
+
+  The list of diagnostic output variables in ICON incorporates some fields related
+  to synthetic radar reflectivity on the model grid:
+  \begin{itemize}
+    \item \texttt{'dbz', 'dbz\_850', 'dbz\_cmax', 'dbz\_ctmax'}
+    \item \texttt{'echotop', 'echotopinm'}
+  \end{itemize}
+  By default, these are based on
+  a simple analytic so-called Rayleigh-approximation for single-particle backscattering.
+
+  If ICON is configured with the flag \verb+--enable-emvorado+ and compiled with
+  the pre-processor flag \verb+-DHAVE_RADARFWO+, some alternative, more accurate
+  Mie- or T-matrix methods from the radar forward operator EMVORADO can be used by namelist choice (see below), particularly for
+  improving the simulation of the so-called "bright band", the enhanced reflectivity in the melting layer.
+  
+%
+EMVORADO is the Efficient Modular VOlume RADar Operator for simulating radar volume scans for cloud- and weather radar wavelenghts, see
+\begin{itemize}
+\item EMVORADO User's Guide\\
+  in ICON's EMVORADO submodule \verb+./externals/emvorado/DOC/TEX/emvorado_userguide.pdf+\\
+  or on the COSMO web page (\mbox{www.cosmo-model.org} $\rightarrow$ Documentation $\rightarrow$ EMVORADO)\\
+  \verb+http://www.cosmo-model.org/content/model/documentation/core/emvorado_userguide.pdf+
+\item A COSMO Technical Report No. 28\\
+  on the COSMO web page (\mbox{www.cosmo-model.org} $\rightarrow$ COSMO Tech Reports)\\
+  \verb+http://www.cosmo-model.org/content/model/documentation/techReports/cosmo/docs/techReport28.pdf+
+\end{itemize}
+for detailed information.
+
+\begin{longtab}
+
+%\hline
+synradar\_meta \\[2\baselineskip]
+\squeezeme{\hspace*{3ex} This type contains:}\\[\baselineskip]
+\squeezeme{\hspace*{3ex} synradar\_meta\%itype\_refl}\\[\baselineskip]
+\hspace*{3ex} \parbox{\linewidth-3ex}{and many other parameters which are only relevant if itype\_refl is not the default (4)} &
+\squeezeme{TYPE(dbzcalc\_params)} \\[4\baselineskip] I&
+\,\\[4\baselineskip]
+4&&
+Instance of the derived type \textbf{dbzcalc\_params} from EMVORADO to specify details of the radar reflectivity calculation for related outputs ('dbz', 'dbz\_850', 'dbz\_cmax', 'dbz\_ctmax', 'echotop', 'echotopinm').
+The type is documented in detail in the \textcolor{red}{EMVORADO User's Guide}. \\
+The most important component is \textbf{itype\_refl:}\\
+\textbf{1:} Mie-scattering from EMVORADO assuming spherical particles and including a detailed melting scheme for the radar ``bright band''.\\
+\textbf{3:} Rayleigh-Oguchi approximation from EMVORADO including a simple melting scheme, but not producing pronounced ``bright bands''.\\
+\textbf{4:} Traditional Rayleigh approximation from ICON, also without pronounced ``bright bands''. \textbf{This is the default.}\\
+\textbf{5:} T-matrix scattering from EMVORADO assuming oblate spheroids, otherwise similar to Mie-option 1.\\
+\textbf{6:} T-matrix scattering from EMVORADO assuming spherical particles, only for sanity-checks against Mie-option 1.\\
+For options 1, 5, 6 there are many more relevant type components.
+&
+iforcing=3, \\ ICON configure'd with \verb+--enable-emvorado+
+\tabularnewline
+
+%\hline
+ydir\_mielookup\_write&
+C& ' ' & &
+For reflectivity calculations: directory for storing new automatically created reflectivity lookup tables in case of EMVORADO-methods that employ reflectivity lookup tables to boost efficiency (synradar\_meta\%itype\_refl=1, 5, 6 together with synradar\_meta\%llookup\_mie=.TRUE.) &
+iforcing=3, \\ ICON configure'd with \verb+--enable-emvorado+, \\ \squeezeme{synradar\_meta\%itype\_refl=1, 5, 6} \\ \squeezeme{synradar\_meta\%llookup\_mie=.TRUE.}
+\tabularnewline
+
+%\hline
+ydir\_mielookup\_read&
+C& ' ' & &
+For reflectivity calculations: directory for reading the reflectivity lookup tables in case of EMVORADO-methods that employ reflectivity lookup tables to boost efficiency (synradar\_meta\%itype\_refl=1, 5, 6 together with synradar\_meta\%llookup\_mie=.TRUE.) &
+iforcing=3, \\ ICON configure'd with \verb+--enable-emvorado+, \\ \squeezeme{synradar\_meta\%itype\_refl=1, 5, 6} \\ \squeezeme{synradar\_meta\%llookup\_mie=.TRUE.}
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_synradar_nml.f90+
 
 %------------------------------------------------------------------------------
 % time_nml
@@ -8457,6 +8715,8 @@ Laeuter, Handorf and Dethloff, J. Comp. Phys.(2005) (requires to set
 src/shared/mo\_physical\_constants: grav to a very small value, e.g. grav = 1.0E-30)&
 ldeepatmo = .TRUE. .AND. lcoriolis = .TRUE. .AND. lcentrifugal = .TRUE.
 \tabularnewline
+&&&&'\textbf{SCM}' Single Column Mode & is\_plane\_torus= .TRUE.
+\tabularnewline
 is\_toy\_chem & 
 L & .FALSE. &  &
 Terminator toy chemistry activated when .TRUE. &
@@ -9325,12 +9585,26 @@ Defined and used in: \verb+src/namelists/mo_extpar_nml.f90+
 
 Some developments must not change model results. Serialbox allows reading and writing data at any point in ICON into savepoints. These savepoints can be used to restore model variables to some reference or compare different model versions. The simplest application of Serialbox is using mo\_ser\_debug.f90 (or writing a similar routine fitting ones needs). Following this method will allow reading and writing manually specified fields in ICON. This can be very useful for small subroutines where input and output are clearly specified (i.e. do not involve derived types) and can thus easily be translated to Serialbox read/write statements. For larger components (basically everything hanging from nh\_stepping.f90, e.g. nwp\_physics) the interface is specified by the in and out types. The actual fields that are read or written to in these subroutines are not specified. For this purpose, serialize\_all has been implemented. It provides a wrapper for Serialbox read and write statements by looping through variable lists. This approach does not require managing lists of fields to read or write by Serialbox. At the level of mo\_nh\_stepping.f90 and mo\_nh\_interface\_nwp.f90 many components are wrapped by such serialize\_all calls that allow testing these components. Each of these hard-coded calls to serialize\_all has a name and for each name there is a namelist switch specifying the following triplet (e.g. 0,12,12):
 \begin{itemize}
-  \item the number of times the component is serialized
+  \item If 0 do not use this savepoint, else use this savepoint at every time step
   \item the relative threshold for errors (given as $N$ for $N$ in $10^{-N}$)
   \item the absolute threshold for errors (given as $N$ for $N$ in $10^{-N}$)
 \end{itemize}
 
 \begin{longtab}
+
+  ser\_initialization &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$&
+  Serialization switch for initial data (Checked after regular initialization at model start as well as after initialization of nested domains during model run) &
+  \tabularnewline
+
+  ser\_output\_diag\_dyn &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$&
+  Serialization switch for output diagnostics of dynamics fields&
+  \tabularnewline
 
   ser\_output\_diag &
   I (3)&
@@ -9346,6 +9620,13 @@ Some developments must not change model results. Serialbox allows reading and wr
   Serialization switch for the subroutine recv\_latbc\_data &
   \tabularnewline
 
+  ser\_nesting\_save\_progvars &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine save\_progvars which is related to nesting &
+  \tabularnewline
+
   ser\_dynamics &
   I (3)&
   0,12,12&
@@ -9353,6 +9634,35 @@ Some developments must not change model results. Serialbox allows reading and wr
   Serialization switch for the subroutine perform\_dyn\_substepping &
   \tabularnewline
 
+  ser\_diffusion &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine diffusion &
+  \tabularnewline
+
+  ser\_nesting\_compute\_tendencies &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine compute\_tendencies (related to nesting) &
+  \tabularnewline
+
+  ser\_nesting\_boundary\_interpolation &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine boundary\_interpolation (related to nesting) &
+  \tabularnewline
+
+
+  ser\_nesting\_relax\_feedback &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine relax\_feedback (related to nesting) &
+  \tabularnewline
+  
   ser\_step\_advection &
   I (3)&
   0,12,12&
@@ -9381,6 +9691,13 @@ Some developments must not change model results. Serialbox allows reading and wr
   Serialization switch for the nudging computations &
   \tabularnewline
 
+  ser\_surface &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine nwp\_surface &
+  \tabularnewline
+
   ser\_microphysics &
   I (3)&
   0,12,12&
@@ -9388,6 +9705,20 @@ Some developments must not change model results. Serialbox allows reading and wr
   Serialization switch for the subroutine nwp\_microphysics &
   \tabularnewline
 
+  ser\_turbtrans &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine nwp\_turbtrans &
+  \tabularnewline
+
+  ser\_turbdiff &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Serialization switch for the subroutine nwp\_turbdiff &
+  \tabularnewline
+  
   ser\_convection &
   I (3)&
   0,12,12&
@@ -9422,6 +9753,14 @@ Some developments must not change model results. Serialbox allows reading and wr
   -, $10^{-N}$, $10^{-N}$ &
   Serialization switch for the subroutine nwp\_gwdrag &
   \tabularnewline
+
+  ser\_time\_loop\_end  &
+  I (3)&
+  0,12,12&
+  -, $10^{-N}$, $10^{-N}$ &
+  Check the state at the end of the time loop (does not read in data) &
+  \tabularnewline
+
 
   ser\_all\_debug &
   I (3)&

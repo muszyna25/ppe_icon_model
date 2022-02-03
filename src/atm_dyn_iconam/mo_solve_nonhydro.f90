@@ -2134,8 +2134,9 @@ MODULE mo_solve_nonhydro
       IF (jg > 1 .AND. grf_intmethod_e >= 5 .AND. idiv_method == 1) THEN
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )  DEFAULT(NONE) ASYNC(1)
-! WS: not sure what the correct combination of GANG/VECTOR is
-        !$ACC LOOP GANG
+        ! PGI 21.2 requires GANG-VECTOR on this level. (Having the jk as VECTOR crashes.)
+        ! PRIVATE clause is required as je,jb are used in each vector thread.
+        !$ACC LOOP GANG VECTOR PRIVATE(je,jb)
 
 !$OMP DO PRIVATE(ic,je,jb,jk) ICON_OMP_DEFAULT_SCHEDULE
         DO ic = 1, p_nh%metrics%bdy_mflx_e_dim
@@ -2144,7 +2145,7 @@ MODULE mo_solve_nonhydro
 
           ! This is needed for tracer mass consistency along the lateral boundaries
           IF (lprep_adv .AND. istep == 2) THEN ! subtract mass flux added previously...
-            !$ACC LOOP VECTOR
+            !$ACC LOOP SEQ
 !$NEC ivdep
             DO jk = 1, nlev
               prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) - r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb)
@@ -2154,7 +2155,7 @@ MODULE mo_solve_nonhydro
           ENDIF
 
 !DIR$ IVDEP
-          !$ACC LOOP VECTOR
+          !$ACC LOOP SEQ
 !$NEC ivdep
           DO jk = 1, nlev
             p_nh%diag%mass_fl_e(je,jk,jb) = p_nh%diag%grf_bdy_mflx(jk,ic,1) + &
@@ -2163,7 +2164,7 @@ MODULE mo_solve_nonhydro
           ENDDO
 
           IF (lprep_adv .AND. istep == 2) THEN ! ... and add the corrected one again
-            !$ACC LOOP VECTOR
+            !$ACC LOOP SEQ
 !$NEC ivdep
             DO jk = 1, nlev
               prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb)
@@ -3055,38 +3056,73 @@ MODULE mo_solve_nonhydro
 #if !defined( __SX__ ) 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 #endif
-    IF (l_limited_area .OR. jg > 1) THEN
+      IF (l_limited_area .OR. jg > 1) THEN
 
-      ! Index list over halo points lying in the boundary interpolation zone
-      ! Note: this list typically contains at most 10 grid points
+        ! Index list over halo points lying in the boundary interpolation zone
+        ! Note: this list typically contains at most 10 grid points
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )  DEFAULT(NONE) ASYNC(1)
 !$ACC LOOP GANG
 #ifndef __SX__
 !$OMP DO PRIVATE(jb,ic,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
 #endif
-      DO ic = 1, p_nh%metrics%bdy_halo_c_dim
+        DO ic = 1, p_nh%metrics%bdy_halo_c_dim
 
-        jb = p_nh%metrics%bdy_halo_c_blk(ic)
-        jc = p_nh%metrics%bdy_halo_c_idx(ic)
+          jb = p_nh%metrics%bdy_halo_c_blk(ic)
+          jc = p_nh%metrics%bdy_halo_c_idx(ic)
 !DIR$ IVDEP
-        !$ACC LOOP VECTOR
-        DO jk = 1, nlev
-          p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnew)%exner(jc,jk,jb)
+          !$ACC LOOP VECTOR
+          DO jk = 1, nlev
+            p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnew)%exner(jc,jk,jb)
 
-          ! Diagnose exner from rho*theta
-          p_nh%prog(nnew)%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
-            p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
+            ! Diagnose exner from rho*theta
+            p_nh%prog(nnew)%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
+              p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
 
+          ENDDO
         ENDDO
-      ENDDO
 !$ACC END PARALLEL
 #ifndef __SX__
 !$OMP END DO
 #endif
 
-      rl_start = 1
-      rl_end   = grf_bdywidth_c
+        rl_start = 1
+        rl_end   = grf_bdywidth_c
+
+        i_startblk = p_patch%cells%start_block(rl_start)
+        i_endblk   = p_patch%cells%end_block(rl_end)
+
+#ifndef __SX__
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+#endif
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on ) DEFAULT(NONE) ASYNC(1)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          DO jk = 1, nlev
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+
+              p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnew)%exner(jc,jk,jb)
+
+              ! Diagnose exner from rhotheta
+              p_nh%prog(nnew)%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
+                p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
+
+            ENDDO
+          ENDDO
+!$ACC END PARALLEL
+        ENDDO
+#ifndef __SX__
+!$OMP END DO
+#endif
+      ENDIF
+
+      rl_start = min_rlcell_int - 1
+      rl_end   = min_rlcell
 
       i_startblk = p_patch%cells%start_block(rl_start)
       i_endblk   = p_patch%cells%end_block(rl_end)
@@ -3097,72 +3133,38 @@ MODULE mo_solve_nonhydro
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
-
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on ) DEFAULT(NONE) ASYNC(1)
-        !$ACC LOOP GANG VECTOR COLLAPSE(2)
-        DO jk = 1, nlev
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-
-            p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnew)%exner(jc,jk,jb)
-
-            ! Diagnose exner from rhotheta
-            p_nh%prog(nnew)%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
-              p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
-
-          ENDDO
-        ENDDO
-!$ACC END PARALLEL
-      ENDDO
-#ifndef __SX__
-!$OMP END DO
-#endif
-    ENDIF
-
-    rl_start = min_rlcell_int - 1
-    rl_end   = min_rlcell
-
-    i_startblk = p_patch%cells%start_block(rl_start)
-    i_endblk   = p_patch%cells%end_block(rl_end)
-
-#ifndef __SX__
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
-#endif
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on ) DEFAULT(NONE) ASYNC(1)
+
 #ifdef __LOOP_EXCHANGE
-      !$ACC LOOP GANG
-      DO jc = i_startidx, i_endidx
-        IF (p_nh%metrics%mask_prog_halo_c(jc,jb)) THEN
-!DIR$ IVDEP
-          !$ACC LOOP VECTOR
-          DO jk = 1, nlev
-#else
-      !$ACC LOOP GANG VECTOR TILE(32,4)
-      DO jk = 1, nlev
+        !$ACC LOOP GANG
         DO jc = i_startidx, i_endidx
           IF (p_nh%metrics%mask_prog_halo_c(jc,jb)) THEN
+!DIR$ IVDEP
+            !$ACC LOOP VECTOR
+            DO jk = 1, nlev
+#else
+        !$ACC LOOP GANG VECTOR TILE(32,4)
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            IF (p_nh%metrics%mask_prog_halo_c(jc,jb)) THEN
 #endif
-            p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb)*p_nh%prog(nnow)%theta_v(jc,jk,jb) &
-              *( (p_nh%prog(nnew)%exner(jc,jk,jb)/p_nh%prog(nnow)%exner(jc,jk,jb)-1.0_wp) * cvd_o_rd+1.0_wp   ) &
-              / p_nh%prog(nnew)%rho(jc,jk,jb)
+              p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb)*p_nh%prog(nnow)%theta_v(jc,jk,jb) &
+                *( (p_nh%prog(nnew)%exner(jc,jk,jb)/p_nh%prog(nnow)%exner(jc,jk,jb)-1.0_wp) * cvd_o_rd+1.0_wp   ) &
+                / p_nh%prog(nnew)%rho(jc,jk,jb)
 
 #ifdef __LOOP_EXCHANGE
-          ENDDO
-        ENDIF
-#else
+            ENDDO
           ENDIF
-        ENDDO
+#else
+            ENDIF
+          ENDDO
 #endif
-      ENDDO
+        ENDDO
 !$ACC END PARALLEL
 
-    ENDDO
+      ENDDO
 #ifndef __SX__
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL

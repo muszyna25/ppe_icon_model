@@ -14,7 +14,7 @@ ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
 MODULE_SETTINGS=". ${MODULESHOME}/init/sh; module purge"
 
 
-MODULES='apps sx/default gcc/9.1.0 mpi/2.14.0 netcdf4/4.7.3-VH-gnu hdf5/1.10.5-VH-gnu eccodes/2.20.0-VH-gnu aec/1.0.3-VH-gnu aocl/2.1-VH-gnu szip/2.1.1-VH-gnu'
+MODULES='apps sx/default gcc/9.1.0 mpi/2.14.0 netcdf4/4.7.3-VH-gnu hdf5/1.10.5-VH-gnu eccodes/2.23.0-VH-gnu aec/1.0.3-VH-gnu aocl/2.1-VH-gnu szip/2.1.1-VH-gnu'
 
 
 ### Libraries ###
@@ -57,7 +57,7 @@ STATICLINK_FLAGS='-static -add-gcc-rpath'
 ################################################################################
 
 
-BUILD_ENV="${MODULE_SETTINGS} && . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES};"
+BUILD_ENV="${MODULE_SETTINGS} && . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export NMPI_FC_H=gfortran;"
 echo ${BUILD_ENV}
 
 # We need some of the environment variables set by the modules now:

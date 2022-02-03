@@ -10,6 +10,8 @@ author_list="Remo Dietlicher, MeteoSwiss"
 # used at MeteoSwiss for production. This simulation computes a few time steps on 
 # a low-resolution grid over Switzerland. The setup is for development purposes.
 #
+# This experiment uses "cloudice" microphysics. (Other mch_opr_r04b07* experiments use
+# "graupel" instead.)
 #--------------------------------------------------------------------------------------------------
 
 # (0) unset some setting of create_target_header for mistral
@@ -123,6 +125,7 @@ cat > ${atmo_namelist} << EOF
 ! parallel_nml: MPI parallelization -------------------------------------------
 &parallel_nml
  nproma                      =                   ${nproma}        ! loop chunk length
+ nblocks_c                   =                   ${nblocks_c}     ! loop number of cell blocks
  p_test_run                  =                     .FALSE.        ! .TRUE. means verification run for MPI parallelization
  num_io_procs                =                          0  !1         ! number of I/O processors
  num_restart_procs           =                          0         ! number of restart processors
@@ -279,7 +282,7 @@ cat > ${atmo_namelist} << EOF
 
 ! nwp_phy_nml: switches for the physics schemes ------------------------------
 &nwp_phy_nml
- inwp_gscp                   =                          2         ! cloud microphysics and precipitation
+ inwp_gscp                   =                          1         ! cloud microphysics and precipitation
  inwp_convection             =                          1         ! convection
  lshallowconv_only           =                      .TRUE.        ! only shallow convection
  inwp_radiation              =                          1         ! radiation

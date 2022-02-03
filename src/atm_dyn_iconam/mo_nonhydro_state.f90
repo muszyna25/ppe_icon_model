@@ -74,7 +74,7 @@ MODULE mo_nonhydro_state
   USE mo_turbdiff_config,      ONLY: turbdiff_config
   USE mo_initicon_config,      ONLY: init_mode, lcalc_avg_fg, iso8601_start_timedelta_avg_fg, &
     &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg, &
-    &                                qcana_mode, qiana_mode, qrsgana_mode, icpl_da_sfcevap
+    &                                qcana_mode, qiana_mode, qrsgana_mode, icpl_da_sfcevap, icpl_da_skinc
   USE mo_var_list, ONLY: add_var, find_list_element, add_ref, t_var_list_ptr
   USE mo_var_list_register, ONLY: vlr_add, vlr_del
   USE mo_var_list_register_utils, ONLY: vlr_add_vref
@@ -1571,8 +1571,8 @@ MODULE mo_nonhydro_state
       &        shape3d_e(3), shape3d_v(3), shape3d_chalf(3),       &
       &        shape3d_ehalf(3), shape4d_chalf(4), shape4d_e(4),   &
       &        shape4d_entl(4), shape4d_chalfntl(4), shape4d_c(4), &
-      &        shape3d_ctra(3), shape2d_extra(3), shape3d_extra(4),&
-      &        shape3d_ubcc(3), shape3d_ubcp2(3)
+      &        shape2d_extra(3), shape3d_extra(4), shape3d_ubcc(3),&
+      &        shape3d_ubcp2(3)
  
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for some thermodynamic fields
@@ -1584,7 +1584,7 @@ MODULE mo_nonhydro_state
     LOGICAL :: lrestart
 
     CHARACTER(LEN=3) :: ctrc
-    CHARACTER(len=4) suffix
+    CHARACTER(len=4) :: suffix
     !--------------------------------------------------------------
 
     !determine size of arrays
@@ -1627,7 +1627,6 @@ MODULE mo_nonhydro_state
     shape3d_v     = (/nproma, nlev   , nblks_v    /)
     shape3d_chalf = (/nproma, nlevp1 , nblks_c    /)
     shape3d_ehalf = (/nproma, nlevp1 , nblks_e    /)
-    shape3d_ctra  = (/nproma, nblks_c, ntracer    /)
     shape3d_ubcp2 = (/nproma, nblks_c, ndyn_substeps_max+2 /)
     shape3d_ubcc  = (/nproma, nblks_c, 2  /)
     shape3d_extra = (/nproma, nlev   , nblks_c, inextra_3d  /)
@@ -1732,8 +1731,6 @@ MODULE mo_nonhydro_state
     &       p_diag%rho_ic_ubc, &
     &       p_diag%mflx_ic_int, &
     &       p_diag%mflx_ic_ubc, &
-    &       p_diag%q_int, &
-    &       p_diag%q_ubc, &
     &       p_diag%vn_incr, &
     &       p_diag%exner_incr, &
     &       p_diag%rho_incr, &
@@ -3001,57 +2998,6 @@ MODULE mo_nonhydro_state
     __acc_attach(p_diag%mflx_ic_ubc)
 
 
-    ! q_int        p_diag%q_int(nproma,nblks_c,ntracer)
-    !
-    cf_desc    = t_cf_var('q_at_parent_interface_level', 'kg kg-1',           &
-      &                   'q at parent interface level', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_diag_list, 'q_int', p_diag%q_int,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                & ldims=shape3d_ctra ,                                        &
-                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
-                & lopenacc = .TRUE. )
-    __acc_attach(p_diag%q_int)
-
-    ALLOCATE(p_diag%q_int_ptr(ntracer))
-    DO jt =1,ntracer
-      WRITE(ctrc,'(I3.3)')jt
-      CALL add_ref( p_diag_list, 'q_int',                                         &
-                  & 'q_int'//ctrc, p_diag%q_int_ptr(jt)%p_2d,                     &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                  & t_cf_var('q_int'//ctrc, 'kg kg-1','', datatype_flt),          &
-                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-                  & ref_idx=jt,                                                   &
-                  & ldims=shape2d_c, lrestart=.FALSE. )
-    ENDDO
-
-
-    ! q_ubc        p_diag%q_ubc(nproma,nblks_c,ntracer)
-    !
-    cf_desc    = t_cf_var('q_at_child_upper_boundary', 'kg kg-1',             &
-      &                   'q at child upper boundary', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_diag_list, 'q_ubc', p_diag%q_ubc,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                & ldims=shape3d_ctra,                                         &
-                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
-                & lopenacc = .TRUE. )
-    __acc_attach(p_diag%q_ubc)
-
-    ALLOCATE(p_diag%q_ubc_ptr(ntracer))
-    DO jt =1,ntracer
-      WRITE(ctrc,'(I3.3)')jt
-      CALL add_ref( p_diag_list, 'q_ubc',                                         &
-                  & 'q_ubc'//ctrc, p_diag%q_ubc_ptr(jt)%p_2d,                     &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                  & t_cf_var('q_ubc'//ctrc, 'kg kg-1','', datatype_flt),          &
-                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-                  & ref_idx=jt,                                                   &
-                  & ldims=shape2d_c, lrestart=.FALSE. )
-    ENDDO
-
-
-
     !
     ! tracers
     !
@@ -3555,6 +3501,20 @@ MODULE mo_nonhydro_state
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,     &
         &           ldims=shape2d_c, lrestart=.true.,                               &
         &           in_group=groups("mode_iau_fg_in","mode_dwd_fg_in","mode_combined_in") )
+    ENDIF
+
+    IF (icpl_da_skinc >= 1) THEN
+      !  Time-filtered near-surface level T increment from data assimilation, weighted with COS(local time)
+      cf_desc    = t_cf_var('t_wgt_avginc', 'K', 'Weighted filtered T increment', datatype_flt)
+      grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
+                 + t_grib2_int_key("typeOfGeneratingProcess", 208)     &
+                 + t_grib2_int_key("typeOfSecondFixedSurface", 1)      &
+                 + t_grib2_int_key("scaledValueOfFirstFixedSurface", 20)
+      CALL add_var( p_diag_list, 't_wgt_avginc', p_diag%t_wgt_avginc,               &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,     &
+        &           ldims=shape2d_c, lrestart=.true.,                               &
+        &           in_group=groups("mode_iau_fg_in","mode_dwd_fg_in","mode_combined_in") )
+
     ENDIF
 
     IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN

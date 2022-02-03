@@ -260,12 +260,8 @@ SUBROUTINE graupel     (             &
     idbg             !! optional debug level
 
   REAL(KIND=wp), INTENT(IN) :: &
-    zdt                    !> time step for integration of microphysics     (  s  )
-
-#ifdef __ICON__
-  REAL(KIND=wp), INTENT(IN) :: &
-    qi0,qc0          !> cloud ice/water threshold for autoconversion
-#endif
+    zdt             ,    & !> time step for integration of microphysics     (  s  )
+    qi0,qc0                !> cloud ice/water threshold for autoconversion
 
   REAL(KIND=wp), DIMENSION(:,:), INTENT(IN) ::      &   ! (ie,ke)
     dz              ,    & !> layer thickness of full levels                (  m  )
@@ -491,10 +487,10 @@ SUBROUTINE graupel     (             &
     simelt , & ! transfer rate due melting of cloud ice
     sidep  , & ! transfer rate due depositional growth of cloud ice
     ssdep  , & ! transfer rate due depositional growth of snow
-    sgdep  , & ! transfer rate due depositional growth of snow
+    sgdep  , & ! transfer rate due depositional growth of graupel
     sdau   , & ! transfer rate due depositional cloud ice autoconversion
     srim   , & ! transfer rate due riming of snow
-    srim2  , & ! transfer rate due riming of snow
+    srim2  , & ! transfer rate due riming of graupel
     sconsg , & ! transfer rate due to conversion from snow to graupel by riming  
     sshed  , & ! transfer rate due shedding
     sicri  , & ! transfer rate due cloud ice collection by rain (sink qi)
@@ -503,7 +499,7 @@ SUBROUTINE graupel     (             &
     sagg2  , & ! transfer rate due aggregation of snow and cloud ice
     siau   , & ! transfer rate due autoconversion of cloud ice
     ssmelt , & ! transfer rate due melting of snow
-    sgmelt , & ! transfer rate due melting of snow
+    sgmelt , & ! transfer rate due melting of graupel
     sev    , & ! transfer rate due evaporation of rain
     sconr  , & ! transfer rate due to condensation on melting snow/graupel
     srfrz  , & ! transfer rate due to rainwater freezing
@@ -737,7 +733,7 @@ SUBROUTINE graupel     (             &
 
 ! Calculate Latent heats if necessary
      IF ( lvariable_lh ) THEN
-      !$ACC LOOP GANG VECTOR PRIVATE (tg)
+      !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE (tg)
       DO  iv = iv_start, iv_end  !loop over horizontal domain
         tg      = make_normalized(t(iv,k))
         zlhv(iv) = latent_heat_vaporization(tg)
@@ -745,7 +741,7 @@ SUBROUTINE graupel     (             &
       END DO
     END IF
 
-    !$ACC LOOP GANG VECTOR PRIVATE( alf, bet, fnuc, hlp, llqc, llqg, llqi, llqr, &
+    !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE( alf, bet, fnuc, hlp, llqc, llqg, llqi, llqr, &
     !$ACC                           llqs, m2s, m3s, maxevap, nnr, ppg, qcg,      &
     !$ACC                           qcgk_1, qgg, qig, qrg, qsg, qvg, reduce_dep, &
     !$ACC                           rhog, sagg, sagg2, scac, scau, scfrz, sconr, &
@@ -797,9 +793,9 @@ SUBROUTINE graupel     (             &
       qvg  = make_normalized(qv(iv,k))
       qcg  = make_normalized(qc(iv,k))
       qig  = make_normalized(qi(iv,k))
-      tg   = make_normalized(t(iv,k))
-      ppg  = make_normalized(p(iv,k))
-      rhog = make_normalized(rho(iv,k))
+      tg   = t(iv,k)
+      ppg  = p(iv,k)
+      rhog = rho(iv,k)
 
       !..for density correction of fall speeds
       z1orhog = 1.0_wp/rhog
@@ -1280,7 +1276,7 @@ SUBROUTINE graupel     (             &
                    + 2554.99_wp/ppg+ 2.6531E-7_wp*ppg) *        &
                  zqvsidiff * zeln6qgk
           ! Check for maximal depletion of cloud ice
-          ! No check is done for depositional autoconversion because
+          ! No check is done for depositional autoconversion (sdau) because
           ! this is a always a fraction of the gain rate due to
           ! deposition (i.e the sum of this rates is always positive)
           zsisum = siau + sagg + sagg2 + sicri + zsvisub

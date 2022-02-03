@@ -939,7 +939,7 @@ SUBROUTINE terra_wkarr_alloc (ke_soil, ke_snow, lressoibud, nproma, istat)
   !$noacc create(zw_snow_old, zrho_snow_old, h_snow_fg, h_snow_incr)  &
   !$noacc create(zaga, zagb, zagc, zagd, zage)                        &
   !$noacc create(limit_tch, lzurban, l_redist)
-  !$noacc enter data async create(zhwso_budget) if (lressoibud)
+  !$noacc enter data async(1) create(zhwso_budget) if (lressoibud)
 
 END SUBROUTINE terra_wkarr_alloc
 

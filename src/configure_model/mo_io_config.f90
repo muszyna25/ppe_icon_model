@@ -70,6 +70,10 @@ MODULE mo_io_config
                                         ! from the beginning of the run, except of
                                         ! TOT_PREC that would be accumulated
 
+  INTEGER :: itype_dursun               ! if 0 the sunshine duration is counted if >120W/m^2
+                                        ! if 1 the sunshine duration is counted only
+                                        ! if direct radiation > 200 W/m^2 and relative sunshine duration in % is computed
+
   INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
   INTEGER :: itype_rh                   ! Specifies method for computation of relative humidity
 
@@ -139,6 +143,8 @@ MODULE mo_io_config
     LOGICAL :: bvf2        = .FALSE. !< Flag. TRUE if computation of square of Brunt-Vaisala frequency desired
     LOGICAL :: parcelfreq2 = .FALSE. !< Flag. TRUE if computation of square of general parcel oscillation frequency desired
     LOGICAL :: dursun      = .FALSE. !< Flag. TRUE if computation of sunshine duration is required
+    LOGICAL :: dursun_m    = .FALSE. !< Flag. TRUE if computation of maximum sunshine duration is required
+    LOGICAL :: dursun_r    = .FALSE. !< Flag. TRUE if computation of relative sunshine duration is required
     LOGICAL :: res_soilwatb= .FALSE. !< Flag. TRUE if computation of residuum of soil water is desired
     !
     ! diagnostics for the horizontal wind tendencies in the dynamical core
@@ -239,6 +245,7 @@ CONTAINS
     INTEGER :: jg, jgr
 
     ALLOCATE(var_in_output(n_dom))
+    !$ACC ENTER DATA CREATE(var_in_output)
 
     DO jg=1,n_dom
       var_in_output(jg)%pres_msl = is_variable_in_output(var_name="pres_msl") .OR. &
@@ -287,6 +294,8 @@ CONTAINS
         var_in_output(jg)%echotopinm  = is_variable_in_output_dom(var_name="echotopinm", jg=jg)
         var_in_output(jg)%smi         = is_variable_in_output_dom(var_name="smi", jg=jg)
         var_in_output(jg)%dursun      = is_variable_in_output_dom(var_name="dursun", jg=jg)
+        var_in_output(jg)%dursun_m    = is_variable_in_output_dom(var_name="dursun_m", jg=jg)
+        var_in_output(jg)%dursun_r    = is_variable_in_output_dom(var_name="dursun_r", jg=jg)
 
         ! Check for special case: SMI is not in one of the output lists but it is part of a output group.
         ! In this case, the group can not be checked, as the connection between SMI and the group will be
@@ -307,6 +316,7 @@ CONTAINS
         END IF
       END DO
     END IF
+
 
     ! diagnostics for the horizontal wind tendencies in the dynamical core
     DO jg=1,n_dom
@@ -344,6 +354,8 @@ CONTAINS
       var_in_output(jg)%ddt_ua_grf    = is_variable_in_output_dom(var_name="ddt_ua_grf", jg=jg)
       var_in_output(jg)%ddt_va_grf    = is_variable_in_output_dom(var_name="ddt_va_grf", jg=jg)
     END DO
+
+    !$ACC UPDATE DEVICE(var_in_output)
 
   END SUBROUTINE init_var_in_output
 

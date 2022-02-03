@@ -51,6 +51,7 @@ MODULE mo_ps_radiation_model
   USE mo_psrad_communication,     ONLY: setup_psrad_2_atmo_communication
   USE mo_master_control,          ONLY: ps_radiation_process
   USE mo_timer,                   ONLY: ltimer, timer_start, timer_stop, timer_total
+  USE mo_psrad_general,           ONLY: nbndlw, nbndsw
 
   IMPLICIT NONE
 
@@ -166,6 +167,7 @@ MODULE mo_ps_radiation_model
   SUBROUTINE ps_rad_run_bc(mtime_current, patch)
     TYPE(datetime),  POINTER, INTENT(in)  :: mtime_current     ! current datetime (mtime)
     TYPE(t_patch),   POINTER, INTENT(in)  :: patch    ! Patch
+    LOGICAL                               :: l_filename_year
 
     CHARACTER(LEN=*), PARAMETER     :: method_name="ps_rad_run_bc"
 
@@ -188,35 +190,40 @@ MODULE mo_ps_radiation_model
 
       ! tropospheric background aerosol optical properties
       IF (echam_rad_config(1)%irad_aero == 12) THEN
-        CALL read_bc_aeropt_kinne(mtime_current, patch) 
+        l_filename_year = .FALSE.
+        CALL read_bc_aeropt_kinne(mtime_current, patch, l_filename_year, nbndlw, nbndsw) 
       END IF
       ! tropospheric aerosol optical properties
       IF (echam_rad_config(1)%irad_aero == 13) THEN
-        CALL read_bc_aeropt_kinne(mtime_current, patch) 
+        l_filename_year = .TRUE.
+        CALL read_bc_aeropt_kinne(mtime_current, patch, l_filename_year, nbndlw, nbndsw) 
       END IF
       !
       ! stratospheric aerosol optical properties
       IF (echam_rad_config(1)%irad_aero == 14) THEN
-        CALL read_bc_aeropt_cmip6_volc(mtime_current, patch%id)
+        CALL read_bc_aeropt_cmip6_volc(mtime_current, patch%id, nbndlw, nbndsw)
       END IF
       !
       ! tropospheric and stratospheric aerosol optical properties
       IF (echam_rad_config(1)%irad_aero == 15) THEN
-        CALL read_bc_aeropt_kinne     (mtime_current, patch)
-        CALL read_bc_aeropt_cmip6_volc(mtime_current, patch%id)
+        l_filename_year = .TRUE.
+        CALL read_bc_aeropt_kinne     (mtime_current, patch, l_filename_year, nbndlw, nbndsw)
+        CALL read_bc_aeropt_cmip6_volc(mtime_current, patch%id, nbndlw, nbndsw)
       END IF
       ! tropospheric background aerosols (Kinne) and stratospheric
       ! aerosols (CMIP6) + simple plumes (analytical, nothing to be read
       ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
       IF (echam_rad_config(1)%irad_aero == 18) THEN
-        CALL read_bc_aeropt_kinne     (mtime_current, patch)
-        CALL read_bc_aeropt_cmip6_volc(mtime_current, patch%id)
+        l_filename_year = .FALSE.
+        CALL read_bc_aeropt_kinne     (mtime_current, patch, l_filename_year, nbndlw, nbndsw)
+        CALL read_bc_aeropt_cmip6_volc(mtime_current, patch%id, nbndlw, nbndsw)
       END IF
       ! tropospheric background aerosols (Kinne) and + simple plumes
       ! (analytical, nothing to be read
       ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
       IF (echam_rad_config(1)%irad_aero == 19) THEN
-        CALL read_bc_aeropt_kinne     (mtime_current, patch)
+        l_filename_year = .FALSE.
+        CALL read_bc_aeropt_kinne     (mtime_current, patch, l_filename_year, nbndlw, nbndsw)
       END IF
 
 !     write(0,*) method_name, " done."

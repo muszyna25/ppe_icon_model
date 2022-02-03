@@ -249,7 +249,7 @@ CONTAINS
     !$ACC               tend%ua_phy, tend%va_phy, tend%ta_phy, tend%qtrc, tend%qtrc_dyn,        &
     !$ACC               tend%qtrc_phy, tend%mtrc_phy, tend%mtrcvi_phy, p_metrics%deepatmo_t1mc )&
     !$ACC       CREATE( deepatmo_vol )                                                          &
-    !$ACC       COPYIN( echam_phy_config(jg) )
+    !$ACC       COPYIN( echam_phy_config(jg:jg) )
 
     jt_end = ntracer
 

@@ -52,7 +52,7 @@ MODULE mo_cover_koe
   USE mo_impl_constants,     ONLY: iedmf
 
   USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy, tune_thicklayfac, tune_sgsclifac, icpl_turb_clc, &
-                                   tune_box_liq_sfc_fac
+                                   tune_box_liq_sfc_fac, allow_overcast
 
   USE mo_ensemble_pert_config, ONLY: box_liq_sv, thicklayfac_sv, box_liq_asy_sv
 
@@ -358,9 +358,10 @@ CASE( 1 )
         fac_sfc = MIN(1._wp,fac_sfc)
         box_liq_asy = tune_box_liq_asy*(1._wp+0.5_wp*thicklay_fac+rcld_asyfac*zrcld/zqlsat(jl,jk))*(1._wp-fac_sfc) + 2._wp*fac_sfc
         par1 = box_liq_asy+1._wp
+        par1=par1*allow_overcast !setting allow_overcast<1 together with reduction of tune_box_liq_asy causes steeper CLC(RH) dependence
         !
         zaux = qv(jl,jk) + qc(jl,jk) + box_liq_asy*deltaq - zqlsat(jl,jk)
-        cc_turb_liq(jl,jk) = SIGN((zaux/(par1*deltaq))**2,zaux)
+        cc_turb_liq(jl,jk) = MIN(1._wp,SIGN((zaux/(par1*deltaq))**2,zaux)) !limit cloud cover to 1 is needed for allow_overcast<1
         ! compensating reduction of cloud water content if the thick-layer correction is active
         fac_aux = 1._wp + (alvdcp*zdqlsat_dT(jl,jk)+thicklay_fac)*MIN(1._wp,2._wp*(1._wp-cc_turb_liq(jl,jk)))
         IF ( cc_turb_liq(jl,jk) > 0.0_wp ) THEN

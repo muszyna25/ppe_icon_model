@@ -54,6 +54,7 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_box_liq
   PUBLIC :: tune_box_liq_asy
   PUBLIC :: tune_box_liq_sfc_fac
+  PUBLIC :: allow_overcast
   PUBLIC :: tune_thicklayfac
   PUBLIC :: tune_sgsclifac
   PUBLIC :: icpl_turb_clc
@@ -159,6 +160,9 @@ MODULE mo_nwp_tuning_config
 
   REAL(wp) :: &                    !< Tuning factor for box_liq reduction near the surface
     & tune_box_liq_sfc_fac         ! (in case of inwp_cldcover = 1)
+
+  REAL(wp) :: &                    !< Tuning factor for steeper dependence CLC(RH)
+    & allow_overcast               ! (in case of inwp_cldcover = 1)
 
   REAL(wp) :: &                    !< Scaling factor for subgrid-scale contribution to diagnosed cloud ice
     &  tune_sgsclifac              ! (in case of inwp_cldcover = 1)

@@ -28,6 +28,7 @@ MODULE mo_nwp_phy_cleanup
   USE mo_lnd_nwp_config,       ONLY: tile_list
   USE mo_grid_config,          ONLY: n_dom
   USE mo_aerosol_sources_types,ONLY: p_dust_source_const
+  USE mo_aerosol_util,         ONLY: tegen_scal_factors
 
   IMPLICIT NONE
 
@@ -68,6 +69,8 @@ CONTAINS
       
       IF ( iprog_aero > 0 ) CALL p_dust_source_const(jg)%finalize()
     ENDDO
+    
+    CALL tegen_scal_factors%finalize()
 
   END SUBROUTINE cleanup_nwp_phy
 

@@ -170,6 +170,8 @@
       INTEGER :: tlev, nlev, nlevp1, nblks_c, nblks_e, ierrstat, idx
       INTEGER :: jg
 
+      !$acc enter data create(latbc%latbc_data)
+
       ! Allocate memory for variables (3D and 2D) on work processors
       nlev    = p_patch(1)%nlev
       nlevp1  = p_patch(1)%nlevp1
@@ -266,6 +268,14 @@
               latbc%latbc_data(tlev)%atm%qs       (nproma,nlev,nblks_c), STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
+        !$acc enter data create(latbc%latbc_data(tlev)%atm%pres, latbc%latbc_data(tlev)%atm%temp)   &
+        !$acc create(latbc%latbc_data(tlev)%atm%vn)                                                 &
+        !$acc create(latbc%latbc_data(tlev)%atm%theta_v,latbc%latbc_data(tlev)%atm%rho)             &
+        !$acc create(latbc%latbc_data(tlev)%atm%u,latbc%latbc_data(tlev)%atm%v)                     &
+        !$acc create(latbc%latbc_data(tlev)%atm%w,latbc%latbc_data(tlev)%atm%qv)                    &
+        !$acc create(latbc%latbc_data(tlev)%atm%qc,latbc%latbc_data(tlev)%atm%qi)                   &
+        !$acc create(latbc%latbc_data(tlev)%atm%qr,latbc%latbc_data(tlev)%atm%qs)
+
 !$OMP PARALLEL 
          CALL init(latbc%latbc_data(tlev)%atm%vn(:,:,:))
          CALL init(latbc%latbc_data(tlev)%atm%u(:,:,:))
@@ -282,6 +292,14 @@
          CALL init(latbc%latbc_data(tlev)%atm%qr(:,:,:))
          CALL init(latbc%latbc_data(tlev)%atm%qs(:,:,:))
 !$OMP END PARALLEL
+
+        !$acc update device(latbc%latbc_data(tlev)%atm%pres, latbc%latbc_data(tlev)%atm%temp,   &
+        !$acc               latbc%latbc_data(tlev)%atm%vn,                                      &
+        !$acc               latbc%latbc_data(tlev)%atm%theta_v,latbc%latbc_data(tlev)%atm%rho,  &
+        !$acc               latbc%latbc_data(tlev)%atm%u,latbc%latbc_data(tlev)%atm%v,          &
+        !$acc               latbc%latbc_data(tlev)%atm%w,latbc%latbc_data(tlev)%atm%qv,         &
+        !$acc               latbc%latbc_data(tlev)%atm%qc,latbc%latbc_data(tlev)%atm%qi,        &
+        !$acc               latbc%latbc_data(tlev)%atm%qr,latbc%latbc_data(tlev)%atm%qs)
 
          ! ... for additional tracer variables
          DO idx=1, ntracer
@@ -509,6 +527,14 @@
         CALL read_latbc_data(latbc, p_patch(1), p_nh_state, p_int_state, timelev, read_params, latbc_dict)
       ENDIF
 
+      !$acc update device(latbc%latbc_data(timelev)%atm%pres, latbc%latbc_data(timelev)%atm%temp,   &
+      !$acc               latbc%latbc_data(timelev)%atm%vn,                                         &
+      !$acc               latbc%latbc_data(timelev)%atm%theta_v,latbc%latbc_data(timelev)%atm%rho,  &
+      !$acc               latbc%latbc_data(timelev)%atm%u,latbc%latbc_data(timelev)%atm%v,          &
+      !$acc               latbc%latbc_data(timelev)%atm%w,latbc%latbc_data(timelev)%atm%qv,         &
+      !$acc               latbc%latbc_data(timelev)%atm%qc,latbc%latbc_data(timelev)%atm%qi,        &
+      !$acc               latbc%latbc_data(timelev)%atm%qr,latbc%latbc_data(timelev)%atm%qs)
+
       CALL deleteInputParameters(read_params(icell)%cdi_params)
       CALL deleteInputParameters(read_params(iedge)%cdi_params)
 
@@ -586,6 +612,14 @@
         &                      p_patch(1)%n_patch_edges_g, p_patch(1)%comm_pat_scatter_e)
 
       CALL read_latbc_data(latbc, p_patch(1), p_nh_state, p_int_state, timelev, read_params, latbc_dict)
+
+      !$acc update device(latbc%latbc_data(timelev)%atm%pres, latbc%latbc_data(timelev)%atm%temp,   &
+      !$acc               latbc%latbc_data(timelev)%atm%vn,                                         &
+      !$acc               latbc%latbc_data(timelev)%atm%theta_v,latbc%latbc_data(timelev)%atm%rho,  &
+      !$acc               latbc%latbc_data(timelev)%atm%u,latbc%latbc_data(timelev)%atm%v,          &
+      !$acc               latbc%latbc_data(timelev)%atm%w,latbc%latbc_data(timelev)%atm%qv,         &
+      !$acc               latbc%latbc_data(timelev)%atm%qc,latbc%latbc_data(timelev)%atm%qi,        &
+      !$acc               latbc%latbc_data(timelev)%atm%qr,latbc%latbc_data(timelev)%atm%qs)
 
       CALL deleteInputParameters(read_params(icell)%cdi_params)
       CALL deleteInputParameters(read_params(iedge)%cdi_params)
@@ -1317,6 +1351,14 @@
       read_params(icell)%imode_asy = icell
       read_params(iedge)%imode_asy = iedge
       CALL read_latbc_data(latbc, p_patch(1), p_nh_state, p_int, tlev, read_params)
+
+      !$acc update device(latbc%latbc_data(tlev)%atm%pres, latbc%latbc_data(tlev)%atm%temp,   &
+      !$acc               latbc%latbc_data(tlev)%atm%vn,                                      &
+      !$acc               latbc%latbc_data(tlev)%atm%theta_v,latbc%latbc_data(tlev)%atm%rho,  &
+      !$acc               latbc%latbc_data(tlev)%atm%u,latbc%latbc_data(tlev)%atm%v,          &
+      !$acc               latbc%latbc_data(tlev)%atm%w,latbc%latbc_data(tlev)%atm%qv,         &
+      !$acc               latbc%latbc_data(tlev)%atm%qc,latbc%latbc_data(tlev)%atm%qi,        &
+      !$acc               latbc%latbc_data(tlev)%atm%qr,latbc%latbc_data(tlev)%atm%qs)
 
       ! Compute tendencies for nest boundary update
       CALL compute_boundary_tendencies(latbc%latbc_data(:), p_patch(1), p_nh_state, tlev,  &

@@ -23,6 +23,7 @@
 #endif
 MODULE mo_nwp_rrtm_interface
 
+  USE mo_exception,            ONLY: finish
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, iprog_aero, icpl_aero_conv
   USE mo_nwp_tuning_config,    ONLY: tune_dust_abs
   USE mo_grid_config,          ONLY: l_limited_area
@@ -85,7 +86,7 @@ CONTAINS
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_ozon_aerosol ( p_sim_time, mtime_datetime, pt_patch, ext_data, &
-    & pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
+    & pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,use_acc )
 
 !    CHARACTER(len=*), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -104,6 +105,8 @@ CONTAINS
       & zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
+
+    LOGICAL, INTENT(in), OPTIONAL :: use_acc
 
     ! for ozone:
     REAL(wp):: &
@@ -144,6 +147,10 @@ CONTAINS
     TYPE(datetime), POINTER :: current_time_hours
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
     
+
+    LOGICAL :: lacc
+
+
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
 
@@ -153,16 +160,33 @@ CONTAINS
 
     IF (timers_level > 6) CALL timer_start(timer_preradiaton)
 
+    if (present(use_acc)) then
+      lacc = use_acc
+    else
+      lacc = .false.
+    end if
+
+    !$ACC DATA PRESENT( zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, ext_data, &
+    !$ACC             & pt_patch ) &
+    !$ACC      CREATE( zptop32, zo3_hm, zo3_top, zpbot32, zo3_bot, & 
+    !$ACC            & zsign, zvdaes, zvdael, zvdaeu, zvdaed, zaetr_top, &
+    !$ACC            & zaeqdo, zaequo, zaeqlo, zaeqsuo, zaeqso, zptrop, &
+    !$ACC            & zdtdz, zlatfac ) IF (lacc)
+
     !-------------------------------------------------------------------------
     !> Radiation setup
     !-------------------------------------------------------------------------
 
     !O3
+
     SELECT CASE (irad_o3)
     CASE(io3_ape)
       ! APE ozone: do nothing since everything is already
       ! set in mo_nwp_phy_init
     CASE (6)
+#ifdef _OPENACC
+      IF (lacc) CALL finish('nwp_ozon_aerosol','calc_o3_clim not ported to gpu')
+#endif
       CALL calc_o3_clim(                             &
         & kbdim      = nproma,                       & ! in
         & jg         = jg,                           &
@@ -172,10 +196,14 @@ CONTAINS
         & zvio3      = prm_diag%vio3,                & !inout
         & zhmo3      = prm_diag%hmo3  )                !inout
     CASE (7,9,79,97)
-      CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
+      !$ACC WAIT
+      CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data,use_acc=lacc)
     CASE(10)
-      !CALL message('mo_nwp_rg_interface:irad_o3=10', &  
+      !CALL message('mo_nwp_rg_interface:irad_o3=10', &
       !  &          'Ozone used for radiation is calculated by ART')
+    CASE(11)
+      !CALL message('mo_nwp_rg_interface:irad_o3=11', &
+      !  &          'Ozone used for radiation is read from SCM input file')
     END SELECT
 
     IF ( irad_aero == 6  .OR. irad_aero == 9) THEN
@@ -207,11 +235,14 @@ CONTAINS
 
       IF ( irad_aero == 5 ) THEN ! Tanre aerosols
 
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (lacc)
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = 2, nlevp1
           DO jc = 1,i_endidx
             zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / 101325._wp
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
 
         ! The routine aerdis is called to receive some parameters for the vertical
         ! distribution of background aerosol.
@@ -224,9 +255,12 @@ CONTAINS
           & pvdaes = zvdaes(1,1), & !out
           & pvdael = zvdael(1,1), & !out
           & pvdaeu = zvdaeu(1,1), & !out
-          & pvdaed = zvdaed(1,1) )  !out
+          & pvdaed = zvdaed(1,1), & !out
+          & lacc = lacc)
 
         ! top level
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (lacc)
+        !$ACC LOOP GANG VECTOR
         DO jc = 1,i_endidx
           zaeqso   (jc,jb) = zaeops*prm_diag%aersea(jc,jb)*zvdaes(jc,1)
           zaeqlo   (jc,jb) = zaeopl*prm_diag%aerlan(jc,jb)*zvdael(jc,1)
@@ -234,9 +268,13 @@ CONTAINS
           zaeqdo   (jc,jb) = zaeopd*prm_diag%aerdes(jc,jb)*zvdaed(jc,1)
           zaetr_top(jc,jb) = 1.0_wp
         ENDDO
+        !$ACC END PARALLEL
 
         ! loop over layers
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+        !$ACC LOOP SEQ
         DO jk = 1,nlev
+          !$ACC LOOP GANG VECTOR PRIVATE( zaeqsn, zaeqln, zaequn, zaeqdn, zaetr_bot, zaetr )
           DO jc = 1,i_endidx
             zaeqsn         = zaeops*prm_diag%aersea(jc,jb)*zvdaes(jc,jk+1)
             zaeqln         = zaeopl*prm_diag%aerlan(jc,jb)*zvdael(jc,jk+1)
@@ -260,11 +298,14 @@ CONTAINS
             zaeqdo(jc,jb)    = zaeqdn
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
 
       ELSE IF ((irad_aero == 6) .OR. (irad_aero == 9)) THEN ! Tegen aerosol climatology
 
         IF (iprog_aero == 0) THEN ! purely climatological aerosol
 !DIR$ IVDEP
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (lacc)
+          !$ACC LOOP GANG VECTOR
           DO jc = 1,i_endidx
             prm_diag%aerosol(jc,iss,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
               & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
@@ -277,8 +318,11 @@ CONTAINS
             prm_diag%aerosol(jc,idu,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
               & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
           ENDDO
+          !$ACC END PARALLEL
         ELSE IF (iprog_aero == 1) THEN ! simple prognostic scheme for dust, climatology for other aerosol types
 !DIR$ IVDEP
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (lacc)
+          !$ACC LOOP GANG VECTOR
           DO jc = 1,i_endidx
             prm_diag%aerosol(jc,iss,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
               & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
@@ -292,8 +336,11 @@ CONTAINS
             prm_diag%aercl_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
               & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
           ENDDO
+          !$ACC END PARALLEL
         ELSE ! simple prognostic scheme for all aerosol types; fill extra variables for climatology needed for relaxation equation
 !DIR$ IVDEP
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (lacc)
+          !$ACC LOOP GANG VECTOR
           DO jc = 1,i_endidx
             prm_diag%aercl_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
               & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
@@ -306,14 +353,18 @@ CONTAINS
             prm_diag%aercl_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
               & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
           ENDDO
+          !$ACC END PARALLEL
         ENDIF
 
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (lacc)
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = 2, nlevp1
           DO jc = 1,i_endidx
             zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / &
               MAX(prm_diag%pref_aerdis(jc,jb),0.95_wp*pt_diag%pres_ifc(jc,nlevp1,jb))
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
 
         ! The routine aerdis is called to receive some parameters for the vertical
         ! distribution of background aerosol.
@@ -326,8 +377,11 @@ CONTAINS
           & pvdaes = zvdaes(1,1), & !out
           & pvdael = zvdael(1,1), & !out
           & pvdaeu = zvdaeu(1,1), & !out
-          & pvdaed = zvdaed(1,1) )  !out
+          & pvdaed = zvdaed(1,1), & !out
+          & lacc = lacc)
 
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (lacc)
+        !$ACC LOOP GANG VECTOR PRIVATE( jk, zslatq )
         DO jc = 1,i_endidx
           ! top level
           zaeqso(jc,jb) = zvdaes(jc,1) * prm_diag%aerosol(jc,iss,jb)
@@ -346,9 +400,13 @@ CONTAINS
           ! latitude-dependence of tropospheric background
           zlatfac(jc) = MAX(0.1_wp, 1._wp-MERGE(zslatq**3, zslatq, pt_patch%cells%center(jc,jb)%lat > 0._wp))
         ENDDO
+        !$ACC END PARALLEL
 
         ! loop over layers
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (lacc)
+        !$ACC LOOP SEQ
         DO jk = 1,nlev
+          !$ACC LOOP GANG VECTOR PRIVATE( zaeqsn, zaeqln, zaeqsun, zaequn, zaeqdn, zstrfac, zpblfac )
           DO jc = 1,i_endidx
             zaeqsn  = zvdaes(jc,jk+1) * prm_diag%aerosol(jc,iss,jb)
             zaeqln  = zvdael(jc,jk+1) * prm_diag%aerosol(jc,iorg,jb)
@@ -376,14 +434,22 @@ CONTAINS
 
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
 
       ELSE !no aerosols
 
-        zaeq1(1:i_endidx,:,jb) = 0.0_wp
-        zaeq2(1:i_endidx,:,jb) = 0.0_wp
-        zaeq3(1:i_endidx,:,jb) = 0.0_wp
-        zaeq4(1:i_endidx,:,jb) = 0.0_wp
-        zaeq5(1:i_endidx,:,jb) = 0.0_wp
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (lacc)
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
+        DO jk = 1,nlev
+          DO jc = 1,i_endidx
+            zaeq1(jc,jk,jb) = 0.0_wp
+            zaeq2(jc,jk,jb) = 0.0_wp
+            zaeq3(jc,jk,jb) = 0.0_wp
+            zaeq4(jc,jk,jb) = 0.0_wp
+            zaeq5(jc,jk,jb) = 0.0_wp
+          END DO
+        END DO
+        !$ACC END PARALLEL
 
       ENDIF ! irad_aero
 
@@ -391,6 +457,8 @@ CONTAINS
       ! aerosol-microphysics or aerosol-convection coupling is turned on
       IF (atm_phy_nwp_config(jg)%icpl_aero_gscp == 1 .OR. icpl_aero_conv == 1) THEN
 
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+        !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE( wfac, ncn_bg )
         DO jk = 1,nlev
 !DIR$ IVDEP
           DO jc = 1, i_endidx
@@ -399,6 +467,7 @@ CONTAINS
             prm_diag%acdnc(jc,jk,jb) = (ncn_bg+(prm_diag%cloud_num(jc,jb)-ncn_bg)*(EXP(1._wp-wfac)))
           END DO
         END DO
+        !$ACC END PARALLEL
 
       ENDIF
 
@@ -407,14 +476,21 @@ CONTAINS
         ! 3-dimensional O3
         ! top level
         ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (lacc)
+        !$ACC LOOP GANG VECTOR
         DO jc = 1,i_endidx
           zptop32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,1,jb)))**3
           zo3_hm   (jc,jb) = (SQRT(prm_diag%hmo3(jc,jb)))**3
           zo3_top  (jc,jb) = prm_diag%vio3(jc,jb)*zptop32(jc,jb)/(zptop32(jc,jb)+zo3_hm(jc,jb))
         ENDDO
+        !$ACC END PARALLEL
+
         ! loop over layers
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF (lacc)
+        !$ACC LOOP SEQ
         DO jk = 1,nlev
 !DIR$ IVDEP
+          !$ACC LOOP GANG VECTOR
           DO jc = 1,i_endidx
             zpbot32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,jk+1,jb)))**3
             zo3_bot  (jc,jb) = prm_diag%vio3(jc,jb)* zpbot32(jc,jb)    &
@@ -425,12 +501,16 @@ CONTAINS
             zo3_top (jc,jb) = zo3_bot (jc,jb)
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
 
       ENDIF
 
     ENDDO !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+    !$ACC WAIT
+    !$ACC END DATA
 
     IF (timers_level > 6) CALL timer_stop(timer_preradiaton)
 

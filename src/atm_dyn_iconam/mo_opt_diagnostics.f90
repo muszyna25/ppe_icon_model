@@ -956,10 +956,8 @@ CONTAINS
             &           ldims=var_shape, lrestart=.FALSE.,                    &
             &           loutput=.TRUE., new_element=new_element,              &
             &           hor_interp=create_hor_interp_metadata(                &
-            &             hor_intp_type=HINTP_TYPE_NONE ),                    &
+            &             hor_intp_type=HINTP_TYPE_NONE, lonlat_id=i ),       &
             &           isteptype=TSTEP_CONSTANT )
-          ! link this new variable to the lon-lat grid:
-          new_element%info%hor_interp%lonlat_id = i
           ! compute area weights:
 !CDIR NOIEXPAND
           CALL latlon_compute_area_weights(grid, earth_radius, area_weights)

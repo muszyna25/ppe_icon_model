@@ -39,7 +39,7 @@ CFLAGS='-gdwarf-4 -O3 -qno-opt-dynamic-align -ftz -march=native -g'
 CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${GRIBAPI_ROOT}/include -I${XML2_ROOT}/include/libxml2"
 
 FC='mpif90'
-FCFLAGS="-I${NETCDFF_ROOT}/include -gdwarf-4 -g -march=native -pc64 -fp-model source -qno-opt-dynamic-align -no-fma"
+FCFLAGS="-I${NETCDFF_ROOT}/include -gdwarf-4 -g -march=native -pc64 -fp-model source -qno-opt-dynamic-align -no-fma -fpe0"
 ICON_FCFLAGS='-O2 -assume realloc_lhs -ftz -DDO_NOT_COMBINE_PUT_AND_NOCHECK'
 ICON_OCEAN_FCFLAGS='-O3 -assume norealloc_lhs -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec'
 ICON_ECRAD_FCFLAGS="-D__ECRAD_LITTLE_ENDIAN"

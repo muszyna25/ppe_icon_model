@@ -80,8 +80,7 @@ MODULE mo_advection_hflux
   USE mo_math_gradients,      ONLY: grad_green_gauss_cell, grad_fe_cell
   USE mo_math_divrot,         ONLY: recon_lsq_cell_l, recon_lsq_cell_l_svd,     &
     &                               recon_lsq_cell_q, recon_lsq_cell_q_svd,     &
-    &                               recon_lsq_cell_c, recon_lsq_cell_c_svd,     &
-    &                               recon_lsq_cell_l_consv_svd
+    &                               recon_lsq_cell_c, recon_lsq_cell_c_svd
   USE mo_interpol_config,     ONLY: llsq_lin_consv, llsq_high_consv, lsq_high_ord, &
     &                               lsq_high_set
   USE mo_intp_data_strc,      ONLY: t_int_state, t_lsq
@@ -1142,20 +1141,16 @@ CONTAINS
     !
     IF (p_igrad_c_miura == 1) THEN
       ! least squares method
-      IF (advection_config(pid)%llsq_svd .AND. l_consv) THEN
-        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, lsq_lin, z_lsq_coeff,             &
-        &                              opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                              opt_lconsv=l_consv )
-        use_zlsq = .TRUE.
-      ELSE IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_lin, z_grad,                     &
-             &                     opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,  &
-             &                     opt_acc_async = .TRUE. )
+      use_zlsq = .TRUE.
+
+      IF (advection_config(pid)%llsq_svd) THEN
+        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_lin, z_lsq_coeff,               &
+             &                   opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,   &
+             &                   opt_lconsv=l_consv, opt_acc_async = .TRUE. )
       ELSE
         CALL recon_lsq_cell_l( p_cc, p_patch, lsq_lin, z_lsq_coeff,             &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_lconsv=l_consv, opt_acc_async = .TRUE. )
-        use_zlsq = .TRUE.
       ENDIF
 
     ELSE IF (p_igrad_c_miura == 2) THEN
@@ -1553,20 +1548,16 @@ CONTAINS
       !
       IF (p_igrad_c_miura == 1) THEN
         ! least squares method
-        IF (advection_config(pid)%llsq_svd .AND. l_consv) THEN
-          CALL recon_lsq_cell_l_consv_svd( z_tracer(:,:,:,nnow), p_patch, lsq_lin, &
-          &                              z_lsq_coeff, opt_slev=slev, opt_elev=elev,        &
-          &                              opt_rlend=i_rlend_c, opt_lconsv=l_consv)
-          use_zlsq = .TRUE.
-        ELSE IF (advection_config(pid)%llsq_svd) THEN
-          CALL recon_lsq_cell_l_svd( z_tracer(:,:,:,nnow), p_patch, lsq_lin,       &
-          &                    z_grad, opt_slev=slev, opt_elev=elev,             &
-          &                    opt_rlend=i_rlend_c)
+        use_zlsq = .TRUE.
+
+        IF (advection_config(pid)%llsq_svd) THEN
+          CALL recon_lsq_cell_l_svd( z_tracer(:,:,:,nnow), p_patch, lsq_lin,   &
+               &                   z_lsq_coeff, opt_slev=slev, opt_elev=elev,  &
+               &                   opt_rlend=i_rlend_c, opt_lconsv=l_consv )
         ELSE
           CALL recon_lsq_cell_l( z_tracer(:,:,:,nnow), p_patch, lsq_lin,           &
-          &                    z_lsq_coeff, opt_slev=slev, opt_elev=elev,        &
-          &                    opt_rlend=i_rlend_c, opt_lconsv=l_consv)
-          use_zlsq = .TRUE.
+          &                    z_lsq_coeff, opt_slev=slev, opt_elev=elev,          &
+          &                    opt_rlend=i_rlend_c, opt_lconsv=l_consv )
         ENDIF
 
       ELSE IF (p_igrad_c_miura == 2) THEN
@@ -2679,9 +2670,9 @@ CONTAINS
       ! linear reconstruction
       ! (computation of 3 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
-          &                              opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-          &                              opt_rlstart=2, opt_lconsv=l_consv )
+        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,               &
+             &                     opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,  &
+             &                     opt_rlstart=2, opt_lconsv=l_consv )
       ELSE
         CALL recon_lsq_cell_l( p_cc, p_patch, lsq_high, z_lsq_coeff,        &
           &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
@@ -3213,9 +3204,9 @@ CONTAINS
       ! linear reconstruction
       ! (computation of 3 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
-          &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-          &                    opt_rlstart=2 )
+        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,               &
+             &                     opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,  &
+             &                     opt_rlstart=2 )
       ELSE
         CALL recon_lsq_cell_l( p_cc, p_patch, lsq_high, z_lsq_coeff,        &
           &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
