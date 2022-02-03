@@ -72,8 +72,7 @@ MODULE mo_echam_phy_init
   USE mo_echam_gwd_config,     ONLY: eval_echam_gwd_config, print_echam_gwd_config
 
   ! vertical diffusion
-  USE mo_echam_vdf_config,     ONLY: eval_echam_vdf_config, print_echam_vdf_config
-  USE mo_echam_vdiff_params,   ONLY: init_vdiff_params
+  USE mo_echam_vdf_config,     ONLY: eval_echam_vdf_config, print_echam_vdf_config, echam_vdf_config
   USE mo_vdiff_solver,         ONLY: init_vdiff_solver
 
 #ifndef __NO_JSBACH__
@@ -148,6 +147,7 @@ MODULE mo_echam_phy_init
 
   PUBLIC  :: init_echam_phy_params, init_echam_phy_external, init_echam_phy_field
   PUBLIC  :: init_o3_lcariolle
+  PUBLIC  :: sst_intp, sic_intp, sst_sic_reader
 
   CHARACTER(len=*), PARAMETER :: modname = 'mo_echam_phy_init'
   TYPE(t_sst_sic_reader), TARGET :: sst_sic_reader
@@ -267,8 +267,6 @@ CONTAINS
       !
       ! Allocate memory for the tri-diagonal solver needed by the implicit
       ! time stepping scheme; Compute time-independent parameters.
-      !
-      CALL init_vdiff_params( nlev, nlev+1, nlev+1, vct )
       !
       ! vdiff diffuses only water vapor (index iqv), two hydro meteors
       ! cloud water (index iqc) and cloud ice (index iqi), and further
@@ -1015,6 +1013,8 @@ CONTAINS
         IF (echam_phy_tc(jg)%dt_vdf > dt_zero) THEN
           IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
           IF (iice<=nsfc_type) field% z0m_tile(:,:,iice) = 1e-3_wp !see init_surf in echam (or z0m_ice?)
+!!!          IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = echam_vdf_config(jg)%z0m_oce
+!!!          IF (iice<=nsfc_type) field% z0m_tile(:,:,iice) = echam_vdf_config(jg)%z0m_ice
           IF (ilnd<=nsfc_type) THEN
             field% z0m_tile(:,:,ilnd) = field%z0m(:,:) ! or maybe a larger value?
             field% z0h_lnd(:,:)       = field%z0m(:,:) ! or maybe a larger value?

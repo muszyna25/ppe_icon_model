@@ -80,8 +80,7 @@ MODULE mo_advection_hflux
   USE mo_math_gradients,      ONLY: grad_green_gauss_cell, grad_fe_cell
   USE mo_math_divrot,         ONLY: recon_lsq_cell_l, recon_lsq_cell_l_svd,     &
     &                               recon_lsq_cell_q, recon_lsq_cell_q_svd,     &
-    &                               recon_lsq_cell_c, recon_lsq_cell_c_svd,     &
-    &                               recon_lsq_cell_l_consv_svd
+    &                               recon_lsq_cell_c, recon_lsq_cell_c_svd
   USE mo_interpol_config,     ONLY: llsq_lin_consv, llsq_high_consv, lsq_high_ord, &
     &                               lsq_high_set
   USE mo_intp_data_strc,      ONLY: t_int_state, t_lsq
@@ -256,7 +255,8 @@ CONTAINS
     CALL btraj_cycl%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
 
 
-!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, p_rhodz_now, p_rhodz_new, p_vn ), PCOPYOUT( p_upflux ), &
+!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, p_rhodz_now, p_rhodz_new, p_vn ), &
+!$ACC       PCOPYOUT( p_upflux ),                                          &
 !$ACC       CREATE( z_real_vt ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, p_rhodz_now, p_rhodz_new, p_vn ), &
 !$ACC IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
@@ -1141,20 +1141,16 @@ CONTAINS
     !
     IF (p_igrad_c_miura == 1) THEN
       ! least squares method
-      IF (advection_config(pid)%llsq_svd .AND. l_consv) THEN
-        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, lsq_lin, z_lsq_coeff,             &
-        &                              opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                              opt_lconsv=l_consv )
-        use_zlsq = .TRUE.
-      ELSE IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_lin, z_grad,                     &
-             &                     opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,  &
-             &                     opt_acc_async = .TRUE. )
+      use_zlsq = .TRUE.
+
+      IF (advection_config(pid)%llsq_svd) THEN
+        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_lin, z_lsq_coeff,               &
+             &                   opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,   &
+             &                   opt_lconsv=l_consv, opt_acc_async = .TRUE. )
       ELSE
         CALL recon_lsq_cell_l( p_cc, p_patch, lsq_lin, z_lsq_coeff,             &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_lconsv=l_consv, opt_acc_async = .TRUE. )
-        use_zlsq = .TRUE.
       ENDIF
 
     ELSE IF (p_igrad_c_miura == 2) THEN
@@ -1510,7 +1506,7 @@ CONTAINS
 
 !$ACC DATA  PCOPYIN( p_cc, p_rhodz_now, p_mass_flx_e ), PCOPYOUT( p_out_e ), &
 !$ACC       CREATE( z_grad, z_lsq_coeff, z_tracer_mflx, z_rhofluxdiv_c, z_fluxdiv_c, z_tracer, z_rho ), &
-!$ACC       PRESENT( iidx, iblk, btraj%cell_idx, btraj%cell_blk, btraj%distv_bary ), &
+!$ACC       PRESENT( iidx, iblk, btraj, p_int ), &
 !$ACC       IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mass_flx_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
@@ -1552,20 +1548,16 @@ CONTAINS
       !
       IF (p_igrad_c_miura == 1) THEN
         ! least squares method
-        IF (advection_config(pid)%llsq_svd .AND. l_consv) THEN
-          CALL recon_lsq_cell_l_consv_svd( z_tracer(:,:,:,nnow), p_patch, lsq_lin, &
-          &                              z_lsq_coeff, opt_slev=slev, opt_elev=elev,        &
-          &                              opt_rlend=i_rlend_c, opt_lconsv=l_consv)
-          use_zlsq = .TRUE.
-        ELSE IF (advection_config(pid)%llsq_svd) THEN
-          CALL recon_lsq_cell_l_svd( z_tracer(:,:,:,nnow), p_patch, lsq_lin,       &
-          &                    z_grad, opt_slev=slev, opt_elev=elev,             &
-          &                    opt_rlend=i_rlend_c)
+        use_zlsq = .TRUE.
+
+        IF (advection_config(pid)%llsq_svd) THEN
+          CALL recon_lsq_cell_l_svd( z_tracer(:,:,:,nnow), p_patch, lsq_lin,   &
+               &                   z_lsq_coeff, opt_slev=slev, opt_elev=elev,  &
+               &                   opt_rlend=i_rlend_c, opt_lconsv=l_consv )
         ELSE
           CALL recon_lsq_cell_l( z_tracer(:,:,:,nnow), p_patch, lsq_lin,           &
-          &                    z_lsq_coeff, opt_slev=slev, opt_elev=elev,        &
-          &                    opt_rlend=i_rlend_c, opt_lconsv=l_consv)
-          use_zlsq = .TRUE.
+          &                    z_lsq_coeff, opt_slev=slev, opt_elev=elev,          &
+          &                    opt_rlend=i_rlend_c, opt_lconsv=l_consv )
         ENDIF
 
       ELSE IF (p_igrad_c_miura == 2) THEN
@@ -1616,7 +1608,7 @@ CONTAINS
         ! 3.2 Compute intermediate tracer mass flux
         !
         IF (use_zlsq) THEN
-!$ACC PARALLEL DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF ( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR PRIVATE( ilc0, ibc0 ) COLLAPSE(2)
 !$NEC outerloop_unroll(8)
           DO jk = slev, elev
@@ -1634,9 +1626,9 @@ CONTAINS
 
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
-!$ACC END PARALLEL
+        !$ACC END PARALLEL
         ELSE
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR PRIVATE( ilc0, ibc0 ) COLLAPSE(2)
 !$NEC outerloop_unroll(8)
           DO jk = slev, elev
@@ -1667,6 +1659,7 @@ CONTAINS
       !
       IF ( p_itype_hlimit == ifluxl_sm .OR. p_itype_hlimit == ifluxl_m ) THEN
         !
+        !$ACC WAIT
         CALL hflx_limiter_pd( p_patch, p_int, z_dtsub          , & !in
           &                   z_tracer(:,:,:,nnow)             , & !in
           &                   z_rho(:,:,:,nnow)                , & !in
@@ -1706,9 +1699,9 @@ CONTAINS
         ! This computation needs to be done only once, since the mass flux
         ! p_mass_flx_e is assumed to be constant in time.
         !
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         IF ( nsub == 1 ) THEN
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG VECTOR COLLAPSE(2)
+        !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
             DO jc = i_startidx, i_endidx
               DO jk = slev, elev
@@ -1725,19 +1718,17 @@ CONTAINS
 
             ENDDO
           ENDDO
-!$ACC END PARALLEL
         ENDIF
 
-          ! compute tracer mass flux divergence
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG VECTOR COLLAPSE(2)
+        ! compute tracer mass flux divergence
+        !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
-          DO jc = i_startidx, i_endidx
-            DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+          DO jk = slev, elev
 #else
 !$NEC outerloop_unroll(8)
-          DO jk = slev, elev
-            DO jc = i_startidx, i_endidx
+        DO jk = slev, elev
+          DO jc = i_startidx, i_endidx
 #endif
 
             z_fluxdiv_c(jc,jk) =  &
@@ -1747,12 +1738,8 @@ CONTAINS
 
           ENDDO
         ENDDO
-!$ACC END PARALLEL
 
-! Because the next loop requires z_fluxdiv_c it is crucial to synchronize with END PARALLEL
-
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG VECTOR COLLAPSE(2)
+        !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
         DO jk = slev, elev
           DO jc = i_startidx, i_endidx
 
@@ -1771,7 +1758,7 @@ CONTAINS
               &                      / z_rho(jc,jk,jb,nnew)
           ENDDO
         ENDDO
-!$ACC END PARALLEL
+      !$ACC END PARALLEL
 
       ENDDO    ! loop over blocks
 
@@ -1782,7 +1769,7 @@ CONTAINS
       nnow = nnew
       nnew = nsav
 
-
+      !$ACC WAIT
       CALL sync_patch_array(SYNC_C,p_patch,z_tracer(:,:,:,nnow),opt_varname='z_tracer')
 
 
@@ -1812,7 +1799,7 @@ CONTAINS
         ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
         !
         IF (p_ncycl == 2) THEN
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = slev, elev
 !NEC$ ivdep
@@ -1820,9 +1807,9 @@ CONTAINS
               p_out_e(je,jk,jb) = SUM(z_tracer_mflx(je,jk,jb,1:2))/REAL(p_ncycl,wp)
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
-!$ACC END PARALLEL
+          !$ACC END PARALLEL
         ELSE IF (p_ncycl == 3) THEN
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = slev, elev
 !NEC$ ivdep
@@ -1830,13 +1817,14 @@ CONTAINS
               p_out_e(je,jk,jb) = SUM(z_tracer_mflx(je,jk,jb,1:3))/REAL(p_ncycl,wp)
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
-!$ACC END PARALLEL
+          !$ACC END PARALLEL
         ENDIF
 
     ENDDO    ! loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+!$ACC WAIT
 !$ACC UPDATE HOST( p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
@@ -2682,9 +2670,9 @@ CONTAINS
       ! linear reconstruction
       ! (computation of 3 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
-          &                              opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-          &                              opt_rlstart=2, opt_lconsv=l_consv )
+        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,               &
+             &                     opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,  &
+             &                     opt_rlstart=2, opt_lconsv=l_consv )
       ELSE
         CALL recon_lsq_cell_l( p_cc, p_patch, lsq_high, z_lsq_coeff,        &
           &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
@@ -3216,9 +3204,9 @@ CONTAINS
       ! linear reconstruction
       ! (computation of 3 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
-          &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-          &                    opt_rlstart=2 )
+        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,               &
+             &                     opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,  &
+             &                     opt_rlstart=2 )
       ELSE
         CALL recon_lsq_cell_l( p_cc, p_patch, lsq_high, z_lsq_coeff,        &
           &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &

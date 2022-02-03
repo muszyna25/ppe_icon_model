@@ -188,6 +188,8 @@ CONTAINS
                   laifac           , & ! ratio between current LAI and laimax            --
                   eai              , & ! earth area (evaporative surface area) index     --
                   skinc            , & ! skin conductivity                        ( W/m**2/K )
+                  heatcond_fac     , & ! tuning factor for soil heat conductivity
+                  heatcap_fac      , & ! tuning factor for soil heat capacity
                   rsmin2d          , & ! minimum stomata resistance                    ( s/m )
                   z0               , & ! vegetation roughness length                   ( m   )
 ! for TERRA_URB
@@ -336,6 +338,8 @@ CONTAINS
                   laifac           , & ! ratio between current LAI and laimax
                   eai              , & ! earth area (evaporative surface area) index     --
                   skinc            , & ! skin conductivity                        ( W/m**2/K )
+                  heatcond_fac     , & ! tuning factor for soil heat conductivity
+                  heatcap_fac      , & ! tuning factor for soil heat capacity
 ! for TERRA_URB
 !                 fr_paved         , & ! fraction of paved ared                          --
 !                 sa_uf            , & ! total impervious surface-area index
@@ -1143,7 +1147,7 @@ ENDDO
   !$acc present(zmls)                                                &
   !$acc present(soiltyp_subs, plcov, rootdp, sai, eai, tai)    &
   !$acc present(laifac)                                              &
-  !$acc present(skinc)                                               &
+  !$acc present(skinc, heatcond_fac, heatcap_fac)                    &
   !$acc present(rsmin2d, u, v, t, qv, ptot, ps, h_snow_gp, u_10m)    &
   !$acc present(v_10m, prr_con, prs_con, conv_frac, prr_gsp,prs_gsp,pri_gsp) &
 #ifdef TWOMOM_SB
@@ -1208,10 +1212,10 @@ ENDDO
   ! Terra data module fields
   !$acc present(cporv, cfcap, cpwp, cadp, cik2, ckw0, ckw1, cdw0)    &
   !$acc present(cdw1, crock, crhoc, cala1, cala0, ck0di, cbedi)      &
-  !$acc present(clgk0, csandf, cclayf) if(lzacc)
+  !$acc present(clgk0, csandf, cclayf)
 
 ! for the optional fields for itype_trvg
-  !$acc data present (plevap, z0) if (PRESENT(plevap) .AND. lzacc)
+  !$acc data present (plevap, z0) if (PRESENT(plevap))
 
   ! for the soil water budget
   !$acc data present(resid_wso) create(zhwso_budget) if (lres_soilwatb)
@@ -1219,7 +1223,7 @@ ENDDO
   IF (lres_soilwatb) THEN
     ! Calculation of soil water budget: store recent runoff fluxes
     ! the final runoff fluxes are subtracted at the end
-    !$acc parallel async
+    !$acc parallel default(none) async(1)
     !$acc loop gang vector
     DO i = ivstart, ivend
       zhwso_budget(i) = runoff_s(i) + runoff_g(i)
@@ -1231,20 +1235,18 @@ ENDDO
     !$acc end parallel
   ENDIF
 
-#ifndef _OPENACC
   ln_10 = LOG(10.0_wp)
-#endif
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector collapse(2)
+  !$acc parallel default(none) async(1) if(lzacc)
+  !$acc loop seq
   DO kso = 0, UBOUND(zaga,2)
-    DO i = 1, nvec
+    !$acc loop gang(static:1) vector
+    DO i = ivstart, ivend
       zaga(i,kso) = 1.0_wp
       zagb(i,kso) = 1.0_wp
       zagc(i,kso) = 1.0_wp
     ENDDO
   ENDDO
-  !$acc end parallel
 
 ! Temperaturedifference for liquid water content in frozen soil at -40 degC
 !  J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
@@ -1254,8 +1256,7 @@ ENDDO
 
 ! Prepare basic surface properties (for land-points only)
 
-  !$acc parallel async if(lzacc) 
-  !$acc loop gang vector private(mstyp)
+  !$acc loop gang(static:1) vector private(mstyp)
   DO i = ivstart, ivend
     mstyp     = soiltyp_subs(i)        ! soil type
     m_styp(i) = mstyp                  ! array for soil type
@@ -1274,8 +1275,8 @@ ENDDO
     zpwp      (i,:) = cpwp  (mstyp)              ! plant wilting point
     zadp      (i,:) = cadp  (mstyp)              ! air dryness point
     zfcap     (i,:) = cfcap (mstyp)              ! field capacity
-    zrocg     (i,:) = crhoc (mstyp)              ! heat capacity
-    zrocg_soil(i,:) = crhoc (mstyp)              ! heat capacity
+    zrocg     (i,:) = crhoc (mstyp)*heatcap_fac(i)   ! heat capacity
+    zrocg_soil(i,:) = crhoc (mstyp)*heatcap_fac(i)   ! heat capacity
     zalam     (i,:) = cala0 (mstyp)              ! heat conductivity parameter
 #endif
     zrock     (i)   = crock (mstyp)              ! EQ 0 for Ice and Rock EQ 1 else
@@ -1292,7 +1293,6 @@ ENDDO
 
     meltrate(i)     = 0.0_wp
   ENDDO
-  !$acc end parallel
 
 #ifdef __SX__
 !$NEC outerloop_unroll(8)
@@ -1308,8 +1308,8 @@ ENDDO
     zpwp (i,kso)  = cpwp (mstyp)              ! plant wilting point
     zadp (i,kso)  = cadp (mstyp)              ! air dryness point
     zfcap(i,kso)  = cfcap(mstyp)              ! field capacity
-    zrocg(i,kso)  = crhoc(mstyp)              ! heat capacity
-    zrocg_soil(i,kso)  = crhoc(mstyp)         ! heat capacity
+    zrocg(i,kso)  = crhoc(mstyp)*heatcap_fac(i)      ! heat capacity
+    zrocg_soil(i,kso) = crhoc(mstyp)*heatcap_fac(i)  ! heat capacity
    ENDDO
   ENDDO
 !$NEC outerloop_unroll(7)
@@ -1327,12 +1327,8 @@ ENDDO
   zd2 = EXP(b_clay*zd)
   zd3 = EXP(b_silt*zd)
   zd4 = EXP(b_org*zd)
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector private(mstyp)
+  !$acc loop gang(static:1) vector private(mstyp)
   DO i = ivstart, ivend
-#ifdef _OPENACC
-    ln_10 = LOG(10.0_wp)
-#endif
     mstyp       = soiltyp_subs(i)        ! soil type
     zsandf(i)   = csandf(mstyp)
     zclayf(i)   = cclayf(mstyp)
@@ -1351,7 +1347,6 @@ ENDDO
     zw_m_soil(i) = 0.01_wp*(zsandf(i)*zd1 + zclayf(i)*zd2 + zsiltf(i)*zd3)
     zw_m_org(i) = zd4
   ENDDO
-  !$acc end parallel
 
   ! zkw0 will not be needed anymore if 'itype_interception = 2' is removed
   IF (itype_interception == 2) THEN
@@ -1362,10 +1357,10 @@ ENDDO
   ENDIF
 
   ! Set three-dimensional variables
-  !$acc parallel async if(lzacc)
 !$NEC outerloop_unroll(7)
+  !$acc loop seq
   DO kso = 1, ke_soil
-    !$acc loop gang vector private(zzz)
+    !$acc loop gang(static:1) vector private(zzz)
     DO i = ivstart, ivend
       !fc=2 1/m Exponential Ksat-profile decay parameter,see Decharme et al. (2006)
       zkw   (i,kso) = zkw   (i,kso)*EXP(-2._wp*(zzhls(kso)-rootdp(i)))
@@ -1387,51 +1382,11 @@ ENDDO
 
 
   ! Determine constants clgk0 for BATS-scheme
-  !$acc parallel async if(lzacc)
+  !$acc parallel default(none) async(1) if(lzacc)
   !$acc loop gang vector
   DO jb       = 1, 10
-#ifdef _OPENACC
-    ln_10 = LOG(10.0_wp)
-#endif
     clgk0(jb) = LOG(MAX(eps_soil,ck0di(jb)/ckrdi))/ln_10
   END DO
-  !$acc end parallel
-
-
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
-  DO i = ivstart, ivend
-    ztrangs(i)            = 0.0_wp
-    zsnull (i)            = 0.0_wp
-    zs1    (i)            = 0.0_wp
-    zwroot (i)            = 0.0_wp
-    zdwidt (i)            = 0.0_wp         ! Initialisation of all
-    zdwsndt(i)            = 0.0_wp         ! evaporation quantities
-    zesoil (i)            = 0.0_wp         ! to be equal to zero
-    zrr    (i)            = 0.0_wp         ! in first part formation of dew
-    zrs    (i)            = 0.0_wp         ! in first part formation of rime
-    zw_fr  (i,ke_soil+1)  = w_so_now(i,ke_soil+1)/zdzhs(ke_soil+1)
-    lhfl_bs(i)            = 0.0_wp
-    lhfl_pl(i,ke_soil+1)  = 0.0_wp
-    rstom  (i)            = 0.0_wp
-!   IF (lterra_urb .AND. (itype_eisa==2)) THEN
-!     zeisa(i)            = 0.0_wp
-!   ENDIF
-  ENDDO
-  !$acc end parallel
-
-  ! REORDER
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector collapse(2)
-!$NEC outerloop_unroll(7)
-  DO kso   = 1, ke_soil
-    DO i = ivstart, ivend
-      zw_fr   (i,kso)     = w_so_now(i,kso)/zdzhs(kso)
-      ztrang  (i,kso)     = 0.0_wp
-      zropartw(i,kso)     = 0.0_wp
-      lhfl_pl( i,kso)     = 0.0_wp
-    ENDDO
-  ENDDO
   !$acc end parallel
 
 
@@ -1452,20 +1407,55 @@ ENDDO
     END IF
   END DO
 
+  zpercmax = 2.E-3_wp
+
+  !$acc parallel default(none) async(1) if(lzacc)
+  !$acc loop gang(static:1) vector
+  DO i = ivstart, ivend
+    ztrangs(i)            = 0.0_wp
+    zsnull (i)            = 0.0_wp
+    zs1    (i)            = 0.0_wp
+    zwroot (i)            = 0.0_wp
+    zdwidt (i)            = 0.0_wp         ! Initialisation of all
+    zdwsndt(i)            = 0.0_wp         ! evaporation quantities
+    zesoil (i)            = 0.0_wp         ! to be equal to zero
+    zrr    (i)            = 0.0_wp         ! in first part formation of dew
+    zrs    (i)            = 0.0_wp         ! in first part formation of rime
+    zw_fr  (i,ke_soil+1)  = w_so_now(i,ke_soil+1)/zdzhs(ke_soil+1)
+    lhfl_bs(i)            = 0.0_wp
+    lhfl_pl(i,ke_soil+1)  = 0.0_wp
+    rstom  (i)            = 0.0_wp
+!   IF (lterra_urb .AND. (itype_eisa==2)) THEN
+!     zeisa(i)            = 0.0_wp
+!   ENDIF
+  ENDDO
+
+  ! REORDER
+!$NEC outerloop_unroll(7)
+  !$acc loop seq
+  DO kso   = 1, ke_soil
+    !$acc loop gang(static:1) vector
+    DO i = ivstart, ivend
+      zw_fr   (i,kso)     = w_so_now(i,kso)/zdzhs(kso)
+      ztrang  (i,kso)     = 0.0_wp
+      zropartw(i,kso)     = 0.0_wp
+      lhfl_pl( i,kso)     = 0.0_wp
+    ENDDO
+  ENDDO
+
+
   ! Determine average soil water content over 10 and 100 cm, respectively.
-  !$acc parallel async if(lzacc)
+  !$acc loop seq
   DO kso   = 1, k100cm
-    !$acc loop gang vector
+    !$acc loop gang(static:1) vector
     DO i = ivstart, ivend
       IF (kso.le.k10cm) zs1(i) = zs1(i) + w_so_now(i,kso)
       zsnull(i)   = zsnull(i) + w_so_now(i,kso)
     ENDDO
   ENDDO
-  !$acc end parallel
 
   IF ( itype_mire == 1 ) THEN
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
+    !$acc loop gang(static:1) vector
     DO i = ivstart, ivend
       IF (soiltyp_subs(i) == 8) THEN
         ke_soil_hy_b(i) = 4 ! Set hydr. active layers for Mires 
@@ -1473,16 +1463,15 @@ ENDDO
         ke_soil_hy_b(i) = ke_soil_hy
       ENDIF
     END DO
-    !$acc end parallel
     !WRITE(*,*) 'ITYPE_MIRE = ',itype_mire,' MINVAL(ke_soil_hy_b(nvec))= ', MINVAL(ke_soil_hy_b(:))
   END IF
 
 
   ! No soil moisture for Ice and Rock
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector collapse(2)
 !$NEC outerloop_unroll(8)
+  !$acc loop seq
   DO kso   = 1, ke_soil+1
+    !$acc loop gang(static:1) vector
     DO i = ivstart, ivend
       IF (soiltyp_subs(i) < 3) THEN
         w_so_now(i,kso)         = 0._wp
@@ -1490,22 +1479,19 @@ ENDDO
       END IF
     END DO
   END DO
-  !$acc end parallel
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector collapse(2)
 !$NEC outerloop_unroll(8)
+  !$acc loop seq
   DO kso   = 1, ke_soil+1
+    !$acc loop gang(static:1) vector
     DO i = ivstart, ivend
       w_so_new(i,kso)         = w_so_now(i,kso)
       w_so_ice_new(i,kso)     = w_so_ice_now(i,kso)
     END DO
   END DO
-  !$acc end parallel
 
   ! Decide which snow density is used for computing the heat capacity
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
+  !$acc loop gang(static:1) vector
   DO i = ivstart, ivend
     IF (l2lay_rho_snow) THEN
       zrho_snow(i) = rho_snow_mult_now(i,1)
@@ -1513,7 +1499,6 @@ ENDDO
       zrho_snow(i) = rho_snow_now(i)
     ENDIF
   END DO
-  !$acc end parallel
 
 
   IF (itype_heatcond >= 2) THEN
@@ -1521,7 +1506,6 @@ ENDDO
     ! heat conductivity dependent on actual soil water content
     ! based on Peters-Lidard et al. (1998) and Johansen (1975),
     ! see also Block, Alexander (2007), Dissertation BTU Cottbus
-#ifndef _OPENACC
     zlamli    = LOG(0.57_wp)       ! LOG(thermal conductivity of water)
     zlamic    = LOG(2.2_wp)        ! LOG(thermal conductivity of ice)
     zlamq     = LOG(7.7_wp)        ! LOG(thermal conductivity of quartz)
@@ -1529,7 +1513,6 @@ ENDDO
     ln_3      = LOG(3.0_wp)
     ln_006    = LOG(0.06_wp)
     zlamspeat = LOG(0.25_wp)! AYu lambdas for peat (Lawrence & Slater, 2008)
-#endif
 
     zlamdrypeat =   0.05_wp ! AYu lambdas for peat (Lawrence & Slater, 2008) 
     zkeai       = 0.6116_wp ! AYu 4 below for the new Kersten number parametrization 
@@ -1550,23 +1533,13 @@ ENDDO
     ENDIF
 
 
-    !$acc parallel async if(lzacc)
 !$NEC outerloop_unroll(8)
+    !$acc loop seq
     DO kso = 1, ke_soil+1
-      !$acc loop gang vector private(zthetas, zthliq, rsandf, zlams)           &
+      !$acc loop gang(static:1) vector private(zthetas, zthliq, rsandf, zlams)           &
       !$acc private(zlam0, zlamsat, zrhod, zlamdry_soil, zzz, zlamdry, zsri)   &
       !$acc private(zKe, zxx)
       DO i = ivstart, ivend
-#ifdef _OPENACC
-        zlamli    = LOG(0.57_wp)       ! LOG(thermal conductivity of water)
-        zlamic    = LOG(2.2_wp)        ! LOG(thermal conductivity of ice)
-        zlamq     = LOG(7.7_wp)        ! LOG(thermal conductivity of quartz)
-        ln_2      = LOG(2.0_wp)
-        ln_3      = LOG(3.0_wp)
-        ln_006    = LOG(0.06_wp)
-        ln_10     = LOG(10.0_wp)
-        zlamspeat = LOG(0.25_wp)! AYu lambdas for peat (Lawrence & Slater, 2008)
-#endif
         zthetas = zporv(i,kso)                                 ! porosity
         zthliq  = zthetas - w_so_ice_now(i,kso)/zdzhs(kso) ! unfrozen volume fraction
 
@@ -1632,7 +1605,7 @@ ENDDO
         ELSE
           zxx = 0.0_wp
         ENDIF
-        hzalam(i,kso) = (zKe*(zlamsat - zlamdry) + zlamdry)*(1._wp-zxx) + zxx*0.06_wp
+        hzalam(i,kso) = heatcond_fac(i)*(zKe*(zlamsat - zlamdry) + zlamdry)*(1._wp-zxx) + zxx*0.06_wp
 
         ! heat conductivity is also artificially reduced on snow-free forest-covered tiles generated
         ! by the melting-rate parameterization
@@ -1642,13 +1615,12 @@ ENDDO
         ENDIF
       ENDDO
     ENDDO
-    !$acc end parallel
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector collapse(2)
 !$NEC nofuse
 !$NEC outerloop_unroll(7)
+    !$acc loop seq
     DO kso = 1, ke_soil
+      !$acc loop gang(static:1) vector
       DO i = ivstart, ivend
         ! mean heat conductivity
         zalam(i,kso) = hzalam(i,kso)*hzalam(i,kso+1)*(zmls(kso+1)-zmls(kso))    &
@@ -1656,14 +1628,12 @@ ENDDO
                        +   hzalam(i,kso+1)*(zzhls(kso)-zmls(kso)) )
       ENDDO
     ENDDO
-    !$acc end parallel
 
   ELSE
 
 ! heat conductivity based on assumption of a soil water content which is equal to the
 ! average between wilting point and field capacity
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector collapse(2) private(zwqg, z4wdpv)
+    !$acc loop gang(static:1) vector collapse(2) private(zwqg, z4wdpv)
 !$NEC outerloop_unroll(7)
     DO kso = 1, ke_soil
       DO i = ivstart, ivend
@@ -1678,17 +1648,14 @@ ENDDO
                       /(1.0_wp+1.95_wp*zdlam(i)))
       ENDDO
     ENDDO
-    !$acc end parallel
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector collapse(2)
+    !$acc loop gang(static:1) vector collapse(2)
     DO kso = 1, ke_soil
       DO i = ivstart, ivend
         zalam(i,kso) = zalam(i,kso) + zalamtmp(i,kso)
         hzalam(i,kso) = zalam(i,kso)
       ENDDO
     ENDDO
-    !$acc end parallel
   ENDIF
 
 
@@ -1719,12 +1686,12 @@ ENDDO
 ! END IF
 
 ! Initialisations and conversion of tch to tmch
-  !$acc kernels async if(lzacc)
-  limit_tch(:) = .false.  !  preset problem indicator
-  !$acc end kernels
+  !$acc loop gang(static:1) vector
+  DO i = ivstart, ivend
+    limit_tch(i) = .false.  !  preset problem indicator
+  END DO
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector private(zuv, ztvs, zplow, zdT_snow)
+  !$acc loop gang(static:1) vector private(zuv, ztvs, zplow, zxx, zdT_snow)
   DO i = ivstart, ivend
     zuv        = SQRT ( u(i)**2 + v(i)**2 )
     ztvs       = t_g (i)*(1.0_wp + rvd_m_o*qv_s(i))
@@ -1820,7 +1787,6 @@ ENDDO
 
     ztmch(i) = tch(i)*zuv*g*zrho_atm(i)
   ENDDO
-  !$acc end parallel
 
 
 #ifndef _OPENACC
@@ -1852,8 +1818,7 @@ ENDDO
 
   ! Update indicator for age of snow in top of snow layer
   ! Note that cloud ice is deliberately disregarded here in order to avoid counting drifting snow as fresh snow
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector private(zsnow_rate, zdsn_new, zdsn_old, ztau_snow, zuv)
+  !$acc loop gang(static:1) vector private(zrain_rate, zsnow_rate, zdsn_new, zdsn_old, ztau_snow, zuv)
   DO i = ivstart, ivend
     IF (w_snow_now(i) <=0.0_wp) THEN
       ! if no snow exists, reinitialize age indicator
@@ -1872,8 +1837,8 @@ ENDDO
 
       zrain_rate = prr_gsp(i)+prr_con(i)  ! [kg/m**2 s]
 
-      ! temperature-dependent aging timescale: 2 days at freezing point, 28 days below -15 deg C
-      ztau_snow = 86400._wp*MIN(28.0_wp,2._wp+1.733_wp*(t0_melt-MIN(t0_melt,t_snow_now(i))))
+      ! temperature-dependent aging timescale: 7 days at freezing point, 28 days below -15 deg C
+      ztau_snow = 86400._wp*MIN(28.0_wp,7._wp+1.4_wp*(t0_melt-MIN(t0_melt,t_snow_now(i))))
 
       ! wind-dependent snow aging: a thin snow cover tends to get broken under strong winds, which reduces the albedo
       ! an offset is added in order to ensure moderate aging for low snow depths
@@ -1898,15 +1863,12 @@ ENDDO
 
     END IF
   ENDDO
-  !$acc end parallel
 
 !------------------------------------------------------------------------------
 ! Section I.2: temperatures, water contents (in mH2O), surface pressure,
 !------------------------------------------------------------------------------
 
   IF (lmulti_snow) THEN
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector collapse(2)
     DO ksn = 0,ke_snow
       DO i = ivstart, ivend
         IF (w_snow_now(i) > 0.0_wp) THEN
@@ -1922,10 +1884,7 @@ ENDDO
         END IF
       ENDDO
     ENDDO
-    !$acc end parallel
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
     DO i = ivstart, ivend
        IF (w_snow_now(i) > 0.0_wp) THEN
          ! existence of snow
@@ -1947,12 +1906,10 @@ ENDDO
          h_snow_now(i) = 0.0_wp
        END IF
     ENDDO
-    !$acc end parallel
 
   ELSE ! no multi-layer snow
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
+    !$acc loop gang(static:1) vector
     DO i = ivstart, ivend
       IF (w_snow_now(i) > 0.0_wp) THEN
         ! existence of snow
@@ -1974,15 +1931,12 @@ ENDDO
    !!!  w_i_now(i) = 0.0_wp
       END IF
     ENDDO
-    !$acc end parallel
   ENDIF  ! lmulti_snow
 
   ! Initializations for the next sections
 
   IF (lmulti_snow) THEN
     ! some preparations for ksn==0 and ksn==1
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
     DO i = ivstart, ivend
       ztsnow_mult   (i,0) = t_snow_mult_now(i,0)
       ztsnow_mult   (i,1) = t_snow_mult_now(i,1)
@@ -2000,13 +1954,9 @@ ENDDO
       zdz_snow (i) = dzh_snow_now(i,1) ! zdzh_snow
       zwsnow   (i) = w_snow_now(i)
     ENDDO
-    !$acc end parallel
 
 
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO  ksn = 2,ke_snow
-      !$acc loop gang vector
       DO i = ivstart, ivend
         ztsnow_mult(i,ksn) = t_snow_mult_now(i,ksn)
 
@@ -2020,23 +1970,19 @@ ENDDO
         zdz_snow   (i)     = zdz_snow(i) + zdzh_snow(i,ksn)
       ENDDO
     ENDDO
-    !$acc end parallel
 
   ELSE  ! no lmulti_snow
 
     ! set ztsnow to t_snow
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
+    !$acc loop gang(static:1) vector
     DO i = ivstart, ivend
       ztsnow   (i) = t_snow_now(i)
       zwsnow   (i) = w_snow_now(i)
       zdz_snow (i) = zwsnow(i)*rho_w/rho_snow_now(i)
     ENDDO
-    !$acc end parallel
   ENDIF  ! lmulti_snow
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector private(z2iw, z4iw, z234iw, zqs, zdqs, zqsnow, zdqsnow)
+  !$acc loop gang(static:1) vector private(z2iw, z4iw, z234iw, zqs, zdqs, zqsnow, zdqsnow, zplow, zqvlow)
   DO i = ivstart, ivend
     ! ztsnow is now set according to lmulti_snow (see above);
     ! therefore we need not take care of it in this loop
@@ -2075,13 +2021,15 @@ ENDDO
     ! saturation specific humidity for t_s and t_snow and first derivative
     z2iw      = ztsk_pm(i)*b2w + (1._wp - ztsk_pm(i))*b2i
     z4iw      = ztsk_pm(i)*b4w + (1._wp - ztsk_pm(i))*b4i
-    zqs       = zsf_qsat( zsf_psat_iw(ztsk(i), z2iw,z4iw), ps(i) )
+    zqs       = zsf_psat_iw(ztsk(i), z2iw,z4iw)
+    zqs       = zsf_qsat( zqs, ps(i) )
     zdqs      = zqvlow - zqs
     IF (ABS(zdqs).LT.0.01_wp*eps_soil) zdqs = 0.0_wp
     z2iw      = ztsnow_pm(i)*b2w + (1._wp - ztsnow_pm(i))*b2i
     z4iw      = ztsnow_pm(i)*b4w + (1._wp - ztsnow_pm(i))*b4i
     z234iw    = z2iw*(b3 - z4iw)
-    zqsnow    = zsf_qsat(zsf_psat_iw(ztsnow(i)-MAX(0.0_wp,tsnred(i)),z2iw,z4iw), ps(i))
+    zqsnow    = zsf_psat_iw(ztsnow(i)-MAX(0.0_wp,tsnred(i)),z2iw,z4iw)
+    zqsnow    = zsf_qsat(zqsnow, ps(i))
 
     zdqvtsnow(i)= zsf_dqvdt_iw(ztsnow(i), zqsnow, z4iw,z234iw)
     zdqsnow     = zqvlow - zqsnow
@@ -2091,7 +2039,6 @@ ENDDO
     zep_snow(i) = (1._wp-ztsnow_pm(i))* tfv(i)*zrhoch(i)*zdqsnow
     zep_s   (i) =                       tfv(i)*zrhoch(i)*zdqs
   ENDDO
-  !$acc end parallel
 
 !------------------------------------------------------------------------------
 ! Section I.3: heat conductivity, frozen fraction, snow and
@@ -2099,8 +2046,7 @@ ENDDO
 !            volumetric heat content
 !------------------------------------------------------------------------------
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector private(zzz, zrww)
+  !$acc loop gang(static:1) vector private(zzz, zrww)
   DO i = ivstart, ivend
      ! snow and water covered fraction
      !em        zrss = MAX( 0.01_wp, MIN(1.0_wp,zwsnow(i)/cf_snow) )
@@ -2136,7 +2082,6 @@ ENDDO
      zdz_snow_fl(i) = MIN(1.5_wp, zdz_snow(i))
      IF (.NOT. lmulti_snow) zrocs(i) = chc_i*zdz_snow_fl(i)*zrho_snow(i)
   ENDDO
-  !$acc end parallel
 
 !------------------------------------------------------------------------------
 ! Section I.4: Hydrology, 1.Section
@@ -2149,8 +2094,7 @@ ENDDO
   ! positive quantities, since positive sign indicates a flux
   ! directed towards the earth's surface!
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector private(zzz)
+  !$acc loop gang(static:1) vector private(zzz)
   DO i = ivstart, ivend
     ! Evaporation from interception store if it contains water (wi>0) and
     ! if zep_s<0 indicates potential evaporation for temperature Ts
@@ -2170,15 +2114,12 @@ ENDDO
     zrr(i)=zsf_heav(zep_s   (i))*zep_s   (i)*        ztsk_pm(i)
     zrs(i)=zsf_heav(zep_snow(i))*zep_snow(i)*(1.0_wp-ztsk_pm(i))
   ENDDO
-  !$acc end parallel
 
   IF (itype_interception == 2) THEN
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
+    !$acc loop gang(static:1) vector
     DO i = ivstart, ivend
       zwimax(i) = MAX(1.E-6_wp,4.E-4_wp * sai(i)) ! Security min. value 1E-6 m
-      zpercmax = 2.E-3_wp
       zfd_wi(i)=MIN(1._wp,MAX(0.0_wp, EXP((2._wp/3._wp)*LOG(zwin(i)/zwimax(i))) ))
       zf_pd(i) = MIN(1._wp,MAX(0.0_wp, EXP((2._wp/3._wp)*LOG(zwpn(i)/zpercmax)) ))
 
@@ -2189,7 +2130,6 @@ ENDDO
       zdrr(i)=zsf_heav(zep_s   (i))*zep_s   (i)*        ztsk_pm(i)
       zrrs(i)=zsf_heav(zep_snow(i))*zep_snow(i)*(1.0_wp-ztsk_pm(i))
     END DO
-    !$acc end parallel
 
   END IF
 
@@ -2201,8 +2141,7 @@ ENDDO
 
     ! Calculation of bare soil evaporation after Dickinson (1984)
     ! Determination of mean water content relative to volume of voids
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(zice, zevap, zbeta, zbf1, zbf2, zdmax, zd) &
+    !$acc loop gang(static:1) vector private(zice, zevap, zbeta, zbf1, zbf2, zdmax, zd) &
     !$acc private(zck, zfqmax, zevapor)
     DO i = ivstart, ivend
       IF (zep_s(i) < 0.0_wp) THEN   ! upwards directed potential evaporation
@@ -2278,7 +2217,6 @@ ENDDO
 !       END IF
       END IF  ! upwards directed potential evaporation
     END DO
-    !$acc end parallel
   END IF ! BATS version
 
   !----------------------------------------------------------------------------
@@ -2286,8 +2224,7 @@ ENDDO
   !----------------------------------------------------------------------------
 
   IF (itype_evsl.EQ.3) THEN
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(zice, zevap, zbeta, zalpha, z2iw, z4iw) &
+    !$acc loop gang(static:1) vector private(zice, zevap, zbeta, zalpha, z2iw, z4iw) &
     !$acc private(zqs, zevapor)
     DO i = ivstart, ivend
       IF (zep_s(i) < 0.0_wp) THEN   ! upwards directed potential evaporation
@@ -2355,7 +2292,6 @@ ENDDO
 !       ENDIF
       END IF  ! upwards directed potential evaporation
     END DO
-    !$acc end parallel
   END IF ! NP89
 
   !----------------------------------------------------------------------------
@@ -2365,8 +2301,7 @@ ENDDO
   IF (itype_evsl.EQ.4) THEN   ! Resistance version
     ! Calculation of bare soil evaporation using a resistance formulation.
     ! For a review see Schulz et al. (1998) 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(zice, zevap, zbeta, zalpha)
+    !$acc loop gang(static:1) vector private(zice, zevap, zbeta, zalpha)
     DO i = ivstart, ivend
       IF (zep_s(i) < 0.0_wp) THEN   ! upwards directed potential evaporation
         ! Treatment of ice (m_styp=1) and rocks (m_styp=2)
@@ -2422,7 +2357,6 @@ ENDDO
 
       END IF  ! upwards directed potential evaporation
     END DO
-    !$acc end parallel
 
   END IF      ! Resistance version
 
@@ -2442,18 +2376,16 @@ ENDDO
     ! Root distribution
 
     IF (itype_root == 2) THEN
-      !$acc parallel async if(lzacc)
-      !$acc loop gang vector
+      !$acc loop gang(static:1) vector
       DO i = ivstart, ivend
         zrootdz_int (i)= 0.0_wp   !initialize the root density profile integral
         zwrootdz_int(i)= 0.0_wp   !initialize the root water content integral
       END DO
-      !$acc end parallel
 
 
-      !$acc parallel async if(lzacc)
+      !$acc loop seq
       DO kso   = 1,ke_soil
-        !$acc loop gang vector private(zrootfr, zrootdz)
+        !$acc loop gang(static:1) vector private(zrootfr, zrootdz)
         DO i = ivstart, ivend
           IF (soiltyp_subs(i) >= 3 .AND. zep_s(i) < 0.0_wp) THEN
             ! consider the effect of root depth & root density
@@ -2467,22 +2399,18 @@ ENDDO
           END IF  ! negative potential evaporation only
         END DO
       END DO
-      !$acc end parallel
 
       ! Compute root zone integrated average of liquid water content
-      !$acc parallel async if(lzacc)
-      !$acc loop gang vector
+      !$acc loop gang(static:1) vector
       DO i = ivstart, ivend
         zwrootdz_int(i)=zwrootdz_int(i)/MAX(zrootdz_int(i),eps_div)
       END DO
-      !$acc end parallel
 
     ELSE   ! itype_root
 
-      !$acc parallel async if(lzacc)
       !$acc loop seq
       DO kso   = 1,ke_soil
-        !$acc loop gang vector private(zropart)
+        !$acc loop gang(static:1) vector private(zropart)
         DO i = ivstart, ivend
           IF (soiltyp_subs(i) >= 3 .AND. zep_s(i) < 0.0_wp) THEN 
              ! upwards directed potential evaporation
@@ -2493,14 +2421,12 @@ ENDDO
           END IF  ! negative potential evaporation only
         END DO
       END DO
-      !$acc end parallel
 
     ENDIF  ! itype_root
 
 
     ! Determination of the transfer functions CA, CF, and CV
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(i, zuv, zcatm, zustar, zrla, zpar, zf_wat) &
+    !$acc loop gang(static:1) vector private(zuv, zcatm, zustar, zrla, zpar, zf_wat) &
     !$acc private(zf_tem, z2iw, z4iw, zepsat, zepke, zf_sat, zedrstom)        &
     !$acc private(zrstom, zrveg, zxx, zzz)
     DO i = ivstart, ivend
@@ -2584,16 +2510,14 @@ ENDDO
         ztraleav(i)=zep_s(i)*tai(i)/(sai(i)+zrveg*zcatm)
       END IF  ! upwards directed potential evaporation only
     END DO
-    !$acc end parallel
 
     ! Consideration of water and snow coverage, distribution to the different
     ! soil layers
 
     IF (itype_interception == 1) THEN
-      !$acc parallel async if(lzacc)
       !$acc loop seq
       DO kso       = 1,ke_soil
-        !$acc loop gang vector private(ztrabpf, ztrfr, zrootfc)
+        !$acc loop gang(static:1) vector private(ztrabpf, ztrfr, zrootfc)
         DO i = ivstart, ivend
           IF (soiltyp_subs(i) >= 3 .AND. zep_s(i) < 0.0_wp) THEN
             ! upwards potential evaporation
@@ -2624,12 +2548,10 @@ ENDDO
           END IF  ! upwards directed potential evaporation only
         END DO
       END DO          ! loop over soil layers
-      !$acc end parallel
     ELSEIF (itype_interception == 2) THEN
-      !$acc parallel async if(lzacc)
       !$acc loop seq
       DO kso = 1,ke_soil
-        !$acc loop gang vector private(ztrabpf, ztrfr, zrootfc)
+        !$acc loop gang(static:1) vector private(ztrabpf, ztrfr, zrootfc)
         DO i = ivstart, ivend
           IF (soiltyp_subs(i) >= 3 .AND. zep_s(i) < 0.0_wp) THEN
             ! upwards potential evaporation
@@ -2653,7 +2575,6 @@ ENDDO
           END IF  ! upwards directed potential evaporation only
         END DO
       END DO          ! loop over soil layers
-      !$acc end parallel
     END IF
   END IF BATS
 
@@ -2673,8 +2594,7 @@ ENDDO
 #endif
 
   ! Ensure that the sum of the evaporation terms does not exceed the potential evaporation
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector private(ze_sum, zxx, zzz)
+  !$acc loop gang(static:1) vector private(ze_sum, zxx, zzz)
   DO i = ivstart, ivend
     ze_sum = zdwsndt(i) + zdwidt(i) + zesoil(i) + ztrangs(i)
     zxx    = zf_snow(i)*zep_snow(i) + (1._wp-zf_snow(i))*zep_s(i) ! snow-weighted potential evaporation
@@ -2721,7 +2641,6 @@ ENDDO
 #endif
     ENDIF
   ENDDO
-  !$acc end parallel
 
 #ifdef __SX__
 !$NEC outerloop_unroll(7)
@@ -2734,8 +2653,7 @@ ENDDO
 #endif
 
   IF (itype_interception == 1) THEN
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(ze_sum)
+    !$acc loop gang(static:1) vector private(ze_sum)
     DO i = ivstart, ivend
 
       ze_sum = zdwsndt(i  )  & ! evaporation of snow
@@ -2753,10 +2671,8 @@ ENDDO
       qv_s(i) = qv (i) - ze_sum /(zrhoch(i) + eps_div)
 !JH   qv_s(i,nnew) = qv_s(i,nx)
     END DO
-    !$acc end parallel
   ELSE          IF (itype_interception == 2) THEN
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(ze_sum)
+    !$acc loop gang(static:1) vector private(ze_sum)
     DO i = ivstart, ivend
       ze_sum = zesn   (i) &
              + zepd   (i) &
@@ -2774,8 +2690,8 @@ ENDDO
       qv_s(i) = qv (i) - ze_sum /(zrhoch(i) + eps_div)
 !JH   qv_s(i,nnew) = qv_s(i,nx)
     END DO
-    !$acc end parallel
   END IF
+  !$acc end parallel
 
 
 !------------------------------------------------------------------------------
@@ -2810,8 +2726,8 @@ ENDDO
   ctau_i  = MAX( ctau_i, zdt )
 
   ! Utility variable to avoid IF-constructs
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
+  !$acc parallel default(none) async(1) if(lzacc)
+  !$acc loop gang(static:1) vector
   DO kso     = 1,ke_soil
     IF (kso == 1) THEN 
       znlgw1f(1)         = 1.0_wp
@@ -2819,27 +2735,21 @@ ENDDO
       znlgw1f(kso)  = 0.0_wp
     END IF
   END DO
-  !$acc end parallel
 
   ! Initialisations
   IF (lmulti_snow) THEN
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector collapse(2)
     DO ksn = 0, ke_snow
       DO i = ivstart, ivend
         zdtsnowdt_mult(i,ksn)  = 0.0_wp
         zdtsdt(i)     = 0.0_wp
       END DO
     END DO
-    !$acc end parallel
   ELSE
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
+    !$acc loop gang(static:1) vector
     DO i = ivstart, ivend
       zdtsnowdt(i)  = 0.0_wp
       zdtsdt(i)     = 0.0_wp
     END DO
-    !$acc end parallel
   END IF
 
 !------------------------------------------------------------------------------
@@ -2848,8 +2758,7 @@ ENDDO
 !               Initialise some fields
 !------------------------------------------------------------------------------
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector private(mstyp)
+  !$acc loop gang(static:1) vector private(mstyp)
   DO i = ivstart, ivend
 !    mstyp      = soiltyp_subs(i)
 !    m_styp (i) = mstyp
@@ -2858,13 +2767,11 @@ ENDDO
      zgsb   (i) = 0.0_wp
      ztrangs(i) = 0.0_wp
   END DO
-  !$acc end parallel
 
 
-  !$acc parallel async if(lzacc)
   !$acc loop seq 
   DO   kso = 1,ke_soil+1
-    !$acc loop gang vector
+    !$acc loop gang(static:1) vector
     DO i = ivstart, ivend
       ziw_fr(i,kso) = w_so_ice_now(i,kso)/zdzhs(kso)   ! ice frac.
       zlw_fr(i,kso) = zw_fr(i,kso) - ziw_fr(i,kso)  ! liquid water frac.
@@ -2878,7 +2785,6 @@ ENDDO
       zrunoff_grav(i,kso)  = 0.0_wp
     END DO
   END DO      !soil layers
-  !$acc end parallel
 
 ! IF (lterra_urb .AND. lurbfab) THEN
 !   ! HW: modification of soil heat capacity in urban areas: interpolation between buildings and non-buildings, 
@@ -2898,8 +2804,7 @@ ENDDO
 !------------------------------------------------------------------------------
 
   IF (itype_interception == 1) THEN
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(zrime, zfr_ice_free, zalf, zuv, zzz, zinf) &
+    !$acc loop gang(static:1) vector private(zrime, zfr_ice_free, zalf, zuv, zzz, zinf) &
     !$acc private(zdwidtt, zdwieps, zro_wi, zro_inf, zdwsndtt, zwsnstr)       &
     !$acc private(zdwseps)
     DO i = ivstart, ivend
@@ -3055,11 +2960,9 @@ ENDDO
       END IF
       zdwsndt(i) = zdwsndtt
     END DO
-    !$acc end parallel
 
   ELSEIF (itype_interception == 2) THEN
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(zfr_ice_free, zfcorr_wi, zdwidtt, zro_wi) &
+    !$acc loop gang(static:1) vector private(zfr_ice_free, zfcorr_wi, zdwidtt, zro_wi) &
     !$acc private(zuv, zdwisndtt, zro_inf, zdwpdtt, zdwsndtt, zwsnstr, zdwseps)
     DO i = ivstart, ivend
       ! Compute forcing terms after (???) interception, infiltration calculation --> below
@@ -3211,7 +3114,6 @@ ENDDO
       zdwsndt(i) = zdwsndtt
       runoff_s(i)= runoff_s(i) + zro_wi*zroffdt
     END DO
-    !$acc end parallel
 
   END IF
 
@@ -3222,8 +3124,7 @@ ENDDO
 ! uppermost layer, kso = 1
 
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector private(zice_fr_kso, zice_fr_ksop1, zlw_fr_kso) &
+  !$acc loop gang(static:1) vector private(zice_fr_kso, zice_fr_ksop1, zlw_fr_kso) &
   !$acc private(zlw_fr_ksop1, zfr_ice, zredp05, zlw_fr_ksop05) & 
   !$acc private(zdlw_fr_ksop05, zklw_fr_ksop05, z1dgam1, zgam2p05)
   DO i = ivstart, ivend
@@ -3278,15 +3179,13 @@ ENDDO
       zflmg (i,1) = - zinfil(i)! boundary value for soil water transport
     END IF
   END DO
-  !$acc end parallel
 
 ! inner layers 2 <=kso<=ke_soil_hy-1
 
-  !$acc parallel async if(lzacc)
   !$acc loop seq
 !DIR$ ivdep, prefervector
   DO kso =2,ke_soil_hy-1
-    !$acc loop gang vector private(zice_fr_ksom1, zice_fr_kso)             &
+    !$acc loop gang(static:1) vector private(zice_fr_ksom1, zice_fr_kso)             &
     !$acc private(zice_fr_ksop1, zlw_fr_ksom1, zlw_fr_kso, zlw_fr_ksop1)   &
     !$acc private(zlw_fr_ksom05, zlw_fr_ksop05, zfr_ice, zredm05, zredp05) &
     !$acc private(zdlw_fr_ksom05, zdlw_fr_ksop05, zklw_fr_ksom05)          &
@@ -3371,10 +3270,8 @@ ENDDO
       END IF
     END DO
   END DO
-  !$acc end parallel
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector private(zice_fr_ksom1, zice_fr_kso, zlw_fr_ksom1)&
+  !$acc loop gang(static:1) vector private(zice_fr_ksom1, zice_fr_kso, zlw_fr_ksom1)&
   !$acc private(zlw_fr_kso, zlw_fr_ksom05, zfr_ice, zredm05, zdlw_fr_ksom05) &
   !$acc private( z1dgam1, zgam2m05, zklw_fr_ksom05)
   DO i = ivstart, ivend
@@ -3452,10 +3349,8 @@ ENDDO
       END IF
     END IF
   END DO
-  !$acc end parallel
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
+  !$acc loop gang(static:1) vector
   DO i = ivstart, ivend
     IF (soiltyp_subs(i) >= 3) THEN
       ! generalized upper boundary condition
@@ -3463,12 +3358,10 @@ ENDDO
       zagd(i,1) = zagd(i,1)/zagb(i,1)
     END IF
   END DO
-  !$acc end parallel
 
-  !$acc parallel async if(lzacc)
   !$acc loop seq
   DO kso=2,ke_soil_hy-1
-    !$acc loop gang vector private(zzz)
+    !$acc loop gang(static:1) vector private(zzz)
     DO i = ivstart, ivend
       IF (soiltyp_subs(i) >= 3) THEN
         zzz = 1._wp/(zagb(i,kso) - zaga(i,kso)*zagc(i,kso-1))
@@ -3477,11 +3370,9 @@ ENDDO
       END IF
     END DO
   END DO                ! soil layers
-  !$acc end parallel
 
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
+  !$acc loop gang(static:1) vector
   DO i = ivstart, ivend
     IF (soiltyp_subs(i) >= 3) THEN
       IF (soiltyp_subs(i) == 8 .AND. itype_mire == 1) THEN
@@ -3497,13 +3388,11 @@ ENDDO
       END IF
     END IF
   END DO
-  !$acc end parallel
 
   IF (itype_mire == 1) THEN
 !US index for k-loop depends on i! how to handle that???
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
+    !$acc loop gang(static:1) vector
     DO i = ivstart, ivend
       IF (soiltyp_subs(i) >= 3) THEN
         DO kso = ke_soil_hy_b(i)-1,1,-1
@@ -3515,12 +3404,10 @@ ENDDO
         END DO
       END IF
     END DO
-    !$acc end parallel
   ELSE
-    !$acc parallel async if(lzacc)
     !$acc loop seq
     DO kso = ke_soil_hy-1,1,-1
-      !$acc loop gang vector
+      !$acc loop gang(static:1) vector
       DO i = ivstart, ivend
         IF (soiltyp_subs(i) >= 3) THEN
           zage(i,kso)     = zagd(i,kso) - zagc(i,kso)*zage(i,kso+1)
@@ -3531,12 +3418,10 @@ ENDDO
         END IF
       END DO
     END DO                ! soil layers
-    !$acc end parallel
   END IF
 
 !lowest active hydrological level
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
+  !$acc loop gang(static:1) vector
   DO i = ivstart, ivend
     IF (soiltyp_subs(i) >= 3) THEN
       ! boundary values ensure that the calculation below leaves the climate
@@ -3551,7 +3436,6 @@ ENDDO
       END IF
     END IF
   END DO
-  !$acc end parallel
 
   ! to ensure vertical constant water concentration profile beginning at
   ! layer ke_soil_hy_b(i) for energetic treatment only
@@ -3564,48 +3448,44 @@ ENDDO
   ! ground water as lower boundary of soil column
 
   IF (itype_hydbound == 3) THEN
-    !$acc parallel async if(lzacc)
+    !$acc loop seq
     DO kso = ke_soil_hy+1,ke_soil+1
-      !$acc loop gang vector
+      !$acc loop gang(static:1) vector
       DO i = ivstart, ivend
         IF (soiltyp_subs(i) >= 3) THEN
           w_so_new(i,kso) = zporv(i,kso)*zdzhs(kso)
         END IF
       END DO
     END DO
-    !$acc end parallel
   ELSE
-    !$acc parallel async if(lzacc)
+    !$acc loop seq
     DO kso = ke_soil_hy+1,ke_soil+1
-      !$acc loop gang vector
+      !$acc loop gang(static:1) vector
       DO i = ivstart, ivend
         IF (soiltyp_subs(i) >= 3) THEN
           w_so_new(i,kso) = w_so_new(i,kso-1)*zdzhs(kso)/zdzhs(kso-1)
         END IF
       END DO
     END DO
-    !$acc end parallel
   ENDIF
 
   IF (itype_mire == 1) THEN
-    !$acc parallel async if(lzacc)
+    !$acc loop seq
     DO kso = ke_soil_hy_m+1,ke_soil+1
-      !$acc loop gang vector
+      !$acc loop gang(static:1) vector
       DO i = ivstart, ivend
         IF (soiltyp_subs(i) == 8) THEN
           w_so_new(i,kso) = zporv(i,kso)*zdzhs(kso)
         END IF
       END DO
     END DO
-    !$acc end parallel
   END IF
 
   ! combine implicit part of sedimentation and capillary flux with explicit part
   ! (for soil water flux investigations only)
-  !$acc parallel async if(lzacc)
   !$acc loop seq
   DO kso = 2,ke_soil+1
-    !$acc loop gang vector                                                    &
+    !$acc loop gang(static:1) vector                                          &
     !$acc private(zice_fr_ksom1, zice_fr_kso, zlw_fr_ksom1_new)               &
     !$acc private(zlw_fr_kso_new, zlw_fr_ksom1, zlw_fr_kso, zfr_ice, zredm05) &
     !$acc private(zlw_fr_ksom05, zdlw_fr_ksom05, zklw_fr_ksom05, zredm)       &
@@ -3721,17 +3601,15 @@ ENDDO
       END IF
     END DO
   END DO
-  !$acc end parallel
 
   IF (itype_mire == 1) THEN
-    !$acc parallel async if(lzacc)
     !$acc loop seq private(zro_sfak, zro_gfak)
     DO  kso = 1,ke_soil
       ! utility variables used to avoid if-constructs in following loops
       zro_sfak = zsf_heav(0.5_wp + REAL(msr_off - kso,wp))      ! 1.0 for 'surface runoff'
       zro_gfak = 1._wp - zro_sfak                               ! 1.0 for 'ground runoff'
 
-      !$acc loop gang vector private(zdwg, zredfu, zro, zwgn, zro2, zkorr,zfmb_fak)
+      !$acc loop gang(static:1) vector private(zdwg, zredfu, zro, zwgn, zro2, zkorr,zfmb_fak)
       DO i = ivstart, ivend
         ! sedimentation and capillary transport in soil
         IF (soiltyp_subs(i) >= 3) THEN
@@ -3782,10 +3660,8 @@ ENDDO
         END IF
       END DO
     END DO         ! end loop over soil layers
-    !$acc end parallel
   ELSE
-    !$acc parallel async if(lzacc)
-    !$acc loop seq private(zro_sfak, zro_gfak, zfmb_fak)
+    !$acc loop seq private(zro_sfak, zro_gfak, zfmb_fak, zcou_roffg)
 !$NEC novector
     DO  kso = 1,ke_soil
       ! utility variables used to avoid if-constructs in following loops
@@ -3801,7 +3677,7 @@ ENDDO
       zcou_roffg = MERGE(1.0_wp, 0.0_wp, kso<=ke_soil_hy)
 
       ! sedimentation and capillary transport in soil
-      !$acc loop gang vector private(zdwg, zredfu, zro, zwgn, zro2, zkorr)
+      !$acc loop gang(static:1) vector private(zdwg, zredfu, zro, zwgn, zro2, zkorr)
       DO i = ivstart, ivend
         IF (soiltyp_subs(i) >= 3) THEN
           ! first runoff calculation without consideration of
@@ -3835,8 +3711,8 @@ ENDDO
         END IF
       END DO
     END DO         ! end loop over soil layers
-  !$acc end parallel
   ENDIF
+  !$acc end parallel
 
 !------------------------------------------------------------------------------
 ! Section II.5: Soil surface heat flux (thermal forcing)
@@ -3844,8 +3720,6 @@ ENDDO
 
   IF (lmulti_snow) THEN
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(ztalb, zgstr)
     DO i = ivstart, ivend
       ! Estimate thermal surface fluxes:
       ! Estimate thermal surface fluxes over snow covered and snow free
@@ -3877,11 +3751,8 @@ ENDDO
                    / MAX(eps_div,(1._wp - zf_snow(i)))  ! take out (1-f) scaling
       zqhfl_s(i) = zverbo(i)/ MAX(eps_div,(1._wp - zf_snow(i)))  ! take out (1-f) scaling
     END DO
-    !$acc end parallel
 
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(zro, zrho_snowf)
     DO i = ivstart, ivend
       ! thawing of snow falling on soil with Ts > T0
       IF (ztsnow_pm(i)*zrs(i) > 0.0_wp) THEN
@@ -3957,25 +3828,17 @@ ENDDO
       h_snow_now(i) = 0.0_wp
       sum_weight(i) = 0.0_wp
     END DO
-    !$acc end parallel
  
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO ksn = 1,ke_snow
-      !$acc loop gang vector
       DO i = ivstart, ivend
         IF (zwsnew(i).GT.eps_soil) THEN
           h_snow_now(i) = h_snow_now(i) + zdzh_snow(i,ksn)
         END IF
       END DO
     END DO
-    !$acc end parallel
 
     k = MIN(2,ke_snow-1)
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO ksn = 1,ke_snow
-      !$acc loop gang vector
       DO i = ivstart, ivend
         IF (zwsnew(i) .GT. eps_soil) THEN
           IF (zwsnow(i) .GT. eps_soil) THEN
@@ -3992,13 +3855,9 @@ ENDDO
         END IF
       END DO
     END DO
-    !$acc end parallel
 
 
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO ksn = ke_snow,1,-1
-      !$acc loop gang vector
       DO i = ivstart, ivend
         IF(zwsnew(i) .GT. eps_soil .AND. zwsnow(i) .GT. eps_soil) THEN
           dz_old(i,ksn) = zdzh_snow(i,ksn)
@@ -4007,11 +3866,8 @@ ENDDO
         END IF
       END DO
     END DO
-    !$acc end parallel
 
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
     DO i = ivstart, ivend
       IF(zwsnew(i) .GT. eps_soil) THEN
         zhm_snow (i,1) = (-h_snow_now(i) + zhh_snow(i,1))/2._wp
@@ -4025,13 +3881,9 @@ ENDDO
         END IF
       END IF
     END DO
-    !$acc end parallel
 
 
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO ksn = 2,ke_snow
-      !$acc loop gang vector
       DO i = ivstart, ivend
         IF(zwsnew(i) .GT. eps_soil) THEN
           zhm_snow(i,ksn) = (zhh_snow(i,ksn) + zhh_snow(i,ksn-1))/2._wp
@@ -4045,21 +3897,15 @@ ENDDO
         END IF
       END DO
     END DO
-    !$acc end parallel
 
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO ksn = ke_snow,1,-1
-      !$acc loop gang vector
       DO i = ivstart, ivend
         t_new  (i,ksn) = 0.0_wp
         rho_new(i,ksn) = 0.0_wp
         wl_new (i,ksn) = 0.0_wp
       END DO
 
-      !$acc loop gang
       DO k = ke_snow,1,-1
-        !$acc loop vector private(weight)
         DO i = ivstart, ivend
           IF(zwsnew(i) .GT. eps_soil .AND. zwsnow(i) .GT. eps_soil) THEN
 
@@ -4079,17 +3925,13 @@ ENDDO
         END DO
       END DO
     END DO
-    !$acc end parallel
 
     ! MIN(z_old(i, k) + dz_old(i, k)/2._wp, &
     ! &   zhm_snow(i, ksn) + zdzh_snow(i,ksn)/2._wp) &
     ! - MAX(z_old(i, k) - dz_old(i, k)/2._wp, &
     ! &     zhm_snow(i, ksn) - zdzh_snow(i, ksn)/2._wp), &
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang
     DO ksn = ke_snow,1,-1
-      !$acc loop vector
       DO i = ivstart, ivend
         IF(zwsnew(i) .GT. eps_soil) THEN
           IF(zwsnow(i) .GT. eps_soil) THEN
@@ -4106,25 +3948,18 @@ ENDDO
         END IF
       END DO
     END DO
-    !$acc end parallel
 
 
     ! heat conductivity of snow as funtion of water content
-    !$acc parallel async if(lzacc)
-    !$acc loop gang
     DO ksn = 1, ke_snow
-      !$acc loop vector
       DO i = ivstart, ivend
         IF (zwsnew(i).GT.eps_soil) THEN
           zalas_mult(i,ksn) = 2.22_wp*EXP(1.88_wp*LOG(rho_snow_mult_now(i,ksn)/rho_i))
         END IF
       END DO
     END DO
-    !$acc end parallel
 
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(zrnet_snow)
     DO i = ivstart, ivend
       IF (zwsnew(i).GT.eps_soil) THEN
         zgsb(i) = ((zalas_mult(i,ke_snow)*(-zhm_snow(i,ke_snow))+hzalam(i,1)*zdzms(1))/ &
@@ -4159,12 +3994,11 @@ ENDDO
       zqhfl_snow(i) = zversn(i)
       zfor_snow_mult(i)  = (zrnet_snow + zshfl_snow(i) + zlhfl_snow(i) + lh_f*zrr(i))*zf_snow(i)
     END DO
-    !$acc end parallel
 
   ELSE  ! single-layer snow model
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(ztalb, zgstr, zro, zalas)
+    !$acc parallel default(none) async(1) if(lzacc)
+    !$acc loop gang vector private(ztalb, zgstr, zro, zalas, zzz, zd, zfr_melt, zw_ovpv)
     !$NEC sparse
     DO i = ivstart, ivend
       ! Estimate thermal surface fluxes:
@@ -4268,8 +4102,8 @@ ENDDO
     !$acc end parallel
 
     IF (msg_level >= 20) THEN
-      !$acc update async host(soiltyp_subs, zshfl_s, zlhfl_s, zrhoch, zth_low, t)
-      !$acc update async host(zts_pm, zverbo, zf_snow, qv, qv_s, tch, tcm, zts)
+      !$acc update async(1) host(soiltyp_subs, zshfl_s, zlhfl_s, zrhoch, zth_low, t)
+      !$acc update async(1) host(zts_pm, zverbo, zf_snow, qv, qv_s, tch, tcm, zts)
       DO i = ivstart, ivend
         IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
           IF ( ABS( zshfl_s(i) )  >  500.0_wp  .OR. &
@@ -4299,8 +4133,8 @@ ENDDO
   ! for the whole column "soil + snow" for snow-covered surface is solved.
   ! Then, the two updates are merged together.
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
+  !$acc parallel default(none) async(1) if(lzacc)
+  !$acc loop gang(static:1) vector
   DO i = ivstart, ivend
     sn_frac(i) = zf_snow(i)
     IF (zwsnow(i) < eps_soil .AND. zwsnew(i) >= eps_soil) THEN
@@ -4309,9 +4143,7 @@ ENDDO
       sn_frac(i) = 0._wp
     ENDIF
   END DO
-  !$acc end parallel
 
-  !$acc parallel async if(lzacc)
   !$acc loop gang vector collapse(2)
   DO kso = 1, ke_soil+1
     DO i = ivstart, ivend
@@ -4319,11 +4151,10 @@ ENDDO
       t_so_snow_new(i,kso) = t_so_now(i,kso)
     END DO
   END DO        ! soil layers
-  !$acc end parallel
 
-  !$acc parallel async if(lzacc)
+  !$acc loop seq
   DO kso = 2, ke_soil
-    !$acc loop gang vector private(zakb1, zakb2)
+    !$acc loop gang(static:1) vector private(zakb1, zakb2)
     DO i = ivstart, ivend
       IF (.NOT. lmulti_snow .OR. sn_frac(i) < 1._wp) THEN
         ! for heat conductivity: zalam is now 3D
@@ -4339,11 +4170,9 @@ ENDDO
       END IF
     END DO
   END DO        ! soil layers
-  !$acc end parallel
 
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector private(zakb1, zakb2)
+  !$acc loop gang(static:1) vector private(zakb1, zakb2)
   DO i = ivstart, ivend
 !    IF (.NOT. lmulti_snow .OR. (zf_snow(i) < 1._wp .AND. zwsnew(i).GT.eps_soil)) THEN
     IF (.NOT. lmulti_snow .OR. sn_frac(i) < 1._wp) THEN
@@ -4370,22 +4199,18 @@ ENDDO
       zagd(i,ke_soil+1) = t_so_now(i,ke_soil+1)
     END IF
   END DO
-  !$acc end parallel
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
+  !$acc loop gang(static:1) vector
   DO i = ivstart, ivend
     IF (.NOT. lmulti_snow .OR. sn_frac(i) < 1._wp) THEN
       zagc(i,0) = zagc(i,0)/zagb(i,0)
       zagd(i,0) = zagd(i,0)/zagb(i,0)
     END IF
   END DO
-  !$acc end parallel
 
-  !$acc parallel async if(lzacc)
   !$acc loop seq
   DO kso = 1, ke_soil
-    !$acc loop gang vector private(zzz)
+    !$acc loop gang(static:1) vector private(zzz)
     DO i = ivstart, ivend
       IF (.NOT. lmulti_snow .OR. sn_frac(i) < 1._wp) THEN
         zzz = 1._wp/(zagb(i,kso) - zaga(i,kso)*zagc(i,kso-1))
@@ -4394,10 +4219,8 @@ ENDDO
       END IF
     END DO
   END DO                ! soil layers
-  !$acc end parallel
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
+  !$acc loop gang(static:1) vector
   DO i = ivstart, ivend
     IF (.NOT. lmulti_snow .OR. sn_frac(i) < 1._wp) THEN
       zage(i,ke_soil+1) = (zagd(i,ke_soil+1) - zaga(i,ke_soil+1)*       &
@@ -4407,12 +4230,10 @@ ENDDO
       t_so_free_new(i,ke_soil+1) = zage(i,ke_soil+1) ! climate value, unchanged
     END IF
   END DO
-  !$acc end parallel
 
-  !$acc parallel async if(lzacc)
   !$acc loop seq
   DO kso = ke_soil,0,-1
-    !$acc loop gang vector
+    !$acc loop gang(static:1) vector
     DO i = ivstart, ivend
       IF (.NOT. lmulti_snow .OR. sn_frac(i) < 1._wp) THEN
         zage(i,kso)     = zagd(i,kso) - zagc(i,kso)*zage(i,kso+1)
@@ -4422,15 +4243,12 @@ ENDDO
       END IF
     END DO
   END DO                ! soil layers
-  !$acc end parallel
 
 
   IF (lmulti_snow) THEN
 
     ! If there is snow, the solution of the heat conduction equation
     ! goes through the whole column "soil+snow"
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(zakb)
     DO i = ivstart, ivend
       IF (sn_frac(i) > 0._wp) THEN
         ! Uppermost snow layer, Neumann boundary condition
@@ -4484,13 +4302,9 @@ ENDDO
           &    zagc(i,ke_snow+1)/zalfa*t_so_now(i,2)  )
       END IF
     END DO
-    !$acc end parallel
 
     ! Snow layers
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO ksn = 2, ke_snow-1
-      !$acc loop gang vector private(zakb)
       DO i = ivstart, ivend
         IF (sn_frac(i) > 0._wp) THEN
           zrocs(i) = (wliq_snow_now(i,ksn)/wtot_snow_now(i,ksn)*chc_w + &
@@ -4509,13 +4323,9 @@ ENDDO
         END IF
       END DO
     END DO                ! snow layers
-    !$acc end parallel
 
     ! Soil layers
-    !$acc parallel async if(lzacc)
-    !$acc loop gang
     DO ksn = ke_snow+2, ke_snow + ke_soil
-      !$acc loop vector private(kso, zakb1, zakb2)
       DO i = ivstart, ivend
         IF (sn_frac(i) > 0._wp) THEN
           kso = ksn - ke_snow
@@ -4531,13 +4341,9 @@ ENDDO
         END IF
       END DO
     END DO                ! soil layers
-    !$acc end parallel
 
 
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO kso = 1, ke_snow + ke_soil
-      !$acc loop gang vector private(zzz)
       DO i = ivstart, ivend
         IF (sn_frac(i) > 0._wp) THEN
           zzz = 1._wp/(zagb(i,kso) - zaga(i,kso)*zagc(i,kso-1))
@@ -4546,11 +4352,8 @@ ENDDO
         END IF
       END DO
     END DO                ! snow + soil layers
-    !$acc end parallel
 
     ! Back substitution, lowermost soil layer
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
     DO i = ivstart, ivend
       IF (sn_frac(i) > 0._wp) THEN
         zage(i,ke_snow+ke_soil+1) =  &
@@ -4559,13 +4362,9 @@ ENDDO
         t_so_snow_new(i,ke_soil+1) = zage(i,ke_snow+ke_soil+1) ! climate value, unchanged
       END IF
     END DO
-    !$acc end parallel
 
     ! Back substitution, soil layers
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO kso = ke_snow+ke_soil, ke_snow+1, -1
-      !$acc loop gang vector 
       DO i = ivstart, ivend
         IF (sn_frac(i) > 0._wp) THEN
           zage(i,kso) = zagd(i,kso) - zagc(i,kso)*zage(i,kso+1)
@@ -4573,13 +4372,9 @@ ENDDO
         END IF
       END DO
     END DO                ! soil layers
-    !$acc end parallel
 
     ! Back substitution, snow layers
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO ksn = ke_snow,1,-1
-      !$acc loop gang vector
       DO i = ivstart, ivend
         IF (sn_frac(i) > 0._wp) THEN
           zage(i,ksn) = zagd(i,ksn) - zagc(i,ksn)*zage(i,ksn+1)
@@ -4587,11 +4382,8 @@ ENDDO
         END IF
       END DO
     END DO                ! snow layers
-    !$acc end parallel
 
 !in case of thin snowpack (less than zswitch), apply single-layer snow model
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
     DO i = ivstart, ivend
       IF (sn_frac(i) > 0._wp) THEN
         zgsb(i) = ((zalas_mult(i,ke_snow)*(-zhm_snow(i,ke_snow))+hzalam(i,1)*zdzms(1))/ &
@@ -4606,11 +4398,8 @@ ENDDO
         zswitch(i) = 0.0_wp
       END IF
     END DO
-    !$acc end parallel
 
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(zalas, ztsnow_im, zfak)
     DO i = ivstart, ivend
       IF(zwsnew(i) .LT. zswitch(i) .AND. sn_frac(i) > 0._wp) THEN
         ztsn  (i) = t_so_now(i,1)
@@ -4624,12 +4413,8 @@ ENDDO
         tmp_num(i) = ztsnow_mult(i,1) + (tmp_num(i)-ztsnow_mult(i,1))/zfak
       END IF
     END DO
-    !$acc end parallel
 
-    !$acc parallel async if(lzacc)
-!    !$acc loop seq
 !    DO ksn = 1, ke_snow
-      !$acc loop gang vector
       DO i = ivstart, ivend
         IF(sn_frac(i) > 0._wp) THEN
 !          IF(zwsnew(i) .LT. zswitch(i)) THEN
@@ -4639,13 +4424,9 @@ ENDDO
         END IF
       END DO
 !    END DO
-    !$acc end parallel
 
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang
     DO ksn = 1, ke_snow
-      !$acc loop vector
       DO i = ivstart, ivend
         IF(zwsnew(i) .GT. eps_soil .and. zwsnew(i) .LT. zswitch(i)) THEN
 
@@ -4658,11 +4439,8 @@ ENDDO
         END IF
       END DO
     END DO
-    !$acc end parallel
 
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
     DO i = ivstart, ivend
       IF(zwsnew(i) .GT. eps_soil .and. zwsnew(i) .LT. zswitch(i)) THEN
 
@@ -4676,37 +4454,30 @@ ENDDO
 
       END IF
     END DO
-    !$acc end parallel
 
   END IF    ! lmulti_snow
 
   ! Combining the two partial updates of soil temperature
   IF(lmulti_snow) THEN
-    !$acc parallel async if(lzacc)
-    !$acc loop gang
     DO kso = 1, ke_soil+1
-      !$acc loop vector
       DO i = ivstart, ivend
         t_so_new(i,kso) = t_so_snow_new(i,kso)*sn_frac(i) + t_so_free_new(i,kso)*(1._wp - sn_frac(i))
       END DO
     END DO
-    !$acc end parallel
   ELSE
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector collapse(2)
+    !$acc loop seq
     DO kso = 1, ke_soil+1
+      !$acc loop gang(static:1) vector
       DO i = ivstart, ivend
         t_so_new(i,kso) = t_so_free_new(i,kso)
       END DO
     END DO
-    !$acc end parallel
   END IF
 
 ! IF(lmelt) THEN ! + lmelt_var
-    !$acc parallel async if(lzacc)
     !$acc loop seq
     DO kso = 1,ke_soil
-      !$acc loop gang vector private(ztx, zxx, zliquid, znen, zfak, zdelwice) &
+      !$acc loop gang(static:1) vector private(ztx, zxx, zliquid, znen, zfak, zdelwice) &
       !$acc private(zwso_new, zargu)
       DO i = ivstart, ivend
         IF (soiltyp_subs(i) >= 3) THEN
@@ -4755,14 +4526,12 @@ ENDDO
         END IF
       END DO
     ENDDO
-    !$acc end parallel
 ! END IF ! lmelt
 
 !------------------------------------------------------------------------------
 ! Section II.7: Energy budget and temperature prediction at snow-surface
 !------------------------------------------------------------------------------
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector private(zrnet_snow, zfor_snow, zalas, ztsnow_im, zfak)
+  !$acc loop gang(static:1) vector private(zrnet_snow, zfor_snow, zalas, ztsnow_im, zfak)
   DO i = ivstart, ivend
     ! next line has to be changed if a soil surface temperature is
     ! predicted by the heat conduction equation
@@ -4807,9 +4576,9 @@ ENDDO
   !$acc end parallel
 
   IF (msg_level >= 20) THEN
-    !$acc update async host(zshfl_s, zlhfl_s, zf_snow, zrhoch, t, zts, zts_pm, zverbo, qv, qv_s)
-    !$acc update async host(zshfl_snow, zlhfl_snow, zth_low, ztsnow)
-    !$acc update async host(zwsnow, zrr, zrs, zdwsndt)
+    !$acc update async(1) host(zshfl_s, zlhfl_s, zf_snow, zrhoch, t, zts, zts_pm, zverbo, qv, qv_s)
+    !$acc update async(1) host(zshfl_snow, zlhfl_snow, zth_low, ztsnow)
+    !$acc update async(1) host(zwsnow, zrr, zrs, zdwsndt)
     DO i = ivstart, ivend
 !     IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
       IF ( ABS( zshfl_s(i)    * (1.0_wp-zf_snow(i)) )  >  700.0_wp .OR. &
@@ -4829,17 +4598,13 @@ ENDDO
   ENDIF
 
   IF (lmulti_snow) THEN
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO ksn = 0, ke_snow
-      !$acc loop gang vector
       DO i = ivstart, ivend
         IF (zwsnew(i) > eps_soil) THEN
           zdtsnowdt_mult(i,ksn) = (ztsnown_mult(i,ksn) - ztsnow_mult(i,ksn))*z1d2dt
         END IF
       END DO
     ENDDO
-    !$acc end parallel
   ENDIF
 
 
@@ -4860,9 +4625,9 @@ ENDDO
 
   IF (.NOT. lmulti_snow) THEN
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(ztsnownew, ze_avail, ze_total, zfr_melt) &
-    !$acc private(ztsnew, zdelt_s, zdwgme, zro, zredfu, zw_ovpv)
+    !$acc parallel default(none) async(1) if(lzacc)
+    !$acc loop gang vector private(ztsnownew, ze_avail, ze_total, zfr_melt, &
+    !$acc      ztsnew, zdelt_s, zdwgme, zro, zredfu, zw_ovpv, zfr_ice_free)
     DO i = ivstart, ivend
 
       zwsnn  (i)  = zwsnow(i) + zdtdrhw*zdwsndt(i)
@@ -4954,8 +4719,6 @@ ENDDO
 
   ELSE       ! multi-layer snow scheme
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
     DO i = ivstart, ivend
 
       zwsnew(i) = zwsnow(i) + zdtdrhw*zdwsndt(i)
@@ -4970,14 +4733,8 @@ ENDDO
 
       ztsnownew_mult(i,0) = ztsnown_mult(i,0)
     END DO
-    !$acc end parallel
 
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO ksn = 1,ke_snow
-      !$acc loop gang vector &
-      !$acc private(ze_in, zdzh_old, zadd_dz, zsn_porosity, zp1, zfukt) &
-      !$acc private(zq0)
       DO i = ivstart, ivend
         IF (zwsnew(i) > eps_soil) THEN        ! points with snow cover only
 
@@ -5123,20 +4880,14 @@ ENDDO
         END IF       ! points with snow cover only
       END DO
     END DO        ! snow layers
-    !$acc end parallel
 
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
     DO i = ivstart, ivend
       IF (zwsnew(i) > eps_soil) THEN        ! points with snow cover only
         zdwsnm(i) = zqbase(i)*rho_w       ! ksn == ke_snow
       END IF       ! points with snow cover only
     END DO
-    !$acc end parallel
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector private(zdwgme, zro, zredfu, zw_ovpv)
     DO i = ivstart, ivend
       IF (zwsnew(i) > eps_soil) THEN        ! points with snow cover only
         zdwsndt(i)  = zdwsndt(i) - zdwsnm(i)
@@ -5164,27 +4915,18 @@ ENDDO
         runoff_s(i) = runoff_s(i) + zro*zroffdt
       END IF       ! points with snow cover only
     END DO
-    !$acc end parallel
 
     ! snow densification due to gravity and metamorphism
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO ksn = 2, ke_snow
       zp(:,ksn) = 0.0_wp                         ! gravity, Pa
-      !$acc loop gang
       DO k = ksn,1,-1
-        !$acc loop vector
         DO i = ivstart, ivend
            zp(i,ksn) = zp(i,ksn) + rho_snow_mult_now(i,k)*g*zdzh_snow(i,ksn)
         END DO
       END DO
     END DO
-    !$acc end parallel
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang
     DO ksn = 2, ke_snow
-      !$acc loop vector private(zdens_old, zeta)
       DO i = ivstart, ivend
         IF (zwsnew(i) > eps_soil) THEN        ! points with snow cover only
           IF(rho_snow_mult_now(i,ksn) .LT. 600._wp .AND. &
@@ -5201,11 +4943,8 @@ ENDDO
         END IF       ! points with snow cover only
       END DO
     END DO
-    !$acc end parallel
 
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
     DO i = ivstart, ivend
       IF (zwsnew(i) > eps_soil) THEN        ! points with snow cover only
 
@@ -5216,7 +4955,6 @@ ENDDO
         END IF
       END IF       ! points with snow cover only
     END DO
-    !$acc end parallel
 
   END IF  ! multi-layer snow scheme
 
@@ -5227,17 +4965,12 @@ ENDDO
   IF (lmulti_snow) THEN
 
     ! First for ksn == 0
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
     DO i = ivstart, ivend
       t_snow_mult_new  (i,0) = t_snow_mult_now(i,0) + zdt*zdtsnowdt_mult(i,0)
       t_snow_new(i) = t_snow_mult_new (i,0)
     ENDDO
-    !$acc end parallel
 
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector collapse(2)
     DO ksn = 1, ke_snow
       DO i = ivstart, ivend
         t_snow_mult_new  (i,ksn) = t_snow_mult_now(i,ksn) + &
@@ -5248,10 +4981,9 @@ ENDDO
         wliq_snow_new    (i,ksn) = wliq_snow_now(i,ksn)
       ENDDO
     ENDDO
-    !$acc end parallel
 
   ELSE
-    !$acc parallel async if(lzacc)
+    !$acc parallel default(none) async(1) if(lzacc)
     !$acc loop gang vector
     DO i = ivstart, ivend
       t_snow_new(i)  = t_snow_now(i) + zdt*zdtsnowdt(i)
@@ -5259,8 +4991,8 @@ ENDDO
     !$acc end parallel
   ENDIF
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
+  !$acc parallel default(none) async(1) if(lzacc)
+  !$acc loop gang(static:1) vector
   DO i = ivstart, ivend
     ! t_snow is computed above
     ! t_snow(i,nnew)  = t_snow(i,nx) + zdt*zdtsnowdt(i)
@@ -5294,33 +5026,26 @@ ENDDO
       w_s_new (i)  = zwisnstr(i)
     END IF
   END DO
-  !$acc end parallel
 
   ! Reset t_snow_new to t_so(0) if no snow was present at the beginning of the time step
   ! The heat balance calculation is incomplete in this case and sometimes yields unreasonable results
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
+  !$acc loop gang(static:1) vector
   DO i = ivstart, ivend
     IF (w_snow_now(i) < eps_soil .AND. w_snow_new(i) >= eps_soil) THEN
       t_snow_new(i) = MIN(t0_melt,t_so_new(i,0))
     ENDIF
   ENDDO
-  !$acc end parallel
 
   IF (lmulti_snow) THEN
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
     DO i = ivstart, ivend
       IF (w_snow_now(i) < eps_soil .AND. w_snow_new(i) >= eps_soil) THEN
         t_snow_mult_new(i,:) = t_snow_new(i)
       ENDIF
     ENDDO
-    !$acc end parallel
   ENDIF
 
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
+  !$acc loop gang(static:1) vector
   DO i = ivstart, ivend
     ! Next line has to be changed, if the soil surface temperature
     ! t_so(i,0,nnew) predicted by the heat conduction equation is used
@@ -5338,10 +5063,8 @@ ENDDO
       w_s_new (i)  = zwisnstr(i)
     END IF
   END DO
-  !$acc end parallel
 
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
+  !$acc loop gang(static:1) vector
   DO i = ivstart, ivend
     IF (w_snow_new(i) <= eps_soil) THEN
       w_i_new(i)    = w_i_new(i) + w_snow_new(i)
@@ -5357,10 +5080,7 @@ ENDDO
 
   ! Eliminate snow for multi-layer snow model, if w_snow = 0
   IF (lmulti_snow) THEN
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO ksn = 1, ke_snow
-      !$acc loop gang vector
       DO i = ivstart, ivend
         IF (w_snow_new(i) <= eps_soil) THEN
           t_snow_mult_new(i,ksn) = t_so_new(i,0)
@@ -5371,13 +5091,12 @@ ENDDO
         ENDIF
       END DO
     END DO
-    !$acc end parallel
   ENDIF
 
 
   IF(.NOT. lmulti_snow) THEN
 
-    !$acc parallel async if(lzacc)
+    !$acc parallel default(none) async(1) if(lzacc)
     !$acc loop gang vector private(zzz, ztau_snow, zrhosmax, zrho_snowe) &
     !$acc private(zrho_snowf, zxx, zdwgme, zro, zredfu, zw_ovpv)
     !$NEC sparse
@@ -5503,31 +5222,21 @@ ENDDO
 
   ELSE   ! new snow scheme
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
     DO i = ivstart, ivend
       h_snow_new(i) = 0.0_wp
       sum_weight(i) = 0.0_wp
     END DO
-    !$acc end parallel
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang
     DO ksn = 1,ke_snow
-      !$acc loop vector
       DO i = ivstart, ivend
         IF(w_snow_new(i) .GT. eps_soil) THEN
           h_snow_new(i) = h_snow_new(i) + zdzh_snow(i,ksn)
         END IF
       END DO
     END DO
-    !$acc end parallel
 
     k = MIN(2,ke_snow-1)
-    !$acc parallel async if(lzacc)
-    !$acc loop gang
     DO ksn = 1,ke_snow
-      !$acc loop vector
       DO i = ivstart, ivend
         IF (w_snow_new(i) .GT. eps_soil) THEN
           IF (ksn == 1) THEN ! Limit top layer to max_toplaydepth
@@ -5540,12 +5249,8 @@ ENDDO
         ENDIF
       END DO
     END DO
-    !$acc end parallel
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang
     DO ksn = ke_snow,1,-1
-      !$acc loop vector
       DO i = ivstart, ivend
         IF (w_snow_new(i) .GT. eps_soil) THEN
           dz_old(i,ksn) = dzh_snow_new(i,ksn)
@@ -5554,10 +5259,7 @@ ENDDO
         END IF
       END DO
     END DO
-    !$acc end parallel
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
     DO i = ivstart, ivend
        IF(w_snow_new(i) .GT. eps_soil) THEN
          zhm_snow(i,1) = (-h_snow_new(i) + zhh_snow(i,1))/2._wp
@@ -5573,12 +5275,8 @@ ENDDO
          END IF
        END IF
     END DO
-    !$acc end parallel
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang
     DO ksn = 2,ke_snow
-      !$acc loop vector
       DO i = ivstart, ivend
         IF(w_snow_new(i) .GT. eps_soil) THEN
           zhm_snow(i,ksn) = (zhh_snow(i,ksn) + zhh_snow(i,ksn-1))/2._wp
@@ -5590,21 +5288,15 @@ ENDDO
         END IF
       END DO
     END DO
-    !$acc end parallel
 
-    !$acc parallel async if(lzacc)
-    !$acc loop seq
     DO ksn = ke_snow,1,-1
-      !$acc loop  gang vector
       DO i = ivstart, ivend
         t_new  (i,ksn) = 0.0_wp
         rho_new(i,ksn) = 0.0_wp
         wl_new (i,ksn) = 0.0_wp
       END DO
 
-      !$acc loop gang
       DO k = ke_snow,1,-1
-        !$acc loop vector private(weight)
         DO i = ivstart, ivend
           IF(w_snow_new(i) .GT. eps_soil) THEN
 
@@ -5625,12 +5317,8 @@ ENDDO
         END DO
       END DO
     END DO
-    !$acc end parallel
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang
     DO ksn = ke_snow,1,-1
-      !$acc loop vector
       DO i = ivstart, ivend
         IF(w_snow_new(i) > eps_soil) THEN
           t_snow_mult_new  (i,ksn) = t_new  (i,ksn)
@@ -5640,11 +5328,8 @@ ENDDO
         END IF
       END DO
     END DO
-    !$acc end parallel
 
 
-    !$acc parallel async if(lzacc)
-    !$acc loop gang vector
     DO i = ivstart, ivend
       IF(w_snow_new(i) > eps_soil) THEN
         rho_snow_new(i) = w_snow_new(i)/h_snow_new(i)*rho_w
@@ -5661,23 +5346,21 @@ ENDDO
       END IF
       t_snow_new(i) = t_snow_mult_new (i,0)
     END DO
-    !$acc end parallel
 
  ENDIF ! lmulti_snow
 
 
-  !$acc parallel async if(lzacc)
+  !$acc parallel default(none) async(1) if(lzacc)
+  !$acc loop seq
   DO kso = 1,ke_soil
-    !$acc loop gang vector
+  !$acc loop gang(static:1) vector
     DO i = ivstart, ivend
       w_so_new(i,kso) = w_so_now(i,kso) + zdt*zdwgdt(i,kso)/rho_w
     END DO
   END DO        ! soil layers
-  !$acc end parallel
 
   ! Update of two-time level interface variables
-  !$acc parallel async if(lzacc)
-  !$acc loop gang vector
+  !$acc loop gang(static:1) vector
   DO i = ivstart, ivend
     h_snow(i) = h_snow_new(i)
   END DO
@@ -5685,7 +5368,7 @@ ENDDO
 
   ! computation of the weighted turbulent fluxes at the boundary surface-atmosphere
   IF(PRESENT(zshfl_sfc)) THEN
-    !$acc parallel async if(lzacc)
+    !$acc parallel default(none) async(1) if(lzacc)
     !$acc loop gang vector
     DO i = ivstart, ivend
       zshfl_sfc(i) = zshfl_s(i)*(1._wp - zf_snow(i)) + zshfl_snow(i)*zf_snow(i)
@@ -5702,7 +5385,7 @@ ENDDO
 
   ! This block tests the residuum of water mass content in soil
   IF (lres_soilwatb) THEN
-    !$acc parallel async
+    !$acc parallel default(none) async
     !$acc loop gang vector
     DO i = ivstart, ivend
       ! the rain rates 
@@ -5804,7 +5487,7 @@ ENDDO
           WRITE(*,'(A,I1,A, F28.16)') '   lhfl_pl (',k,')      :  ', lhfl_pl(i,k)
         ENDDO
         DO k = 1, ke_soil+1
-          WRITE(*,'(A,I1,A, F28.16)') '   zrunoff_grav [kg/m2/s] (',k,')      :  ', zrunoff_grav(i,kso)
+          WRITE(*,'(A,I1,A, F28.16)') '   zrunoff_grav [kg/m2/s] (',k,')      :  ', zrunoff_grav(i,k)
         ENDDO
 
       ENDIF

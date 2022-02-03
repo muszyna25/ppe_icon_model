@@ -1201,7 +1201,8 @@ CONTAINS
       & za_depth_below_sea, t_cf_var('mass flux','',' mass flux at edges', datatype_flt),&
       & dflt_g2_decl_edge,&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups_oce_default,lrestart_cont=.FALSE.)
-
+    ocean_state_diag%mass_flx_e = 0.0_wp
+      
       CALL add_var(ocean_default_list, 'verticallyTotal_mass_flux_e', &
       & ocean_state_diag%verticallyTotal_mass_flux_e, grid_unstructured_edge,&
       & za_surface, &

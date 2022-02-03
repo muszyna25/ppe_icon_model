@@ -130,8 +130,8 @@ MODULE mo_ser_common
 
   SUBROUTINE open_compare_file(compare_file_name)
     CHARACTER(len=*) :: compare_file_name
-    OPEN( newunit=unit_sum, file=TRIM(compare_file_name)//"_sum.txt", action="WRITE")
-    OPEN( newunit=unit_long, file=TRIM(compare_file_name)//".txt", action="WRITE")
+    OPEN( newunit=unit_sum, file=TRIM(compare_file_name)//"_sum.txt", action="WRITE", status="REPLACE")
+    OPEN( newunit=unit_long, file=TRIM(compare_file_name)//".txt", action="WRITE", status="REPLACE")
     WRITE(unit_sum, "(A, T40,A7, T50,A7, T60,A7, T70,A7, T80,A7)") "field", "rel", "abs", "%", "nfail", "ntot"
   END SUBROUTINE open_compare_file
 
@@ -257,7 +257,7 @@ MODULE mo_ser_common
       WRITE(unit_sum, "(A, T40,E7.1E2, T50,E7.1E2, T60,F7.3, T70,I7, T80,I7)") TRIM(name), report_rel_diff(1), report_abs_diff(1), q, n_fail, n_tot
       WRITE(unit_long, "(A, A, I7, A, I7, A, F7.3, A)") TRIM(name), ": ", n_fail, " out of ", n_tot, " elements are off (", q, " %)"
       WRITE(unit_long, "(T10,A, T30,A, T50,A, T70,A, T90,A)") "rel diff", "abs diff", "current", "reference", "index"
-      DO z=1,SIZE(report_rel_diff, 1)
+      DO z=1, MIN(n_fail, SIZE(report_rel_diff, 1))
         WRITE(unit_long, "(T10,E14.8E2, T30,E14.8E2, T50,E14.8E2, T70,E14.8E2, T90,A)") report_rel_diff(z), report_abs_diff(z), report_cur(z), report_ref(z), TRIM(report_idx(z))
       END DO
     ENDIF

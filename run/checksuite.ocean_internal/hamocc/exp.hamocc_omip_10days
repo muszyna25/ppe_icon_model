@@ -295,14 +295,8 @@ cat >> ${ocean_namelist} << EOF2
 ! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
 ! use_constant_tfreez             = .TRUE.    ! default: true
 ! use_no_flux_gradients           = .FALSE.   ! default: true
- leadclose_1                     =   0.25     ! default: 0.5 - value of MPIOM: 0.25
- leadclose_2n                    =   0.666    ! default: 0.0 - value of MPIOM: 2/3
- albedoW_sim  = 0.10         ! albedo of the ocean used in sea ice model
- albs         = 0.80         ! Albedo of snow (not melting)
- albsm        = 0.65         ! Albedo of snow (melting)
- albi         = 0.70         ! Albedo of ice (not melting)
- albim        = 0.65         ! Albedo of ice (melting)
- Pstar        = 40000
+! leadclose_1                     =   0.25    ! default: 0.5 - value of MPIOM: 0.25
+! leadclose_2n                    =   0.666   ! default: 0.0 - value of MPIOM: 2/3
 
 /
 EOF2
@@ -326,6 +320,7 @@ sinkspeed_martin_ez               = 3.5       ! detritue sinking speed within (0
 mc_depth                          = 100.      ! depth where linear increase of sinking speed starts for i_settling=1 (default 100.)
 mc_fac                            = 2.0       ! slope of sinking speed increase relative to remin rate (default 2.0)
 l_implsed                         =.FALSE.    ! implicit sediment formulation
+l_init_bgc                        =.TRUE.
 /
 EOF3
 fi

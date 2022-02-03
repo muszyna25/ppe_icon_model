@@ -25,7 +25,6 @@ MODULE mo_ocean_hamocc_interface
   USE mo_impl_constants,         ONLY: max_char_length, success
   USE mo_parallel_config,        ONLY: nproma
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d
-  USE mo_coupling_config,        ONLY: is_coupled_run
   USE mo_ocean_nml,              ONLY: n_zlev, no_tracer, lhamocc, &
     &  Cartesian_Mixing, GMRedi_configuration
   USE mo_dynamics_config,        ONLY: nold, nnew
@@ -275,6 +274,7 @@ CONTAINS
     ocean_to_hamocc_state%ice_concentration_sum => sea_ice%concSum    
     ocean_to_hamocc_state%temperature        => ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
     ocean_to_hamocc_state%salinity           => ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
+    ocean_to_hamocc_state%press_hyd          => ocean_state%p_diag%press_hyd   ! (agg)
     ocean_to_hamocc_state%hor_diffusion_coeff => p_phys_param%TracerDiffusion_coeff(:,:,:,2)
     ocean_to_hamocc_state%ver_diffusion_coeff => p_phys_param%a_tracer_v(:,:,:,2)
     ocean_to_hamocc_state%short_wave_flux    => p_as%fswr  ! p_oce_sfc%HeatFlux_ShortWave
@@ -307,7 +307,8 @@ CONTAINS
       &  co2_mixing_ratio(:,:),                &
       &  mass_flux_e(:,:,:),                   &
       &  vn(:,:,:),                            &
-      &  w(:,:,:)
+      &  w(:,:,:) ,                             &
+      &  press_hyd(:,:,:)  
 
     start_timer(timer_exchange_ocean_hamocc,1)
 
@@ -329,6 +330,7 @@ CONTAINS
     mass_flux_e               => ocean_transport_state%mass_flux_e         
     vn                        => ocean_transport_state%vn                  
     w                         => ocean_transport_state%w
+    press_hyd                 => ocean_to_hamocc_state%press_hyd
     
 !     CALL exchange_data_ocean_2_hamocc(                                      &
 !       &  c_loc(ocean_to_hamocc_state%top_dilution_coeff(1,1)),              &
@@ -359,7 +361,8 @@ CONTAINS
       &  c_loc(co2_mixing_ratio(1,1)),                &
       &  c_loc(mass_flux_e(1,1,1)),                   &
       &  c_loc(vn(1,1,1)),                            &
-      &  c_loc(w(1,1,1)))
+      &  c_loc(w(1,1,1)),                              &
+      &  c_loc(press_hyd(1,1,1))  )
   
     stop_timer(timer_exchange_ocean_hamocc,1)
 
@@ -445,9 +448,10 @@ CONTAINS
     DEALLOCATE(gather_cells_2d)
     
     ! sync the 3D fields
-    CALL sync_patch_array_mult(sync_c, patch_2d, 2,  &
+    CALL sync_patch_array_mult(sync_c, patch_2d, 3,  &
       & hamocc_ocean_state%ocean_to_hamocc_state%temperature,           &
-      & hamocc_ocean_state%ocean_to_hamocc_state%salinity)
+      & hamocc_ocean_state%ocean_to_hamocc_state%salinity,              &
+      & hamocc_ocean_state%ocean_to_hamocc_state%press_hyd)
       
     CALL sync_patch_array_mult(sync_c, patch_2d, 2,  &
       & hamocc_ocean_state%ocean_to_hamocc_state%ver_diffusion_coeff,   &

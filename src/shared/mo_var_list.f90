@@ -236,8 +236,14 @@ CONTAINS
     ! For single-domain setups and/or when using internal post-processing 
     ! (e.g. lon-lat or vertically interpolated output)  
     ! duplicate names may exist in different lists
-    IF (ASSOCIATED(find_list_element(list, varname))) &
-      & CALL finish(routine, "duplicate entry ("//TRIM(varname)//") in var_list ("//TRIM(list%p%vlname)//")")
+    IF (PRESENT(hor_interp)) THEN
+      IF (ASSOCIATED(find_list_element(list, varname,                        &
+        &                              opt_lonlat_id=hor_interp%lonlat_id))) &
+        & CALL finish(routine, "duplicate entry ("//TRIM(varname)//") in var_list ("//TRIM(list%p%vlname)//")")
+    ELSE
+      IF (ASSOCIATED(find_list_element(list, varname))) &
+        & CALL finish(routine, "duplicate entry ("//TRIM(varname)//") in var_list ("//TRIM(list%p%vlname)//")")
+    END IF
     is_restart_var = list%p%lrestart
     IF (PRESENT(lrestart)) THEN
       is_restart_var = lrestart
@@ -1348,11 +1354,14 @@ CONTAINS
     END DO
   END SUBROUTINE print_var_list
 
-  FUNCTION find_list_element(this, vname, opt_hgrid, opt_with_tl, opt_output) RESULT(element)
+  FUNCTION find_list_element(this, vname, opt_hgrid, opt_with_tl, opt_output, &
+    &                        opt_lonlat_id)  RESULT(element)
     TYPE(t_var_list_ptr), INTENT(IN) :: this
     CHARACTER(*), INTENT(IN) :: vname
     INTEGER, OPTIONAL, INTENT(IN) :: opt_hgrid
     LOGICAL, OPTIONAL, INTENT(IN) :: opt_with_tl, opt_output
+    !> optional: distinguish variables of different lon-lat output grids
+    INTEGER, OPTIONAL, INTENT(IN) :: opt_lonlat_id
     TYPE(t_var), POINTER :: element
     INTEGER :: key, hgrid, time_lev, iv
     LOGICAL :: with_tl, omit_output, with_output
@@ -1376,6 +1385,9 @@ CONTAINS
       IF (MERGE(.FALSE., with_output .NEQV. this%p%lout(iv), omit_output)) CYCLE
       IF (time_lev .NE. this%p%tl(iv)) CYCLE
       IF (key .NE. MERGE(this%p%key(iv), this%p%key_notl(iv), with_tl)) CYCLE
+      IF (PRESENT(opt_lonlat_id)) THEN
+         IF (this%p%vl(iv)%p%info%hor_interp%lonlat_id /= opt_lonlat_id) CYCLE
+      END IF
       element => this%p%vl(iv)%p
     ENDDO
   END FUNCTION find_list_element

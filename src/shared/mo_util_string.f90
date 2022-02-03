@@ -284,7 +284,7 @@ CONTAINS
     IF (PRESENT(opt_fmt)) THEN
       fmt = opt_fmt
     ELSE
-      fmt = '(g32.5)'
+      fmt = '(g32.8)'
     END IF
     WRITE(double2string,fmt) n
     double2string = ADJUSTL(double2string)

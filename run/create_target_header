@@ -17,18 +17,6 @@ set -eu
 
 BB_SYSTEM=${BB_SYSTEM:=""}
 
-use_host='@host_fqdn@'
-case "$use_host" in
-  unknown) ;;
-  wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
-  daint*|tave*|santis*|kesch*|tsa*|arolla*) use_site=cscs.ch ;;
-  uc2*|fh2*|hk*) use_site=kit.edu ;;
-  melian*) use_site=local.net ;;
-  *mpimet.mpg.de) use_site=mpg.de ;;
-  *euler*) use_site=ethz.ch ;;
-esac
-
-
 add_free_var()
 {
     varName=$1
@@ -64,7 +52,7 @@ start_header()
     cat >> $output_script << EOF
 #=============================================================================
 set +x
-ulimit -s unlimited
+$(test x"${use_ulimit}" = xno || printf 'ulimit -s unlimited')
 #=============================================================================
 #
 # ICON run script:
@@ -97,6 +85,7 @@ mpi_procs_pernode=$use_mpi_procs_pernode
 # blocking length
 # ---------------
 nproma=$use_nproma
+nblocks_c=$use_nblocks_c
 #
 #=============================================================================
 
@@ -190,7 +179,9 @@ set_run_target_default()
 
     icon_data_rootFolder=${icon_data_rootFolder:=~/pool/data/ICON}
 
+    set_default use_ulimit no
     set_default use_nproma 48
+    set_default use_nblocks_c 0
     set_default use_nodes 1
 
     if [[ "$use_mpi" == "yes" ]]
@@ -223,6 +214,7 @@ set_run_target_bullx_cpu()
     icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
 
     set_default use_nproma 16
+    set_default use_nblocks_c 0
     set_default use_nodes 1
     set_default use_account_no "$(id -gn)"
     if [[ "x$BB_SYSTEM" != "x" ]]
@@ -404,6 +396,7 @@ set_run_target_bullx_gpu()
     icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
 
     set_default use_nproma 16
+    set_default use_nblocks_c 0
     set_default use_nodes 1
     set_default use_account_no "$(id -gn)"
     if [[ "x$BB_SYSTEM" != "x" ]]
@@ -516,6 +509,7 @@ set_run_target_mpipc()
     icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
 
     set_default use_nproma 64
+    set_default use_nblocks_c 0
     use_nodes=1
 
     if [[ $use_mpi == "yes" ]]
@@ -539,6 +533,7 @@ set_run_target_docker_cpu()
     icon_data_rootFolder=${icon_data_rootFolder:=/icon-data-pool}
 
     set_default use_nproma 16
+    set_default use_nblocks_c 0
     use_nodes=1
 
     set_default use_mpi_procs_pernode 1
@@ -556,6 +551,7 @@ set_run_target_docker_gpu()
     icon_data_rootFolder=${icon_data_rootFolder:=/icon-data-pool}
 
     set_default use_nproma 20480
+    set_default use_nblocks_c 0
     use_nodes=1
 
     set_default use_mpi_procs_pernode 1
@@ -573,6 +569,7 @@ set_run_target_oflws()
     icon_data_rootFolder=${icon_data_rootFolder:=""}
     
     set_default use_nproma 64
+    set_default use_nblocks_c 0
     use_nodes=1
 
     if [[ "$use_mpi" == "yes" ]]
@@ -594,6 +591,7 @@ set_run_target_hpc()
     icon_data_rootFolder=${icon_data_rootFolder:=""}
     
     set_default use_nproma 64
+    set_default use_nblocks_c 0
     set_default use_nodes 1
     set_default use_mpi_procs_pernode 1
     set_default use_openmp_threads 1
@@ -632,6 +630,7 @@ set_run_target_tsa_cpu()
     icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
     set_default use_nproma 16
+    set_default use_nblocks_c 0
     set_default use_nodes 1
     # use_OMP_SCHEDULE="static,1"
     set_default use_account_no "$(id -gn)"
@@ -736,6 +735,7 @@ set_run_target_tsa_gpu()
     icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
     set_default use_nproma 8000
+    set_default use_nblocks_c 0
     set_default use_prefetch_procs 0
     set_default use_account_no "$(id -gn)"
     if [[ "x$BB_SYSTEM" != "x" ]]
@@ -848,6 +848,7 @@ set_run_target_daint_cpu()
     icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
     set_default use_nproma 16
+    set_default use_nblocks_c 0
     set_default use_nodes 1
     # use_OMP_SCHEDULE="static,1"
     set_default use_account_no "$(id -gn)"
@@ -953,7 +954,8 @@ set_run_target_daint_gpu()
     rootFolder_prefix=/users/icontest
     icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
-    set_default use_nproma -1
+    set_default use_nproma 8000
+    set_default use_nblocks_c 1
     set_default use_prefetch_procs 0
     set_default use_account_no "$(id -gn)"
     if [[ "x$BB_SYSTEM" != "x" ]]
@@ -1054,6 +1056,7 @@ set_run_target_dom_gpu()
     icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
     set_default use_nproma 256
+    set_default use_nblocks_c 0
     set_default use_nodes 1
     use_OMP_SCHEDULE="static,1"
 
@@ -1134,6 +1137,7 @@ set_run_target_tave_knl()
     icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
     set_default use_nproma 16
+    set_default use_nblocks_c 0
     set_default use_nodes 1
     use_OMP_SCHEDULE="static,2"
 
@@ -1266,6 +1270,7 @@ EOF
 set_run_target_pacluster()
 {  
     set_default use_nproma 32
+    set_default use_nblocks_c 0
     set_default use_nodes 1
     set_default use_cpu_time 04:00:00
    
@@ -1332,6 +1337,7 @@ set_run_target_fh2()
     icon_data_rootFolder=${icon_data_rootFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral2-0/pool/data/ICON}
 
     set_default use_nproma 8
+    set_default use_nblocks_c 0
     use_nodes=1
   
     if [[ $use_mpi == "yes" ]]
@@ -1365,6 +1371,7 @@ set_run_target_hk()
     icon_data_rootFolder=${icon_data_rootFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral2-0/pool/data/ICON}
 
     set_default use_nproma 8
+    set_default use_nblocks_c 0
     use_nodes=1
   
     if [[ $use_mpi == "yes" ]]
@@ -1417,8 +1424,13 @@ create_target_header()
             use_mpi_procs_pernode=2
             use_nproma=4250
             ;;
+        *mch_opr_r04b07_nest.run)
+            use_nodes=3
+            use_mpi_procs_pernode=1
+            use_nproma=1600
+            ;;
 	    *mch_*)
-	        use_nodes=3
+	        use_nodes=4
 	        ;;
 	esac
 

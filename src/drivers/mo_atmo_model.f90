@@ -18,9 +18,10 @@ MODULE mo_atmo_model
   ! basic modules
   USE mo_exception,               ONLY: message, finish
   USE mo_mpi,                     ONLY: set_mpi_work_communicators,       &
-    &                                   my_process_is_pref, process_mpi_pref_size
+    &                                   my_process_is_pref, process_mpi_pref_size,   &
+    &                                   my_process_is_work,      &
+    &                                   my_process_is_mpi_test
 #ifdef _OPENACC
-  USE mo_mpi,                     ONLY: my_process_is_work
   USE mo_parallel_config,         ONLY: update_nproma_on_device
 #endif
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
@@ -28,7 +29,7 @@ MODULE mo_atmo_model
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
 #ifdef HAVE_RADARFWO
-  USE mo_mpi, ONLY: my_process_is_work, my_process_is_mpi_test, my_process_is_radario,        &
+  USE mo_mpi, ONLY: my_process_is_mpi_test, my_process_is_radario,        &
                     get_my_mpi_all_id, process_mpi_radario_size,                              &
                     MPI_COMM_NULL, MPI_UNDEFINED, p_comm_work, get_my_mpi_work_id,            &
                     process_mpi_all_comm, num_work_procs, process_mpi_all_workroot_id,        &
@@ -88,15 +89,15 @@ MODULE mo_atmo_model
   USE mo_alloc_patches,           ONLY: destruct_patches, destruct_comm_patterns
 
   ! horizontal grid, domain decomposition, memory
-  USE mo_grid_config,             ONLY: n_dom, n_dom_start,                 &
-    &                                   dynamics_parent_grid_id, n_phys_dom
+  USE mo_grid_config,             ONLY: n_dom, n_dom_start,                                   &
+    &                                   dynamics_parent_grid_id, n_phys_dom, l_scm_mode
   USE mo_model_domain,            ONLY: p_patch, p_patch_local_parent
   USE mo_build_decomposition,     ONLY: build_decomposition
   USE mo_complete_subdivision,    ONLY: setup_phys_patches
   USE mo_icon_comm_interface,     ONLY: construct_icon_communication,                         &
     &                                   destruct_icon_communication
   ! Vertical grid
-  USE mo_vertical_coord_table,    ONLY: vct_a, vct_b, vct, allocate_vct_atmo
+  USE mo_vertical_coord_table,    ONLY: apzero, vct_a, vct_b, vct, allocate_vct_atmo
   USE mo_init_vgrid,              ONLY: nflatlev
   USE mo_util_vgrid,              ONLY: construct_vertical_grid
 
@@ -120,8 +121,10 @@ MODULE mo_atmo_model
   USE mo_intp_lonlat,             ONLY: compute_lonlat_intp_coeffs
 
   ! coupling
+#ifdef YAC_coupling
   USE mo_coupling_config,         ONLY: is_coupled_run
   USE mo_atmo_coupling_frame,     ONLY: construct_atmo_coupling, destruct_atmo_coupling
+#endif
 
   ! I/O
   USE mo_restart,                 ONLY: detachRestartProcs
@@ -134,6 +137,8 @@ MODULE mo_atmo_model
   USE mo_async_latbc_types,       ONLY: t_latbc_data
   ! ART
   USE mo_art_init_interface,      ONLY: art_init_interface
+  USE mo_parallel_config,         ONLY: ignore_nproma_use_nblocks_c, nproma, update_nproma_for_io_procs
+  USE mo_sync,                    ONLY: global_max
 
   !-------------------------------------------------------------------------
 
@@ -181,9 +186,11 @@ CONTAINS
     !---------------------------------------------------------------------
     ! construct the coupler
     !
+#ifdef YAC_coupling
     IF ( is_coupled_run() ) THEN
       CALL construct_atmo_coupling(p_patch)
     ENDIF
+#endif
 
 
     !---------------------------------------------------------------------
@@ -223,9 +230,11 @@ CONTAINS
     !---------------------------------------------------------------------
     ! destruct the coupler
     !
+#ifdef YAC_coupling
     IF ( is_coupled_run() ) THEN
       CALL destruct_atmo_coupling ()
     ENDIF
+#endif
 
     !---------------------------------------------------------------------
     ! (optional:) write resident set size from OS
@@ -252,7 +261,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:construct_atmo_model"
     INTEGER                 :: jg, jgp, error_status, dedicatedRestartProcs
     CHARACTER(len=1000)     :: message_text = ''
-    INTEGER                 :: icomm_cart, my_cart_id
+    INTEGER                 :: icomm_cart, my_cart_id, nproma_max
 
     ! initialize global registry of lon-lat grids
     CALL lonlat_grids%init()
@@ -374,9 +383,31 @@ CONTAINS
     END IF
 #endif
 
+    !------------------
+    ! Next, define the horizontal and vertical grids since they are already
+    ! needed for some derived control parameters. This includes
+    ! - patch import
+    ! - domain decompistion
+    ! - vertical coordinates
+    !-------------------------------------------------------------------
+    ! 4. Import patches, perform domain decomposition
+    !-------------------------------------------------------------------
+
+    IF (timers_level > 4) CALL timer_start(timer_domain_decomp)
+    ! Only do the decomposition for relevant processes
+    IF (my_process_is_work() .OR. my_process_is_mpi_test()) THEN
+      CALL build_decomposition(num_lev, nshift, is_ocean_decomposition = .FALSE.)
+    ENDIF
+
+    IF (ignore_nproma_use_nblocks_c) THEN
+      nproma_max = global_max(nproma)
+      CALL update_nproma_for_io_procs(nproma_max)
+    ENDIF
+
+    IF (timers_level > 4) CALL timer_stop(timer_domain_decomp)
 
     !-------------------------------------------------------------------
-    ! 3.3 I/O initialization
+    ! 5. I/O initialization
     !-------------------------------------------------------------------
 
     ! This won't RETURN on dedicated restart PEs, starting their main loop instead.
@@ -434,25 +465,8 @@ CONTAINS
 #endif
 #endif
 
-
-
-    !------------------
-    ! Next, define the horizontal and vertical grids since they are aready
-    ! needed for some derived control parameters. This includes
-    ! - patch import
-    ! - domain decompistion
-    ! - vertical coordinates
-    !-------------------------------------------------------------------
-    ! 4. Import patches, perform domain decomposition
-    !-------------------------------------------------------------------
-
-    IF (timers_level > 4) CALL timer_start(timer_domain_decomp)
-    CALL build_decomposition(num_lev, nshift, is_ocean_decomposition = .FALSE.)
-    IF (timers_level > 4) CALL timer_stop(timer_domain_decomp)
-
-
     !--------------------------------------------------------------------------------
-    ! 5. Construct interpolation state, compute interpolation coefficients.
+    ! 6. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
 
     IF (timers_level > 4) CALL timer_start(timer_compute_coeffs)
@@ -489,7 +503,7 @@ CONTAINS
     ENDDO
 
     !-----------------------------------------------------------------------------
-    ! 6. Construct grid refinment state, compute coefficients
+    ! 7. Construct grid refinment state, compute coefficients
     !-----------------------------------------------------------------------------
     ! For the NH model, the initialization routines called from
     ! construct_2d_gridref_state require the metric terms to be present
@@ -525,7 +539,7 @@ CONTAINS
     CALL setup_phys_patches
 
     !-------------------------------------------------------------------
-    ! 7. Constructing data for lon-lat interpolation
+    ! 8. Constructing data for lon-lat interpolation
     !-------------------------------------------------------------------
 
     CALL compute_lonlat_intp_coeffs(p_patch(1:), p_int_state(1:))
@@ -565,8 +579,9 @@ CONTAINS
     !---------------------------------------------------------------------
 
     CALL allocate_vct_atmo(p_patch(1)%nlevp1)
-    IF (iequations == inh_atmosphere .AND. ltestcase) THEN
+    IF (iequations == inh_atmosphere .AND. ltestcase .AND. (.NOT. l_scm_mode)) THEN
       CALL init_nh_testtopo(p_patch(1:), ext_data)   ! set analytic topography
+      ! for single column model (SCM) the topography is read in ext_data_init from SCM input file
     ENDIF
     CALL construct_vertical_grid(p_patch(1:), p_int_state(1:), ext_data, &
       &                          vct_a, vct_b, vct, nflatlev)
@@ -578,7 +593,9 @@ CONTAINS
     !---------------------------------------------------------------------
 
 
-    CALL configure_diffusion(n_dom, dynamics_parent_grid_id)
+    CALL configure_diffusion( n_dom, dynamics_parent_grid_id,       &
+      &                       p_patch(1)%nlev, vct_a, vct_b, apzero )
+
 
     CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_phys_dom)
 

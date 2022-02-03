@@ -942,7 +942,7 @@ CONTAINS
   !! @par Revision History
   !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-10-18)
   !!
-  SUBROUTINE calc_o3_gems(pt_patch,mtime_datetime,p_diag,prm_diag,ext_data)
+  SUBROUTINE calc_o3_gems(pt_patch,mtime_datetime,p_diag,prm_diag,ext_data,use_acc)
 
     TYPE(t_patch),           INTENT(in) :: pt_patch    ! Patch
     TYPE(datetime), POINTER, INTENT(in) :: mtime_datetime
@@ -950,6 +950,8 @@ CONTAINS
     TYPE(t_nwp_phy_diag),    INTENT(in):: prm_diag
 
     TYPE(t_external_data),   INTENT(inout) :: ext_data  !!the external data state
+
+    LOGICAL, OPTIONAL, INTENT(in) :: use_acc
 
     CHARACTER(len=*), PARAMETER :: routine =  'calc_o3_gems'
 
@@ -1004,7 +1006,7 @@ CONTAINS
     LOGICAL  :: l_found(nproma)
 
     ! local scalars
-    INTEGER  :: jk,jkk,jk1,jl,jc,jb !loop indices
+    INTEGER  :: jk,jkk,jkkk,jk1,jl,jc,jb !loop indices
     INTEGER  :: idy,im,imn,im1,im2,jk_start,i_startidx,i_endidx,i_nchdom,i_startblk,i_endblk
     INTEGER  :: rl_start,rl_end,k375,k100,ktp
     REAL(wp) :: ztimi,zxtime,zjl,zlatint,zint,zadd_o3,tuneo3_1(nlev_gems),tuneo3_2(nlev_gems),&
@@ -1013,6 +1015,21 @@ CONTAINS
                 wfac_p_tr(nlev_gems),wfac_p_tr2(nlev_gems),wfac_p_mst(nlev_gems),trfac,wfac2
     LOGICAL  :: lfound_all
 
+    LOGICAL :: lk100_less_than_0
+
+    LOGICAL :: lacc
+
+    if (present(use_acc)) then
+      lacc = use_acc
+    else
+      lacc = .false.
+    end if
+
+    !$ACC DATA CREATE(idx0, zlat, zozn, zpresh, rclpr, zo3, zviozo, zozovi, &
+    !$ACC   deltaz, dtdz, l_found, tuneo3_1, tuneo3_2, wfac_lat, wfac_p, &
+    !$ACC   wfac_tr, wfac_p_tr, wfac_p_tr2, wfac_p_mst) &
+    !$ACC   PRESENT(atm_phy_nwp_config, ext_data, p_diag, prm_diag, pt_patch) &
+    !$ACC   IF(lacc)
 
     !Time index. Taken from su_ghgclim.F90 of ECMWF's IFS (37r2).
 
@@ -1055,28 +1072,38 @@ CONTAINS
     ENDIF
 
     ! Pressure levels of climatological ozone fields. From su_ghgclim.F90 of ECMWF's IFS (37r2).
-
-    ZPRESH(0)=0.0_wp
-    RCLPR(0) =0.0_wp
-    DO JK=1,NLEV_GEMS-1
-      ZPRESH(JK)=(ZREFP(JK)+ZREFP(JK+1))*0.5_wp
-      RCLPR(JK) =ZPRESH(JK)
+    !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(PRESENT) ASYNC(1) IF(lacc)
+    DO JK=0,NLEV_GEMS
+      IF( JK==0 ) THEN
+        ZPRESH(jk)=0.0_wp
+        RCLPR(jk) =0.0_wp
+      ELSEIF( JK==NLEV_GEMS ) THEN
+        ZPRESH(jk)=110000._wp
+        RCLPR(jk) =ZPRESH(jk)
+      ELSE
+        ZPRESH(JK)=(ZREFP(JK)+ZREFP(JK+1))*0.5_wp
+        RCLPR(JK) =ZPRESH(JK)
+      ENDIF
     ENDDO
-    ZPRESH(NLEV_GEMS)=110000._wp
-    RCLPR(nlev_gems) =ZPRESH(nlev_gems)
+    !$ACC END PARALLEL
 
     ! Preparations for latitude interpolations
 
     zlatint=180._wp/REAL(ilat,wp)
 
+    !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
     DO jl=0,ilat+1
       zlat(jl)=(-90._wp+0.5_wp*zlatint+(jl-1)*zlatint)*deg2rad
     ENDDO
+    !$ACC END PARALLEL
 
     ! volume mixing ratio to ozone pressure thickness
 
     SELECT CASE (irad_o3)
     CASE (7)
+#ifdef _OPENACC
+      IF (lacc) CALL finish('calc_o3_gems','Not ported on gpu for irad_o3 == 7')
+#endif
       DO jk=1,nlev_gems
         DO jl=1,ilat
           zozn(JL,JK) = amo3/amd * (RGHG7(JL,JK,IM2)&
@@ -1085,6 +1112,9 @@ CONTAINS
         ENDDO
       ENDDO
     CASE (9)
+#ifdef _OPENACC
+      IF (lacc) CALL finish('calc_o3_gems','Not ported on gpu for irad_o3 == 9')
+#endif
       DO jk=1,nlev_gems
         DO jl=1,ilat
           zozn(JL,JK) = amo3/amd * (RGHG7_MACC(JL,JK,IM2)&
@@ -1095,6 +1125,7 @@ CONTAINS
     CASE (79,97) ! blending between GEMS and MACC
 
       ! Latitude-dependent weight for using MACC in the Antarctic region
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
       DO jl = 1, ilat
         IF (zlat(jl)*rad2deg > -45._wp) THEN
           wfac_lat(jl) = 0._wp
@@ -1104,8 +1135,12 @@ CONTAINS
           wfac_lat(jl) = 1._wp
         ENDIF
       ENDDO
+      !$ACC END PARALLEL
 
       IF (irad_o3 == 97) THEN
+#ifdef _OPENACC
+      IF (lacc) CALL finish('calc_o3_gems','Not ported on gpu for irad_o3 == 97')
+#endif
         ! Pressure-dependent weight for using MACC in the upper stratosphere and mesosphere
         DO jk = 1, nlev_gems
           IF (zrefp(jk) > 500._wp) THEN
@@ -1117,10 +1152,15 @@ CONTAINS
           ENDIF
         ENDDO
       ELSE
-        wfac_p(:) = 0._wp
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
+        DO jk = 1, nlev_gems
+          wfac_p(jk) = 0._wp
+        ENDDO
+        !$ACC END PARALLEL
       ENDIF
 
       ! Latitude mask field for tropics (used for ozone enhancement from January to May)
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
       DO jl = 1, ilat
         IF (ABS(zlat(jl))*rad2deg > 30._wp) THEN
           wfac_tr(jl) = 0._wp
@@ -1130,8 +1170,11 @@ CONTAINS
           wfac_tr(jl) = 1._wp
         ENDIF
       ENDDO
+      !$ACC END PARALLEL
 
       ! Pressure mask field for tropics (used for ozone enhancement from January to May)
+      !$ACC PARALLEL DEFAULT(PRESENT) ASYNC(1) IF(lacc)
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jk = 1, nlev_gems
         IF (zrefp(jk) >= 5000._wp .AND. zrefp(jk) <= 10000._wp) THEN
           wfac_p_tr(jk) = 1._wp
@@ -1145,6 +1188,7 @@ CONTAINS
       ENDDO
 
       ! Pressure mask field for tropics (used for ozone reduction around 70 hPa)
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jk = 1, nlev_gems
         IF (zrefp(jk) <= 4500._wp .OR. zrefp(jk) >= 9000._wp) THEN
           wfac_p_tr2(jk) = 0._wp
@@ -1157,6 +1201,7 @@ CONTAINS
 
       ! Pressure mask field for ozone enhancement in the middle stratosphere around 10 hPa
       IF (atm_phy_nwp_config(pt_patch%id)%inwp_radiation == 4) THEN
+        !$ACC LOOP GANG(STATIC:1) VECTOR
         DO jk = 1, nlev_gems
           IF (zrefp(jk) >= 700._wp .AND. zrefp(jk) <= 1000._wp) THEN
             wfac_p_mst(jk) = (zrefp(jk)-700._wp)/300._wp
@@ -1167,11 +1212,15 @@ CONTAINS
           ENDIF
         ENDDO
       ELSE
-        wfac_p_mst(:) = 0._wp
+        !$ACC LOOP GANG(STATIC:1) VECTOR
+        DO jk = 1, nlev_gems
+          wfac_p_mst(jk) = 0._wp
+        ENDDO
       ENDIF
 
       ! Profile functions for accelerated ozone hole filling in November
       ! (Accomplished by taking a weighted average between November and December climatologies)
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jk = 1, nlev_gems
         IF (zrefp(jk) >= 2000._wp .AND. zrefp(jk) <= 10000._wp) THEN
           tuneo3_1(jk) = 1._wp
@@ -1183,6 +1232,7 @@ CONTAINS
           tuneo3_1(jk) = 0._wp
         ENDIF
       ENDDO
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jk = 1, nlev_gems
         IF (zrefp(jk) <= 2500._wp) THEN
           tuneo3_2(jk) = 1._wp
@@ -1192,7 +1242,11 @@ CONTAINS
           tuneo3_2(jk) = 0._wp
         ENDIF
       ENDDO
+      !$ACC END PARALLEL
 
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(wfac, o3_macc1, o3_macc2, &
+      !$ACC   o3_gems1, o3_gems2, trfac)
       DO jk=1,nlev_gems
         DO jl=1,ilat
           wfac = MAX(wfac_lat(jl),wfac_p(jk))
@@ -1213,8 +1267,12 @@ CONTAINS
           zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
 
     CASE (io3_art)
+#ifdef _OPENACC
+      IF (lacc) CALL finish('calc_o3_gems','Not ported on gpu for irad_o3 == io3_art')
+#endif
       DO jk=1,nlev_gems
         DO jl=1,ilat
           zozn(JL,JK) = amo3/amd * (RGHG7(JL,JK,IM2)&
@@ -1224,10 +1282,12 @@ CONTAINS
       ENDDO
     END SELECT 
 
+    !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
     DO jk=1,nlev_gems
       zozn(0,JK)      = zozn(1,jk)
       zozn(ilat+1,jk) = zozn(ilat,jk)
     ENDDO
+    !$ACC END PARALLEL
     
     ! nest boudaries have to be included for reduced-grid option
     rl_start = 1
@@ -1240,7 +1300,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,jkk,jk1,i_startidx,i_endidx,zjl,jk_start,l_found,lfound_all,idx0,zo3,zozovi,z1,z2,zgrad,&
-!$OMP zint,zviozo,zadd_o3,deltaz,dtdz,dzsum,dtdzavg,ktp,tpshp,wfac,wfac2,k375,k100,o3_clim) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP zint,zviozo,zadd_o3,deltaz,dtdz,dzsum,dtdzavg,ktp,tpshp,wfac,wfac2,k375,k100,o3_clim,lk100_less_than_0) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1248,6 +1308,8 @@ CONTAINS
 
       ! Latitude interpolation
       
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(zjl)
       DO jkk=1,nlev_gems
 
         DO jc=i_startidx,i_endidx
@@ -1266,28 +1328,50 @@ CONTAINS
         ENDDO !jc
 
       ENDDO !jkk
+      !$ACC END PARALLEL
+
 
       ! ACCUMULATE FROM TOP TO BOTTOM THE LATITUDE INTERPOLATED FIELDS
       ! From radghg.F90 of ECMWF's IFS.
 
-      zozovi(i_startidx:i_endidx,0) = 0._wp
-      DO jkk=1,nlev_gems
-        zozovi(i_startidx:i_endidx,jkk) = zozovi(i_startidx:i_endidx,jkk-1) &
-          &                                 + zo3(i_startidx:i_endidx,jkk)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+      !$ACC LOOP GANG(STATIC:1) VECTOR
+      DO jc=i_startidx,i_endidx
+        zozovi(jc,0) = 0._wp
       ENDDO
+      !$ACC LOOP SEQ
+      DO jkk=1,nlev_gems
+        !$ACC LOOP GANG(STATIC:1) VECTOR
+        DO jc=i_startidx,i_endidx
+          zozovi(jc,jkk) = zozovi(jc,jkk-1) &
+            &                                 + zo3(jc,jkk)
+        ENDDO
+      ENDDO
+      !$ACC END PARALLEL
 
       ! REDISTRIBUTE THE VERTIC. INTEGR. CLIM. O3 ON THE MODEL GRID
       ! Adapted from radghg.F90 of ECMWF's IFS.
 
       jk = 0
-      zviozo(i_startidx:i_endidx,0) = 0._wp
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1) IF(lacc)
+      DO jc=i_startidx,i_endidx
+        zviozo(jc,0) = 0._wp
+      ENDDO
+      !$ACC END PARALLEL
 
       jk_start = 0
 
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) PRIVATE(lfound_all) IF(lacc)
+      !$ACC LOOP SEQ
       DO jk = 0,pt_patch%nlev
-        l_found(:) = .FALSE.
+        !$ACC LOOP GANG(STATIC:1) VECTOR
+        DO jc = i_startidx,i_endidx
+          l_found(jc) = .FALSE.
+        ENDDO
         lfound_all = .FALSE.
+        !$ACC LOOP SEQ
         DO jkk = jk_start,nlev_gems-1
+          !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE(zint, z1, z2, zgrad)
           DO jc = i_startidx,i_endidx
             IF( p_diag%pres_ifc(jc,jk+1,jb) >= RCLPR(jkk)  &
               & .AND. p_diag%pres_ifc(jc,jk+1,jb) < RCLPR(jkk+1)) THEN
@@ -1310,6 +1394,7 @@ CONTAINS
               idx0(jc,jk) = nlev_gems
             ENDIF
           ENDDO !jc
+#ifndef _OPENACC
           IF (ALL(l_found(i_startidx:i_endidx))) THEN
             lfound_all = .TRUE.
             EXIT
@@ -1318,17 +1403,24 @@ CONTAINS
         IF (lfound_all) THEN
           jk_start = MIN(MINVAL(idx0(i_startidx:i_endidx,jk)),nlev_gems-1)
         ENDIF
+#else
+        ENDDO !jkk
+#endif
       ENDDO !jk
+      !$ACC END PARALLEL
 
       ! COMPUTE THE MASS MIXING RATIO
 
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(zadd_o3)
       DO jk = 1,pt_patch%nlev
 !DIR$ IVDEP
         DO jc = i_startidx,i_endidx
+
           ext_data%atm%o3(jc,jk,jb)=(ZVIOZO(jc,jk)-ZVIOZO(jc,jk-1)) / p_diag%dpres_mc(jc,jk,jb)
 
-! Tuning to increase stratospheric ozone in order to reduce temperature biases;
-! the tuning factors are computed in atm_phy_nwp_config
+          ! Tuning to increase stratospheric ozone in order to reduce temperature biases;
+          ! the tuning factors are computed in atm_phy_nwp_config
           IF ( ltuning_ozone ) THEN
             zadd_o3 = MIN(atm_phy_nwp_config(pt_patch%id)%ozone_maxinc,                   &
               ext_data%atm%o3(jc,jk,jb) * atm_phy_nwp_config(pt_patch%id)%fac_ozone(jk) * &
@@ -1339,6 +1431,7 @@ CONTAINS
 
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
 
       ! Ozone adaptation around the extratropical tropopause
       ! The procedure starts with diagnosing the thermal tropopause including its sharpness (dTdz_up - dTdz_down),
@@ -1346,6 +1439,8 @@ CONTAINS
       ! in order to get a sharp jump at the tropopause, using the climatological values at 100 hPa (375 hPa) as
       ! proxies for the lower stratospheric (tropospheric) ozone values
       IF (icpl_o3_tp == 1) THEN
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = 1,pt_patch%nlev-1
           DO jc = i_startidx,i_endidx
             deltaz(jc,jk) = -rd/grav*(p_diag%temp(jc,jk,jb)+p_diag%temp(jc,jk+1,jb))*                       &
@@ -1353,18 +1448,26 @@ CONTAINS
             dtdz(jc,jk) = (p_diag%temp(jc,jk,jb)-p_diag%temp(jc,jk+1,jb))/deltaz(jc,jk)
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
 
+        lk100_less_than_0 = .FALSE.
+
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
+        !$ACC LOOP GANG VECTOR PRIVATE(k375, dzsum, dtdzavg, ktp, tpshp, wfac, &
+        !$ACC   k100, wfac2, jkk, o3_clim) REDUCTION(.OR.:lk100_less_than_0)
         DO jc = i_startidx,i_endidx
           l_found(jc) = .FALSE.
           IF (ABS(pt_patch%cells%center(jc,jb)%lat)*rad2deg > 25._wp) THEN
             ! Determine thermal tropopause according to WMO definition and 375 hPa level
             k375  = prm_diag%k850(jc,jb)          ! initialization to be safe over very high mountains
+            !$ACC LOOP SEQ
             DO jk = prm_diag%k850(jc,jb), 3, -1
               IF (p_diag%pres(jc,jk,jb) > 37500._wp .AND. p_diag%pres(jc,jk-1,jb) <= 37500._wp) THEN
                 k375 = jk  ! level index right below 375 hPa
               ELSE IF (p_diag%pres(jc,jk,jb) < 37500._wp .AND. p_diag%pres(jc,jk,jb) > 10000._wp) THEN
                 IF (dtdz(jc,jk) < -2.e-3_wp .AND. dtdz(jc,jk-1) > -2.e-3_wp) THEN
                   l_found(jc) = .TRUE.
+                  !$ACC LOOP SEQ
                   DO jk1 = jk-2, 2, -1
                     dzsum = SUM(deltaz(jc,jk1:jk-1))
                     IF (dzsum > 2.e3_wp) EXIT
@@ -1389,6 +1492,7 @@ CONTAINS
           IF (l_found(jc)) THEN
             ! Determine level index right below 100 hPa
             k100 = -1
+            !$ACC LOOP SEQ
             DO jk = ktp, 3, -1
               IF (p_diag%pres(jc,jk,jb) > 10000._wp .AND. p_diag%pres(jc,jk-1,jb) <= 10000._wp) THEN
                 k100 = jk
@@ -1401,37 +1505,52 @@ CONTAINS
             ! Check if 100 hPa level is found. This happens only if something else went
             ! completely wrong, e.g. with surface pressure values > 1300 hPa. This might be caused,
             ! for example, by a too large time step.
-            IF (k100 < 0) CALL finish(TRIM(routine),'100 hPa level not found!')
-            o3_clim(k100-1:k375) = ext_data%atm%o3(jc,k100-1:k375,jb)
-            jkk = k100
-            DO jk = k100, k375
-              ! Modify ozone profiles; the climatological profile is shifted down by at most 125 hPa
-              IF (jk < ktp) THEN ! levels above the tropopause
-                IF (p_diag%pres(jc,jk,jb) < 22500._wp) THEN
-                  ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + &
-                    wfac*((1._wp-wfac2)*o3_clim(k100)+wfac2*o3_clim(k100-1))
-                ELSE
+            IF (k100 < 0) THEN
+              lk100_less_than_0 = .TRUE.
+            ELSE
+              !$ACC LOOP SEQ
+              DO jkkk = k100-1, k375
+                o3_clim(jkkk) = ext_data%atm%o3(jc,jkkk,jb)
+              ENDDO
+              jkk = k100
+              !$ACC LOOP SEQ
+              DO jk = k100, k375
+                ! Modify ozone profiles; the climatological profile is shifted down by at most 125 hPa
+                IF (jk < ktp) THEN ! levels above the tropopause
+                  IF (p_diag%pres(jc,jk,jb) < 22500._wp) THEN
+                    ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + &
+                      wfac*((1._wp-wfac2)*o3_clim(k100)+wfac2*o3_clim(k100-1))
+                  ELSE
+                    !$ACC LOOP SEQ
 !$NEC novector
-                  DO jk1 = jkk, k375
-                    IF (p_diag%pres(jc,jk,jb) - p_diag%pres(jc,jk1-1,jb) >= 12500._wp .AND. &
-                        p_diag%pres(jc,jk,jb) - p_diag%pres(jc,jk1,jb)   < 12500._wp ) THEN
-                      ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + wfac*o3_clim(jk1)
-                      jkk = jk1
-                      EXIT
-                    ENDIF
-                  ENDDO
+                    DO jk1 = jkk, k375
+                      IF (p_diag%pres(jc,jk,jb) - p_diag%pres(jc,jk1-1,jb) >= 12500._wp .AND. &
+                          p_diag%pres(jc,jk,jb) - p_diag%pres(jc,jk1,jb)   < 12500._wp ) THEN
+                        ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + wfac*o3_clim(jk1)
+                        jkk = jk1
+                        EXIT
+                      ENDIF
+                    ENDDO
+                  ENDIF
+                ELSE IF (jk > ktp) THEN ! levels below the tropopause
+                  ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + wfac*o3_clim(k375)
                 ENDIF
-              ELSE IF (jk > ktp) THEN ! levels below the tropopause
-                ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + wfac*o3_clim(k375)
-              ENDIF
-            ENDDO
-          ENDIF
-        ENDDO
+              ENDDO ! jk = k100, k375
+            ENDIF ! (k100 < 0)
+          ENDIF ! (ABS(pt_patch%cells%center(jc,jb)%lat)*rad2deg > 25._wp)
+        ENDDO ! jc = i_startidx,i_endidx
+        !$ACC END PARALLEL
+
+        IF (lk100_less_than_0) CALL finish(TRIM(routine),'100 hPa level not found!')
+
       ENDIF
 
     ENDDO !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL     
+
+    !$ACC WAIT
+    !$ACC END DATA
 
   END SUBROUTINE calc_o3_gems
   

@@ -375,7 +375,7 @@ CONTAINS
     CASE ("hours")
       timedelta_string = "PT01H"
     CASE ("days")
-      timedelta_string = "PT01D"
+      timedelta_string = "P01D"
     CASE default
       CALL finish(modname, "Unknown time increment: "//unit_string(:idx1-1))
     END SELECT

@@ -38,7 +38,12 @@ listname=dwd
 ./set_builder_flags Inactive --builders DAINT_CPU_cce                --list $listname
 ./set_builder_flags Inactive --builders DAINT_CPU_pgi                --list $listname
 ./set_builder_flags Inactive --builders DAINT_GPU_pgi                --list $listname
+./set_builder_flags Inactive --builders DAINT_CPU_nvidia             --list $listname
+./set_builder_flags Inactive --builders DAINT_GPU_nvidia             --list $listname
+./set_builder_flags Inactive --builders MPIMAC_gcc                   --list $listname
 ./set_builder_flags Active   --builders DWD_nec                      --list $listname
+./set_builder_flags Active   --builders DWD_nec_hybrid               --list $listname
+./set_builder_flags Inactive --builders DWD_nec_yac2                 --list $listname
 ./set_builder_flags Active   --builders DWD_cray                     --list $listname
 
 # activate xce checksuite
@@ -78,6 +83,14 @@ $addexp checksuite.rcnl.dwd.de/exp.run_ICON_15_R19B7-ID2_ass.run                
 
 # ART experiments
 $addexp checksuite.rcnl.dwd.de/exp.run_ICON-ART_01_R3B08_lam_initmode7_pollen.run       --builders DWD_nec --list $listname
+# SCM experiments
+$addexp checksuite.rcnl.dwd.de/exp.run_ICON-SCM_01_BOMEX.run                             --builders DWD_nec --list $listname
+$addexp checksuite.rcnl.dwd.de/exp.run_ICON-SCM_02_REAL.run                              --builders DWD_nec --list $listname
+$addexp checksuite.rcnl.dwd.de/exp.run_ICON-SCM_03_LANFEX.run                            --builders DWD_nec --list $listname
+
+# DWD_nec_hybrid
+$addexp checksuite.rcnl.dwd.de/exp.run_ICON_11_R3B08_lam_initmode7_restarttest.run --builders DWD_nec_hybrid --list $listname
+$addexp checksuite.rcnl.dwd.de/exp.run_ICON_14_R2B6N7_oper_IAU_and_restarttest.run --builders DWD_nec_hybrid --list $listname
 
 #lets see the list
 ./lslist $listname

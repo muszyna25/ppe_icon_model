@@ -6,10 +6,11 @@
 #PBS -v NMPI_MALLOC_MMAP_THRESHOLD=512
 #PBS -v MPI_IB_VBUF_TOTAL_SIZE=131072
 #PBS -v NMPI_DAEMON_PATH=${NMPI_ROOT}/libexec/mpid
+#PBS -v BB_SLAVE
 #PBS -l elapstim_req=00:40:00
 #PBS --venode=${NE}
 #PBS --venum-lhost=2     # Number of VE per logical host
-#PBS -l cpunum_job=2
+#PBS -l cpunum_job=6
 #PBS -l coresz_prc=0
 #PBS -T necmpi
 #PBS --use-hca=2             # Number of HCA per logical host
@@ -26,11 +27,14 @@ set -ex
 # OpenMP settings
 export OMP_SCHEDULE="static"
 export OMP_DYNAMIC="false"
-export OMP_NUM_THREADS=2
 export OMP_STACKSIZE=3G
+NUM_THREADS=1
+if [ ${BB_SLAVE} = 'nec_hybrid' ]; then
+  NUM_THREADS=2
+fi
 
 # Run information
-let PPN=${CPE}*${NE}/${OMP_NUM_THREADS}         # no. of MPI procs. per NQS job
+let PPN=${CPE}*${NE}/${NUM_THREADS}         # no. of MPI procs. per NQS job
 let NE1=${NE}-1
 echo "PPN etc. $NN $NE $CPE $PPN"
 
@@ -494,7 +498,7 @@ export GFORTRAN_UNBUFFERED_PRECONNECTED=y
 export NMPI_EXPORT="GFORTRAN_UNBUFFERED_PRECONNECTED"
 
 /opt/nec/ve/bin/mpirun -v    -vh     -node 0        -np 1      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} : \
-           -x -venode -node 0-${NE1} -np ${PPN} -env OMP_NUM_THREADS 2 ${MODEL} : \
+           -x -venode -node 0-${NE1} -np ${PPN} -env OMP_NUM_THREADS ${NUM_THREADS} ${MODEL} : \
               -vh     -node 0        -np 3      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} 
 
 # ----------------------------------------------------------------------------

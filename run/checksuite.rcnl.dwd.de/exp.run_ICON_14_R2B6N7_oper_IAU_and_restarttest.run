@@ -6,10 +6,11 @@
 #PBS -v NMPI_MALLOC_MMAP_THRESHOLD=512
 #PBS -v MPI_IB_VBUF_TOTAL_SIZE=131072
 #PBS -v NMPI_DAEMON_PATH=${NMPI_ROOT}/libexec/mpid
+#PBS -v BB_SLAVE
 #PBS -l elapstim_req=00:40:00
 #PBS --venode=${NE}
 #PBS --venum-lhost=2     # Number of VE per logical host
-#PBS -l cpunum_job=2
+#PBS -l cpunum_job=3
 #PBS -l coresz_prc=0
 #PBS -T necmpi
 #PBS --use-hca=2             # Number of HCA per logical host
@@ -31,10 +32,15 @@
 # I  ) forecast run with iterative IAU
 # II ) forecast run without iterative IAU, which writes a restart file
 # III) restart run, starting from the previously written restart file
+# IV ) nproma run: short (+2h) run without iterative IAU with a modified nproma
+# V* ) openmp run: short (+2h) run without iterative IAU, number of openmp threads is set to 2
+# *Only performed for nec_hybrid builder
 # By comparing the output files, this test case checks the correctness of
 #
 # - iterative IAU
 # - restart
+# - nproma bit identity
+# - openmp bit identity
 #
 
 date
@@ -46,12 +52,7 @@ set -ex
 # OpenMP settings
 export OMP_SCHEDULE="static"
 export OMP_DYNAMIC="false"
-export OMP_NUM_THREADS=1
-
-# Run information
-let PPN=${CPE}*${NE}/${OMP_NUM_THREADS}         # no. of MPI procs. per NQS job
-let NE1=${NE}-1
-echo "PPN etc. $NN $NE $CPE $PPN"
+export OMP_STACKSIZE=3G
 
 ID=`echo $PBS_JOBID | cut -d: -f2 | cut -d. -f1`
 ulimit -s unlimited
@@ -158,11 +159,6 @@ atmo_dyn_grids="iconR2B06_DOM01.nc iconR2B07_DOM02.nc"
 atmo_rad_grids="iconR2B05_DOM00.nc"
 
 
-# global timing
-start_date="2018-10-01T00:00:00Z"
-stop_date="2018-10-01T13:30:00Z"
-
-
 # ============================================================================
 #                        LOOP: MODEL IS EXECUTED THREE TIMES
 # ============================================================================
@@ -171,8 +167,17 @@ stop_date="2018-10-01T13:30:00Z"
 EXP1="reference"
 EXP2="iterative_IAU"
 EXP3="restart"
+EXP4="nproma"
+# Perform additional iteration with different number of threads
+if [[ ${BB_SLAVE} == 'nec_hybrid' ]]; then
+  tot_iter=5
+  EXP5="omp"
+else
+  tot_iter=4
+fi
 
-for iter in 1 2 3 ; do
+iter=1
+while [ $iter -le $tot_iter ]; do
 
 
 if [ $iter -eq 1 ] ; then
@@ -181,14 +186,20 @@ echo "##############################################################"
 echo "###            Reference run with iterative IAU            ###"
 echo "##############################################################"
 
+NUM_THREADS=1
+let PPN=${CPE}*${NE}/${NUM_THREADS}
+let NE1=${NE}-1
 
 # reference run with iterative IAU
+nproma=760
 lrestart=".FALSE."
 num_restart_procs="2"
 iterate_iau=".TRUE."
 restart_interval="P1D"
 checkpoint_interval="P1D"
 restart_write_mode=""
+start_date="2018-10-01T00:00:00Z"
+stop_date="2018-10-01T13:30:00Z"
 
 elif [ $iter -eq 2 ] ; then
 
@@ -196,37 +207,90 @@ echo "#############################################################"
 echo "###     Run without iterative IAU, write restart file     ###"
 echo "#############################################################"
 
+NUM_THREADS=1
+let PPN=${CPE}*${NE}/${NUM_THREADS}
+let NE1=${NE}-1
 
 # run without iterative IAU, which writes restart file after 7H
+nproma=760
 lrestart=".FALSE."
 num_restart_procs="2"
 iterate_iau=".FALSE."
 restart_interval="P1D"
 checkpoint_interval="PT7H"
 restart_write_mode="dedicated procs multifile"
+start_date="2018-10-01T00:00:00Z"
+stop_date="2018-10-01T13:30:00Z"
 
-else
+elif [ $iter -eq 3 ] ; then
 
 echo "#############################################################"
 echo "###                      Restart run                      ###"
 echo "#############################################################"
 
+NUM_THREADS=1
+let PPN=${CPE}*${NE}/${NUM_THREADS}
+let NE1=${NE}-1
 
 # restart run
+nproma=760
 lrestart=".TRUE."
 num_restart_procs="2"
 iterate_iau=".FALSE."
 restart_interval="P1D"
 checkpoint_interval="P1D"
 restart_write_mode="dedicated procs multifile"
+start_date="2018-10-01T00:00:00Z"
+stop_date="2018-10-01T13:30:00Z"
+
+elif [ $iter -eq 4 ] ; then
+
+echo "#############################################################"
+echo "###                       nproma run                      ###"
+echo "#############################################################"
+
+NUM_THREADS=1
+let PPN=${CPE}*${NE}/${NUM_THREADS}
+let NE1=${NE}-1
+
+# This setup peforms a short (+2h) run without iterative IAU
+# with a modified nproma (752 has a comparable speed to 760)
+nproma=752
+lrestart=".FALSE."
+num_restart_procs="2"
+iterate_iau=".FALSE."
+restart_interval="P1D"
+checkpoint_interval="PT7H"
+restart_write_mode="dedicated procs multifile"
+start_date="2018-10-01T00:00:00Z"
+stop_date="2018-10-01T02:00:00Z"
+
+else
+
+echo "#############################################################"
+echo "###                        OMP run                        ###"
+echo "#############################################################"
+
+NUM_THREADS=2
+let PPN=${CPE}*${NE}/${NUM_THREADS}
+let NE1=${NE}-1
+
+# This setup peforms a short (+2h) run without iterative IAU
+# The number of openmp threads is set to 2 (which is 1 for the reference)
+nproma=760
+lrestart=".FALSE."
+num_restart_procs="2"
+iterate_iau=".FALSE."
+restart_interval="P1D"
+checkpoint_interval="PT7H"
+restart_write_mode="dedicated procs multifile"
+start_date="2018-10-01T00:00:00Z"
+stop_date="2018-10-01T02:00:00Z"
 
 fi
 
-
-
-
-
-
+# Run information
+echo "PPN etc. $NN $NE $CPE $PPN"
 
 # ----------------------------------------------------------------------
 # create ICON master namelist
@@ -281,7 +345,7 @@ done
 
 cat > ${atmo_namelist} << EOF
 &parallel_nml
- nproma				= 760
+ nproma				= $nproma
  p_test_run			= .FALSE.
  l_test_openmp			= .FALSE.
  l_log_checks			= .FALSE.
@@ -554,6 +618,21 @@ cat > ${atmo_namelist} << EOF
  reg_lon_def                  = 0.,0.5,359.501
  reg_lat_def                  = -90.,0.5,90.
 /
+
+! OUTPUT: native grid, model levels, all domains
+&output_nml
+ filetype                     =  4                         ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          = -1                         ! write all domains
+ mode                         =  1                         ! 1: forecast
+ output_time_unit             =  1                         ! 1: seconds
+ output_bounds                =  7200., 7200., 3600.   ! start, end, increment
+ steps_per_file               =  1
+ include_last                 = .TRUE.
+ output_filename              = "${EXP}${iter}_omp_npr"           ! file name base
+ ml_varlist                   = 'u','v','temp','pres'
+ output_grid                  = .TRUE.
+ remap                        = 0
+/
 &meteogram_output_nml
  lmeteogram_enabled= .FALSE.,.FALSE.  !.TRUE.
  n0_mtgrm          = 0              ! meteogram initial time step (0 is first step!)
@@ -585,11 +664,12 @@ export GFORTRAN_UNBUFFERED_PRECONNECTED=y
 export NMPI_EXPORT="GFORTRAN_UNBUFFERED_PRECONNECTED"
 
 /opt/nec/ve/bin/mpirun -v    -vh     -node 0        -np 1      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} : \
-           -x -venode -node 0-${NE1} -np ${PPN} -env OMP_NUM_THREADS 1 ${MODEL} : \
+           -x -venode -node 0-${NE1} -np ${PPN} -env OMP_NUM_THREADS ${NUM_THREADS} ${MODEL} : \
               -vh     -node 0        -np 3      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} 
 
 
 # ----------------------------------------------------------------------------
+iter=$(( $iter + 1 ))
 done # model run iterations
 # ----------------------------------------------------------------------------
 
@@ -605,10 +685,11 @@ CDODIR="/hpc/sw/cdo/1.9.8/x86/gnu/bin"
 # Therefore, the error handling of the following test might need to be adapted, 
 # if a cdo version < 1.9.6 is used. 
 
-
 EXIT_STATUS=0
 DIFF_STATUS_IAU=0
 DIFF_STATUS_RESTART=0
+DIFF_STATUS_NPROMA=0
+DIFF_STATUS_OMP=0
 
 # EXP1 output filenames
 FILE1_DOM01="NWP1_winds_DOM01_ML_0001.nc"
@@ -623,16 +704,28 @@ FILE3_DOM02="NWP3_winds_DOM02_ML_0001.nc"
 DIFF_FILE_DOM01="NWP_winds_diff_DOM01.out"
 DIFF_FILE_DOM02="NWP_winds_diff_DOM02.out"
 
+# OMP/NPROMA check output filenames
+REF_FILE_DOM01="NWP1_omp_npr_DOM01_ML_0001.nc"
+REF_FILE_DOM02="NWP1_omp_npr_DOM02_ML_0001.nc"
+NPR_FILE_DOM01="NWP4_omp_npr_DOM01_ML_0001.nc"
+NPR_FILE_DOM02="NWP4_omp_npr_DOM02_ML_0001.nc"
+OMP_FILE_DOM01="NWP5_omp_npr_DOM01_ML_0001.nc"
+OMP_FILE_DOM02="NWP5_omp_npr_DOM02_ML_0001.nc"
+OMP_NPR_DIFF_FILE_DOM01="NWP_omp_npr_diff_DOM01.out"
+OMP_NPR_DIFF_FILE_DOM02="NWP_omp_npr_diff_DOM02.out"
 
  echo "=================================================================="
  echo "Check iterative IAU"
  echo "=> Compare experiments: $EXP1 $EXP2"
 
+# We want to use EXIT_STATUS at the end and we do not want the script to quit
+# for the reason of better error handling in case of a cdo error.
+ set +e
  ${CDODIR}/cdo diffn ${FILE1_DOM01} ${FILE2_DOM01} > ${DIFF_FILE_DOM01}
  cdo_exitstat_DOM01=$(echo $?)
  ${CDODIR}/cdo diffn ${FILE1_DOM02} ${FILE2_DOM02} > ${DIFF_FILE_DOM02}
  cdo_exitstat_DOM02=$(echo $?)
-
+ set -e
 
  # DOM01 IAU
  if [[ ${cdo_exitstat_DOM01} -ne 0 ]]; then
@@ -675,10 +768,14 @@ DIFF_FILE_DOM02="NWP_winds_diff_DOM02.out"
  echo "Check restart"
  echo "=> Compare experiments:" $EXP2 $EXP3
 
+# We want to use EXIT_STATUS at the end and we do not want the script to quit
+# for the reason of better error handling in case of a cdo error.
+ set +e
  ${CDODIR}/cdo diffn ${FILE2_DOM01} ${FILE3_DOM01} > ${DIFF_FILE_DOM01}
  cdo_exitstat_DOM01=$(echo $?)
  ${CDODIR}/cdo diffn ${FILE2_DOM02} ${FILE3_DOM02} > ${DIFF_FILE_DOM02}
  cdo_exitstat_DOM02=$(echo $?)
+ set -e
 
  # DOM01 RESTART
  if [[ ${cdo_exitstat_DOM01} -ne 0 ]]; then
@@ -716,7 +813,105 @@ DIFF_FILE_DOM02="NWP_winds_diff_DOM02.out"
    echo "DOM02: EXP $EXP2 and EXP $EXP3 are identical"
  fi
 
+ echo "=================================================================="
+ echo "Check nproma"
+ echo "=> Compare experiments:" $EXP1 $EXP4
 
+# We want to use EXIT_STATUS at the end and we do not want the script to quit
+# for the reason of better error handling in case of a cdo error.
+ set +e
+ ${CDODIR}/cdo diffn ${REF_FILE_DOM01} ${NPR_FILE_DOM01} > ${OMP_NPR_DIFF_FILE_DOM01}
+ cdo_exitstat_DOM01=$(echo $?)
+ ${CDODIR}/cdo diffn ${REF_FILE_DOM02} ${NPR_FILE_DOM02} > ${OMP_NPR_DIFF_FILE_DOM02}
+ cdo_exitstat_DOM02=$(echo $?)
+ set -e
+
+ # DOM01 NPROMA
+ if [[ ${cdo_exitstat_DOM01} -ne 0 ]]; then
+   if [ -s ${OMP_NPR_DIFF_FILE_DOM01} ]; then
+      echo " DOM01: nproma file 1 and file 5 differ"
+      echo " - nproma file: ${REF_FILE_DOM01}"
+      echo " - nproma file: ${NPR_FILE_DOM01}"
+      cat ${OMP_NPR_DIFF_FILE_DOM01}
+      rm  ${OMP_NPR_DIFF_FILE_DOM01}
+   else
+      echo "DOM01: cdo diffn ${REF_FILE_DOM01} ${NPR_FILE_DOM01} failed"
+   fi
+   #
+   EXIT_STATUS=$(($EXIT_STATUS + 1))
+   DIFF_STATUS_NPROMA=1
+ else
+   echo "DOM01: EXP $EXP1 and EXP $EXP4 are identical"
+ fi
+ #
+ # DOM02 NPROMA
+ if [[ ${cdo_exitstat_DOM02} -ne 0 ]]; then
+   if [ -s ${OMP_NPR_DIFF_FILE_DOM02} ]; then
+      echo " DOM02: nproma file 1 and file 5 differ"
+      echo " - nproma file: ${REF_FILE_DOM02}"
+      echo " - nproma file: ${NPR_FILE_DOM02}"
+      cat ${OMP_NPR_DIFF_FILE_DOM02}
+      rm  ${OMP_NPR_DIFF_FILE_DOM02}
+   else
+      echo "DOM02: cdo diffn ${REF_FILE_DOM02} ${NPR_FILE_DOM02} failed"
+   fi
+   #
+   EXIT_STATUS=$(($EXIT_STATUS + 1))
+   DIFF_STATUS_OMP=1
+ else
+   echo "DOM02: EXP $EXP1 and EXP $EXP4 are identical"
+ fi
+
+if [[ ${BB_SLAVE} == 'nec_hybrid' ]]; then
+ echo "=================================================================="
+ echo "Check OMP"
+ echo "=> Compare experiments:" $EXP1 $EXP5
+
+# We want to use EXIT_STATUS at the end and we do not want the script to quit
+# for the reason of better error handling in case of a cdo error.
+ set +e
+ ${CDODIR}/cdo diffn ${REF_FILE_DOM01} ${OMP_FILE_DOM01} > ${OMP_NPR_DIFF_FILE_DOM01}
+ cdo_exitstat_DOM01=$(echo $?)
+ ${CDODIR}/cdo diffn ${REF_FILE_DOM02} ${OMP_FILE_DOM02} > ${OMP_NPR_DIFF_FILE_DOM02}
+ cdo_exitstat_DOM02=$(echo $?)
+ set -e
+
+ # DOM01 OMP
+ if [[ ${cdo_exitstat_DOM01} -ne 0 ]]; then
+   if [ -s ${OMP_NPR_DIFF_FILE_DOM01} ]; then
+      echo " DOM01: omp file 1 and file 5 differ"
+      echo " - omp file: ${REF_FILE_DOM01}"
+      echo " - omp file: ${OMP_FILE_DOM01}"
+      cat ${OMP_NPR_DIFF_FILE_DOM01}
+      rm  ${OMP_NPR_DIFF_FILE_DOM01}
+   else
+      echo "DOM01: cdo diffn ${REF_FILE_DOM01} ${OMP_FILE_DOM01} failed"
+   fi
+   #
+   EXIT_STATUS=$(($EXIT_STATUS + 1))
+   DIFF_STATUS_OMP=1
+ else
+   echo "DOM01: EXP $EXP1 and EXP $EXP5 are identical"
+ fi
+ #
+ # DOM02 OMP
+ if [[ ${cdo_exitstat_DOM02} -ne 0 ]]; then
+   if [ -s ${OMP_NPR_DIFF_FILE_DOM02} ]; then
+      echo " DOM02: omp file 1 and file 5 differ"
+      echo " - omp file: ${REF_FILE_DOM02}"
+      echo " - omp file: ${OMP_FILE_DOM02}"
+      cat ${OMP_NPR_DIFF_FILE_DOM02}
+      rm  ${OMP_NPR_DIFF_FILE_DOM02}
+   else
+      echo "DOM02: cdo diffn ${REF_FILE_DOM02} ${OMP_FILE_DOM02} failed"
+   fi
+   #
+   EXIT_STATUS=$(($EXIT_STATUS + 1))
+   DIFF_STATUS_OMP=1
+ else
+   echo "DOM02: EXP $EXP1 and EXP $EXP5 are identical"
+ fi
+ fi
 #
 #-----------------------------------------------------------------------------
 #
@@ -737,6 +932,26 @@ DIFF_FILE_DOM02="NWP_winds_diff_DOM02.out"
    echo " "
    echo "Restart test FAILED"
    echo " "
+ fi
+ if [ $DIFF_STATUS_NPROMA == 0 ]; then
+   echo " "
+   echo "nproma test SUCESSFUL"
+   echo " "
+ else
+   echo " "
+   echo "nproma test FAILED"
+   echo " "
+ fi
+ if [[ ${BB_SLAVE} == 'nec_hybrid' ]]; then
+ if [ $DIFF_STATUS_OMP == 0 ]; then
+   echo " "
+   echo "OMP test SUCESSFUL"
+   echo " "
+ else
+   echo " "
+   echo "OMP test FAILED"
+   echo " "
+ fi
  fi
 
 echo 'EXIT_STATUS: '$EXIT_STATUS

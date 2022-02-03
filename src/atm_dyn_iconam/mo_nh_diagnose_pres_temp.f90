@@ -415,14 +415,13 @@ MODULE mo_nh_diagnose_pres_temp
     INTEGER  :: jk,jc
     REAL(wp) :: z_qsum(nproma,nlev)
 
-    !$ACC DATA PRESENT(pt_prog_rcf%tracer, pt_diag%tempv, pt_diag%temp, &
-    !$ACC              pt_prog%theta_v, pt_prog%exner), &
-    !$ACC      CREATE(z_qsum), &
+    !$ACC DATA PRESENT(pt_prog_rcf, pt_diag, pt_prog) &
+    !$ACC      CREATE(z_qsum) &
     !$ACC      IF(i_am_accel_node)
     
     CALL calc_qsum (pt_prog_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, slev, slev_moist, nlev)
 
-    !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(i_am_accel_node)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = slev, nlev
 !DIR$ IVDEP
@@ -434,6 +433,7 @@ MODULE mo_nh_diagnose_pres_temp
     ENDDO
     !$ACC END PARALLEL
 
+    !$ACC WAIT
     !$ACC END DATA
 
   END SUBROUTINE diag_temp
@@ -455,13 +455,13 @@ MODULE mo_nh_diagnose_pres_temp
     INTEGER  :: jl, jt
 #endif
 
-    !$ACC DATA PCOPYIN(tracer), PCOPYOUT (qsum), IF(i_am_accel_node)
+    !$ACC DATA NO_CREATE(qsum, tracer, condensate_list)
     
-    !$ACC KERNELS DEFAULT(PRESENT) IF(i_am_accel_node)
+    !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF(i_am_accel_node)
     IF (slev_moist > slev) qsum(:,slev:slev_moist-1) = 0._wp
     !$ACC END KERNELS
 
-    !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(i_am_accel_node)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __SX__
     qsum(:,slev_moist:nlev) = 0._wp
@@ -480,8 +480,10 @@ MODULE mo_nh_diagnose_pres_temp
       ENDDO
     ENDDO
 #endif
-
     !$ACC END PARALLEL
+
+    !DA: wait here is due to mo_nh_interface_nwp
+    !$ACC WAIT
     !$ACC END DATA
       
   END SUBROUTINE calc_qsum

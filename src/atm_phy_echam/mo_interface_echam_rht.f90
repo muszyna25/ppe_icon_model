@@ -61,10 +61,13 @@ CONTAINS
 
     ! Pointers
     !
-    LOGICAL                 ,POINTER    :: lparamcpl
-    INTEGER                 ,POINTER    :: fc_rht
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
+
+    ! Shortcuts
+    !
+    LOGICAL                             :: lparamcpl
+    INTEGER                             :: fc_rht
 
     ! Local variables
     !
@@ -79,24 +82,14 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_rht)
 
     ! associate pointers
-    lparamcpl => echam_phy_config(jg)%lparamcpl
-    fc_rht    => echam_phy_config(jg)%fc_rht
     field     => prm_field(jg)
     tend      => prm_tend (jg)
 
+    lparamcpl = echam_phy_config(jg)%lparamcpl
+    fc_rht    = echam_phy_config(jg)%fc_rht
+
     IF ( is_in_sd_ed_interval ) THEN
-       !$ACC DATA PRESENT( field%cosmu0, field%daylght_frc, field%ts_rad, field%ts_rad_rt, &
-       !$ACC               field%rsd_rt, field%rsu_rt, field%rsdcs_rt, field%rsucs_rt,     &
-       !$ACC               field%rld_rt, field%rlu_rt, field%rldcs_rt, field%rlucs_rt,     &
-       !$ACC               field%rvds_dir_rt, field%rpds_dir_rt, field%rnds_dir_rt,        &
-       !$ACC               field%rvds_dif_rt, field%rpds_dif_rt, field%rnds_dif_rt,        &
-       !$ACC               field%rvus_rt, field%rpus_rt, field%rnus_rt, field%rsdt,        &
-       !$ACC               field%rsut, field%rsds, field%rsus, field%rsutcs, field%rsdscs, &
-       !$ACC               field%rsuscs, field%rvds_dir, field%rpds_dir, field%rnds_dir,   &
-       !$ACC               field%rvds_dif, field%rpds_dif, field%rnds_dif, field%rvus,     &
-       !$ACC               field%rpus, field%rnus, field%rlut, field%rlds, field%rlus,     &
-       !$ACC               field%rlutcs, field%rldscs, field%q_rlw_nlev, field%qconv,      &
-       !$ACC               field%emissivity )                                              &
+       !$ACC DATA PRESENT( field, tend )                      &
        !$ACC       CREATE( q_rad, q_rsw, q_rlw, tend_ta_rad )
        !
        IF (is_active) THEN
@@ -176,94 +169,70 @@ CONTAINS
                & q_rsw      = q_rsw                    (:,:) ,&! rad. heating by SW           [W/m2]
                & q_rlw      = q_rlw                    (:,:)  )! rad. heating by LW           [W/m2]
           !
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+          !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
           DO jk = 1, nlev
-            !$ACC LOOP VECTOR
             DO jc = jcs, jce
               q_rad(jc,jk) = q_rsw(jc,jk)+q_rlw(jc,jk) ! rad. heating by SW+LW        [W/m2]
             END DO
           END DO
-          !$ACC END PARALLEL
           !
           ! for output: SW+LW heating
           IF (ASSOCIATED(field% q_rad)) THEN
-            !$ACC DATA PRESENT( field%q_rad )
-            !$ACC PARALLEL DEFAULT(PRESENT)
-            !$ACC LOOP GANG
+            !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
             DO jk = 1, nlev
-              !$ACC LOOP VECTOR
               DO jc = jcs, jce
                 field% q_rad(jc,jk,jb) = q_rad(jc,jk)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
-          END IF
-          IF (ASSOCIATED(field% q_rad_vi)) THEN
-            !$ACC DATA PRESENT( field%q_rad_vi )
-            !$ACC PARALLEL DEFAULT(PRESENT)
-            !$ACC LOOP GANG VECTOR
-            DO jc = jcs, jce
-              field% q_rad_vi(jc, jb) = SUM(q_rad(jc,:))
-            END DO
-            !$acc END PARALLEL
-            !$acc END DATA
           END IF
           !
           ! for output: SW heating
           IF (ASSOCIATED(field% q_rsw)) THEN
-            !$ACC DATA PRESENT( field%q_rsw )
-            !$ACC PARALLEL DEFAULT(PRESENT)
-            !$ACC LOOP GANG
+            !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
             DO jk = 1, nlev
-              !$ACC LOOP VECTOR
               DO jc = jcs, jce
                 field% q_rsw(jc,jk,jb) = q_rsw(jc,jk)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
-          END IF
-          IF (ASSOCIATED(field% q_rsw_vi)) THEN
-            !$ACC DATA PRESENT( field%q_rsw_vi )
-            !$ACC PARALLEL DEFAULT(PRESENT)
-            !$ACC LOOP GANG VECTOR
-            DO jc = jcs, jce
-              field% q_rsw_vi(jc,jb) = SUM(q_rsw(jc,:))
-            END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
           !
           ! for output: LW heating
           IF (ASSOCIATED(field% q_rlw)) THEN 
-            !$ACC DATA PRESENT( field%q_rlw )
-            !$ACC PARALLEL DEFAULT(PRESENT)
-            !$ACC LOOP GANG
+            !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
             DO jk = 1, nlev
-              !$ACC LOOP VECTOR
               DO jc = jcs, jce
                 field% q_rlw(jc,jk,jb) = q_rlw(jc,jk)
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
+          !$ACC END PARALLEL
+          !
+          !
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+          IF (ASSOCIATED(field% q_rad_vi)) THEN
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              field% q_rad_vi(jc, jb) = SUM(q_rad(jc,:))
+            END DO
+          END IF
+          !
+          IF (ASSOCIATED(field% q_rsw_vi)) THEN
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              field% q_rsw_vi(jc,jb) = SUM(q_rsw(jc,:))
+            END DO
+          END IF
+          !
           IF (ASSOCIATED(field% q_rlw_vi)) THEN
-            !$ACC DATA PRESENT( field%q_rlw_vi )
-            !$ACC PARALLEL DEFAULT(PRESENT)
             !$ACC LOOP GANG VECTOR
             DO jc = jcs, jce
               field% q_rlw_vi(jc,jb) = SUM(q_rlw(jc,:))
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
-          
+          !
           ! store LW heating in lowermost layer separately,
           ! which is needed for computing q_rlw_impl
-          !$ACC PARALLEL DEFAULT(PRESENT)
           !$ACC LOOP GANG VECTOR
           DO jc = jcs, jce
             field% q_rlw_nlev(jc,jb) = q_rlw(jc,nlev)
@@ -275,79 +244,47 @@ CONTAINS
        END IF
        !
        ! convert    heating
-       !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP GANG
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+       !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
        DO jk = 1, nlev
-         !$ACC LOOP VECTOR
          DO jc = jcs, jce
            tend_ta_rad(jc,jk) = q_rad(jc,jk) * field% qconv(jc,jk,jb)
          END DO
        END DO
-       !$ACC END PARALLEL
        !
        IF (ASSOCIATED(tend% ta_rad)) THEN
-         !$ACC DATA PRESENT( tend%ta_rad )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
+         !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
          DO jk = 1, nlev
-           !$ACC LOOP VECTOR
            DO jc = jcs, jce
              tend% ta_rad(jc,jk,jb) = tend_ta_rad(jc,jk)
            END DO
          END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
        END IF
        IF (ASSOCIATED(tend% ta_rsw)) THEN
-         !$ACC DATA PRESENT( tend%ta_rsw )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
+         !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
          DO jk = 1, nlev
-           !$ACC LOOP VECTOR
            DO jc = jcs, jce
              tend% ta_rsw(jc,jk,jb) = q_rsw(jc,jk) * field% qconv(jc,jk,jb)
            END DO
          END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
        END IF
        IF (ASSOCIATED(tend% ta_rlw)) THEN
-         !$ACC DATA PRESENT( tend%ta_rlw )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
+         !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
          DO jk = 1, nlev
-           !$ACC LOOP VECTOR
            DO jc = jcs, jce
              tend% ta_rlw(jc,jk,jb) = q_rlw(jc,jk) * field% qconv(jc,jk,jb)
            END DO
          END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
        END IF
        !
        ! accumulate heating
        IF (ASSOCIATED(field% q_phy   )) THEN
-         !$ACC DATA PRESENT( field%q_phy )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
+         !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
          DO jk = 1, nlev
-           !$ACC LOOP VECTOR
            DO jc = jcs, jce
              field% q_phy(jc,jk,jb) = field% q_phy(jc,jk,jb) + q_rad(jc,jk)
            END DO
          END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% q_phy_vi)) THEN 
-         !$ACC DATA PRESENT( field%q_phy_vi )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG VECTOR
-         DO jc = jcs, jce
-           field% q_phy_vi(jc,jb) = field% q_phy_vi(jc,jb) + SUM(q_rad(jc,:))
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
        END IF
        !
        ! accumulate tendencies for later updating the model state
@@ -356,161 +293,135 @@ CONTAINS
           ! diagnostic, do not use tendency
        CASE(1)
           ! use tendency to update the model state
-         !$ACC DATA PRESENT( tend%ta_phy )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
+         !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
          DO jk = 1, nlev
-           !$ACC LOOP VECTOR
            DO jc = jcs, jce
              tend% ta_phy(jc,jk,jb) = tend% ta_phy(jc,jk,jb) + tend_ta_rad (jc,jk)
            END DO
          END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-!!$       CASE(2)
-!!$          ! use tendency as forcing in the dynamics
-!!$          ...
        END SELECT
        !
        ! update physics state for input to the next physics process
        SELECT CASE(fc_rht)
        CASE(0)
           ! diagnostic, do not use tendency
-       CASE(1,2)
+       CASE(1)
           ! use tendency to update the physics state
           IF (lparamcpl) THEN
-            !$ACC DATA PRESENT( field%ta )
-            !$ACC PARALLEL DEFAULT(PRESENT)
-            !$ACC LOOP GANG
+            !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
             DO jk = 1, nlev
-              !$ACC LOOP VECTOR
               DO jc = jcs, jce
                 field% ta(jc,jk,jb) = field% ta(jc,jk,jb) + tend_ta_rad(jc,jk)*pdtime
               END DO
             END DO
-            !$ACC END PARALLEL
-            !$ACC END DATA
           END IF
        END SELECT
+       !$ACC END PARALLEL
+
+       IF (ASSOCIATED(field% q_phy_vi)) THEN
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+        !$ACC LOOP GANG VECTOR
+        DO jc = jcs, jce
+          field% q_phy_vi(jc,jb) = field% q_phy_vi(jc,jb) + SUM(q_rad(jc,:))
+        END DO
+        !$ACC END PARALLEL
+       END IF
+       !
        !$ACC END DATA
        !
     ELSE
        !
+       !$ACC DATA PRESENT( field, tend )
+       !
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        IF (ASSOCIATED(field% q_rad)) THEN
-         !$ACC DATA PRESENT( field%q_rad )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
+         !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
          DO jk = 1, nlev
-           !$ACC LOOP VECTOR
            DO jc = jcs, jce
              field% q_rad(jc,jk,jb) = 0.0_wp
            END DO
          END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% q_rad_vi)) THEN
-         !$ACC DATA PRESENT( field%q_rad_vi )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG VECTOR
-         DO jc = jcs, jce
-           field% q_rad_vi(jc, jb) = 0.0_wp
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
        END IF
        !
        IF (ASSOCIATED(field% q_rsw)) THEN
-         !$ACC DATA PRESENT( field%q_rsw )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
-         DO jk = 1, nlev
-           !$ACC LOOP VECTOR
-           DO jc = jcs, jce
-             field% q_rsw(jc,jk,jb) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       IF (ASSOCIATED(field% q_rsw_vi)) THEN
-         !$ACC DATA PRESENT( field%q_rsw_vi )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG VECTOR
-         DO jc = jcs, jce
-           field% q_rsw_vi(jc,jb) = 0.0_wp
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
+        !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
+        DO jk = 1, nlev
+          DO jc = jcs, jce
+            field% q_rsw(jc,jk,jb) = 0.0_wp
+          END DO
+        END DO
        END IF
        !
        IF (ASSOCIATED(field% q_rlw)) THEN
-         !$ACC DATA PRESENT( field%q_rlw )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
-         DO jk = 1, nlev
-           !$ACC LOOP VECTOR
-           DO jc = jcs, jce
-             field% q_rlw(jc,jk,jb) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
+        !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
+        DO jk = 1, nlev
+          DO jc = jcs, jce
+            field% q_rlw(jc,jk,jb) = 0.0_wp
+          END DO
+        END DO
        END IF
-       IF (ASSOCIATED(field% q_rlw_vi)) THEN
-         !$ACC DATA PRESENT( field%q_rlw_vi )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG VECTOR
-         DO jc = jcs, jce
-           field% q_rlw_vi(jc,jb) = 0.0_wp
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
+       !
+       IF (ASSOCIATED(field% q_rlw)) THEN
+        !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
+        DO jk = 1, nlev
+          DO jc = jcs, jce
+            field% q_rlw(jc,jk,jb) = 0.0_wp
+          END DO
+        END DO
        END IF
        !
        IF (ASSOCIATED(tend% ta_rad)) THEN
-         !$ACC DATA PRESENT( tend%ta_rad )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
-         DO jk = 1, nlev
-           !$ACC LOOP VECTOR
-           DO jc = jcs, jce
-             tend% ta_rad(jc,jk,jb) = 0.0_wp
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
+        !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
+        DO jk = 1, nlev
+          DO jc = jcs, jce
+            tend% ta_rad(jc,jk,jb) = 0.0_wp
+          END DO
+        END DO
        END IF
+       !
        IF (ASSOCIATED(tend% ta_rsw)) THEN
-         !$ACC DATA PRESENT( tend%ta_rsw )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
+         !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
          DO jk = 1, nlev
-           !$ACC LOOP VECTOR
            DO jc = jcs, jce
              tend% ta_rsw(jc,jk,jb) = 0.0_wp
            END DO
          END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
        END IF
+       !
        IF (ASSOCIATED(tend% ta_rlw)) THEN
-         !$ACC DATA PRESENT( tend%ta_rlw )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
+         !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
          DO jk = 1, nlev
-           !$ACC LOOP VECTOR
            DO jc = jcs, jce
              tend% ta_rlw(jc,jk,jb) = 0.0_wp
            END DO
          END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
+       END IF
+       !$ACC END PARALLEL
+       !
+       !
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+       IF (ASSOCIATED(field% q_rad_vi)) THEN
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% q_rad_vi(jc, jb) = 0.0_wp
+         END DO
        END IF
        !
-       !$ACC DATA PRESENT( field%q_rlw_nlev )
-       !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP VECTOR
+       IF (ASSOCIATED(field% q_rsw_vi)) THEN
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% q_rsw_vi(jc,jb) = 0.0_wp
+         END DO
+       END IF
+       !
+       IF (ASSOCIATED(field% q_rlw_vi)) THEN
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% q_rlw_vi(jc,jb) = 0.0_wp
+         END DO
+       END IF
+       !
+       !$ACC LOOP GANG VECTOR
        DO jc = jcs, jce
          field% q_rlw_nlev(jc,jb) = 0.0_wp
        END DO
@@ -520,8 +431,6 @@ CONTAINS
     END IF
 
     ! disassociate pointers
-    NULLIFY(lparamcpl)
-    NULLIFY(fc_rht)
     NULLIFY(field)
     NULLIFY(tend)
 

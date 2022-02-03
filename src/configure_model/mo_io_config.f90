@@ -70,6 +70,10 @@ MODULE mo_io_config
                                         ! from the beginning of the run, except of
                                         ! TOT_PREC that would be accumulated
 
+  INTEGER :: itype_dursun               ! if 0 the sunshine duration is counted if >120W/m^2
+                                        ! if 1 the sunshine duration is counted only
+                                        ! if direct radiation > 200 W/m^2 and relative sunshine duration in % is computed
+
   INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
   INTEGER :: itype_rh                   ! Specifies method for computation of relative humidity
 
@@ -101,13 +105,13 @@ MODULE mo_io_config
 
   ! Derived type to collect logical variables indicating if optional diagnostics are requested for output
   TYPE t_var_in_output
-    LOGICAL :: pres_msl     = .FALSE. !< Flag. TRUE if computation of mean sea level pressure desired
-    LOGICAL :: omega        = .FALSE. !< Flag. TRUE if computation of vertical velocity desired
-    LOGICAL :: rh           = .FALSE. !< Flag. TRUE if computation of relative humidity desired
-    LOGICAL :: pv           = .FALSE. !< Flag. TRUE if computation of potential vorticity desired
-    LOGICAL :: sdi2         = .FALSE. !< Flag. TRUE if computation of supercell detection index desired
-    LOGICAL :: lpi          = .FALSE. !< Flag. TRUE if computation of lightning potential index desired
-    LOGICAL :: lpi_max      = .FALSE. !< Flag. TRUE if computation of max. of lightning potential index desired
+    LOGICAL :: pres_msl    = .FALSE. !< Flag. TRUE if computation of mean sea level pressure desired
+    LOGICAL :: omega       = .FALSE. !< Flag. TRUE if computation of vertical velocity desired
+    LOGICAL :: rh          = .FALSE. !< Flag. TRUE if computation of relative humidity desired
+    LOGICAL :: pv          = .FALSE. !< Flag. TRUE if computation of potential vorticity desired
+    LOGICAL :: sdi2        = .FALSE. !< Flag. TRUE if computation of supercell detection index desired
+    LOGICAL :: lpi         = .FALSE. !< Flag. TRUE if computation of lightning potential index desired
+    LOGICAL :: lpi_max     = .FALSE. !< Flag. TRUE if computation of max. of lightning potential index desired
     LOGICAL :: lpi_con      = .FALSE. !< Flag. TRUE if computation of convective lightning potential index desired
     LOGICAL :: mlpi_con     = .FALSE. !< Flag. TRUE if computation of modified convective lightning potential index desired
     LOGICAL :: lpi_con_max  = .FALSE. !< Flag. TRUE if computation of maximum convective lightning potential index desired
@@ -115,31 +119,68 @@ MODULE mo_io_config
     LOGICAL :: lfd_con      = .FALSE. !< Flag. TRUE if computation of lighting flash density desired
     LOGICAL :: lfd_con_max  = .FALSE. !< Flag. TRUE if computation of maximum lighting flash density  desired
     LOGICAL :: koi          = .FALSE. !< Flag. TRUE if computation of convection index
-    LOGICAL :: ceiling      = .FALSE. !< Flag. TRUE if computation of ceiling height desired
-    LOGICAL :: hbas_sc      = .FALSE. !< Flag. TRUE if computation of height of base from shallow convection desired
-    LOGICAL :: htop_sc      = .FALSE. !< Flag. TRUE if computation of height of top  from shallow convection desired
-    LOGICAL :: twater       = .FALSE. !< Flag. TRUE if computation of total column integrated water desired
-    LOGICAL :: q_sedim      = .FALSE. !< Flag. TRUE if computation of specific content of precipitation particles desired
-    LOGICAL :: dbz          = .FALSE. !< Flag. TRUE if computation of radar reflectivity is desired
-    LOGICAL :: dbz850       = .FALSE. !< Flag. TRUE if computation of radar reflectivity in approx. 850 hPa is desired
-    LOGICAL :: dbzcmax      = .FALSE. !< Flag. TRUE if computation of radar reflectivity column maximum is desired
-    LOGICAL :: dbzctmax     = .FALSE. !< Flag. TRUE if computation of radar reflectivity column and time maximum is desired
-    LOGICAL :: echotop      = .FALSE. !< Flag. TRUE if computation of echo tops in hPa of radar reflectivity is desired
-    LOGICAL :: echotopinm   = .FALSE. !< Flag. TRUE if computation of echo tops in m MSL of radar reflectivity is desired
-    LOGICAL :: smi          = .FALSE. !< Flag. TRUE if computation of soil moisture index desired
-    LOGICAL :: tcond_max    = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate desired
-    LOGICAL :: tcond10_max  = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
-    LOGICAL :: uh_max_low   = .FALSE. !< Flag. TRUE if computation of updraft helicity (0 - 3000 m) desired
-    LOGICAL :: uh_max_med   = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 5000 m) desired
-    LOGICAL :: uh_max       = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 8000 m) desired
-    LOGICAL :: vorw_ctmax   = .FALSE. !< Flag. TRUE if computation of maximum rotation amplitude desired
-    LOGICAL :: w_ctmax      = .FALSE. !< Flag. TRUE if computation of maximum updraft track desired
-    LOGICAL :: vor_u        = .FALSE. !< Flag. TRUE if computation of zonal component of relative vorticity desired
-    LOGICAL :: vor_v        = .FALSE. !< Flag. TRUE if computation of meridional component of relative vorticity desired
-    LOGICAL :: bvf2         = .FALSE. !< Flag. TRUE if computation of square of Brunt-Vaisala frequency desired
-    LOGICAL :: parcelfreq2  = .FALSE. !< Flag. TRUE if computation of square of general parcel oscillation frequency desired
-    LOGICAL :: dursun       = .FALSE. !< Flag. TRUE if computation of sunshine duration is required
-    LOGICAL :: res_soilwatb = .FALSE. !< Flag. TRUE if computation of residuum of soil water is desired
+    LOGICAL :: ceiling     = .FALSE. !< Flag. TRUE if computation of ceiling height desired
+    LOGICAL :: hbas_sc     = .FALSE. !< Flag. TRUE if computation of height of base from shallow convection desired
+    LOGICAL :: htop_sc     = .FALSE. !< Flag. TRUE if computation of height of top  from shallow convection desired
+    LOGICAL :: twater      = .FALSE. !< Flag. TRUE if computation of total column integrated water desired
+    LOGICAL :: q_sedim     = .FALSE. !< Flag. TRUE if computation of specific content of precipitation particles desired
+    LOGICAL :: dbz         = .FALSE. !< Flag. TRUE if computation of radar reflectivity is desired
+    LOGICAL :: dbz850      = .FALSE. !< Flag. TRUE if computation of radar reflectivity in approx. 850 hPa is desired
+    LOGICAL :: dbzcmax     = .FALSE. !< Flag. TRUE if computation of radar reflectivity column maximum is desired
+    LOGICAL :: dbzctmax    = .FALSE. !< Flag. TRUE if computation of radar reflectivity column and time maximum is desired
+    LOGICAL :: echotop     = .FALSE. !< Flag. TRUE if computation of echo tops in hPa of radar reflectivity is desired
+    LOGICAL :: echotopinm  = .FALSE. !< Flag. TRUE if computation of echo tops in m MSL of radar reflectivity is desired
+    LOGICAL :: smi         = .FALSE. !< Flag. TRUE if computation of soil moisture index desired
+    LOGICAL :: tcond_max   = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate desired
+    LOGICAL :: tcond10_max = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
+    LOGICAL :: uh_max_low  = .FALSE. !< Flag. TRUE if computation of updraft helicity (0 - 3000 m) desired
+    LOGICAL :: uh_max_med  = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 5000 m) desired
+    LOGICAL :: uh_max      = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 8000 m) desired
+    LOGICAL :: vorw_ctmax  = .FALSE. !< Flag. TRUE if computation of maximum rotation amplitude desired
+    LOGICAL :: w_ctmax     = .FALSE. !< Flag. TRUE if computation of maximum updraft track desired
+    LOGICAL :: vor_u       = .FALSE. !< Flag. TRUE if computation of zonal component of relative vorticity desired
+    LOGICAL :: vor_v       = .FALSE. !< Flag. TRUE if computation of meridional component of relative vorticity desired
+    LOGICAL :: bvf2        = .FALSE. !< Flag. TRUE if computation of square of Brunt-Vaisala frequency desired
+    LOGICAL :: parcelfreq2 = .FALSE. !< Flag. TRUE if computation of square of general parcel oscillation frequency desired
+    LOGICAL :: dursun      = .FALSE. !< Flag. TRUE if computation of sunshine duration is required
+    LOGICAL :: dursun_m    = .FALSE. !< Flag. TRUE if computation of maximum sunshine duration is required
+    LOGICAL :: dursun_r    = .FALSE. !< Flag. TRUE if computation of relative sunshine duration is required
+    LOGICAL :: res_soilwatb= .FALSE. !< Flag. TRUE if computation of residuum of soil water is desired
+    !
+    ! diagnostics for the horizontal wind tendencies in the dynamical core
+    LOGICAL :: ddt_vn_dyn  = .FALSE. !< Flag. TRUE if the storage of ddt_vn_dyn is required
+    LOGICAL :: ddt_ua_dyn  = .FALSE. !<                              ddt_ua_dyn
+    LOGICAL :: ddt_va_dyn  = .FALSE. !<                              ddt_va_dyn
+    LOGICAL :: ddt_vn_dmp  = .FALSE. !< Flag. TRUE if the storage of ddt_vn_dmp is required
+    LOGICAL :: ddt_ua_dmp  = .FALSE. !<                              ddt_ua_dmp
+    LOGICAL :: ddt_va_dmp  = .FALSE. !<                              ddt_va_dmp
+    LOGICAL :: ddt_vn_hdf  = .FALSE. !< Flag. TRUE if the storage of ddt_vn_hdf is required
+    LOGICAL :: ddt_ua_hdf  = .FALSE. !<                              ddt_ua_hdf
+    LOGICAL :: ddt_va_hdf  = .FALSE. !<                              ddt_va_hdf
+    LOGICAL :: ddt_vn_adv  = .FALSE. !< Flag. TRUE if the storage of ddt_vn_adv is required
+    LOGICAL :: ddt_ua_adv  = .FALSE. !<                              ddt_ua_adv
+    LOGICAL :: ddt_va_adv  = .FALSE. !<                              ddt_va_adv
+    LOGICAL :: ddt_vn_cor  = .FALSE. !< Flag. TRUE if the storage of ddt_vn_cor is required
+    LOGICAL :: ddt_ua_cor  = .FALSE. !<                              ddt_ua_cor
+    LOGICAL :: ddt_va_cor  = .FALSE. !<                              ddt_va_cor
+    LOGICAL :: ddt_vn_pgr  = .FALSE. !< Flag. TRUE if the storage of ddt_vn_pgr is required
+    LOGICAL :: ddt_ua_pgr  = .FALSE. !<                              ddt_ua_pgr
+    LOGICAL :: ddt_va_pgr  = .FALSE. !<                              ddt_va_pgr
+    LOGICAL :: ddt_vn_phd  = .FALSE. !< Flag. TRUE if the storage of ddt_vn_phd is required
+    LOGICAL :: ddt_ua_phd  = .FALSE. !<                              ddt_ua_phd
+    LOGICAL :: ddt_va_phd  = .FALSE. !<                              ddt_va_phd
+    LOGICAL :: ddt_vn_cen  = .FALSE. !< Flag. TRUE if the storage of ddt_vn_cen is required
+    LOGICAL :: ddt_ua_cen  = .FALSE. !<                              ddt_ua_cen
+    LOGICAL :: ddt_va_cen  = .FALSE. !<                              ddt_va_cen
+    LOGICAL :: ddt_vn_iau  = .FALSE. !< Flag. TRUE if the storage of ddt_vn_iau is required
+    LOGICAL :: ddt_ua_iau  = .FALSE. !<                              ddt_ua_iau
+    LOGICAL :: ddt_va_iau  = .FALSE. !<                              ddt_va_iau
+    LOGICAL :: ddt_vn_ray  = .FALSE. !< Flag. TRUE if the storage of ddt_vn_ray is required
+    LOGICAL :: ddt_ua_ray  = .FALSE. !<                              ddt_ua_ray
+    LOGICAL :: ddt_va_ray  = .FALSE. !<                              ddt_va_ray
+    LOGICAL :: ddt_vn_grf  = .FALSE. !< Flag. TRUE if the storage of ddt_vn_grf is required
+    LOGICAL :: ddt_ua_grf  = .FALSE. !<                              ddt_ua_grf
+    LOGICAL :: ddt_va_grf  = .FALSE. !<                              ddt_va_grf
   END TYPE t_var_in_output
 
   TYPE(t_var_in_output), ALLOCATABLE :: var_in_output(:)
@@ -204,6 +245,7 @@ CONTAINS
     INTEGER :: jg, jgr
 
     ALLOCATE(var_in_output(n_dom))
+    !$ACC ENTER DATA CREATE(var_in_output)
 
     DO jg=1,n_dom
       var_in_output(jg)%pres_msl = is_variable_in_output(var_name="pres_msl") .OR. &
@@ -252,6 +294,8 @@ CONTAINS
         var_in_output(jg)%echotopinm  = is_variable_in_output_dom(var_name="echotopinm", jg=jg)
         var_in_output(jg)%smi         = is_variable_in_output_dom(var_name="smi", jg=jg)
         var_in_output(jg)%dursun      = is_variable_in_output_dom(var_name="dursun", jg=jg)
+        var_in_output(jg)%dursun_m    = is_variable_in_output_dom(var_name="dursun_m", jg=jg)
+        var_in_output(jg)%dursun_r    = is_variable_in_output_dom(var_name="dursun_r", jg=jg)
 
         ! Check for special case: SMI is not in one of the output lists but it is part of a output group.
         ! In this case, the group can not be checked, as the connection between SMI and the group will be
@@ -272,6 +316,46 @@ CONTAINS
         END IF
       END DO
     END IF
+
+
+    ! diagnostics for the horizontal wind tendencies in the dynamical core
+    DO jg=1,n_dom
+      var_in_output(jg)%ddt_vn_dyn    = is_variable_in_output_dom(var_name="ddt_vn_dyn", jg=jg)
+      var_in_output(jg)%ddt_ua_dyn    = is_variable_in_output_dom(var_name="ddt_ua_dyn", jg=jg)
+      var_in_output(jg)%ddt_va_dyn    = is_variable_in_output_dom(var_name="ddt_va_dyn", jg=jg)
+      var_in_output(jg)%ddt_vn_dmp    = is_variable_in_output_dom(var_name="ddt_vn_dmp", jg=jg)
+      var_in_output(jg)%ddt_ua_dmp    = is_variable_in_output_dom(var_name="ddt_ua_dmp", jg=jg)
+      var_in_output(jg)%ddt_va_dmp    = is_variable_in_output_dom(var_name="ddt_va_dmp", jg=jg)
+      var_in_output(jg)%ddt_vn_hdf    = is_variable_in_output_dom(var_name="ddt_vn_hdf", jg=jg)
+      var_in_output(jg)%ddt_ua_hdf    = is_variable_in_output_dom(var_name="ddt_ua_hdf", jg=jg)
+      var_in_output(jg)%ddt_va_hdf    = is_variable_in_output_dom(var_name="ddt_va_hdf", jg=jg)
+      var_in_output(jg)%ddt_vn_adv    = is_variable_in_output_dom(var_name="ddt_vn_adv", jg=jg)
+      var_in_output(jg)%ddt_ua_adv    = is_variable_in_output_dom(var_name="ddt_ua_adv", jg=jg)
+      var_in_output(jg)%ddt_va_adv    = is_variable_in_output_dom(var_name="ddt_va_adv", jg=jg)
+      var_in_output(jg)%ddt_vn_cor    = is_variable_in_output_dom(var_name="ddt_vn_cor", jg=jg)
+      var_in_output(jg)%ddt_ua_cor    = is_variable_in_output_dom(var_name="ddt_ua_cor", jg=jg)
+      var_in_output(jg)%ddt_va_cor    = is_variable_in_output_dom(var_name="ddt_va_cor", jg=jg)
+      var_in_output(jg)%ddt_vn_pgr    = is_variable_in_output_dom(var_name="ddt_vn_pgr", jg=jg)
+      var_in_output(jg)%ddt_ua_pgr    = is_variable_in_output_dom(var_name="ddt_ua_pgr", jg=jg)
+      var_in_output(jg)%ddt_va_pgr    = is_variable_in_output_dom(var_name="ddt_va_pgr", jg=jg)
+      var_in_output(jg)%ddt_vn_phd    = is_variable_in_output_dom(var_name="ddt_vn_phd", jg=jg)
+      var_in_output(jg)%ddt_ua_phd    = is_variable_in_output_dom(var_name="ddt_ua_phd", jg=jg)
+      var_in_output(jg)%ddt_va_phd    = is_variable_in_output_dom(var_name="ddt_va_phd", jg=jg)
+      var_in_output(jg)%ddt_vn_cen    = is_variable_in_output_dom(var_name="ddt_vn_cen", jg=jg)
+      var_in_output(jg)%ddt_ua_cen    = is_variable_in_output_dom(var_name="ddt_ua_cen", jg=jg)
+      var_in_output(jg)%ddt_va_cen    = is_variable_in_output_dom(var_name="ddt_va_cen", jg=jg)
+      var_in_output(jg)%ddt_vn_iau    = is_variable_in_output_dom(var_name="ddt_vn_iau", jg=jg)
+      var_in_output(jg)%ddt_ua_iau    = is_variable_in_output_dom(var_name="ddt_ua_iau", jg=jg)
+      var_in_output(jg)%ddt_va_iau    = is_variable_in_output_dom(var_name="ddt_va_iau", jg=jg)
+      var_in_output(jg)%ddt_vn_ray    = is_variable_in_output_dom(var_name="ddt_vn_ray", jg=jg)
+      var_in_output(jg)%ddt_ua_ray    = is_variable_in_output_dom(var_name="ddt_ua_ray", jg=jg)
+      var_in_output(jg)%ddt_va_ray    = is_variable_in_output_dom(var_name="ddt_va_ray", jg=jg)
+      var_in_output(jg)%ddt_vn_grf    = is_variable_in_output_dom(var_name="ddt_vn_grf", jg=jg)
+      var_in_output(jg)%ddt_ua_grf    = is_variable_in_output_dom(var_name="ddt_ua_grf", jg=jg)
+      var_in_output(jg)%ddt_va_grf    = is_variable_in_output_dom(var_name="ddt_va_grf", jg=jg)
+    END DO
+
+    !$ACC UPDATE DEVICE(var_in_output)
 
   END SUBROUTINE init_var_in_output
 

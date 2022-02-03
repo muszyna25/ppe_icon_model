@@ -416,16 +416,19 @@ CONTAINS
       &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
     ! dynamics
-    CALL add_var(ocean_restart_list, 'ice_u_prog', p_ice%u_prog ,&
-      &          GRID_UNSTRUCTURED_VERT, ZA_SURFACE, &
-      &          t_cf_var('ice_u_prog', 'm/s', 'zonal velocity', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_VERTEX),&
-      &          ldims=(/nproma,nblks_v/))
-    CALL add_var(ocean_restart_list, 'ice_v_prog', p_ice%v_prog ,&
-      &          GRID_UNSTRUCTURED_VERT, ZA_SURFACE, &
-      &          t_cf_var('ice_v', 'm/s', 'meridional velocity', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_VERTEX),&
-      &          ldims=(/nproma,nblks_v/))
+    IF ( i_ice_dyn == 1 ) THEN
+      CALL add_var(ocean_restart_list, 'ice_u_prog', p_ice%u_prog ,&
+           &          GRID_UNSTRUCTURED_VERT, ZA_SURFACE, &
+           &          t_cf_var('ice_u_prog', 'm/s', 'zonal velocity', datatype_flt),&
+           &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_VERTEX),&
+           &          ldims=(/nproma,nblks_v/),lrestart_cont=.TRUE.)
+      CALL add_var(ocean_restart_list, 'ice_v_prog', p_ice%v_prog ,&
+           &          GRID_UNSTRUCTURED_VERT, ZA_SURFACE, &
+           &          t_cf_var('ice_v', 'm/s', 'meridional velocity', datatype_flt),&
+           &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_VERTEX),&
+           &          ldims=(/nproma,nblks_v/),lrestart_cont=.TRUE.)
+    ENDIF
+
     CALL add_var(ocean_restart_list, 'ice_u', p_ice%u ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('ice_u', 'm/s', 'zonal velocity', datatype_flt),&
@@ -449,6 +452,19 @@ CONTAINS
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_EDGE),&
       &          ldims=(/nproma,nblks_e/))
 
+    IF ( i_ice_dyn == 2 ) THEN
+      CALL add_var(ocean_restart_list, 'ice_vt', p_ice%vt_e ,&
+        &          GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, &
+        &          t_cf_var('ice_vt', 'm/s', 'zonal velocity', datatype_flt),&
+        &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_EDGE),&
+        &          ldims=(/nproma,nblks_e/),lrestart_cont=.TRUE.)
+      CALL add_var(ocean_restart_list, 'Delta', p_ice%Delta ,&
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('Delta', '1/s', 'Defomation', datatype_flt),&
+        &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+        &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_default"),lrestart_cont=.TRUE.)
+    ENDIF
+
     ! not currently used categorywise limiter
     ALLOCATE(p_ice%hi_lim(i_no_ice_thick_class), STAT=ist)
     IF (ist/=SUCCESS) THEN
@@ -461,7 +477,7 @@ CONTAINS
       p_ice%hi_lim(:)=(/ 0.0_wp, 0.1_wp, 0.3_wp, 0.7_wp, 1.1_wp, 1.5_wp, 2.0_wp, 2.5_wp /)
     ENDIF
 
-    IF ( i_ice_dyn == 1 ) THEN ! AWI dynamics
+    IF ( i_ice_dyn > 0 ) THEN ! AWI dynamics
       CALL init_fem_wgts(patch_3D)
       IF (i_ice_advec == 1) THEN ! AWI advection
         CALL init_fem_wgts_extra(p_patch)

@@ -237,7 +237,7 @@ CONTAINS
     END IF
     
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,zncn,qnc,qnc_s,ddt_tend_t,ddt_tend_qv,        &
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,zncn,qnc,qnc_s,ddt_tend_t,ddt_tend_qv,        &
 !$OMP            ddt_tend_qc,ddt_tend_qi,ddt_tend_qr,ddt_tend_qs) ICON_OMP_GUIDED_SCHEDULE
 
       DO jb = i_startblk, i_endblk

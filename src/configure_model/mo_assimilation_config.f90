@@ -94,7 +94,10 @@ MODULE mo_assimilation_config
       tt_artif_max      ,& ! maximum of latent heat used as artificial profile
       zlev_artif_max    ,& ! altidude of maximum of artificial profile
       std_artif_max     ,& ! parameter to define vertical width of artifical temperature profile
-      start_fadeout        ! time relative to lhn_end, when the lhn coefficient in decreased toward 0
+      start_fadeout     ,& ! time relative to lhn_end, when the lhn coefficient in decreased toward 0
+      rttend            ,& ! ratio of temperature increment to be applied
+      bbthres           ,& ! threshold of precipitation rate used in bright band detection
+      hzerolim             ! limitation of hzerocl used in bright band detection
 
   
    CHARACTER (LEN=100)              ::           &

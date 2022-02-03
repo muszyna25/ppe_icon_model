@@ -317,7 +317,8 @@ contains
                             dom_rayleigh,       &!
                             dom_nstreams,       &!
                             ir_scatt_model,     &!
-                            vis_scatt_model     &!
+                            vis_scatt_model,    &!
+                            clip_gas_opdep      &!
                            )
     type(rttov_options), intent(inout), optional :: rttov_opts
     logical,             intent(in),    optional :: init
@@ -351,6 +352,7 @@ contains
     integer,             intent(in),    optional :: dom_nstreams
     integer,             intent(in),    optional :: ir_scatt_model
     integer,             intent(in),    optional :: vis_scatt_model
+    logical,             intent(in),    optional :: clip_gas_opdep
 
 #if (_RTTOV_VERSION == 13)
     call rtifc_set_opts_sub(rttov_opts        = rttov_opts,         &!
@@ -384,7 +386,8 @@ contains
                             dom_rayleigh      = dom_rayleigh,       &!
                             dom_nstreams      = dom_nstreams,       &!
                             ir_scatt_model    = ir_scatt_model,     &!
-                            vis_scatt_model   = vis_scatt_model     &!
+                            vis_scatt_model   = vis_scatt_model,    &!
+                            clip_gas_opdep    = clip_gas_opdep      &!
                            )
 #elif (_RTTOV_VERSION == 12)
     call rtifc_set_opts_sub(rttov_opts        = rttov_opts,         &!

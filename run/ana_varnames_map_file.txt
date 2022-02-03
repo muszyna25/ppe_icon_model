@@ -71,6 +71,7 @@ t_2m                T_2M
 t2m_bias            T_2M_FILTBIAS
 rh_avginc           RELHUM_LML_FILTINC
 t_avginc            T_LML_FILTINC
+t_wgt_avginc        T_LML_COSWGT_FILTINC
 p_avginc            P_LML_FILTINC
 albdif              ALB_RAD
 alb_si              ALB_SEAICE

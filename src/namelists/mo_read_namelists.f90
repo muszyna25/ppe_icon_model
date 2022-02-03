@@ -63,12 +63,14 @@ MODULE mo_read_namelists
   USE mo_psrad_interface     ,ONLY: read_psrad_nml
 #endif
   USE mo_synsat_nml          ,ONLY: read_synsat_namelist
+  USE mo_synradar_nml        ,ONLY: read_synradar_namelist
   USE mo_turbdiff_nml        ,ONLY: read_turbdiff_namelist
   USE mo_lnd_nwp_nml         ,ONLY: read_nwp_lnd_namelist
   USE mo_art_nml             ,ONLY: read_art_namelist
 
   USE mo_initicon_nml        ,ONLY: read_initicon_namelist
   USE mo_nh_testcases_nml    ,ONLY: read_nh_testcase_namelist
+  USE mo_scm_nml             ,ONLY: read_scm_namelist
   USE mo_meteogram_nml       ,ONLY: read_meteogram_namelist
 
   USE mo_coupling_nml        ,ONLY: read_coupling_namelist
@@ -143,6 +145,7 @@ CONTAINS
     CALL read_name_list_output_namelists (atm_namelist_filename(1:tlen))
     CALL read_dbg_namelist            (atm_namelist_filename(1:tlen))
     CALL read_synsat_namelist         (atm_namelist_filename(1:tlen))
+    CALL read_synradar_namelist       (atm_namelist_filename(1:tlen))
 
     ! Grid
     !
@@ -216,6 +219,7 @@ CONTAINS
     !
     CALL read_initicon_namelist       (atm_namelist_filename(1:tlen))
     CALL read_nh_testcase_namelist    (atm_namelist_filename(1:tlen))
+    CALL read_scm_namelist            (atm_namelist_filename(1:tlen))
 
     ! Boundary conditions
     !

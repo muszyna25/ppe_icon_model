@@ -32,8 +32,8 @@
 
       USE mo_hamocc_types,       ONLY: t_hamocc_diag, t_hamocc_state, &
     &                                  t_hamocc_sed, t_hamocc_tend,   &
-    &                                  t_hamocc_monitor, t_hamocc_prog                    
-   
+    &                                  t_hamocc_monitor, t_hamocc_prog, t_hamocc_agg
+
       USE mo_zaxis_type
 
       USE mo_cdi,                 ONLY: DATATYPE_FLT32 => CDI_DATATYPE_FLT32, &
@@ -50,7 +50,7 @@
        
       USE mo_parallel_config,     ONLY: nproma
 
-      USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_N_cycle
+      USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_N_cycle, i_settling
 
       USE mo_var_metadata,       ONLY: post_op, get_timelevel_string
 
@@ -61,8 +61,6 @@
       USE mo_sedmnt,          ONLY: ks
   
       USE mo_bgc_constants,    ONLY: kilo, s2year, n2tgn, c2gtc
-
-      USE mo_ocean_types,      ONLY: t_hydro_ocean_state,t_hydro_ocean_prog
      
       USE mo_ocean_tracer_transport_types, ONLY: t_ocean_tracer
 
@@ -76,6 +74,7 @@
       TYPE(t_var_list_ptr)                              :: hamocc_restart_list ! for hi, co3
       TYPE(t_var_list_ptr)                              :: hamocc_tendency_list ! for NPP etc
       TYPE(t_var_list_ptr)                              :: hamocc_sediment_list ! for sediment outout
+      TYPE(t_var_list_ptr)                              :: hamocc_aggregate_list ! for aggregate outout
 
       CONTAINS
       
@@ -109,7 +108,10 @@
    
     CALL message(TRIM(routine), 'start to construct hamocc state: sed' )
     CALL construct_hamocc_sed(patch_2d, hamocc_state%p_sed)
-      
+
+    CALL message(TRIM(routine), 'start to construct hamocc state: agg' )
+    if (i_settling==2) CALL construct_hamocc_agg(patch_2d, hamocc_state%p_agg)
+
     !create state array for each domain
     ALLOCATE(hamocc_state%p_prog(1:prlength), stat=i_status)
     IF (i_status/=success) THEN
@@ -1587,6 +1589,39 @@
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.FALSE., lrestart=.FALSE.)
 
+
+    If (i_settling==2) THEN
+
+     CALL add_var(hamocc_tendency_list, 'HAMOCC_wdust',hamocc_state_tend%wdust,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('wdust','m s-1','dust sinking speed', datatype_flt,'wdust'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_wpoc',hamocc_state_tend%wpoc,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('wpoc','m s-1','detrius sinking speed', datatype_flt,'wpoc'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_wopal',hamocc_state_tend%wopal,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('wopal','m s-1','opal sinking speed', datatype_flt,'wopal'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_wcal',hamocc_state_tend%wcal,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('wcal','m s-1','calcium carbonate sinking speed', datatype_flt,'wcal'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+    
+    END IF
+
     IF (l_N_cycle) THEN
 
     CALL add_var(hamocc_tendency_list, 'HAMOCC_gppnh4',hamocc_state_tend%gppnh4,    &
@@ -1907,6 +1942,113 @@
   END SUBROUTINE 
 
 !================================================================================== 
+  SUBROUTINE construct_hamocc_agg(patch_2d, hamocc_state_agg)
+
+    TYPE(t_patch), TARGET, INTENT(in)          :: patch_2d
+    TYPE(t_hamocc_agg), INTENT(inout)          :: hamocc_state_agg
+
+    ! local variables
+
+    INTEGER :: alloc_cell_blocks,  datatype_flt
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & routine = 'mo_bgc_icon_comm:construct_hamocc_agg'
+
+     ! determine size of arrays
+    alloc_cell_blocks = patch_2d%alloc_cell_blocks
+
+    datatype_flt = MERGE(DATATYPE_FLT64, datatype_flt32, lnetcdf_flt64_output)
+
+    CALL message(TRIM(routine), 'start to construct hamocc agg state')
+
+!    CALL add_var(hamocc_aggregate_list, 'HAMOCC_wsagg',hamocc_state_agg%wsagg,    &
+!      & grid_unstructured_cell, za_depth_below_sea,&
+!      & t_cf_var('wsagg','m d-1','mean aggregate sinking speed', datatype_flt,'ws_agg'), &
+!      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_AGG"),&
+!      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_aggregate_list, 'HAMOCC_avdp',hamocc_state_agg%avdp,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('avdp','m','mean primary particle size', datatype_flt,'av_dp'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_AGG"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_aggregate_list, 'HAMOCC_avrhop',hamocc_state_agg%avrhop,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('avrhop','kg m-3','mean primary particle density', datatype_flt,'av_rho_p'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_AGG"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+!    CALL add_var(hamocc_aggregate_list, 'HAMOCC_avdc',hamocc_state_agg%avdc,    &
+!      & grid_unstructured_cell, za_depth_below_sea,&
+!      & t_cf_var('avdc','m','mean primary particle size', datatype_flt,'av_d_c'), &
+!      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_AGG"),&
+!      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_aggregate_list, 'HAMOCC_sticka',hamocc_state_agg%sticka,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('sticka','','mean aggregate stickiness', datatype_flt,'stickiness_agg'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_AGG"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+!    CALL add_var(hamocc_aggregate_list, 'HAMOCC_stickf',hamocc_state_agg%stickf,    &
+!      & grid_unstructured_cell, za_depth_below_sea,&
+!      & t_cf_var('stickf','','mean frustule stickiness', datatype_flt,'stickiness_frustule'), &
+!      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_AGG"),&
+!      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_aggregate_list, 'HAMOCC_lmaxagg',hamocc_state_agg%lmaxagg,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('lmaxagg','m','maximum aggegrate diameter', datatype_flt,'Lmax_agg'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_AGG"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_aggregate_list, 'HAMOCC_dfagg',hamocc_state_agg%dfagg,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('dfagg',' ','fractal dimension of aggegrates', datatype_flt,'df_agg'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_AGG"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+!    CALL add_var(hamocc_aggregate_list, 'HAMOCC_bagg',hamocc_state_agg%bagg,    &
+!      & grid_unstructured_cell, za_depth_below_sea,&
+!      & t_cf_var('bagg',' ','fractal dimension of aggegrates', datatype_flt,'b_agg'), &
+!      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_AGG"),&
+!      & loutput=.FALSE., lrestart=.FALSE.)
+
+!    CALL add_var(hamocc_aggregate_list, 'HAMOCC_dynvis',hamocc_state_agg%dynvis,    &
+!      & grid_unstructured_cell, za_depth_below_sea,&
+!      & t_cf_var('dynvis',' ','dynamical viscosity', datatype_flt,'dynvis'), &
+!      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_AGG"),&
+!      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_aggregate_list, 'HAMOCC_avrhof',hamocc_state_agg%avrhof,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('avrhof','kg m-3','volume-weighted aggregate density', datatype_flt,'av_rhof_V'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_AGG"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+!    CALL add_var(hamocc_aggregate_list, 'HAMOCC_avpor',hamocc_state_agg%avpor,    &
+!      & grid_unstructured_cell, za_depth_below_sea,&
+!      & t_cf_var('avpor','-','volume-weighted aggregate porosity', datatype_flt,'av_por_V'), &
+!      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_AGG"),&
+!      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL message(TRIM(routine), 'construct hamocc agg end')
+
+  END SUBROUTINE
+
+!================================================================================== 
   SUBROUTINE destruct_hamocc_state(hamocc_state)
     TYPE(t_hamocc_state), TARGET,INTENT(inout)   :: hamocc_state!(n_dom)
     
@@ -1924,6 +2066,7 @@
     CALL vlr_del(hamocc_default_list)
     CALL vlr_del(hamocc_tendency_list)
     CALL vlr_del(hamocc_sediment_list)
+    CALL vlr_del(hamocc_aggregate_list)
     
     CALL message(TRIM(routine),'destruction of hamocc state finished')
     CALL close_bgcout 
@@ -1953,6 +2096,12 @@
     CALL vlr_add(hamocc_sediment_list, 'hamocc_sediment_list', &
       & patch_id=patch_2d%id, lrestart=.TRUE., loutput=.TRUE., &
       & model_type=model_name)
+
+    CALL vlr_add(hamocc_aggregate_list, 'hamocc_aggregate_list', &
+      & patch_id=patch_2d%id, lrestart=.TRUE., loutput=.TRUE., &
+      & model_type=model_name)
+
+
 
     END SUBROUTINE construct_hamocc_var_lists
 !================================================================================== 

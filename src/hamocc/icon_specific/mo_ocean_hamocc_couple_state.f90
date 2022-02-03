@@ -61,7 +61,8 @@ MODULE mo_ocean_hamocc_couple_state
     
     onCells    :: temperature
     onCells    :: salinity
-    
+    onCells    :: press_hyd   ! (agg)
+
     ! get the from the ocean the salinity diffusion coefficients
     onEdges            :: hor_diffusion_coeff ! this is actually constant, needs to be initialized, not communicated
     onCells_HalfLevels :: ver_diffusion_coeff
@@ -218,6 +219,15 @@ CONTAINS
       & t_cf_var('vn', '', 'tracer hor_diffusion_coeff', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("hamocc_ocean_state"))
+
+   !  (agg)
+     CALL add_var(hamocc_ocean_state_list, 'press_hyd', hamocc_ocean_state%ocean_to_hamocc_state%press_hyd, &
+      & grid_unstructured_cell, za_depth_below_sea, &
+      & t_cf_var('press_hyd', '', 'press_hyd', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("hamocc_ocean_state"))
+    hamocc_ocean_state%ocean_to_hamocc_state%press_hyd = 1.0_wp    ! hydrostatic pressure, unit [m] (see ocean/dynamics/mo_ocean_types.f90)
+
  
     ! this is initialized as in the ocean, 
     ! in general, it does not need to be communicated, 

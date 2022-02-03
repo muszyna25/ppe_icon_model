@@ -132,14 +132,13 @@ MODULE mo_nonhydro_types
     &  mflx_ic_int(:,:,:),      & ! Storage field for vertical nesting: mass flux at parent interface level
     &  mflx_ic_ubc(:,:,:),      & ! Storage field for vertical nesting: 
                                   ! average mass flux plus time tendency at child upper boundary
-    &  q_int(:,:,:),            & ! Storage field for vertical nesting: q at parent interface level
-    &  q_ubc(:,:,:),            & ! Storage field for vertical nesting: q at child upper boundary
 
     !
     ! c) variables derived from analysis increments
     &  t2m_bias (:,:),       & !! filtered T2M bias from surface analysis [K]
     &  rh_avginc(:,:),       & !! time-averaged/filtered RH increments from DA at lowest model level
     &  t_avginc(:,:),        & !! time-averaged/filtered T increments from DA at lowest model level
+    &  t_wgt_avginc(:,:),    & !! time-averaged/filtered T increments from DA at lowest model level, weighted with COS(local time)
     &  p_avginc(:,:),        & !! time-averaged/filtered P increments from DA at lowest model level
 
     !
@@ -198,15 +197,93 @@ MODULE mo_nonhydro_types
     &  vn_ie(:,:,:),        & ! normal wind at half levels (nproma,nlevp1,nblks_e)   [m/s]
     &  w_concorr_c(:,:,:),  & ! contravariant vert correction (nproma,nlevp1,nblks_c)[m/s]
     &  mass_fl_e_sv(:,:,:), & ! storage field for horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
-    &  ddt_vn_adv(:,:,:,:), & ! normal wind tendency from advection
+    &  ddt_vn_apc_pc(:,:,:,:), & ! normal wind tendency from advection plus coriolis, for predictor (p) and corrector (c) steps
                               ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
-    &  ddt_w_adv(:,:,:,:),  & ! vert. wind tendency from advection
+    &  ddt_vn_cor_pc(:,:,:,:), & ! normal wind tendency from coriolis,  for predictor (p) and corrector (c) steps
+                              ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
+    &  ddt_w_adv_pc(:,:,:,:),  & ! vert. wind tendency from advection,  for predictor (p) and corrector (c) steps
     ! fields for 3D elements in turbdiff
     &  div_ic(:,:,:),       & ! divergence at half levels(nproma,nlevp1,nblks_c)     [1/s]
     &  hdef_ic(:,:,:),      & ! horizontal wind field deformation (nproma,nlevp1,nblks_c)     [1/s^2]
     &  dwdx(:,:,:),         & ! zonal gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
     &  dwdy(:,:,:)          & ! meridional gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
     &  => NULL()              ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
+
+    REAL(wp), POINTER       &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    &  , CONTIGUOUS    &
+#endif
+    &  ::              &
+    ! wind tendencies in dynamics [m/s^2]
+    &  ddt_vn_dyn  (:,:,:) => NULL() ,& ! vn   total = sum of the following contributions
+    &  ddt_ua_dyn  (:,:,:) => NULL() ,& ! ua
+    &  ddt_va_dyn  (:,:,:) => NULL() ,& ! va
+    &  ddt_vn_dmp  (:,:,:) => NULL() ,& ! vn   divergence damping
+    &  ddt_ua_dmp  (:,:,:) => NULL() ,& ! ua
+    &  ddt_va_dmp  (:,:,:) => NULL() ,& ! va
+    &  ddt_vn_hdf  (:,:,:) => NULL() ,& ! vn   horizontal diffusion
+    &  ddt_ua_hdf  (:,:,:) => NULL() ,& ! ua
+    &  ddt_va_hdf  (:,:,:) => NULL() ,& ! va
+    &  ddt_vn_adv  (:,:,:) => NULL() ,& ! vn   advection
+    &  ddt_ua_adv  (:,:,:) => NULL() ,& ! ua
+    &  ddt_va_adv  (:,:,:) => NULL() ,& ! va
+    &  ddt_vn_cor  (:,:,:) => NULL() ,& ! vn   Coriolis effect
+    &  ddt_ua_cor  (:,:,:) => NULL() ,& ! ua
+    &  ddt_va_cor  (:,:,:) => NULL() ,& ! va
+    &  ddt_vn_pgr  (:,:,:) => NULL() ,& ! vn   pressure gradient
+    &  ddt_ua_pgr  (:,:,:) => NULL() ,& ! ua
+    &  ddt_va_pgr  (:,:,:) => NULL() ,& ! va
+    &  ddt_vn_phd  (:,:,:) => NULL() ,& ! vn   physics applied in dynamics
+    &  ddt_ua_phd  (:,:,:) => NULL() ,& ! ua
+    &  ddt_va_phd  (:,:,:) => NULL() ,& ! va
+    &  ddt_vn_cen  (:,:,:) => NULL() ,& ! vn   centrifugal acceleration in deep atmosphere
+    &  ddt_ua_cen  (:,:,:) => NULL() ,& ! ua
+    &  ddt_va_cen  (:,:,:) => NULL() ,& ! va
+    &  ddt_vn_iau  (:,:,:) => NULL() ,& ! vn   incremental analysis update
+    &  ddt_ua_iau  (:,:,:) => NULL() ,& ! ua
+    &  ddt_va_iau  (:,:,:) => NULL() ,& ! va
+    &  ddt_vn_ray  (:,:,:) => NULL() ,& ! vn   Rayleigh damping
+    &  ddt_ua_ray  (:,:,:) => NULL() ,& ! ua
+    &  ddt_va_ray  (:,:,:) => NULL() ,& ! va
+    &  ddt_vn_grf  (:,:,:) => NULL() ,& ! vn   grid refinement
+    &  ddt_ua_grf  (:,:,:) => NULL() ,& ! ua
+    &  ddt_va_grf  (:,:,:) => NULL()    ! va
+
+    LOGICAL :: &
+    ! flags indicating whether (=.TRUE.) or not (=.FALSE.) the wind tendency pointers are associated with memory
+    &  ddt_vn_dyn_is_associated = .FALSE. ,& ! vn   total = sum of the following contributions
+    &  ddt_ua_dyn_is_associated = .FALSE. ,& ! ua
+    &  ddt_va_dyn_is_associated = .FALSE. ,& ! va
+    &  ddt_vn_dmp_is_associated = .FALSE. ,& ! vn   divergence damping
+    &  ddt_ua_dmp_is_associated = .FALSE. ,& ! ua
+    &  ddt_va_dmp_is_associated = .FALSE. ,& ! va
+    &  ddt_vn_hdf_is_associated = .FALSE. ,& ! vn   horizontal diffusion
+    &  ddt_ua_hdf_is_associated = .FALSE. ,& ! ua
+    &  ddt_va_hdf_is_associated = .FALSE. ,& ! va
+    &  ddt_vn_adv_is_associated = .FALSE. ,& ! vn   advection
+    &  ddt_ua_adv_is_associated = .FALSE. ,& ! ua
+    &  ddt_va_adv_is_associated = .FALSE. ,& ! va
+    &  ddt_vn_cor_is_associated = .FALSE. ,& ! vn   Coriolis effect
+    &  ddt_ua_cor_is_associated = .FALSE. ,& ! ua
+    &  ddt_va_cor_is_associated = .FALSE. ,& ! va
+    &  ddt_vn_pgr_is_associated = .FALSE. ,& ! vn   pressure gradient
+    &  ddt_ua_pgr_is_associated = .FALSE. ,& ! ua
+    &  ddt_va_pgr_is_associated = .FALSE. ,& ! va
+    &  ddt_vn_phd_is_associated = .FALSE. ,& ! vn   physics applied in dynamics
+    &  ddt_ua_phd_is_associated = .FALSE. ,& ! ua
+    &  ddt_va_phd_is_associated = .FALSE. ,& ! va
+    &  ddt_vn_cen_is_associated = .FALSE. ,& ! vn   centrifugal acceleration in deep atmosphere
+    &  ddt_ua_cen_is_associated = .FALSE. ,& ! ua
+    &  ddt_va_cen_is_associated = .FALSE. ,& ! va
+    &  ddt_vn_iau_is_associated = .FALSE. ,& ! vn   incremental analysis update
+    &  ddt_ua_iau_is_associated = .FALSE. ,& ! ua
+    &  ddt_va_iau_is_associated = .FALSE. ,& ! va
+    &  ddt_vn_ray_is_associated = .FALSE. ,& ! vn   Rayleigh damping
+    &  ddt_ua_ray_is_associated = .FALSE. ,& ! ua
+    &  ddt_va_ray_is_associated = .FALSE. ,& ! va
+    &  ddt_vn_grf_is_associated = .FALSE. ,& ! vn   grid refinement
+    &  ddt_ua_grf_is_associated = .FALSE. ,& ! ua
+    &  ddt_va_grf_is_associated = .FALSE.    ! va
 
     REAL(vp), POINTER       & ! single precision if "__MIXED_PRECISION" is defined
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
@@ -232,16 +309,15 @@ MODULE mo_nonhydro_types
       &  hfl_trc_ptr    (:),   &  !< pointer array: one pointer for each tracer
       &  vfl_trc_ptr    (:),   &  !< pointer array: one pointer for each tracer
       &  ddt_trc_adv_ptr(:),   &  !< pointer array: one pointer for each tracer
-      &  q_int_ptr      (:),   &  
-      &  q_ubc_ptr      (:),   &
       &  tracer_vi_ptr  (:),   &  !< pointer array: one pointer for each tracer
       &  tracer_vi_avg_ptr(:), &  !< pointer array: one pointer for each tracer
       &  extra_2d_ptr   (:),   &
       &  extra_3d_ptr   (:)
 
     TYPE(t_ptr_2d3d_vp),ALLOCATABLE ::   &
-      &  ddt_vn_adv_ptr (:),   &  !< pointer array: one pointer for each tracer
-      &  ddt_w_adv_ptr  (:)       !< pointer array: one pointer for each tracer
+      &  ddt_vn_apc_pc_ptr (:),&  !< pointer array: one pointer for each step: predictor (p) and corrector (c)
+      &  ddt_vn_cor_pc_ptr (:),&  !< pointer array: one pointer for each step: predictor (p) and corrector (c)
+      &  ddt_w_adv_pc_ptr  (:)    !< pointer array: one pointer for each step: predictor (p) and corrector (c)
 
   END TYPE t_nh_diag
 

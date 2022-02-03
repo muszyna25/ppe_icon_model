@@ -67,6 +67,7 @@ PUBLIC :: t_comm_pattern_orig
 PUBLIC :: t_comm_pattern_collection_orig
 !
 !variables
+REAL(dp), ALLOCATABLE, TARGET :: send_buffer_dp(:), recv_buffer_dp(:)
 
 !--------------------------------------------------------------------------------------------------
 !
@@ -503,8 +504,30 @@ CONTAINS
 !$ACC                   p_pat%send_src_idx, p_pat%send_src_blk, &
 !$ACC                   p_pat%recv_dst_idx, p_pat%recv_dst_blk) IF (acc_on)
 
+#ifdef __ENABLE_REALLOC
+    CALL realloc_global_buffer_dp(send_buffer_dp, 7*p_pat%n_send)
+    CALL realloc_global_buffer_dp(recv_buffer_dp, 7*p_pat%n_recv)
+#endif
+
   END SUBROUTINE setup_comm_pattern
 
+  SUBROUTINE realloc_global_buffer_dp(buffer, num_elems)
+    REAL(dp), ALLOCATABLE, INTENT(INOUT) :: buffer(:)
+    INTEGER, INTENT(IN) :: num_elems
+
+    IF (ALLOCATED(buffer)) THEN
+      IF (SIZE(buffer) >= num_elems) THEN
+        RETURN
+      END IF
+
+      !$ACC EXIT DATA DELETE(buffer)
+      DEALLOCATE(buffer)
+    END IF
+
+!!!    WRITE (0, *) "Reallocating persistent communication buffer to ", int(num_elems*1.2)
+    ALLOCATE(buffer(int(num_elems*1.2)))
+    !$ACC ENTER DATA CREATE(buffer)
+  END SUBROUTINE realloc_global_buffer_dp
 
   !-------------------------------------------------------------------------
 
@@ -943,8 +966,12 @@ CONTAINS
     REAL(dp), INTENT(IN), OPTIONAL, TARGET    :: add (:,:,:)
 
     CHARACTER(len=*), PARAMETER :: routine = modname//"::exchange_data_r3d"
+#ifdef __ENABLE_REALLOC
+    REAL(dp), POINTER :: send_buf(:,:), recv_buf(:,:)
+#else
     REAL(dp) :: send_buf(SIZE(recv,2),p_pat%n_send), &
-      recv_buf(SIZE(recv,2),p_pat%n_recv)
+                recv_buf(SIZE(recv,2),p_pat%n_recv)
+#endif
 
     REAL(dp), POINTER :: send_ptr(:,:,:)
 
@@ -979,7 +1006,15 @@ CONTAINS
 
     ndim2 = SIZE(recv,2)
 
-!$ACC DATA CREATE( send_buf, recv_buf )                                                      &
+#ifdef __ENABLE_REALLOC
+    CALL realloc_global_buffer_dp(send_buffer_dp, ndim2*p_pat%n_send)
+    CALL realloc_global_buffer_dp(recv_buffer_dp, ndim2*p_pat%n_recv)
+    send_buf(1:ndim2, 1:p_pat%n_send) => send_buffer_dp(1:ndim2*p_pat%n_send)
+    recv_buf(1:ndim2, 1:p_pat%n_recv) => recv_buffer_dp(1:ndim2*p_pat%n_recv)
+!$ACC DATA PRESENT( send_buf, recv_buf )   &
+#else
+!$ACC DATA CREATE( send_buf, recv_buf ) &
+#endif
 !$ACC      PRESENT( recv, p_pat ) &
 !$ACC      IF (use_gpu)
 
@@ -1003,7 +1038,7 @@ CONTAINS
     ENDIF
 
     IF (ndim2 == 1) THEN
-!$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(send_ptr) IF (use_gpu)
 !$ACC LOOP GANG VECTOR
       DO i = 1, p_pat%n_send
         send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i))
@@ -1487,8 +1522,9 @@ CONTAINS
     !       array_out( recv_dst_idx(i), recv_dst_blk(i) ) = recv_buf(recv_src(i))
     !     END DO
 
+!ACC: explicit PRESENT is required to circumvent a 'partially present error' with PGI 20.9
     IF(PRESENT(add)) THEN
-!$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
+!$ACC PARALLEL PRESENT(recv, send) DEFAULT(PRESENT) IF (use_gpu) 
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO k=1,ndim2
         DO i=1,p_pat%n_pnts
@@ -1501,7 +1537,7 @@ CONTAINS
       ENDDO
 !$ACC END PARALLEL
     ELSE
-!$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
+!$ACC PARALLEL PRESENT(recv, send) DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO k=1,ndim2
         DO i=1,p_pat%n_pnts
@@ -2177,7 +2213,12 @@ CONTAINS
     TYPE(t_ptr_3d), OPTIONAL, PTR_INTENT(in) :: send(:)
     INTEGER        :: ndim2(SIZE(recv)), noffset(SIZE(recv))
 
+#ifdef __ENABLE_REALLOC
+    REAL(dp), POINTER :: send_buf(:,:), recv_buf(:,:)
+#else
     REAL(dp) :: send_buf(ndim2tot,p_pat%n_send),recv_buf(ndim2tot,p_pat%n_recv)
+#endif
+
 #if defined( __SX__ ) || defined( _OPENACC )
     REAL(dp), POINTER :: send_ptr(:,:,:), recv_ptr(:,:,:)  ! Refactoring for OpenACC
 #endif
@@ -2216,7 +2257,15 @@ CONTAINS
       kshift = 0
     ENDIF
 
-!$ACC DATA CREATE(send_buf, recv_buf)                                                  &
+#ifdef __ENABLE_REALLOC
+    CALL realloc_global_buffer_dp(send_buffer_dp, ndim2tot*p_pat%n_send)
+    CALL realloc_global_buffer_dp(recv_buffer_dp, ndim2tot*p_pat%n_recv)
+    send_buf(1:ndim2tot, 1:p_pat%n_send) => send_buffer_dp(1:ndim2tot*p_pat%n_send)
+    recv_buf(1:ndim2tot, 1:p_pat%n_recv) => recv_buffer_dp(1:ndim2tot*p_pat%n_recv)
+!$ACC DATA PRESENT( send_buf, recv_buf )   &
+#else
+!$ACC DATA CREATE(send_buf, recv_buf)      &
+#endif
 !$ACC      PRESENT( p_pat ) &
 !$ACC      IF (use_gpu)
 
@@ -2900,7 +2949,7 @@ CONTAINS
       jl = send_src_idx(i)
       IF ( lsend ) THEN
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
+!$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(koffset)
         DO k = 1, ndim2
           DO n = 1, nfields
             koffset = (k-1)*nfields
@@ -2910,7 +2959,7 @@ CONTAINS
 !$ACC END PARALLEL
       ELSE
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
+!$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(koffset)
         DO k = 1, ndim2
           DO n = 1, nfields
             koffset = (k-1)*nfields
@@ -3000,7 +3049,7 @@ CONTAINS
       jb = recv_dst_blk(i)
       jl = recv_dst_idx(i)
       ik  = recv_src(i)
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2) PRIVATE(koffset)
       DO k = 1, ndim2
         DO n = 1, nfields
           koffset = (k-1)*nfields
@@ -3199,18 +3248,15 @@ CONTAINS
 !$ACC              p_recv_dst_idx, p_recv_dst_blk ) IF (use_gpu)
 
 #ifdef _OPENACC
-     DO n = 1, nfields
-       DO np = 1, npats
-!$ACC ENTER DATA ATTACH( send(np+(n-1)*npats)%p )
-       ENDDO
-!$ACC ENTER DATA ATTACH( recv(n)%p )
-     ENDDO
+    DO n = 1, nfields
+!$ACC ENTER DATA ATTACH( send(n)%p, recv(n)%p ) IF (use_gpu)
+    ENDDO
 
-     DO np = 1, npats
+    DO np = 1, npats
 !$ACC ENTER DATA ATTACH( p_send_src_idx(np)%p, p_send_src_blk(np)%p, &
 !$ACC                    p_recv_dst_idx(np)%p, p_recv_dst_blk(np)%p, &
 !$ACC                    p_recv_src(np)%p ) IF (use_gpu)
-     ENDDO
+    ENDDO
 #endif
 
     IF (my_process_is_mpi_seq()) THEN
@@ -3265,9 +3311,9 @@ CONTAINS
 #if defined( __SX__ ) || defined( _OPENACC )
 
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR COLLAPSE(2) 
+! ACC: We cannot collapse over k and i due to n and np dependency
       DO n = 1, nfields
-!$ACC LOOP VECTOR
         DO np = 1, npats
 !$NEC novector
           DO k = 1, ndim2(n)
@@ -3483,10 +3529,10 @@ CONTAINS
 
 #if defined( __SX__ ) || defined( _OPENACC )
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO n = 1, nfields
         DO np = 1, npats
-!$ACC LOOP VECTOR
+! ACC: We cannot collapse over k and i due to n and np dependency
 !$NEC novector
           DO k = 1, ndim2(n)
             DO i = 1, n_pnts(np)
@@ -3526,18 +3572,15 @@ CONTAINS
     ENDIF  ! .NOT. my_process_is_mpi_seq()
 
 #ifdef _OPENACC
-     DO n = 1, nfields
-!$ACC EXIT DATA DETACH( recv(n)%p ) IF (use_gpu)
-       DO np = 1, npats
-!$ACC EXIT DATA DETACH( send(np+(n-1)*npats)%p ) IF (use_gpu)
-       ENDDO
-     ENDDO
+    DO n = 1, nfields
+!$ACC EXIT DATA DETACH( recv(n)%p, send(n)%p ) IF (use_gpu)
+    ENDDO
 
-     DO np = 1, npats
+    DO np = 1, npats
 !$ACC EXIT DATA DETACH( p_send_src_idx(np)%p, p_send_src_blk(np)%p, &
 !$ACC                   p_recv_dst_idx(np)%p, p_recv_dst_blk(np)%p, &
 !$ACC                   p_recv_src(np)%p ) IF (use_gpu)
-     ENDDO
+    ENDDO
 #endif
 
 !$ACC END DATA

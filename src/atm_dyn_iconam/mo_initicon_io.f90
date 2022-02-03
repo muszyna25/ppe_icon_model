@@ -42,7 +42,7 @@ MODULE mo_initicon_io
     &                               ifs2icon_filename, lread_vn, lread_tke,             &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
     &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in, qcana_mode, qiana_mode, qrsgana_mode, &
-    &                               qnxana_2mom_mode, icpl_da_sfcevap
+    &                               qnxana_2mom_mode, icpl_da_sfcevap, icpl_da_skinc, icpl_da_snowalb
   USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
   USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
   USE mo_impl_constants,      ONLY: max_dom, MODE_ICONVREMAP,          &
@@ -1806,8 +1806,11 @@ MODULE mo_initicon_io
             IF (icpl_da_sfcevap >= 2) THEN
               CALL fetchSurface(params, 'rh_avginc', jg, nh_diag%rh_avginc)
             ENDIF
-            IF (icpl_da_sfcevap >= 3) THEN
+            IF (icpl_da_sfcevap >= 3 .OR. icpl_da_snowalb >= 1) THEN
               CALL fetchSurface(params, 't_avginc', jg, nh_diag%t_avginc)
+            ENDIF
+            IF (icpl_da_skinc >= 1) THEN
+              CALL fetchSurface(params, 't_wgt_avginc', jg, nh_diag%t_wgt_avginc)
             ENDIF
             IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
               CALL fetchSurface(params, 'p_avginc', jg, nh_diag%p_avginc)

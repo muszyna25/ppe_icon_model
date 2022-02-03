@@ -147,6 +147,8 @@ MODULE mo_util_file
   PUBLIC :: util_filesize
   PUBLIC :: util_file_is_writable
   PUBLIC :: createSymlink
+  PUBLIC :: get_filename
+  PUBLIC :: get_path
 
   CHARACTER(*), PARAMETER :: modname = "mo_util_file"
 
@@ -268,6 +270,36 @@ CONTAINS
     linkNameCopy(i) = C_NULL_CHAR
     error = c_createSymlink(targetPathCopy, linkNameCopy)
   END FUNCTION createSymlink
+
+  ! @return subtring from from the first "/" to the end of @p in_str.
+  FUNCTION get_filename(in_str) RESULT(out_str)
+    ! Parameters
+    CHARACTER(len=*), INTENT(IN) :: in_str
+    CHARACTER(len=LEN(in_str))   :: out_str
+    ! Local parameters
+    INTEGER :: pos
+
+    ! start after last occurrence of '/':
+    pos = INDEX(in_str,'/',.TRUE.)
+    pos = pos + 1
+    out_str = in_str(pos:LEN(in_str))
+  END FUNCTION get_filename
+
+  ! @return subtring from the begin of @p in_str to the last "/".
+  FUNCTION get_path(in_str) RESULT(out_str)
+    ! Parameters
+    CHARACTER(len=*), INTENT(IN) :: in_str
+    CHARACTER(len=LEN(in_str))   :: out_str
+    ! Local parameters
+    INTEGER :: pos
+
+    ! start after last occurrence of '/':
+    out_str = ""
+    pos = INDEX(in_str,'/',.TRUE.)
+    IF (pos > 0) THEN
+      out_str = in_str(1:pos)
+    END IF
+  END FUNCTION get_path
 
 END MODULE mo_util_file
 

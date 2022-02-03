@@ -49,7 +49,7 @@ LIBS="-Wl,--as-needed ${XML2_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS
 
 MPI_LAUNCH='mpiexec'
 
-EXTRA_CONFIG_ARGS='--enable-intel-consistency --enable-vectorized-lrtm --enable-parallel-netcdf'
+EXTRA_CONFIG_ARGS='--enable-intel-consistency --enable-vectorized-lrtm --enable-rte-rrtmgp --enable-parallel-netcdf'
 extrasub='/^test -n \"\$_collected_set_up_info\" && exec >>\"\$_collected_set_up_info\"/a \
 use_load_modules+=\" mxm/3.4.3082 bullxmpi_mlx/bullxmpi_mlx-1.2.9.2\"
 '

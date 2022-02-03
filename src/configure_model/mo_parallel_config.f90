@@ -18,12 +18,14 @@ MODULE mo_parallel_config
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom, max_num_io_procs, pio_type_async
   USE mo_util_string,        ONLY: int2string
+  USE mo_mpi,                ONLY: p_bcast, process_mpi_all_workroot_id, &
+  &                                process_mpi_all_comm, my_process_is_io
 
   IMPLICIT NONE
 
   PRIVATE
   ! Exported variables:
-  PUBLIC :: nproma
+  PUBLIC :: nproma, nblocks_c, ignore_nproma_use_nblocks_c
 !
   PUBLIC :: n_ghost_rows,                                     &
        &  div_geometric, division_method, division_file_name,       &
@@ -44,12 +46,15 @@ MODULE mo_parallel_config
        &  use_omp_input
 
   PUBLIC :: set_nproma, get_nproma, cpu_min_nproma, update_nproma_on_device, proc0_offloading, &
-       &    check_parallel_configuration, use_async_restart_output, blk_no, idx_no, idx_1d
+       &    check_parallel_configuration, use_async_restart_output, blk_no, idx_no, idx_1d,    &
+       &    update_nproma_for_io_procs
 
   ! computing setup
   ! ---------------
   INTEGER  :: nproma = 1              ! inner loop length/vector length
 !$ACC DECLARE COPYIN(nproma)
+  INTEGER  :: nblocks_c = 0
+  LOGICAL  :: ignore_nproma_use_nblocks_c = .FALSE.
 
   ! Number of rows of ghost cells
   INTEGER :: n_ghost_rows = 1
@@ -195,7 +200,12 @@ CONTAINS
     !------------------------------------------------------------
     !  check the consistency of the parameters
     !------------------------------------------------------------
-    IF (nproma<=0) CALL message(TRIM(method_name),'"nproma" is negative. Use nblocks to nproma conversion instead!')
+    IF (ignore_nproma_use_nblocks_c) THEN
+      ! Sanity Check. (nblocks_c<=0) should never be the case here.
+      IF (nblocks_c<=0) CALL finish(TRIM(method_name),'"nblocks_c" must be positive')
+    ELSE
+      IF (nproma<=0)  CALL finish(TRIM(method_name),'"nproma" must be positive')
+    ENDIF
 #if !defined (__SX__) && !defined (__NEC_VH__)
     ! migration helper: catch nproma's that were obviously intended
     !                   for a vector machine.
@@ -297,6 +307,20 @@ CONTAINS
 !$ACC UPDATE DEVICE(nproma) IF ( i_am_worker )
 
   END SUBROUTINE update_nproma_on_device
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE update_nproma_for_io_procs(nproma_max)
+    INTEGER, INTENT(IN) :: nproma_max
+
+    !adapt nproma for I/O procs
+    CALL p_bcast(nproma_max, process_mpi_all_workroot_id, process_mpi_all_comm)
+    IF (my_process_is_io()) THEN
+      CALL set_nproma(nproma_max)
+    ENDIF
+  
+  END SUBROUTINE update_nproma_for_io_procs
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

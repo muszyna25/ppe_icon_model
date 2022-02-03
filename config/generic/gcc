@@ -85,7 +85,7 @@ LIBS="${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${GRIB2_LIBS} ${NETCDFF_LIBS} ${NETCDF_LI
 
 MPI_LAUNCH='mpiexec'
 
-EXTRA_CONFIG_ARGS='--enable-openmp --enable-grib2 --enable-mixed-precision'
+EXTRA_CONFIG_ARGS='--enable-openmp --enable-grib2 --enable-mixed-precision --enable-rte-rrtmgp'
 
 ################################################################################
 

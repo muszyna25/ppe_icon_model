@@ -2479,12 +2479,15 @@ MODULE mo_initicon_utils
       IF(ASSOCIATED(p_nh_state(jg)%diag%vn_ie)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"vn_ie: ", &
         & p_nh_state(jg)%diag%vn_ie)
-      IF(ASSOCIATED(p_nh_state(jg)%diag%ddt_vn_adv)) &
-        & CALL printChecksum(prefix(1:pfx_tlen)//"ddt_vn_adv: ", &
-        & p_nh_state(jg)%diag%ddt_vn_adv)
-      IF(ASSOCIATED(p_nh_state(jg)%diag%ddt_w_adv)) &
-        & CALL printChecksum(prefix(1:pfx_tlen)//"ddt_w_adv: ", &
-        & p_nh_state(jg)%diag%ddt_w_adv)
+      IF(ASSOCIATED(p_nh_state(jg)%diag%ddt_vn_apc_pc)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"ddt_vn_apc_pc: ", &
+        & p_nh_state(jg)%diag%ddt_vn_apc_pc)
+      IF(ASSOCIATED(p_nh_state(jg)%diag%ddt_vn_cor_pc)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"ddt_vn_cor_pc: ", &
+        & p_nh_state(jg)%diag%ddt_vn_cor_pc)
+      IF(ASSOCIATED(p_nh_state(jg)%diag%ddt_w_adv_pc)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"ddt_w_adv_pc: ", &
+        & p_nh_state(jg)%diag%ddt_w_adv_pc)
       IF(ASSOCIATED(p_nh_state(jg)%diag%airmass_now)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"airmass_now: ", &
         & p_nh_state(jg)%diag%airmass_now)
@@ -2524,12 +2527,6 @@ MODULE mo_initicon_utils
       IF(ASSOCIATED(p_nh_state(jg)%diag%mflx_ic_ubc)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"mflx_ic_ubc: ", &
         & p_nh_state(jg)%diag%mflx_ic_ubc)
-      IF(ASSOCIATED(p_nh_state(jg)%diag%q_int)) &
-        & CALL printChecksum(prefix(1:pfx_tlen)//"q_int: ", &
-        & p_nh_state(jg)%diag%q_int)
-      IF(ASSOCIATED(p_nh_state(jg)%diag%q_ubc)) &
-        & CALL printChecksum(prefix(1:pfx_tlen)//"q_ubc: ", &
-        & p_nh_state(jg)%diag%q_ubc)
       IF(ASSOCIATED(p_nh_state(jg)%diag%vn_incr)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"vn_incr: ", &
         & p_nh_state(jg)%diag%vn_incr)

@@ -56,6 +56,7 @@ MODULE mo_albedo
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_impl_constants,       ONLY: min_rlcell_int
   USE sfc_seaice,              ONLY: alb_seaice_equil
+  USE mo_initicon_config,      ONLY: icpl_da_snowalb
 
   IMPLICIT NONE
 
@@ -65,6 +66,7 @@ MODULE mo_albedo
 
   PUBLIC  :: sfc_albedo
   PUBLIC  :: sfc_albedo_modis
+  PUBLIC  :: sfc_albedo_scm
 
 
 CONTAINS
@@ -770,6 +772,13 @@ CONTAINS
             !
             zsnow_alb(jc,jt) = zminsnow_alb + lnd_diag%freshsnow_t(jc,jb,jt)*(zmaxsnow_alb-zminsnow_alb)
 
+            ! Adaptive tuning of snow albedo if T2M is assimilated
+            ! The upper limit is set to csalb_snow_max rather than zmaxsnow_alb in order to allow larger corrections
+            ! in sparsely forested regions where the LU-based maximum albedo might be too low
+            IF (icpl_da_snowalb >= 1) THEN
+              zsnow_alb(jc,jt) = MAX(zminsnow_alb,MIN(zsnow_alb(jc,jt)*prm_diag%snowalb_fac(jc,jb),csalb_snow_max))
+            ENDIF
+
             IF (ntiles_lnd == 1) THEN
               ! special treatment for forests
               ! - no landuse-class specific limitation of snow albedo
@@ -1016,7 +1025,16 @@ CONTAINS
               ! If something goes wrong with the sea-ice index list, or if the initialization 
               ! fails, there is the danger that we make use negative albedo values. To force a
               ! model crash in this case, we set negative albedo values to 0.
-              ! 
+              !
+              IF (icpl_da_snowalb >= 2) THEN
+                ! Adaptive tuning of sea-ice albedo analogous to snow albedo:
+                ! the constant limits reflect the albedo bounds assumed in the sea-ice scheme;
+                ! in addition, albedo reduction is limited to 10% to avoid strong albedo reduction if a cold bias occurs in the polar night
+                prm_diag%albdif_t(jc,jb,isub_seaice) =                                                &
+                  MAX(0.685_wp*csalb(ist_seaice), 0.9_wp*prm_diag%albdif_t(jc,jb,isub_seaice),        &
+                  MIN(prm_diag%albdif_t(jc,jb,isub_seaice)*prm_diag%snowalb_fac(jc,jb),csalb_snow_max))
+              ENDIF
+
             ENDDO
             !$acc end parallel                       
           ELSE 
@@ -1394,6 +1412,67 @@ CONTAINS
   END SUBROUTINE sfc_albedo_modis
 
 
+  !>
+  !! Surface albedo set to particular value (for single column model)
+  !!
+  !! We distinguish between
+  !! - shortwave broadband albedo  (diffuse, 0.3-5.0um): albdif
+  !! - UV visible broadband albedo (diffuse, 0.3-0.7um): albvisdif
+  !! - near IR broadband albedo    (diffuse, 0.7-5.0um): albnirdif
+  !! - UV visible broadband albedo (direct , 0.3-0.7um): albvisdir
+  !! - near IR broadband albedo    (direct , 0.7-5.0um): albnirdir
+  !!
+  !! albvisdif/albvisdir and albnirdif/albnirdir are exclusively used by the RRTM scheme
+  !! 
+  !! @par Revision History
+  !! Initial Revision by Sophia Schaefer, DWD (2020-09-21)
+  !!
+  SUBROUTINE sfc_albedo_scm(pt_patch, albedo_fixed, prm_diag)
+
+    TYPE(t_patch),          INTENT(   in):: pt_patch     !< grid/patch info.
+
+    REAL(wp),               INTENT(   in):: albedo_fixed ! surface albedo value that is used fpor albedo_type ==3
+                                                         ! (for single column model)
+
+    TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag
+
+    INTEGER :: jb                      !< loop indices
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startidx, i_endidx    !< slices
+    INTEGER :: i_nchdom                !< domain index
+
+    !-----------------------------------------------------------------------
+
+    i_nchdom  = MAX(1,pt_patch%n_childdom)
+
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx)      &
+!$OMP            ICON_OMP_DEFAULT_SCHEDULE
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+
+      prm_diag%albdif   (i_startidx:i_endidx,jb) = albedo_fixed
+      prm_diag%albvisdif(i_startidx:i_endidx,jb) = albedo_fixed
+      prm_diag%albnirdif(i_startidx:i_endidx,jb) = albedo_fixed
+      prm_diag%albvisdir(i_startidx:i_endidx,jb) = albedo_fixed
+      prm_diag%albnirdir(i_startidx:i_endidx,jb) = albedo_fixed
+
+    ENDDO
+
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE sfc_albedo_scm
 
 
   !>

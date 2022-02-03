@@ -111,8 +111,9 @@ MODULE mo_ocean_model
   USE mo_icon_output_tools,    ONLY: init_io_processes, prepare_output
   !-------------------------------------------------------------
   ! For the coupling
+#ifdef YAC_coupling
   USE mo_ocean_coupling_frame, ONLY: construct_ocean_coupling, destruct_ocean_coupling
-  USE mo_coupling_config,      ONLY: is_coupled_run
+#endif
   !-------------------------------------------------------------
  
   USE mo_ocean_hamocc_interface, ONLY: ocean_to_hamocc_construct, ocean_to_hamocc_init, ocean_to_hamocc_end
@@ -313,7 +314,9 @@ MODULE mo_ocean_model
 #endif
 
     CALL destruct_icon_communication()
+#ifdef YAC_coupling
     CALL destruct_ocean_coupling ()
+#endif
 
     CALL destruct_operators_coefficients(operators_coefficients, solverCoefficients_sp)
     ! close memory logging files
@@ -347,6 +350,10 @@ MODULE mo_ocean_model
     !---------------------------------------------------------------------
 
     CALL read_ocean_namelists(oce_namelist_filename,shr_namelist_filename)
+    IF (initialize_fromRestart .AND. .NOT. isRestart()) THEN
+      ocean_initFromRestart_OVERRIDE = initialize_fromRestart
+      CALL read_restart_header(TRIM(get_my_process_name()) )
+    END IF
 
     !---------------------------------------------------------------------
     ! 1.2 Cross-check namelist setups
@@ -556,7 +563,9 @@ MODULE mo_ocean_model
     CALL construct_atmos_fluxes(patch_3d%p_patch_2d(1), atmos_fluxes, kice)
 
     CALL construct_ocean_surface(patch_3d, p_oce_sfc)
+#ifdef YAC_coupling
     CALL construct_ocean_coupling(ocean_patch_3d)
+#endif
 
     !------------------------------------------------------------------
     CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1))

@@ -1019,13 +1019,10 @@ CONTAINS
 !$OMP PARALLEL 
     CALL init(lhn_fields(jg)%ttend_lhn(:,:,:))
     CALL init(lhn_fields(jg)%qvtend_lhn(:,:,:))
-!    CALL init(lhn_fields(jg)%brightband(:,:),-1._wp)
+    CALL init(lhn_fields(jg)%brightband(:,:),-1._wp)
     CALL init(lhn_fields(jg)%pr_obs_sum(:,:))
     CALL init(lhn_fields(jg)%pr_mod_sum(:,:))
     CALL init(lhn_fields(jg)%pr_ref_sum(:,:))
-!$OMP WORKSHARE
-    lhn_fields(jg)%brightband(:,:) = -1._wp
-!$OMP END WORKSHARE
 !$OMP END PARALLEL
 
   ENDDO

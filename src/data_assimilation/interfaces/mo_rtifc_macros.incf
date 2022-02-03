@@ -89,7 +89,7 @@
 #endif
 
 ! god stuff (generalized optical depth, RTTOV smoothing)
-#if defined(_DACE_)
+#if defined(_DACE_) && !defined(__ICON__)
 #define _RTTOV_GOD
 #else
 #undef _RTTOV_GOD

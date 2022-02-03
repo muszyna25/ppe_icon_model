@@ -13,7 +13,7 @@ MODULE mo_bgc_constants
   PUBLIC
    
 
-
+   REAL(wp), PARAMETER :: PI = 3.141592654_wp 
    REAL(wp), PARAMETER :: tmelt = 273.15_wp        ! melting temperature of ice/snow
    !$acc declare copyin(tmelt)
    
@@ -30,6 +30,14 @@ MODULE mo_bgc_constants
   REAL(wp), PARAMETER:: cmh2ms = 6.9722e-07_wp ! cm/hr to m/sec * a constant for piston velocity
 
   REAL(wp), PARAMETER :: molw_co2=44.011_wp
+
+  ! Parameters used in MAGO sinking
+  ! molecular dynamic viscosity
+  REAL(wp),PARAMETER, DIMENSION(14) :: cdynv=(/1.79e-2_wp, -6.1299e-4_wp,1.4467e-5_wp, &
+                           &      -1.6826e-7_wp, -1.8266e-7_wp, 9.8972e-12_wp, 2.4727e-5_wp,&
+                           &      4.8429e-7_wp, -4.7172e-8_wp,7.5986e-10_wp,1.3817e-8_wp,&
+                           &      -2.6363e-10_wp,6.3255e-13_wp,-1.2116e-14_wp/)
+
 
   !---------------PARAMETERS USED in CHEMCON
 

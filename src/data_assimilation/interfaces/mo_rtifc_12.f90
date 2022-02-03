@@ -299,7 +299,7 @@ MODULE mo_rtifc_12
   type(rttov_transmission),                save :: transmission_k          ! transmittances,layer optical depths
   type(rttov_radiance),                    save :: radiance_k              ! radiances, brightness temperatures
 #if defined(_RTTOV_ATLAS)
-  type(rttov_emis_atlas_data),             save :: mw_atlas(4)
+  type(rttov_emis_atlas_data),             save :: mw_atlas(5)             ! 1x TELSEM, 4x CNRM
 #endif
 
 
@@ -3083,7 +3083,7 @@ FTRACE_END('rtifc_k')
 
  subroutine rtifc_init_mw_atlas(telsem, cnrm, ropts, month, path, my_proc_id, n_proc, io_proc_id, mpi_comm_type, stat)
    logical,            intent(in) :: telsem         ! load TELSEM
-   integer,            intent(in) :: cnrm(3)        ! instruments for CNRM (AMSU-A, ATMS, MHS)
+   integer,            intent(in) :: cnrm(4)        ! instruments for CNRM (AMSU-A, ATMS, MHS, SSMIS)
    type(rttov_options),intent(in) :: ropts          ! RTTOV options
    integer,            intent(in) :: month          ! Month number
    character(len=128), intent(in) :: path           ! path to atlases
@@ -3095,7 +3095,7 @@ FTRACE_END('rtifc_k')
    !--------------------------------------------
    ! Loads MW emissivity atlas
    !--------------------------------------------
-   logical   :: tel, cnr(3)
+   logical   :: tel, cnr(4)
    integer   :: k, j, n_atlas, ierr(4)
 
    tel = .false.
@@ -3128,7 +3128,7 @@ FTRACE_END('rtifc_k')
            write(0,*) 'Failed to initialize TELSEM emissivity atlas.'
          end if
        end if
-       ! CNRM needs to be loaded for each instument that requires it (AMSU-A/-B, ATMS and/or MHS)
+       ! CNRM needs to be loaded for each instument that requires it (AMSU-A/-B, ATMS, MHS and/or SSMIS)
        do j = 1, size(cnrm)
          if (cnrm(j) == coefs(k)% coef% id_inst .and. .not. cnr(j)) then
            n_atlas = n_atlas + 1
@@ -3145,7 +3145,7 @@ FTRACE_END('rtifc_k')
                 coefs(k)% coef% id_inst, ' initialized.'
              print*,n_atlas,mw_atlas(n_atlas)%init
            else
-             write(0,'(A,I3)') 'Failed to initialize TELSEM emissivity atlas for instrument ',coefs(k)% coef% id_inst
+             write(0,'(A,I3)') 'Failed to initialize CNRM emissivity atlas for instrument ',coefs(k)% coef% id_inst
            end if
          end if
        end do
@@ -3241,13 +3241,14 @@ FTRACE_END('rtifc_k')
    
  end subroutine rtifc_init_brdf_atlas
 
- subroutine rtifc_brdf_atlas(insidx, profs, chans, ropts, refl, stat)
-   integer,            intent(in)  :: insidx   !instrument index
-   integer,            intent(in)  :: profs(:)! list of profile indices
-   integer,            intent(in)  :: chans(:)  ! list of channels
-   type(rttov_options),intent(in)  :: ropts          ! RTTOV options
-   real(wp),           intent(out) :: refl(:)  ! emissivities
-   integer,            intent(out) :: stat     ! error status
+ subroutine rtifc_brdf_atlas(insidx, profs, chans, ropts, refl, stat,refl_flag)
+   integer,            intent(in)  :: insidx      ! instrument index
+   integer,            intent(in)  :: profs(:)    ! list of profile indices
+   integer,            intent(in)  :: chans(:)    ! list of channels
+   type(rttov_options),intent(in)  :: ropts       ! RTTOV options
+   real(wp),           intent(out) :: refl(:)     ! emissivities
+   integer, optional,  intent(out) :: refl_flag(:)! emissivities flags
+   integer,            intent(out) :: stat        ! error status
 
    stat = ERR_NO_ATLAS
    return

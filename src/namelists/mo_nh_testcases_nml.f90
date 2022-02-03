@@ -70,7 +70,7 @@ MODULE mo_nh_testcases_nml
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
     &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y,      &
     &       tracer_inidist_list, zp_ape, ztmc_ape, is_dry_cbl, isrfc_type,   &
-    &       shflx, lhflx, ufric, albedo_set
+    &       shflx, lhflx, ufric
 
   PUBLIC :: dcmip_bw
   PUBLIC :: is_toy_chem, toy_chem
@@ -121,8 +121,6 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: w_perturb, th_perturb !Random perturbation scale for torus based experiments
   REAL(wp) :: sol_const              ! [W/m2] solar constant
   REAL(wp) :: zenithang              ! [degrees] zenith angle 
-  REAL(wp) :: albedo_set             ! [fraction] surface albedo, only considered when
-                                     ! nh_test_name = [RCEMIP_analytical]
 
   LOGICAL  :: is_dry_cbl             ! switch for dry convective boundary layer simulations
   INTEGER  :: isrfc_type             ! 0:No effect, 1:fixed surface  heat fluxes
@@ -205,7 +203,7 @@ MODULE mo_nh_testcases_nml
                             psfc_cbl, sol_const, zenithang, bubctr_x,        &
                             bubctr_y, is_toy_chem, toy_chem, dcmip_bw,       &
                             tracer_inidist_list, lahade, is_dry_cbl,         &
-                            isrfc_type, shflx, lhflx, ufric, albedo_set
+                            isrfc_type, shflx, lhflx, ufric
 
   ! Non-namelist-variables
   LOGICAL :: ltestcase_update  ! Is current testcase subject to update during integration?
@@ -279,7 +277,6 @@ MODULE mo_nh_testcases_nml
     ztmc_ape               = 25.006_wp
     sol_const              = 1361.371_wp ! [W/m2] default value for amip
     zenithang              = 38._wp ! value used for Popke et al. exps with no diurn cycle
-    albedo_set             = 0.07_wp ! value used for RCEMIP
     is_dry_cbl             = .FALSE.
     isrfc_type             = 0
     shflx                  = 0.1_wp

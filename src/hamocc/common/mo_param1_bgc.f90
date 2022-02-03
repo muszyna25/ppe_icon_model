@@ -116,7 +116,11 @@ MODULE mo_param1_bgc
       &                 kcFlim    = 31,               &
       &                 kh2sprod  = 32,               &
       &                 kh2sloss  = 33,               &
-      &                 nbgctend_base  = 33 
+      &                 kwpoc     = 34,               &
+      &                 kwopal    = 35,               &
+      &                 kwcal    = 36,               &
+      &                 kwdust    = 37,               &
+      &                 nbgctend_base  = 37 
  
   INTEGER, PARAMETER :: kcflux     = 1,               &
       &                 koflux     = 2,               &
@@ -182,7 +186,7 @@ CONTAINS
       idust    = ntraad+3
       i_base   = 3
       n_bgctra = ntraad + i_base
-
+      
       ! porewater tracers
       ipownh4  = MERGE(npowa_base+1,0,l_N_cycle)
       ipowno2  = MERGE(npowa_base+2,0,l_N_cycle)

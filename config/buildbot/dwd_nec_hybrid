@@ -1,0 +1,65 @@
+#!/bin/bash
+
+set -e
+
+# set required environment variables
+export MODULESHOME="/usr/share/Modules"
+
+# this wrapper needs to build two ICON binaries
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
+
+# create vector engine binary
+
+mkdir -p vector
+cd vector
+
+${ICON_DIR}/config/dwd/rcl.VE.nfort-3.3.1_oper --enable-openmp --prefix=${PWD}/vector
+
+if test 0 -ne "$?" && test ! -z "${BB_SLAVE}"; then
+  echo " ***** Configuration logs from '$(pwd)' ***** "
+  for f in $(find . -name 'config.log' -print); do
+    echo " ||||| '$f' ||||| "
+    cat "$f"
+  done
+  echo " ***** End of configuration logs from '$(pwd)' ***** "
+fi
+
+MAKE_PROCS=14
+make -j ${MAKE_PROCS}
+make install
+
+cd ..
+
+# copy a valid info file to where runexp expects it. buildbot is doing
+# in-source-builds, only at the moment
+cp -v $OLDPWD/run/set-up.info run/
+
+# create vector host binary
+
+mkdir -p host
+cd host
+
+${ICON_DIR}/config/dwd/rcl.VH.gcc-9.1.0_oper --prefix=${PWD}/host
+
+if test 0 -ne "$?" && test ! -z "${BB_SLAVE}"; then
+  echo " ***** Configuration logs from '$(pwd)' ***** "
+  for f in $(find . -name 'config.log' -print); do
+    echo " ||||| '$f' ||||| "
+    cat "$f"
+  done
+  echo " ***** End of configuration logs from '$(pwd)' ***** "
+fi
+
+MAKE_PROCS=14
+make -j ${MAKE_PROCS}
+make install
+
+cd ..
+
+VECTOR_BINARY="${PWD}/vector/bin/icon"
+HOST_BINARY="${PWD}/host/bin/icon"
+
+set +e
+find "${PWD}/vector" "${PWD}/host"
+file "$VECTOR_BINARY" "$HOST_BINARY"

@@ -1,30 +1,18 @@
 !>
 !!
-!!----------------------------------------------------------------------
-!! This module provides the interface between dynamics+transport and
-!! echam physics and controls the coupling procedure dependent on the
-!! switch echam_phy_config%ldcphycpl.
+!!------------------------------------------------------------------------------
+!! This module provides the interface between dynamics+transport and physics.
 !!
 !! @author Marco Giorgetta (MPI-M)
 !!
-!!----------------------------------------------------------------------
+!!------------------------------------------------------------------------------
 !!
 !! @brief Interface between ICONAM dynamics+transport and ECHAM physics
 !!
-!! The coupling mechanism is controlled by echam_phy_config%ldcphycpl:
-!!
-!! ldcphycpl = .FALSE.: The whole physics is treated as "fast" physics.
-!!                      The physics tendencies are computed from the
-!!                      provisional state reached after dynamics&transport
-!!                      and the full physics tendencies are then used to
-!!                      update and reach the final new state
-!!
-!! ldcphycpl = .TRUE. : The whole physics is treated as "slow" physics.
-!!                      The state after dynamics+transport is the final
-!!                      state for which the full physics tandencies are
-!!                      computed. These will be used in the following
-!!                      timestep as forcing for the dynamics and for
-!!                      updating tracers after the transport.
+!! The whole physics is treated as "fast" phyiscs.
+!! The physics tendencies are computed from the provisional state reached
+!! after dynamics+transport and the full physics tendencies are then used
+!! to update and reach the final new state
 !!
 !!
 !! @par Revision History
@@ -67,7 +55,9 @@ MODULE mo_interface_iconam_echam
   USE mo_kind                  ,ONLY: wp, vp
   USE mo_exception             ,ONLY: warning, finish, print_value
 
+#ifdef YAC_coupling
   USE mo_coupling_config       ,ONLY: is_coupled_run
+#endif
   USE mo_parallel_config       ,ONLY: nproma
   USE mo_advection_config      ,ONLY: advection_config
   USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
@@ -96,7 +86,9 @@ MODULE mo_interface_iconam_echam
     &                                 t_echam_phy_tend , prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
+#ifdef YAC_coupling
   USE mo_echam_coupling        ,ONLY: interface_echam_ocean
+#endif
   
 #ifndef __NO_JSBACH__
   USE mo_jsb_interface         ,ONLY: jsbach_start_timestep, jsbach_finish_timestep
@@ -136,8 +128,6 @@ CONTAINS
     &                               ,patch           & !in
     &                               ,pt_int_state    & !in
     &                               ,p_metrics       & !in
-    &                               ,pt_prog_old     & !in
-    &                               ,pt_prog_old_rcf & !in
     &                               ,pt_prog_new     & !inout
     &                               ,pt_prog_new_rcf & !inout
     &                               ,pt_diag         ) !inout
@@ -153,8 +143,6 @@ CONTAINS
     TYPE(t_nh_metrics)    , INTENT(in)            :: p_metrics
 
     TYPE(t_nh_diag)       , INTENT(inout), TARGET :: pt_diag         !< diagnostic variables
-    TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_old     !< progn. vars before dynamics  for wind, temp. rho, ...
-    TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_old_rcf !< progn. vars before advection for tracers
     TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_new     !< progn. vars after dynamics  for wind, temp. rho, ...
     TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_new_rcf !< progn. vars after advection for tracers
 
@@ -244,8 +232,7 @@ CONTAINS
     datetime_old      =  datetime_new + neg_dt_loc_mtime
     CALL deallocateTimedelta(neg_dt_loc_mtime)
 
-    !$ACC DATA PRESENT( pt_prog_old%vn, pt_prog_old%theta_v, pt_prog_old%exner,                 &
-    !$ACC               pt_prog_old_rcf%tracer, pt_prog_new%vn, pt_prog_new%w, pt_prog_new%rho, &
+    !$ACC DATA PRESENT( pt_prog_new%vn, pt_prog_new%w, pt_prog_new%rho,                         &
     !$ACC               pt_prog_new%exner, pt_prog_new%theta_v,                                 &
     !$ACC               pt_prog_new_rcf%tracer,                                                 &
     !$ACC               pt_diag%u, pt_diag%v, pt_diag%temp, pt_diag%tempv,                      &
@@ -259,11 +246,10 @@ CONTAINS
     !$ACC               field%mdry, field%mref, field%xref, field%wa, field%omega,              &
     !$ACC               field%clon, field%clat, field%mtrc, field%qtrc,                         &
     !$ACC               field%mtrcvi, field%mh2ovi, field%mairvi, field%mdryvi, field%mrefvi,   &
-    !$ACC               tend%ua, tend%va, tend%ta, tend%ua_dyn, tend%va_dyn, tend%ta_dyn,       &
     !$ACC               tend%ua_phy, tend%va_phy, tend%ta_phy, tend%qtrc, tend%qtrc_dyn,        &
     !$ACC               tend%qtrc_phy, tend%mtrc_phy, tend%mtrcvi_phy, p_metrics%deepatmo_t1mc )&
     !$ACC       CREATE( deepatmo_vol )                                                          &
-    !$ACC       COPYIN( echam_phy_config(jg) )
+    !$ACC       COPYIN( echam_phy_config(jg:jg) )
 
     jt_end = ntracer
 
@@ -297,77 +283,17 @@ CONTAINS
 
     !=====================================================================================
     !
-    ! (1) Complete prognostic and diagnostic state as needed for the computation
-    !     of the physics tendendies.
-    !
-    !     ldcphycpl = .FALSE. : fast physics coupling, dynamics and physics update sequentially
-    !     ldcphycpl = .TRUE.  : slow physics coupling, dynamics uses physics forcing for updating
-    !
-    !
-    ! Update prognostic variables
-    !
-    IF (echam_phy_config(jg)%ldcphycpl) THEN
-      !
-      ! In this case all ECHAM physics is treated as "slow" physics.
-      ! The provisional "new" tracer state, resulting from the advection
-      ! step, still needs to be updated with the physics tracer tendencies
-      ! computed by the physics called at the end of the previous time step
-      ! for the then final "new" state that is used in this time step as
-      ! the "now" state for the dynamics and advection.
-      ! (The physics tendencies for the other variables have been used
-      ! already in the dynamical core.)
-      !
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs_c,jbe_c
-        !
-        CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
-        IF (jcs>jce) CYCLE
-        !
-        !$ACC PARALLEL DEFAULT(PRESENT)
-        !$ACC LOOP GANG VECTOR COLLAPSE(3)
-        DO jt = 1,ntracer
-          DO jk = 1,nlev
-            DO jc = jcs, jce
-              !
-              pt_prog_new_rcf% tracer(jc,jk,jb,jt) =  pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
-                &                                   + tend% qtrc_phy(jc,jk,jb,jt) * dt_loc
-              !
-            END DO
-          END DO
-        END DO
-        !$ACC END PARALLEL
-        !
-      END DO
-!$OMP END DO
-!$OMP END PARALLEL
-
-      !
-    ELSE
-      !
-      ! In this case all ECHAM physics is treated as "fast" physics.
-      ! Nothing needs to be updated here.
-      !
-    END IF
-    !
-    ! Now the new prognostic state variables (pt_prog_new and pt_prog_new_rcf) of
-    ! the dynamics and transport are complete and ready to be used in the physics.
-    !
-    ! ldcphycpl = .FALSE.: The "new" state is provisional, updated only by dynamics,
-    !                      diffusion and tracer transport.
-    !                      In the following the physics forcing is computed for this new
-    !                      provisional state and the provisional new state is updated
-    !                      to obtain the final "new" state X(t+dt).
-    !
-    ! ldcphycpl = .TRUE. : The "new" state is the final state X(t+dt).
-    !                      In the following the physics forcing is computed for this new
-    !                      final state so that it is available in the next time step.
+    ! The "new" state is provisional, updated only by dynamics,
+    ! diffusion and tracer transport.
+    ! In the following the phyiscs forcing is computed for this new
+    ! provisional state and the provisional new state is updated
+    ! to obtain the final "new" state X(t+dt).
     !
     !=====================================================================================
 
     !=====================================================================================
     !
-    ! Handling of negative tracer mass fractions resulting from dynamics
+    ! (1) Handling of negative tracer mass fractions resulting from dynamics
     !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
@@ -423,64 +349,6 @@ CONTAINS
     ! - pt_diag%pres     = field%pfull  hydrostatic pressure at layer midpoint = SQRT(upper pres_ifc * lower pres_ifc)
     ! - pt_diag%dpres_mc                pressure thickness of layer
     !
-    ! For the old state:
-    !
-    CALL diagnose_pres_temp( p_metrics                ,&
-      &                      pt_prog_old              ,&
-      &                      pt_prog_old_rcf          ,&
-      &                      pt_diag                  ,&
-      &                      patch                    ,&
-      &                      opt_calc_temp=.TRUE.     ,&
-      &                      opt_calc_pres=.TRUE.     ,&
-      &                      opt_rlend=min_rlcell_int ,& 
-      &                      opt_lconstgrav=upatmo_config(jg)%echam_phy%l_constgrav )
-
-    IF (ltimer) CALL timer_stop(timer_d2p_prep)
-
-    ! - pt_diag%u
-    ! - pt_diag%v
-    IF (ltimer) CALL timer_start(timer_d2p_sync)
-    CALL sync_patch_array( SYNC_E, patch, pt_prog_old%vn )
-    IF (ltimer) CALL timer_stop(timer_d2p_sync)
-
-    IF (ltimer) CALL timer_start(timer_d2p_prep)
-
-    CALL rbf_vec_interpol_cell( pt_prog_old%vn   ,&! in
-      &                         patch            ,&! in
-      &                         pt_int_state     ,&! in
-      &                         pt_diag%u        ,&! out
-      &                         pt_diag%v        ,&! out
-      &                         opt_rlstart=rls_c  ,&! in
-      &                         opt_rlend  =rle_c  ) ! in
-
-    !
-    ! Store old diagnosed fields provisionally for diagnosing later the trends:
-    !
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = jbs_c,jbe_c
-      !
-      CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
-      IF (jcs>jce) CYCLE
-      !
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR COLLAPSE(2)
-      DO jk = 1,nlev
-        DO jc = jcs, jce
-          tend% ua(jc,jk,jb) = pt_diag% u   (jc,jk,jb)
-          tend% va(jc,jk,jb) = pt_diag% v   (jc,jk,jb)
-          tend% ta(jc,jk,jb) = pt_diag% temp(jc,jk,jb)
-        END DO
-      END DO
-      !$ACC END PARALLEL
-      !
-    END DO ! jb
-!$OMP END DO
-!$OMP END PARALLEL
-    !
-    !
-    ! For the new state:
-    !
     CALL diagnose_pres_temp( p_metrics                ,&
       &                      pt_prog_new              ,&
       &                      pt_prog_new_rcf          ,&
@@ -512,8 +380,8 @@ CONTAINS
     IF (ltimer) CALL timer_stop(timer_d2p_prep)
     
     !
-    ! Now the old and new prognostic and diagnostic state variables of the dynamical core
-    ! are ready to be used in the physics.
+    ! Now the new prognostic and diagnostic state variables of the dynamical core
+    ! are ready to be used in the phyiscs.
     !
     !=====================================================================================
 
@@ -576,47 +444,10 @@ CONTAINS
             &                         * (pt_prog_new% w(jc,jk,jb) + pt_prog_new% w(jc,jk+1,jb)) &
             &                         *  pt_prog_new% rho(jc,jk,jb) * grav
           !
-          ! Diagnose tendencies from the new and old diagnostic states and the local time step:
-          !
-          IF (echam_phy_config(jg)%ldcphycpl) THEN
-             !
-             ! In this case the new state is final:
-             ! The total tendency is diagnosed as the difference of the new and old(="now") state.
-             ! The old state for ua, va, and ta is provisionally stored in the tendency variables:
-             tend% ua    (jc,jk,jb) = (pt_diag% u   (jc,jk,jb) - tend% ua(jc,jk,jb))/dt_loc
-             tend% va    (jc,jk,jb) = (pt_diag% v   (jc,jk,jb) - tend% va(jc,jk,jb))/dt_loc
-             tend% ta    (jc,jk,jb) = (pt_diag% temp(jc,jk,jb) - tend% ta(jc,jk,jb))/dt_loc
-             !
-             ! The dynamic tendency can be diagnosed from the total and the old physics tendencies:
-             tend% ua_dyn(jc,jk,jb) = tend% ua(jc,jk,jb) - tend% ua_phy(jc,jk,jb)
-             tend% va_dyn(jc,jk,jb) = tend% va(jc,jk,jb) - tend% va_phy(jc,jk,jb)
-             tend% ta_dyn(jc,jk,jb) = tend% ta(jc,jk,jb) - tend% ta_phy(jc,jk,jb)
-             !
-             ! Now reset the physics tendencies before entering the physics:
-             tend% ua_phy(jc,jk,jb) = 0.0_wp
-             tend% va_phy(jc,jk,jb) = 0.0_wp
-             tend% ta_phy(jc,jk,jb) = 0.0_wp
-             !
-          ELSE
-             !
-             ! In this case the new state is provisional and updated only by dynamics:
-             ! The dynamical tendency is diagnosed as the difference of the new and old(="now") state.
-             ! The old state for ua, va, and ta is provisionally stored in the tendency variables:
-             tend% ua_dyn(jc,jk,jb) = (pt_diag% u   (jc,jk,jb) - tend% ua(jc,jk,jb))/dt_loc
-             tend% va_dyn(jc,jk,jb) = (pt_diag% v   (jc,jk,jb) - tend% va(jc,jk,jb))/dt_loc
-             tend% ta_dyn(jc,jk,jb) = (pt_diag% temp(jc,jk,jb) - tend% ta(jc,jk,jb))/dt_loc
-             !
-             ! Initialize the total tendencies, to be computed later:
-             tend% ua    (jc,jk,jb) = 0.0_wp
-             tend% va    (jc,jk,jb) = 0.0_wp
-             tend% ta    (jc,jk,jb) = 0.0_wp
-             !
-             ! Now reset the physics tendencies before entering the physics:
-             tend% ua_phy(jc,jk,jb) = 0.0_wp
-             tend% va_phy(jc,jk,jb) = 0.0_wp
-             tend% ta_phy(jc,jk,jb) = 0.0_wp
-             !
-          END IF
+          ! Now reset the physics tendencies before entering the physics:
+          tend% ua_phy(jc,jk,jb)     = 0.0_wp
+          tend% va_phy(jc,jk,jb)     = 0.0_wp
+          tend% ta_phy(jc,jk,jb)     = 0.0_wp
           !
         END DO
       END DO
@@ -660,37 +491,15 @@ CONTAINS
             field%      qtrc(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
               &                             *field% xref(jc,jk,jb)
 
-            ! Diagnose tendencies from the new and old states and the local time step:
+            ! Tracer transport tendency
+            tend% qtrc_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt) &
+              &                           *field% xref(jc,jk,jb)
             !
-            IF (echam_phy_config(jg)%ldcphycpl) THEN
-               !
-               ! In this case the new state is final:
-               ! The total tendency is diagnosed as the difference of the new and old(="now") state.
-               tend% qtrc    (jc,jk,jb,jt)  = ( pt_prog_new_rcf% tracer(jc,jk,jb,jt)          &
-                 &                             -pt_prog_old_rcf% tracer(jc,jk,jb,jt) )/dt_loc &
-                 &                           *field% xref(jc,jk,jb)
-               !
-               ! And the dynamic tendency can be diagnosed from the total and the old physics tendencies:
-               tend% qtrc_dyn(jc,jk,jb,jt)  =  tend% qtrc    (jc,jk,jb,jt)  &
-                 &                            -tend% qtrc_phy(jc,jk,jb,jt)
-               !
-               ! Now reset the physics tendencies before entering the physics
-               tend% qtrc_phy(jc,jk,jb,jt)  = 0.0_wp
-               !
-            ELSE
-               !
-               ! In this case the new state is provisional and updated only by dynamics:
-               ! The dynamical tendency is diagnosed as the difference of the new and old(="now") state.
-               tend% qtrc_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt) &
-                 &                           *field% xref(jc,jk,jb)
-               !
-               ! Initialize the total tendencies, to be computed later:
-               tend% qtrc    (jc,jk,jb,jt)  = 0.0_wp
-               !
-               ! Now reset the physics tendencies before entering the physics
-               tend% qtrc_phy(jc,jk,jb,jt)  = 0.0_wp
-               !
-            END IF
+            ! Initialize the total tendencies, to be computed later:
+            tend% qtrc    (jc,jk,jb,jt)  = 0.0_wp
+            !
+            ! Now reset the physics tendencies before entering the physics
+            tend% qtrc_phy(jc,jk,jb,jt)  = 0.0_wp
             !
           END DO
         END DO
@@ -757,6 +566,7 @@ CONTAINS
     ! (5) Couple to ocean surface if an ocean is present and this is a coupling time step.
     !
     !
+#ifdef YAC_coupling
     IF ( is_coupled_run() ) THEN
 #if defined( _OPENACC )
       CALL warning('GPU:interface_echam_ocean','GPU host synchronization should be removed when port is done!')
@@ -776,6 +586,7 @@ CONTAINS
       CALL gpu_update_var_list('prm_tend_D', .true., jg)
 #endif
     END IF
+#endif
     !
     !=====================================================================================
 
@@ -911,373 +722,33 @@ CONTAINS
 
     IF (ltimer) CALL timer_start(timer_p2d_couple)
     !
-    IF (echam_phy_config(jg)%ldcphycpl) THEN
-      !
-      ! In this case all ECHAM physics is treated as "slow" physics:
-      ! - The full physics forcing has been computed for the final "new" state,
-      !   which is the "now" state of the next time step, on which the forcing
-      !   shall be applied.
-      ! - Hence the full physics forcing is passed on and nothing needs to be
-      !   done here.
-      !
-    ELSE
-      !
-      ! In this case all ECHAM physics is treated as "fast" physics:
-      ! - The provisional "new" state is updated with the total physics
-      !   tendencies, providing the final "new" state
-      ! - The physics forcing that is passed to the dynamical
-      !   core must be set to zero
+    ! Here the physics forcing is treated as "fast" physics:
+    ! - The provisional "new" state is updated with the total phyiscs
+    !   tendencies, providing the final "new" state
+    ! - The physics forcing that is passed to the dynamical
+    !   core must be set to zero
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,jes,jee) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs_e,jbe_e
-        !
-        CALL get_indices_e(patch, jb,jbs_e,jbe_e, jes,jee, rls_e,rle_e)
-        IF (jes>jee) CYCLE
-        !
-        !$ACC PARALLEL DEFAULT(PRESENT)
-        !$ACC LOOP GANG VECTOR COLLAPSE(2)
-        DO jk = 1, nlev
-          DO je = jes, jee
-            !
-            ! (1) Velocity
-            !
-            ! Update with the total physics tendencies
-            pt_prog_new%vn    (je,jk,jb) =   pt_prog_new%vn    (je,jk,jb)             &
-              &                            + pt_diag%ddt_vn_phy(je,jk,jb) * dt_loc
-            !
-            ! Set physics forcing to zero so that it is not re-applied in the dynamical core
-            pt_diag%ddt_vn_phy(je,jk,jb) = 0._wp
-            !
-          END DO
-        END DO
-        !$ACC END PARALLEL
-        !
-      END DO !jb
-!$OMP END DO
-!$OMP END PARALLEL
-
-IF (lart) jt_end = advection_config(jg)%nname
-
-      ! Loop over cells
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs_c,jbe_c
-        !
-        CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
-        IF (jcs>jce) CYCLE
-        !
-        !$ACC PARALLEL DEFAULT(PRESENT)
-        !$ACC LOOP GANG VECTOR COLLAPSE(2)
-        DO jt = 1,jt_end
-          DO jc = jcs, jce
-            field% mtrcvi    (jc,jb,jt) = 0.0_wp
-            tend%  mtrcvi_phy(jc,jb,jt) = 0.0_wp
-          END DO
-        END DO
-        !$ACC END PARALLEL
-        !
-        !$ACC PARALLEL DEFAULT(PRESENT)
-        !$ACC LOOP SEQ
-        DO jk = 1,nlev
-          !$ACC LOOP GANG VECTOR COLLAPSE(2)
-          DO jt = 1,jt_end
-            DO jc = jcs, jce
-              !
-              ! Diagnose the total tendencies
-              tend% qtrc      (jc,jk,jb,jt) = tend% qtrc_dyn(jc,jk,jb,jt)  &
-                &                            +tend% qtrc_phy(jc,jk,jb,jt)
-              !
-              ! (2.1) Tracer mixing ratio with respect to reference air mass
-              !
-              ! tracer mass tendency
-              tend% mtrc_phy  (jc,jk,jb,jt) = tend% qtrc_phy(jc,jk,jb,jt) &
-                &                            *field% mref(jc,jk,jb)
-              !
-              ! tracer path tendency
-              ! DA this guy prevents collapsing loops!!
-              ! DA TODO: try this with atomic. nlev is not too big, it may (?) work
-              tend% mtrcvi_phy(jc,   jb,jt) = tend% mtrcvi_phy(jc,   jb,jt) &
-                &                            +tend% mtrc_phy  (jc,jk,jb,jt)
-              !
-              ! If the physics tendency is /= 0 then change the tracer mass
-              ! and optionally check and correct negative values.
-              IF (tend% mtrc_phy  (jc,jk,jb,jt) /= 0.0_wp) THEN
-                  !
-                  ! new tracer mass
-                  field% mtrc     (jc,jk,jb,jt) = field% mtrc(jc,jk,jb,jt) &
-                    &                            +tend% mtrc_phy(jc,jk,jb,jt) &
-                    &                            *dt_loc
-                  !
-                  ! Handling of negative tracer mass coming from physics
-                  !   qtrc as well as other fields are derived from mtrc.
-                  !   Therefore check mtrc for negative values.
-                  !
-                  IF (echam_phy_config(jg)%iqneg_p2d /= 0) THEN
-                    IF (field% mtrc(jc,jk,jb,jt) < 0.0_wp) THEN
-#ifndef _OPENACC
-                        IF (echam_phy_config(jg)%iqneg_p2d == 1 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
-                          CALL print_value('p2d:grid   index jg',jg)
-                          CALL print_value('p2d:tracer index jt',jt)
-                          CALL print_value('p2d:level  index jk',jk)
-                          CALL print_value('p2d:pressure   [Pa]',field% pfull(jc,jk,jb))
-                          CALL print_value('p2d:longitude [deg]',field% clon(jc,jb)*rad2deg)
-                          CALL print_value('p2d:latitude  [deg]',field% clat(jc,jb)*rad2deg)
-                          CALL print_value('p2d:field%mtrc     ',field% mtrc(jc,jk,jb,jt))
-                        END IF
-#endif
-                        IF (echam_phy_config(jg)%iqneg_p2d == 2 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
-                          field% mtrc(jc,jk,jb,jt) = 0.0_wp
-                        END IF
-                    END IF
-                  END IF
-                  !
-              END IF
-              !
-              ! new tracer path
-              ! DA this guy prevents collapsing loops!!
-              ! DA TODO: try this with atomic. nlev is not too big, it may (?) work
-              field% mtrcvi   (jc,   jb,jt) = field% mtrcvi  (jc,   jb,jt) &
-                &                            +field% mtrc    (jc,jk,jb,jt)
-              !
-            END DO  ! jc
-          END DO    ! jt
-        END DO      ! jk
-        !$ACC END PARALLEL
-        !
-      END DO  ! jb
-!$OMP END DO
-!$OMP END PARALLEL
-
-    ! Loop over cells
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs_c,jbe_c
-        !
-        CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
-        IF (jcs>jce) CYCLE
-        !
-        !$ACC PARALLEL DEFAULT(PRESENT)
-        !$ACC LOOP GANG VECTOR
-        DO jc = jcs, jce
-          ! initialize vertical integrals
-          field% mh2ovi(jc,jb) = 0.0_wp
-          field% mairvi(jc,jb) = 0.0_wp
-          field% mdryvi(jc,jb) = 0.0_wp
-          field% mrefvi(jc,jb) = 0.0_wp
-          field% cptgzvi(jc,jb) = 0.0_wp
-        END DO
-        !$ACC END PARALLEL
-        !
-        !$ACC PARALLEL DEFAULT(PRESENT)
-        !$ACC LOOP SEQ
-        DO jk = 1,nlev
-          !$ACC LOOP GANG VECTOR
-          DO jc = jcs, jce
-            !
-            ! new h2o mass
-            field% mh2o  (jc,jk,jb) = field% mtrc (jc,jk,jb,iqv) &
-              &                      +field% mtrc (jc,jk,jb,iqc) &
-              &                      +field% mtrc (jc,jk,jb,iqi)
-            !
-            IF (echam_phy_config(jg)%ldrymoist) THEN
-              !
-              ! new air mass
-              field%       mair(jc,jk,jb) = field% mref(jc,jk,jb) &
-                &                          +field% mh2o(jc,jk,jb)
-              !
-              ! new density
-              field%       rho (jc,jk,jb) = field% mair(jc,jk,jb) &
-                &                          /field% dz  (jc,jk,jb) &
-                ! (deep-atmosphere modification factor for cell volume)
-                &                          /deepatmo_vol(jk)
-              !
-              ! new density
-              pt_prog_new% rho (jc,jk,jb) = field% mair(jc,jk,jb) &
-                &                          /field% dz  (jc,jk,jb) &
-                ! (deep-atmosphere modification factor for cell volume)
-                &                          /deepatmo_vol(jk)
-              !
-            ELSE
-              !
-              ! new dry air mass
-              field%       mdry(jc,jk,jb) = field% mref(jc,jk,jb) &
-                &                          -field% mh2o(jc,jk,jb)
-              !              
-            END IF
-            !
-            ! h2o path
-            ! DA these guys prevent collapsing loops!!
-            ! DA TODO: figure out how to best optimize that
-            field% mh2ovi(jc,   jb) = field% mh2ovi(jc,   jb) &
-                &                    +field% mh2o  (jc,jk,jb)
-            !
-            ! air path
-            field% mairvi(jc,   jb) = field% mairvi(jc,   jb) &
-                &                    +field% mair  (jc,jk,jb)
-            !
-            ! dry air path
-            field% mdryvi(jc,   jb) = field% mdryvi(jc,   jb) &
-              &                      +field% mdry  (jc,jk,jb)
-            !
-            ! reference air path
-            field% mrefvi(jc,   jb) = field% mrefvi(jc,   jb) &
-              &                      +field% mref  (jc,jk,jb)
-            !
-            ! reference air path
-            field% cptgzvi(jc,  jb) = field% cptgzvi(jc,   jb) &
-              &                      +(field%cptgz(jc,jk,jb)*field%rho(jc,jk,jb)*field%dz(jc,jk,jb))
-            !
-          END DO
-        END DO
-        !$ACC END PARALLEL
-        !
-      END DO
-!$OMP END DO
-!$OMP END PARALLEL
-
-      ! Loop over cells
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs_c,jbe_c
-        !
-        CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
-        IF (jcs>jce) CYCLE
-        !
-        !$ACC PARALLEL DEFAULT(PRESENT)
-        !$ACC LOOP GANG VECTOR COLLAPSE(3)
-        DO jt =1,jt_end 
-          DO jk = 1,nlev
-            DO jc = jcs, jce
-              !
-              ! new tracer mass fraction with respect to reference air mass
-              field%           qtrc   (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
-                &                                     /field%  mref(jc,jk,jb)
-              !
-              IF (echam_phy_config(jg)%ldrymoist) THEN
-                 ! in this case mtrc or mair or both may have changed, and
-                 ! therefore always re-compute the tracer variable
-                 pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
-                   &                                     /field%  mair(jc,jk,jb)
-                 !
-              ELSE IF (echam_phy_config(jg)%l2moment) Then
-                 ! this is a special case for the 2 moment scheme as field%mtrc
-                 ! is changed by clipping after calculating changes due to physical
-                 ! tendencies, so we have to re-compute all tracer variables.
-                 pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field% mtrc(jc,jk,jb,jt) &
-                   &                                     /field%  mair(jc,jk,jb)
-              ELSE
-                 ! in this case mair is unchanged, and the tracer variable
-                 ! is re-computed only if the mtrc is changed due to a physical
-                 ! tendency so that changes of only numerical origin are avoided
-                 IF (tend% mtrc_phy  (jc,jk,jb,jt) /= 0.0_wp) THEN
-                    pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
-                      &                                     /field%  mair(jc,jk,jb)
-                 END IF
-                 !
-              END IF
-              !
-            END DO
-          END DO
-        END DO
-        !$ACC END PARALLEL
-        !
-      END DO   
-!$OMP END DO
-!$OMP END PARALLEL
-
-IF (lart) THEN
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = jbs_c,jbe_c
-
-      CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
-      
-      DO jt = jt_end+1,ntracer
-        DO jk = 1,nlev
-          DO jc = jcs, jce
-
-              pt_prog_new_rcf% tracer(jc,jk,jb,jt) = prm_field(jg)%qtrc(jc,jk,jb,jt)  +prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)*dt_loc
-
-          ENDDO
-        ENDDO
-      ENDDO
-    ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-ENDIF
-
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_exner) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs_c,jbe_c
-        !
-        CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
-        IF (jcs>jce) CYCLE
-        !
-        !$ACC PARALLEL DEFAULT(PRESENT)
-        !$ACC LOOP GANG VECTOR PRIVATE( z_qsum, z_exner ) COLLAPSE(2)
-        DO jk = 1,nlev
-          DO jc = jcs, jce
-            !
-            ! Diagnose the total tendencies
-            tend% ua(jc,jk,jb) = tend% ua_dyn(jc,jk,jb) + tend% ua_phy(jc,jk,jb)
-            tend% va(jc,jk,jb) = tend% va_dyn(jc,jk,jb) + tend% va_phy(jc,jk,jb)
-            tend% ta(jc,jk,jb) = tend% ta_dyn(jc,jk,jb) + tend% ta_phy(jc,jk,jb)
-            !
-            ! Re-compute new exner, tempv and theta_v only if physics tendencies
-            ! of temperature and water traces are non-zero in order to avoid
-            ! purely numerical changes.
-            IF (      tend% ta_phy   (jc,jk,jb)     /= 0.0_wp &
-               & .OR. tend% mtrc_phy (jc,jk,jb,iqv) /= 0.0_wp &
-               & .OR. tend% mtrc_phy (jc,jk,jb,iqc) /= 0.0_wp &
-               & .OR. tend% mtrc_phy (jc,jk,jb,iqi) /= 0.0_wp ) THEN
-               !
-               ! (3) Exner function and virtual potential temperature
-               !
-               ! (a) Update T, then compute Temp_v, Exner and Theta_v
-               !
-               pt_diag% temp (jc,jk,jb) =   pt_diag% temp  (jc,jk,jb)             &
-                 &                        + tend%    ta_phy(jc,jk,jb) * dt_loc
-               !
-               z_qsum = SUM(pt_prog_new_rcf%tracer(jc,jk,jb,advection_config(jg)%trHydroMass%list))
-               !
-               pt_diag% tempv(jc,jk,jb) =   pt_diag%temp(jc,jk,jb)                                            &
-                 &                       * ( 1._wp +  vtmpc1 * pt_prog_new_rcf% tracer(jc,jk,jb,iqv) - z_qsum)
-               !
-               ! Save provisional "new" exner from the slow-physics-forced dynamics
-               z_exner = pt_prog_new% exner(jc,jk,jb)
-               !
-               ! Compute final new exner
-               pt_prog_new% exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd/p0ref * pt_prog_new% rho(jc,jk,jb) * pt_diag% tempv(jc,jk,jb)))
-               !
-               ! Add exner change from fast physics to exner_pr in order to avoid unphysical sound wave generation
-               pt_diag% exner_pr(jc,jk,jb)  = pt_diag% exner_pr(jc,jk,jb) + pt_prog_new% exner(jc,jk,jb) - z_exner
-               !
-!!$               ! (b) Update Exner, then compute Temp_v
-!!$               !
-!!$               pt_prog_new%exner(jc,jk,jb) = pt_prog_new% exner(jc,jk,jb)                 &
-!!$                 &                         + pt_diag% ddt_exner_phy(jc,jk,jb) * dt_loc
-!!$               pt_diag%exner_old(jc,jk,jb) = pt_diag% exner_old(jc,jk,jb)                 &
-!!$                 &                         + pt_diag% ddt_exner_phy(jc,jk,jb) * dt_loc
-!!$               !
-!!$               pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd)) &
-!!$                 &                     / (pt_prog_new%rho(jc,jk,jb)*rd/p0ref)
-!!$               !
-               !
-               ! (a) and (b) Compute Theta_v
-               !
-               pt_prog_new% theta_v(jc,jk,  jb) = pt_diag% tempv(jc,jk,jb) / pt_prog_new% exner(jc,jk,jb)
-               !
-            END IF
-            !
-            ! Set physics forcing to zero so that it is not re-applied in the dynamical core
-            pt_diag% ddt_exner_phy(jc,jk,jb) = 0._wp
-            !
-            ! Additionally use this loop also to set the dynamical exner increment to zero.
-            ! (It is accumulated over one advective time step in solve_nh)
-            pt_diag% exner_dyn_incr(jc,jk,jb) = 0._wp
-            !
+    DO jb = jbs_e,jbe_e
+      !
+      CALL get_indices_e(patch, jb,jbs_e,jbe_e, jes,jee, rls_e,rle_e)
+      IF (jes>jee) CYCLE
+      !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jk = 1, nlev
+        DO je = jes, jee
+          !
+          ! (1) Velocity
+          !
+          ! Update with the total physics tendencies
+          pt_prog_new%vn    (je,jk,jb) =   pt_prog_new%vn    (je,jk,jb)             &
+            &                            + pt_diag%ddt_vn_phy(je,jk,jb) * dt_loc
+          !
+          ! Set physics forcing to zero so that it is not re-applied in the dynamical core
+          pt_diag%ddt_vn_phy(je,jk,jb) = 0._wp
+          !
         END DO
       END DO
       !$ACC END PARALLEL
@@ -1285,7 +756,305 @@ ENDIF
     END DO !jb
 !$OMP END DO
 !$OMP END PARALLEL
-    END IF
+
+    IF (lart) jt_end = advection_config(jg)%nname
+
+    ! Loop over cells
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = jbs_c,jbe_c
+      !
+      CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
+      IF (jcs>jce) CYCLE
+      !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jt = 1,jt_end
+        DO jc = jcs, jce
+          field% mtrcvi    (jc,jb,jt) = 0.0_wp
+          tend%  mtrcvi_phy(jc,jb,jt) = 0.0_wp
+        END DO
+      END DO
+      !$ACC END PARALLEL
+      !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP SEQ
+      DO jk = 1,nlev
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
+        DO jt = 1,jt_end
+          DO jc = jcs, jce
+            !
+            ! Diagnose the total tendencies
+            tend% qtrc      (jc,jk,jb,jt) = tend% qtrc_dyn(jc,jk,jb,jt)  &
+              &                            +tend% qtrc_phy(jc,jk,jb,jt)
+            !
+            ! (2.1) Tracer mixing ratio with respect to reference air mass
+            !
+            ! tracer mass tendency
+            tend% mtrc_phy  (jc,jk,jb,jt) = tend% qtrc_phy(jc,jk,jb,jt) &
+              &                            *field% mref(jc,jk,jb)
+            !
+            ! tracer path tendency
+            tend% mtrcvi_phy(jc,   jb,jt) = tend% mtrcvi_phy(jc,   jb,jt) &
+              &                            +tend% mtrc_phy  (jc,jk,jb,jt)
+            !
+            ! If the physics tendency is /= 0 then change the tracer mass
+            ! and optionally check and correct negative values.
+            IF (tend% mtrc_phy  (jc,jk,jb,jt) /= 0.0_wp) THEN
+              !
+              ! new tracer mass
+              field% mtrc     (jc,jk,jb,jt) = field% mtrc(jc,jk,jb,jt) &
+                &                            +tend% mtrc_phy(jc,jk,jb,jt) &
+                &                            *dt_loc
+              !
+              ! Handling of negative tracer mass coming from physics
+              !   qtrc as well as other fields are derived from mtrc.
+              !   Therefore check mtrc for negative values.
+              !
+              IF (echam_phy_config(jg)%iqneg_p2d /= 0) THEN
+                IF (field% mtrc(jc,jk,jb,jt) < 0.0_wp) THEN
+#ifndef _OPENACC
+                  IF (echam_phy_config(jg)%iqneg_p2d == 1 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
+                    CALL print_value('p2d:grid   index jg',jg)
+                    CALL print_value('p2d:tracer index jt',jt)
+                    CALL print_value('p2d:level  index jk',jk)
+                    CALL print_value('p2d:pressure   [Pa]',field% pfull(jc,jk,jb))
+                    CALL print_value('p2d:longitude [deg]',field% clon(jc,jb)*rad2deg)
+                    CALL print_value('p2d:latitude  [deg]',field% clat(jc,jb)*rad2deg)
+                    CALL print_value('p2d:field%mtrc     ',field% mtrc(jc,jk,jb,jt))
+                  END IF
+#endif
+                  IF (echam_phy_config(jg)%iqneg_p2d == 2 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
+                    field% mtrc(jc,jk,jb,jt) = 0.0_wp
+                  END IF
+                END IF
+              END IF
+                  !
+            END IF
+            !
+            ! new tracer path
+            field% mtrcvi   (jc,   jb,jt) = field% mtrcvi  (jc,   jb,jt) &
+            &                            +field% mtrc    (jc,jk,jb,jt)
+            !
+          END DO  ! jc
+        END DO    ! jt
+      END DO      ! jk
+      !$ACC END PARALLEL
+      !
+    END DO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ! Loop over cells
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = jbs_c,jbe_c
+      !
+      CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
+      IF (jcs>jce) CYCLE
+      !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jc = jcs, jce
+        ! initialize vertical integrals
+        field% mh2ovi(jc,jb) = 0.0_wp
+        field% mairvi(jc,jb) = 0.0_wp
+        field% mdryvi(jc,jb) = 0.0_wp
+        field% mrefvi(jc,jb) = 0.0_wp
+        field% cptgzvi(jc,jb) = 0.0_wp
+      END DO
+      !$ACC END PARALLEL
+      !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP SEQ
+      DO jk = 1,nlev
+        !$ACC LOOP GANG VECTOR
+        DO jc = jcs, jce
+          !
+          ! new h2o mass
+          field% mh2o  (jc,jk,jb) = field% mtrc (jc,jk,jb,iqv) &
+            &                      +field% mtrc (jc,jk,jb,iqc) &
+            &                      +field% mtrc (jc,jk,jb,iqi)
+          !
+          IF (echam_phy_config(jg)%ldrymoist) THEN
+            !
+            ! new air mass
+            field%       mair(jc,jk,jb) = field% mref(jc,jk,jb) &
+              &                          +field% mh2o(jc,jk,jb)
+            !
+            ! new density
+            field%       rho (jc,jk,jb) = field% mair(jc,jk,jb) &
+              &                          /field% dz  (jc,jk,jb) &
+              ! (deep-atmosphere modification factor for cell volume)
+              &                          /deepatmo_vol(jk)
+            !
+            ! new density
+            pt_prog_new% rho (jc,jk,jb) = field% mair(jc,jk,jb) &
+              &                          /field% dz  (jc,jk,jb) &
+              ! (deep-atmosphere modification factor for cell volume)
+              &                          /deepatmo_vol(jk)
+            !
+          ELSE
+            !
+            ! new dry air mass
+            field%       mdry(jc,jk,jb) = field% mref(jc,jk,jb) &
+              &                          -field% mh2o(jc,jk,jb)
+            !              
+          END IF
+          !
+          ! h2o path
+          ! DA these guys prevent collapsing loops!!
+          ! DA TODO: figure out how to best optimize that
+          field% mh2ovi(jc,   jb) = field% mh2ovi(jc,   jb) &
+              &                    +field% mh2o  (jc,jk,jb)
+          !
+          ! air path
+          field% mairvi(jc,   jb) = field% mairvi(jc,   jb) &
+              &                    +field% mair  (jc,jk,jb)
+          !
+          ! dry air path
+          field% mdryvi(jc,   jb) = field% mdryvi(jc,   jb) &
+            &                      +field% mdry  (jc,jk,jb)
+          !
+          ! reference air path
+          field% mrefvi(jc,   jb) = field% mrefvi(jc,   jb) &
+            &                      +field% mref  (jc,jk,jb)
+          !
+          ! reference air path
+          field% cptgzvi(jc,  jb) = field% cptgzvi(jc,   jb) &
+            &                      +(field%cptgz(jc,jk,jb)*field%rho(jc,jk,jb)*field%dz(jc,jk,jb))
+          !
+        END DO
+      END DO
+      !$ACC END PARALLEL
+      !
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ! Loop over cells
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce,z_qsum,z_exner) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = jbs_c,jbe_c
+      !
+      CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
+      IF (jcs>jce) CYCLE
+      !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP SEQ
+      DO jt =1,jt_end
+        !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
+        DO jk = 1,nlev
+          DO jc = jcs, jce
+            !
+            ! new tracer mass fraction with respect to reference air mass
+            field%           qtrc   (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
+              &                                     /field%  mref(jc,jk,jb)
+            !
+            IF (echam_phy_config(jg)%ldrymoist) THEN
+              ! in this case mtrc or mair or both may have changed, and
+              ! therefore always re-compute the tracer variable
+              pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
+                &                                     /field%  mair(jc,jk,jb)
+              !
+            ELSE IF (echam_phy_config(jg)%l2moment) Then
+              ! this is a special case for the 2 moment scheme as field%mtrc
+              ! is changed by clipping after calculating changes due to physical
+              ! tendencies, so we have to re-compute all tracer variables.
+              pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field% mtrc(jc,jk,jb,jt) &
+                &                                     /field%  mair(jc,jk,jb)
+            ELSE
+              ! in this case mair is unchanged, and the tracer variable
+              ! is re-computed only if the mtrc is changed due to a physical
+              ! tendency so that changes of only numerical origin are avoided
+              IF (tend% mtrc_phy  (jc,jk,jb,jt) /= 0.0_wp) THEN
+                pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
+                   &                                     /field%  mair(jc,jk,jb)
+              END IF
+              !
+            END IF
+            !
+          END DO
+        END DO
+      END DO
+
+      IF (lart) THEN
+        !$ACC LOOP SEQ
+        DO jt = jt_end+1,ntracer
+          !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
+          DO jk = 1,nlev
+            DO jc = jcs, jce
+              pt_prog_new_rcf% tracer(jc,jk,jb,jt) = prm_field(jg)%qtrc(jc,jk,jb,jt)  +prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)*dt_loc
+
+            ENDDO
+          ENDDO
+        ENDDO       
+      ENDIF
+
+      !$ACC LOOP GANG(static:1) VECTOR COLLAPSE(2)
+      DO jk = 1,nlev
+        DO jc = jcs, jce
+          !
+          ! Re-compute new exner, tempv and theta_v only if physics tendencies
+          ! of temperature and water traces are non-zero in order to avoid
+          ! purely numerical changes.
+          IF (      tend% ta_phy   (jc,jk,jb)     /= 0.0_wp &
+            & .OR. tend% mtrc_phy (jc,jk,jb,iqv) /= 0.0_wp &
+            & .OR. tend% mtrc_phy (jc,jk,jb,iqc) /= 0.0_wp &
+            & .OR. tend% mtrc_phy (jc,jk,jb,iqi) /= 0.0_wp ) THEN
+            !
+            ! (3) Exner function and virtual potential temperature
+            !
+            ! (a) Update T, then compute Temp_v, Exner and Theta_v
+            !
+            pt_diag% temp (jc,jk,jb) =   pt_diag% temp  (jc,jk,jb)             &
+              &                        + tend%    ta_phy(jc,jk,jb) * dt_loc
+            !
+            z_qsum = SUM(pt_prog_new_rcf%tracer(jc,jk,jb,advection_config(jg)%trHydroMass%list))
+            !
+            pt_diag% tempv(jc,jk,jb) =   pt_diag%temp(jc,jk,jb)                                            &
+              &                       * ( 1._wp +  vtmpc1 * pt_prog_new_rcf% tracer(jc,jk,jb,iqv) - z_qsum)
+            !
+            ! Save provisional "new" exner from the slow-physics-forced dynamics
+            z_exner = pt_prog_new% exner(jc,jk,jb)
+            !
+            ! Compute final new exner
+            pt_prog_new% exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd/p0ref * pt_prog_new% rho(jc,jk,jb) * pt_diag% tempv(jc,jk,jb)))
+            !
+            ! Add exner change from fast physics to exner_pr in order to avoid unphysical sound wave generation
+            pt_diag% exner_pr(jc,jk,jb)  = pt_diag% exner_pr(jc,jk,jb) + pt_prog_new% exner(jc,jk,jb) - z_exner
+            !
+!!$            ! (b) Update Exner, then compute Temp_v
+!!$            !
+!!$            pt_prog_new%exner(jc,jk,jb) = pt_prog_new% exner(jc,jk,jb)                 &
+!!$              &                         + pt_diag% ddt_exner_phy(jc,jk,jb) * dt_loc
+!!$            pt_diag%exner_old(jc,jk,jb) = pt_diag% exner_old(jc,jk,jb)                 &
+!!$              &                         + pt_diag% ddt_exner_phy(jc,jk,jb) * dt_loc
+!!$            !
+!!$            pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd)) &
+!!$              &                     / (pt_prog_new%rho(jc,jk,jb)*rd/p0ref)
+!!$            !
+            !
+            ! (a) and (b) Compute Theta_v
+            !
+            pt_prog_new% theta_v(jc,jk,  jb) = pt_diag% tempv(jc,jk,jb) / pt_prog_new% exner(jc,jk,jb)
+            !
+          END IF
+          !
+          ! Set physics forcing to zero so that it is not re-applied in the dynamical core
+          pt_diag% ddt_exner_phy(jc,jk,jb) = 0._wp
+          !
+          ! Additionally use this loop also to set the dynamical exner increment to zero.
+          ! (It is accumulated over one advective time step in solve_nh)
+          pt_diag% exner_dyn_incr(jc,jk,jb) = 0._wp
+          !
+        END DO
+      END DO
+      !$ACC END PARALLEL
+      !
+    END DO !jb
+!$OMP END DO
+!$OMP END PARALLEL
 
     IF (ltimer) CALL timer_stop(timer_p2d_couple)
     !
@@ -1341,9 +1110,7 @@ ENDIF
 
     !=====================================================================================
     !
-    ! Now the final new state (pt_prog_new/pt_prog_new_rcf) and
-    ! the slow-physics forcing based on this new state are ready.
-    ! The latter is zero if echam_phy_config%ldcphycpl=.FALSE.
+    ! Now the final new state (pt_prog_new/pt_prog_new_rcf) is ready.
     !
     !=====================================================================================
 

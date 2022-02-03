@@ -19,6 +19,7 @@
 MODULE mo_prepadv_types
 
   USE mo_kind,                 ONLY: wp
+  USE mo_fortran_tools,        ONLY: t_ptr_2d3d
 
   IMPLICIT NONE
 
@@ -33,18 +34,25 @@ MODULE mo_prepadv_types
   !
   TYPE :: t_prepare_adv
 
-    REAL(wp), POINTER        &
+    REAL(wp), POINTER       &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-    , CONTIGUOUS             &
+    , CONTIGUOUS            &
 #endif
-      ::                     &
-      mass_flx_me(:,:,:) ,   & !< mass flux at full level edges   [kg/m^2/s]
-                               !< averaged over dynamics substeps
-      mass_flx_ic(:,:,:) ,   & !< mass flux at half level centers [kg/m^2/s]
-                               !< averaged over dynamics substeps
-      vn_traj    (:,:,:) ,   & !< horizontal velocity at edges for computation of backward trajectories [m/s]
-                               !< averaged over dynamics substeps
-      topflx_tra (:,:,:)       !< vertical tracer flux at domain top [kg/m^2/s]
+      ::                    &
+      mass_flx_me(:,:,:) ,  & !< mass flux at full level edges   [kg/m^2/s]
+                              !< averaged over dynamics substeps
+      mass_flx_ic(:,:,:) ,  & !< mass flux at half level centers [kg/m^2/s]
+                              !< averaged over dynamics substeps
+      vn_traj    (:,:,:) ,  & !< horizontal velocity at edges for computation of backward trajectories [m/s]
+                              !< averaged over dynamics substeps
+      q_int      (:,:,:) ,  & !< Storage field for vertical nesting: 
+                              !< q at child nest interface level [kg/kg]
+      q_ubc      (:,:,:)      !< Storage field for vertical nesting:
+                              !< q at (nest) upper boundary      [kg/kg]
+
+    TYPE(t_ptr_2d3d),ALLOCATABLE ::   &
+      q_int_ptr(:),         & !< pointer array: one pointer for each tracer
+      q_ubc_ptr(:)            !< pointer array: one pointer for each tracer
 
   END TYPE t_prepare_adv
 

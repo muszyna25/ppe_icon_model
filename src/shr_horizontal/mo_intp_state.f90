@@ -149,7 +149,7 @@ USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, ihs_ocean
 USE mo_model_domain,        ONLY: t_patch
 USE mo_grid_config,         ONLY: n_dom, n_dom_start, lplane, l_limited_area
 USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: ltransport
+USE mo_run_config,          ONLY: ltransport, ldynamics
 USE mo_dynamics_config,     ONLY: iequations
 USE mo_interpol_config,     ONLY: i_cori_method, rbf_vec_dim_c, rbf_c2grad_dim, &
   &                               rbf_vec_dim_v, rbf_vec_dim_e, lsq_lin_set,    &
@@ -174,6 +174,8 @@ USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
 ! USE mo_ocean_nml,           ONLY: idisc_scheme
 USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, get_valid_local_index
 USE mo_dist_dir,            ONLY: dist_dir_get_owners
+USE mo_update_dyn_scm ,     ONLY: rbf_coeff_scm
+USE mo_grid_config,         ONLY: l_scm_mode
 USE mo_name_list_output_config, ONLY: is_variable_in_output
 
 
@@ -1611,6 +1613,15 @@ DO jg = n_dom_start, n_dom
 !    ENDIF
 !    CALL init_geo_factors_oce(ptr_patch(jg), ptr_int_state(jg))
 !  ENDIF
+
+  ! SCM initialization of RBF coefficients
+
+  IF ( l_scm_mode .and. (.not.ldynamics) ) THEN
+
+    CALL rbf_coeff_scm( ptr_patch(jg), ptr_int_state(jg) )
+
+  ENDIF
+
 ENDDO
 
 CALL message('mo_intp_state:construct_2d_interpol_state', &

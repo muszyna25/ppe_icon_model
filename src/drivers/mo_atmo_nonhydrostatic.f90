@@ -16,7 +16,7 @@ MODULE mo_atmo_nonhydrostatic
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish, print_value
 USE mtime,                   ONLY: OPERATOR(>)
-USE mo_fortran_tools,        ONLY: copy, init
+USE mo_fortran_tools,        ONLY: init
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_init_latbc, &
   &                                timer_model_init, timer_init_icon, timer_read_restart, timer_init_dace
@@ -33,8 +33,6 @@ USE mo_art_config,           ONLY: configure_art
 USE mo_assimilation_config,  ONLY: configure_lhn, assimilation_config
 USE mo_run_config,           ONLY: dtime,                & !    namelist parameter
   &                                ltestcase,            &
-  &                                ldynamics,            &
-  &                                ltransport,           &
   &                                iforcing,             & !    namelist parameter
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
@@ -43,15 +41,15 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                ico2, io3,            &
   &                                number_of_grid_used
 USE mo_initicon_config,      ONLY: pinit_seed, pinit_amplitude
-USE mo_nh_testcases,         ONLY: init_nh_testcase
-USE mo_nh_testcases_nml,      ONLY: nh_test_name
+USE mo_nh_testcases,         ONLY: init_nh_testcase, init_nh_testcase_scm
+USE mo_nh_testcases_nml,     ONLY: nh_test_name
 USE mo_ls_forcing_nml,       ONLY: is_ls_forcing, is_nudging
 USE mo_ls_forcing,           ONLY: init_ls_forcing
-USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
+USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, nnew, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, &
-     &                             is_plane_torus, l_limited_area
+     &                             is_plane_torus, l_limited_area, l_scm_mode
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_intp_lonlat_types,    ONLY: lonlat_grids
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
@@ -183,10 +181,9 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
-    INTEGER :: jg, jt, ist
+    INTEGER :: jg, ist
 
     TYPE(t_sim_step_info) :: sim_step_info  
-    INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
     REAL(wp) :: sim_time
     TYPE(t_key_value_store), POINTER :: restartAttributes
 
@@ -382,12 +379,20 @@ CONTAINS
         !
         ! Initialize testcase analytically
         !
-        CALL init_nh_testcase(p_patch(1:)     ,&
-          &                   p_nh_state      ,&
-          &                   p_int_state(1:) ,&
-          &                   p_lnd_state(1:) ,&
-          &                   ext_data        ,&
-          &                   ntl=2           )
+        IF (l_scm_mode) THEN
+          CALL init_nh_testcase_scm(p_patch(1:)     ,&
+            &                       p_nh_state      ,&
+            &                       p_int_state(1:) ,&
+            &                       p_lnd_state(1:) ,&
+            &                       ext_data        )
+        ELSE
+          CALL init_nh_testcase    (p_patch(1:)     ,&
+            &                       p_nh_state      ,&
+            &                       p_int_state(1:) ,&
+            &                       p_lnd_state(1:) ,&
+            &                       ext_data        ,&
+            &                       ntl=2           )
+        ENDIF
         !
         IF(is_ls_forcing .OR. is_nudging) &
           CALL init_ls_forcing(p_nh_state(1)%metrics)

@@ -317,7 +317,7 @@ MODULE mo_rtifc_13
   type(rttov_transmission),                save :: transmission_k          ! transmittances,layer optical depths
   type(rttov_radiance)                          :: radiance_k              ! radiances, brightness temperatures
 #if defined(_RTTOV_ATLAS)
-  type(rttov_emis_atlas_data),             save :: mw_atlas(4)
+  type(rttov_emis_atlas_data),             save :: mw_atlas(5)             ! 1x TELSEM, 4x CNRM
   type(rttov_brdf_atlas_data),             save :: vis_atlas
 #endif
 
@@ -387,7 +387,8 @@ contains
                                 dom_rayleigh,       &!
                                 dom_nstreams,       &!
                                 ir_scatt_model,     &!
-                                vis_scatt_model     &!
+                                vis_scatt_model,    &!
+                                clip_gas_opdep      &!
                                )
     type(rttov_options), intent(inout), optional, target :: rttov_opts
     logical,             intent(in),    optional         :: init
@@ -421,6 +422,7 @@ contains
     integer,             intent(in),    optional         :: dom_nstreams
     integer,             intent(in),    optional         :: ir_scatt_model
     integer,             intent(in),    optional         :: vis_scatt_model
+    logical,             intent(in),    optional         :: clip_gas_opdep
     !--------------------------------------------------------------------------
     ! Set options in rttov_options type for later use in rtifc_* routines.
     !   Explanantion of crop_k_reg_lims Option by DWD (RF):
@@ -505,6 +507,9 @@ contains
     if (present(dom_nstreams     )) ropts%rt_ir%dom_nstreams       = dom_nstreams
     if (present(ir_scatt_model   )) ropts%rt_ir%ir_scatt_model     = ir_scatt_model
     if (present(vis_scatt_model  )) ropts%rt_ir%vis_scatt_model    = vis_scatt_model
+#if defined(_RTTOV_GOD)
+    if (present(clip_gas_opdep   )) ropts%config%clip_gas_opdep    = clip_gas_opdep
+#endif
 
     if (present(do_checkinput    )) then
       ropts%config%do_checkinput   = do_checkinput
@@ -3471,7 +3476,7 @@ FTRACE_END('rtifc_k')
 
  subroutine rtifc_init_mw_atlas(telsem, cnrm, ropts, month, path, my_proc_id, n_proc, io_proc_id, mpi_comm_type, stat)
    logical,            intent(in) :: telsem         ! load TELSEM
-   integer,            intent(in) :: cnrm(3)        ! instruments for CNRM (AMSU-A, ATMS, MHS)
+   integer,            intent(in) :: cnrm(4)        ! instruments for CNRM (AMSU-A, ATMS, MHS, SSMIS)
    type(rttov_options),intent(in) :: ropts          ! RTTOV options
    integer,            intent(in) :: month          ! Month number
    character(len=128), intent(in) :: path           ! path to atlases
@@ -3484,7 +3489,7 @@ FTRACE_END('rtifc_k')
    !--------------------------------------------
    ! Loads MW emissivity atlas
    !--------------------------------------------
-   logical   :: tel, cnr(3)
+   logical   :: tel, cnr(4)
    logical   :: l_distrib
    integer   :: k, j, n_atlas, ierr(4)
 
@@ -3522,7 +3527,7 @@ FTRACE_END('rtifc_k')
            write(0,*) 'Failed to initialize TELSEM emissivity atlas.'
          end if
        end if
-       ! CNRM needs to be loaded for each instument that requires it (AMSU-A/-B, ATMS and/or MHS)
+       ! CNRM needs to be loaded for each instument that requires it (AMSU-A/-B, ATMS, MHS and/or SSMIS)
        do j = 1, size(cnrm)
          if (cnrm(j) == coefs(k)% coef% id_inst .and. .not. cnr(j)) then
            n_atlas = n_atlas + 1
@@ -3539,7 +3544,7 @@ FTRACE_END('rtifc_k')
                 coefs(k)% coef% id_inst, ' initialized.'
              print*,n_atlas,mw_atlas(n_atlas)%init
            else
-             write(0,'(A,I3)') 'Failed to initialize TELSEM emissivity atlas for instrument ',coefs(k)% coef% id_inst
+             write(0,'(A,I3)') 'Failed to initialize CNRM emissivity atlas for instrument ',coefs(k)% coef% id_inst
            end if
          end if
        end do
@@ -3667,13 +3672,14 @@ FTRACE_END('rtifc_k')
 #endif
  end subroutine rtifc_init_brdf_atlas
 
- subroutine rtifc_brdf_atlas(insidx, profs, chans, ropts, refl, stat)
-   integer,            intent(in)  :: insidx   !instrument index
-   integer,            intent(in)  :: profs(:)! list of profile indices
-   integer,            intent(in)  :: chans(:)  ! list of channels
-   type(rttov_options),intent(in)  :: ropts          ! RTTOV options
-   real(wp),           intent(out) :: refl(:)  ! emissivities
-   integer,            intent(out) :: stat     ! error status
+ subroutine rtifc_brdf_atlas(insidx, profs, chans, ropts, refl, stat,refl_flag)
+   integer,            intent(in)  :: insidx      ! instrument index
+   integer,            intent(in)  :: profs(:)    ! list of profile indices
+   integer,            intent(in)  :: chans(:)    ! list of channels
+   type(rttov_options),intent(in)  :: ropts       ! RTTOV options
+   real(wp),           intent(out) :: refl(:)     ! emissivities
+   integer, optional,  intent(out) :: refl_flag(:)! emissivities flags !#LB
+   integer,            intent(out) :: stat        ! error status
    !--------------------------
    ! Get emissivity from atlas
    !--------------------------
@@ -3708,7 +3714,7 @@ FTRACE_END('rtifc_k')
       chanprof(k)% prof = profs(k)
    enddo
 
-   call rttov_get_brdf(stat, ropts, chanprof, profiles, coefs(insidx), vis_atlas, refl)
+   call rttov_get_brdf(stat, ropts, chanprof, profiles, coefs(insidx), vis_atlas, refl, brdf_flag=refl_flag)!#LB
 
  end subroutine rtifc_brdf_atlas
 

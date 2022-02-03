@@ -32,6 +32,7 @@ MODULE mo_aerosol_util
   USE mo_impl_constants_grf,     ONLY: grf_bdywidth_c
   USE mo_math_constants,         ONLY: rad2deg
   USE mo_kind,                   ONLY: wp
+  USE mo_exception,              ONLY: finish
   USE mo_loopindices,            ONLY: get_indices_c
   USE mo_lrtm_par,               ONLY: jpband => nbndlw
   USE mo_model_domain,           ONLY: t_patch
@@ -47,8 +48,9 @@ MODULE mo_aerosol_util
 
   PRIVATE
 
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_aerosol_util'
 
- 
   !RRTM
   REAL  (wp)              ::           &
   zaea_rrtm(jpsw+jpband,5), &  ! ratio of optical thickness for the absorption in spectral
@@ -57,10 +59,29 @@ MODULE mo_aerosol_util
   zaes_rrtm(jpsw+jpband,5), &  ! analog for the optical thickness of scattering 
   zaeg_rrtm(jpsw+jpband,5)!, zaef_rrtm(jpsw+jpband,5)
 
+  !ecRad
+  TYPE t_tegen_scal_factors
+    ! Total number of wavelength bands
+    INTEGER :: n_bands
+    ! Scaling factors from 550nm to wavelengths bands
+    REAL(wp), ALLOCATABLE :: &
+      &  absorption(:,:),            & !< Dim [n_bands, nspecies=5]
+      &  scattering(:,:),            & !< Dim [n_bands, nspecies=5] 
+      &  asymmetry(:,:)                !< Dim [n_bands, nspecies=5]
+    CONTAINS
+      PROCEDURE :: init     => init_tegen_scal_factors
+      PROCEDURE :: finalize => finalize_tegen_scal_factors
+  END TYPE t_tegen_scal_factors
+
+  TYPE(t_tegen_scal_factors), TARGET :: tegen_scal_factors
+
   PUBLIC :: zaea_rrtm, zaes_rrtm, zaeg_rrtm, &
     &       aerdis, init_aerosol_dstrb_tanre, init_aerosol_props_tanre_rrtm, &
     &       init_aerosol_props_tegen_rrtm, tune_dust
   PUBLIC :: prog_aerosol_2D, aerosol_2D_diffusion
+  PUBLIC :: tegen_scal_factors, init_aerosol_props_tegen_ecrad
+
+  !$ACC DECLARE CREATE(zaea_rrtm, zaes_rrtm, zaeg_rrtm)
 
 CONTAINS
 
@@ -70,7 +91,7 @@ CONTAINS
   !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-02-28)
   !! Transferred to mo_aerosol_util Sophia Schaefer, DWD (2021-06-21)
    
-  SUBROUTINE aerdis ( klevp1, kbdim, jcs, jce, petah,  pvdaes, pvdael, pvdaeu, pvdaed )
+  SUBROUTINE aerdis ( klevp1, kbdim, jcs, jce, petah,  pvdaes, pvdael, pvdaeu, pvdaed, lacc )
     
     !------------------------------------------------------------------------------
     !
@@ -116,6 +137,8 @@ CONTAINS
     REAL    (wp), INTENT (IN) ::  &
       petah(kbdim,klevp1)    ! normalized vertical coordinate at half levels
 
+    LOGICAL, OPTIONAL, INTENT(IN) :: lacc
+
     ! Output data
     ! -----------
     REAL    (wp), INTENT (OUT) ::  &
@@ -134,6 +157,7 @@ CONTAINS
 
     INTEGER :: jc,jk
     REAL(wp) :: log_eta
+    LOGICAL :: lzacc
 
     !- End of header
     !==============================================================================
@@ -142,12 +166,23 @@ CONTAINS
     ! Begin Subroutine aerdis              
     !------------------------------------------------------------------------------
 
+    IF(PRESENT(lacc)) THEN
+        lzacc = lacc
+    ELSE
+        lzacc = .FALSE.
+    ENDIF
+    !$acc data present(petah,pvdaes,pvdael,pvdaeu,pvdaed) if (lzacc)
+
+    ! default data present
+    !$acc parallel default(none) ASYNC(1) if (lzacc)
+    !$acc loop gang vector
     DO jc=jcs,jce
       pvdaes(jc,1) = 0.0_wp
       pvdael(jc,1) = 0.0_wp
       pvdaeu(jc,1) = 0.0_wp
       pvdaed(jc,1) = 0.0_wp
     ENDDO
+    !$acc end parallel
 
 !!$  IF(petah(1).NE.0._wp) THEN
 !!$     pvdaes(1) = petah(1)**zhss
@@ -156,6 +191,8 @@ CONTAINS
 !!$     pvdaed(1) = petah(1)**zhsd
 !!$  END IF
 
+    !$acc parallel default(none) ASYNC(1) if (lzacc)
+    !$acc loop gang vector collapse(2) PRIVATE(log_eta)
     DO jk=2,klevp1
       DO jc=jcs,jce
         log_eta       = LOG(petah(jc,jk))
@@ -165,6 +202,9 @@ CONTAINS
         pvdaed(jc,jk) = EXP(zhsd*log_eta) ! petah(jc,jk)**zhsd
       ENDDO
     ENDDO
+    !$acc end parallel
+
+    !$acc end data
 
   END SUBROUTINE aerdis
 
@@ -627,6 +667,8 @@ CONTAINS
      &0.1310_wp,0.1906_wp,0.2625_wp,0.3154_wp,0.3869_wp,0.4787_wp,0.5279_wp,0.6272_wp,&     ! SB
      &0.6941_wp,0.7286_wp,0.7358_wp,0.7177_wp,0.6955_wp,0.0616_wp/),(/jpsw+jpband,5/))      ! SB
 
+    !$ACC UPDATE DEVICE(zaea_rrtm, zaes_rrtm, zaeg_rrtm)
+
   END SUBROUTINE init_aerosol_props_tanre_rrtm
   
   SUBROUTINE init_aerosol_props_tegen_rrtm
@@ -703,7 +745,103 @@ CONTAINS
      &0.1310_wp,0.1906_wp,0.2625_wp,0.3154_wp,0.3869_wp,0.4787_wp,0.5279_wp,0.6272_wp,&     ! SB
      &0.6941_wp,0.7286_wp,0.7358_wp,0.7177_wp,0.6955_wp,0.0616_wp/),(/jpsw+jpband,5/))      ! SB
 
+    !$ACC UPDATE DEVICE(zaea_rrtm, zaes_rrtm, zaeg_rrtm)
+
   END SUBROUTINE init_aerosol_props_tegen_rrtm
+
+  !---------------------------------------------------------------------------------------
+  !>
+  !! SUBROUTINE init_aerosol_props_tegen_ecrad
+  !! Initializes scaling factors used to scale 550nm AOD to different wavelength bands
+  !! of ecRad.
+  !! In case the RRTM gas model is chosen, the previously used lookup tables are copied
+  !! into the new data structure.
+  !!
+  !! @par Revision History
+  !! Initial release by Daniel Rieger, Deutscher Wetterdienst, Offenbach (2021-10-20)
+  !!
+  !---------------------------------------------------------------------------------------
+  SUBROUTINE init_aerosol_props_tegen_ecrad(n_bands_sw,n_bands_lw, l_rrtm_gas_model)
+    INTEGER, INTENT(in) ::      &
+      &  n_bands_sw, n_bands_lw   !< Number of SW/LW bands
+    LOGICAL, INTENT(in) ::      &
+      &  l_rrtm_gas_model         !< Use RRTM gas model (mimic legacy behavior)
+    ! Local variables
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::init_aerosol_props_tegen_ecrad'
+
+    CALL tegen_scal_factors%init(n_bands_sw+n_bands_lw)
+
+    IF (l_rrtm_gas_model) THEN ! Use look up tables from legacy routine
+      ! Sanity check
+      IF ((tegen_scal_factors%n_bands) /= 30) &
+        &  CALL finish(routine,'ecRad wavelength bands / gas model mismatch.')
+      CALL init_aerosol_props_tegen_rrtm()
+      tegen_scal_factors%absorption(:,:) = zaea_rrtm(:,:)
+      tegen_scal_factors%scattering(:,:) = zaes_rrtm(:,:)
+      tegen_scal_factors%asymmetry (:,:) = zaeg_rrtm(:,:)
+      !$ACC UPDATE DEVICE(tegen_scal_factors%absorption, &
+      !$ACC   tegen_scal_factors%scattering, tegen_scal_factors%asymmetry)
+    ELSE
+      ! This part will be used for ecckd in the future.
+      ! Here, the number of bands is flexible and the
+      ! scaling coefficients must be read from a file
+      ! (or new lookup tables for heavily-used configurations)
+      CALL finish(routine,'Currently only RRTM Gas Optics implemented.')
+    ENDIF
+    
+  END SUBROUTINE init_aerosol_props_tegen_ecrad
+  !---------------------------------------------------------------------------------------
+
+  !---------------------------------------------------------------------------------------
+  !>
+  !! SUBROUTINE init_tegen_scal_factors
+  !! Constructor for t_tegen_scal_factors
+  !!
+  !! @par Revision History
+  !! Initial release by Daniel Rieger, Deutscher Wetterdienst, Offenbach (2021-10-20)
+  !!
+  !---------------------------------------------------------------------------------------
+  SUBROUTINE init_tegen_scal_factors(this, n_bands)
+    CLASS(t_tegen_scal_factors), INTENT(inout) :: &
+      &  this      !< Scaling factor information
+    INTEGER, INTENT(in) :: &
+      &  n_bands   !< Total number of wavelength bands
+
+    this%n_bands = n_bands
+
+    ALLOCATE(this%absorption(this%n_bands,5))
+    ALLOCATE(this%scattering(this%n_bands,5))
+    ALLOCATE(this%asymmetry (this%n_bands,5))
+    !$ACC ENTER DATA CREATE(this%absorption, this%scattering, this%asymmetry)
+  END SUBROUTINE
+  !---------------------------------------------------------------------------------------
+
+  !---------------------------------------------------------------------------------------
+  !>
+  !! SUBROUTINE finalize_tegen_scal_factors
+  !! Destructor for t_tegen_scal_factors
+  !!
+  !! @par Revision History
+  !! Initial release by Daniel Rieger, Deutscher Wetterdienst, Offenbach (2021-10-20)
+  !!
+  !---------------------------------------------------------------------------------------
+  SUBROUTINE finalize_tegen_scal_factors(this)
+    CLASS(t_tegen_scal_factors), INTENT(inout) :: &
+      &  this      !< Scaling factor information
+
+    this%n_bands = 0
+
+    !$ACC EXIT DATA DELETE(this%absorption) IF(ALLOCATED(this%absorption))
+    IF (ALLOCATED(this%absorption)) &
+      DEALLOCATE(this%absorption)
+    !$ACC EXIT DATA DELETE(this%scattering) IF(ALLOCATED(this%scattering))
+    IF (ALLOCATED(this%scattering)) &
+      DEALLOCATE(this%scattering)
+    !$ACC EXIT DATA DELETE(this%asymmetry) IF(ALLOCATED(this%asymmetry))
+    IF (ALLOCATED(this%asymmetry)) &
+      DEALLOCATE(this%asymmetry)
+  END SUBROUTINE
+  !---------------------------------------------------------------------------------------
 
   ! Very simple parameterization of source and sink terms for prognostic 2D aerosol fields
   !

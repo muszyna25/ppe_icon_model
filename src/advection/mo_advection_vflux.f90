@@ -148,7 +148,7 @@ CONTAINS
   !
   SUBROUTINE vert_upwind_flux( p_patch, p_cc, p_mflx_contra_v,                &
     &                      p_dtime, p_cellhgt_mc_now, p_cellmass_now,         &
-    &                      lprint_cfl, p_upflux, opt_topflx_tra, opt_q_int,   &
+    &                      lprint_cfl, p_upflux, q_ubc, q_int,                &
     &                      opt_rlstart, opt_rlend  )
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':vert_upwind_flux'
@@ -178,13 +178,12 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: &    !< variable in which the upwind flux is stored
       &  p_upflux(:,:,:,:)          !< dim: (nproma,nlevp1,nblks_c,ntracer)
 
-    REAL(wp), INTENT(IN), OPTIONAL :: & !< vertical tracer flux at upper boundary 
-      &  opt_topflx_tra(:,:,:)          !< NH: [kg/m**2/s]
-                                        !< dim: (nproma,nblks_c,ntracer)
+    REAL(wp), INTENT(IN)    :: &    !< tracer mass fraction at (nest) upper boundary 
+      &  q_ubc(:,:,:)               !< NH: [kg/kg]
 
-    REAL(wp), INTENT(OUT), OPTIONAL :: & !< tracer value at upper boundary of child nest 
-      &  opt_q_int(:,:,:)               !< NH: [kg/kg]
-                                        !< dim: (nproma,nblks_c,ntracer)
+    REAL(wp), INTENT(OUT)   :: &    !< tracer mass fraction at child nest interface level 
+      &  q_int(:,:,:)               !< NH: [kg/kg]
+                                        !< dim: (nproma,ntracer,nblks_c)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
       &  opt_rlstart                   !< only valid for calculation of 'cell value'
@@ -248,7 +247,7 @@ CONTAINS
           &         p_iubc_adv     = advconf%iubc_adv,       & !in
           &         p_mflx_contra_v= p_mflx_contra_v(:,:,:), & !in 
           &         p_upflux       = p_upflux(:,:,:,jt),     & !out
-          &         opt_topflx_tra = opt_topflx_tra(:,:,jt), & !in
+          &         opt_q_ubc      = q_ubc(:,jt,:),          & !in
           &         opt_slev       = advconf%iadv_slev(jt),  & !in
           &         opt_rlstart    = opt_rlstart,            & !in
           &         opt_rlend      = i_rlend_c               ) !in
@@ -278,7 +277,7 @@ CONTAINS
           &         lprint_cfl          = lprint_cfl,                    & !in
           &         ivadv_tracer        = advconf%ivadv_tracer(jt),      & !in
           &         p_upflux            = p_upflux(:,:,:,jt),            & !out
-          &         opt_topflx_tra      = opt_topflx_tra(:,:,jt),        & !in
+          &         opt_q_ubc           = q_ubc(:,jt,:),                 & !in
           &         opt_slev            = advconf%iadv_slev(jt),         & !in
           &         opt_ti_slev         = iadv_min_slev,                 & !in
           &         opt_rlstart         = opt_rlstart,                   & !in
@@ -302,7 +301,7 @@ CONTAINS
       i_startblk = p_patch%cells%start_block(i_rlstart_c)
       i_endblk   = p_patch%cells%end_block(i_rlend_c)
 
-!$ACC DATA PRESENT( p_mflx_contra_v, p_patch, opt_q_int, p_upflux, trAdvect ) &
+!$ACC DATA PRESENT( p_mflx_contra_v, p_patch, q_int, p_upflux, trAdvect ) &
 !$ACC      CREATE ( z_mflx_contra_v )
 
 !$OMP PARALLEL DO PRIVATE(jb,jt,jc,nt,i_startidx,i_endidx,z_mflx_contra_v) ICON_OMP_DEFAULT_SCHEDULE
@@ -321,7 +320,7 @@ CONTAINS
         DO nt = 1, trAdvect%len
           DO jc = i_startidx, i_endidx
             jt = trAdvect%list(nt)
-            opt_q_int(jc,jb,jt) = p_upflux(jc,p_patch%nshift_child,jb,jt) / z_mflx_contra_v(jc)
+            q_int(jc,jt,jb) = p_upflux(jc,p_patch%nshift_child,jb,jt) / z_mflx_contra_v(jc)
           ENDDO
         ENDDO
       ENDDO
@@ -352,8 +351,8 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2010-04-23)
   !! - generalized to height based vertical coordinate systems
   !!
-  SUBROUTINE upwind_vflux_up( p_patch, p_cc, p_iubc_adv, p_mflx_contra_v, &
-    &                         p_upflux, opt_topflx_tra, opt_slev,         &
+  SUBROUTINE upwind_vflux_up( p_patch, p_cc, p_iubc_adv, p_mflx_contra_v,    &
+    &                         p_upflux, opt_q_ubc, opt_slev,                 &
     &                         opt_rlstart, opt_rlend )
 
 !!$    CHARACTER(len=*), PARAMETER :: routine = modname//':upwind_vflux_up'
@@ -373,8 +372,8 @@ CONTAINS
     REAL(wp), INTENT(INOUT) ::  & !< vertical tracer flux at half levels
       &  p_upflux(:,:,:)          !< dim: (nproma,nlevp1,nblks_c)
 
-    REAL(wp), INTENT(IN), OPTIONAL :: & !< vertical tracer flux at upper boundary 
-      &  opt_topflx_tra(:,:)            !< dim: (nproma,nblks_c)
+    REAL(wp), INTENT(IN), OPTIONAL :: & !< tracer mass fraction at (nest) upper boundary 
+      &  opt_q_ubc(:,:)                 !< dim: (nproma,nblks_c)
 
     INTEGER, INTENT(IN), OPTIONAL ::  & !< optional vertical start level
       &  opt_slev
@@ -385,9 +384,9 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
       &  opt_rlend                     !< (to avoid calculation of halo points)
 
-    REAL(wp) ::  &                              !< necessary, to make this routine
-      &  zparent_topflx(nproma,p_patch%nblks_c) !< compatible to the hydrost. core 
-                                       
+    REAL(wp) ::  &
+      &  zq_ubc(nproma,p_patch%nblks_c)
+
     INTEGER  :: slev                   !< vertical start level
     INTEGER  :: nlev, nlevp1           !< number of full and half levels
     INTEGER  :: jc, jk, jb             !< index of cell, vertical level and block
@@ -396,12 +395,8 @@ CONTAINS
     !-------------------------------------------------------------------------
 
 
-!$ACC DATA CREATE( zparent_topflx ), PCOPYIN( p_cc, p_mflx_contra_v ), PCOPYOUT( p_upflux ), &
+!$ACC DATA CREATE( zq_ubc ), PCOPYIN( p_cc, p_mflx_contra_v ), PCOPYOUT( p_upflux ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-
-#ifdef __INTEL_COMPILER
-!DIR$ ATTRIBUTES ALIGN : 64 :: zparent_topflx
-#endif
 
 !$ACC UPDATE DEVICE( p_cc, p_mflx_contra_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
@@ -412,13 +407,13 @@ CONTAINS
       slev = 1
     END IF
 
-    IF ( PRESENT(opt_topflx_tra) ) THEN
-!$ACC KERNELS PRESENT( opt_topflx_tra, zparent_topflx ), IF ( i_am_accel_node .AND. acc_on )
-      zparent_topflx(:,:) = opt_topflx_tra(:,:)
+    IF ( PRESENT(opt_q_ubc) ) THEN
+!$ACC KERNELS PRESENT( opt_q_ubc, zq_ubc ), IF ( i_am_accel_node .AND. acc_on )
+      zq_ubc(:,:) = opt_q_ubc(:,:)
 !$ACC END KERNELS
     ELSE
-!$ACC KERNELS PRESENT( zparent_topflx ), IF ( i_am_accel_node .AND. acc_on )
-      zparent_topflx(:,:) = 0._wp
+!$ACC KERNELS PRESENT( zq_ubc ), IF ( i_am_accel_node .AND. acc_on )
+      zq_ubc(:,:) = 0._wp
 !$ACC END KERNELS
     ENDIF
 
@@ -474,8 +469,8 @@ CONTAINS
       CALL set_bc_vadv(p_upflux(:,slev+1,jb),            &! in
         &              p_mflx_contra_v(:,slev+1,jb),     &! in
         &              p_mflx_contra_v(:,slev  ,jb),     &! in
+        &              zq_ubc(:,jb),                     &! in
         &              p_iubc_adv, i_startidx, i_endidx, &! in
-        &              zparent_topflx(:,jb),             &! in
         &              p_upflux(:,slev,jb),              &! out
         &              p_upflux(:,nlevp1,jb), .TRUE.)     ! out
       
@@ -517,7 +512,7 @@ CONTAINS
     &                      p_ivlimit_selective,                                &
     &                      p_cellhgt_mc_now, p_cellmass_now,                   &
     &                      lprint_cfl, ivadv_tracer,                           &
-    &                      p_upflux, opt_lout_edge, opt_topflx_tra, opt_slev,  &
+    &                      p_upflux, opt_lout_edge, opt_q_ubc, opt_slev,       &
     &                      opt_ti_slev, opt_rlstart, opt_rlend, opt_elev )
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':upwind_vflux_ppm'
@@ -570,8 +565,8 @@ CONTAINS
       &  opt_lout_edge                  !< or the flux across the edge 
                                         !< (.FALSE./not specified)
 
-    REAL(wp), INTENT(IN), OPTIONAL :: & !< vertical tracer flux at upper boundary 
-      &  opt_topflx_tra(:,:)            !< dim: (nproma,nblks_c)
+    REAL(wp), INTENT(IN), OPTIONAL :: & !< tracer mass fraction at (nest) upper boundary 
+      &  opt_q_ubc(:,:)                 !< dim: (nproma,nblks_c)
 
     INTEGER, INTENT(IN), OPTIONAL ::  & !< optional vertical start level
       &  opt_slev
@@ -674,8 +669,8 @@ CONTAINS
     REAL(wp) ::   &                      !< high order flux
       &  z_flx_frac_high
 
-    REAL(wp) ::  &                              !< necessary, to make this routine
-      &  zparent_topflx(nproma,p_patch%nblks_c) !< compatible to the hydrost. core 
+    REAL(wp) ::  &
+      &  zq_ubc(nproma,p_patch%nblks_c)
 
     REAL(wp) ::   &                      !< maximum CFL within one layer, and domain-wide maximum
       &  max_cfl_lay(p_patch%nlevp1,p_patch%nblks_c), max_cfl_tot, max_cfl_lay_tot(p_patch%nlevp1)
@@ -691,7 +686,7 @@ CONTAINS
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_cflfrac,max_cfl_blk
 !DIR$ ATTRIBUTES ALIGN : 64 :: i_indlist,i_levlist,i_listdim
 !DIR$ ATTRIBUTES ALIGN : 64 :: jk_shifted
-!DIR$ ATTRIBUTES ALIGN : 64 :: zparent_topflx,max_cfl_lay
+!DIR$ ATTRIBUTES ALIGN : 64 :: zq_ubc,max_cfl_lay
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_aux,max_cfl_lay_tot
 #endif
     !-----------------------------------------------------------------------
@@ -726,10 +721,10 @@ CONTAINS
       l_out_edgeval = .FALSE.
     ENDIF
 
-    IF ( PRESENT(opt_topflx_tra) ) THEN
-      zparent_topflx(:,:) = opt_topflx_tra(:,:)
+    IF ( PRESENT(opt_q_ubc) ) THEN
+      zq_ubc(:,:) = opt_q_ubc(:,:)
     ELSE
-      zparent_topflx(:,:) = 0._wp
+      zq_ubc(:,:) = 0._wp
     ENDIF
 
     IF ( PRESENT(opt_rlstart) ) THEN
@@ -1151,8 +1146,8 @@ CONTAINS
       CALL set_bc_vadv(p_upflux(:,slev+1,jb),            &! in
         &              p_mflx_contra_v(:,slev+1,jb),     &! in
         &              p_mflx_contra_v(:,slev  ,jb),     &! in
+        &              zq_ubc(:,jb),                     &! in
         &              p_iubc_adv, i_startidx, i_endidx, &! in
-        &              zparent_topflx(:,jb),             &! in
         &              p_upflux(:,slev,jb),              &! out
         &              p_upflux(:,nlevp1,jb), llbc_adv)   ! out
 
@@ -1275,7 +1270,7 @@ CONTAINS
     &                      p_ivlimit_selective,                                &
     &                      p_cellhgt_mc_now, p_cellmass_now, lprint_cfl,       &
     &                      ivadv_tracer,                                       &
-    &                      p_upflux, opt_lout_edge, opt_topflx_tra, opt_slev,  &
+    &                      p_upflux, opt_lout_edge, opt_q_ubc, opt_slev,       &
     &                      opt_ti_slev, opt_rlstart, opt_rlend, opt_elev )
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':upwind_vflux_ppm4gpu'
@@ -1328,8 +1323,8 @@ CONTAINS
       &  opt_lout_edge                  !< or the flux across the edge 
                                         !< (.FALSE./not specified)
 
-    REAL(wp), INTENT(IN), OPTIONAL :: & !< vertical tracer flux at upper boundary 
-      &  opt_topflx_tra(:,:)            !< dim: (nproma,nblks_c)
+    REAL(wp), INTENT(IN), OPTIONAL :: & !< tracer mass fraction at (nest) upper boundary 
+      &  opt_q_ubc(:,:)                 !< dim: (nproma,nblks_c)
 
     INTEGER, INTENT(IN), OPTIONAL ::  & !< optional vertical start level
       &  opt_slev
@@ -1423,8 +1418,8 @@ CONTAINS
     REAL(wp) ::   &                      !< domain-wide maximum CFL
       &  max_cfl_tot
 
-    REAL(wp) ::  &                              !< necessary, to make this routine
-      &  zparent_topflx(nproma,p_patch%nblks_c) !< compatible to the hydrost. core 
+    REAL(wp) ::  &
+      &  zq_ubc(nproma,p_patch%nblks_c)
 
     REAL(wp) :: rdtime                   !< 1/dt
 
@@ -1437,7 +1432,6 @@ CONTAINS
 !$ACC UPDATE DEVICE( p_cc, p_cellhgt_mc_now, p_cellmass_now, p_mflx_contra_v, p_upflux ), &
 !$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
-!$ACC DATA CREATE( zparent_topflx ), IF( i_am_accel_node .AND. acc_on )
 
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -1461,16 +1455,6 @@ CONTAINS
       l_out_edgeval = opt_lout_edge
     ELSE
       l_out_edgeval = .FALSE.
-    ENDIF
-
-    IF ( PRESENT(opt_topflx_tra) ) THEN
-!$ACC KERNELS PRESENT( opt_topflx_tra, zparent_topflx ), IF ( i_am_accel_node .AND. acc_on )
-      zparent_topflx(:,:) = opt_topflx_tra(:,:)
-!$ACC END KERNELS
-    ELSE
-!$ACC KERNELS PRESENT( zparent_topflx ), IF ( i_am_accel_node .AND. acc_on )
-      zparent_topflx(:,:) = 0._wp
-!$ACC END KERNELS
     ENDIF
 
     IF ( PRESENT(opt_rlstart) ) THEN
@@ -1519,9 +1503,19 @@ CONTAINS
 !$ACC ENTER DATA CREATE( z_cfl ),  IF( i_am_accel_node .AND. acc_on )
     END IF
 
-!$ACC DATA CREATE( z_face, z_face_up, z_face_low, z_delta_q, z_a1 ), &
+!$ACC DATA CREATE( z_face, z_face_up, z_face_low, z_delta_q, z_a1, zq_ubc ), &
 !$ACC      PCOPYIN( p_cc, p_cellhgt_mc_now, p_cellmass_now ), PCOPY( p_mflx_contra_v, p_upflux ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
+
+    IF ( PRESENT(opt_q_ubc) ) THEN
+      !$ACC KERNELS DEFAULT(NONE) PRESENT( opt_q_ubc ) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      zq_ubc(:,:) = opt_q_ubc(:,:)
+      !$ACC END KERNELS
+    ELSE
+      !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      zq_ubc(:,:) = 0._wp
+      !$ACC END KERNELS
+    ENDIF
 
 
 !$OMP PARALLEL
@@ -1828,8 +1822,8 @@ CONTAINS
       CALL set_bc_vadv(p_upflux(:,slev+1,jb),            &! in
         &              p_mflx_contra_v(:,slev+1,jb),     &! in
         &              p_mflx_contra_v(:,slev  ,jb),     &! in
+        &              zq_ubc(:,jb),                     &! in
         &              p_iubc_adv, i_startidx, i_endidx, &! in
-        &              zparent_topflx(:,jb),             &! in
         &              p_upflux(:,slev,jb),              &! out
         &              p_upflux(:,nlevp1,jb), llbc_adv)   ! out
 
@@ -1938,8 +1932,6 @@ CONTAINS
         CALL finish(routine, 'deallocation for z_cfl failed' )
       ENDIF
     END IF
-
-!$ACC END DATA ! zparent_topflx
 
 !$ACC UPDATE HOST( p_mflx_contra_v, p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
@@ -2126,9 +2118,8 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2011-04-12)
   !!
   !
-  SUBROUTINE set_bc_vadv(upflx_top_p1, mflx_top_p1, mflx_top, iubc_adv, &
-    &                    i_start, i_end, parent_topflx, upflx_top,      &
-    &                    upflx_bottom, llbc_adv )
+  SUBROUTINE set_bc_vadv(upflx_top_p1, mflx_top_p1, mflx_top, q_top, iubc_adv, &
+    &                    i_start, i_end, upflx_top, upflx_bottom, llbc_adv )
 
 !!$    CHARACTER(len=*), PARAMETER :: routine = modname//':set_ubc_adv'
 
@@ -2138,12 +2129,12 @@ CONTAINS
       &  mflx_top_p1(:)
     REAL(wp), INTENT(IN)     :: & !< mass flux at upper boundary
       &  mflx_top(:)
+    REAL(wp), INTENT(IN)     :: & !< tracer mass fraction at upper boundary
+      &  q_top(:)
     INTEGER, INTENT(IN)      :: & !< selects upper boundary condition
       &  iubc_adv
     INTEGER, INTENT(IN)      :: & !< start and end index
       &  i_start, i_end
-    REAL(wp), INTENT(IN)     :: & !< tracer flux at upper boundary, 
-      &  parent_topflx(:)         !< interpolated from parent grid
     REAL(wp), INTENT(OUT)    :: & !< upper boundary condition
       &  upflx_top(:)
     REAL(wp), INTENT(INOUT)  :: & !< lower boundary condition
@@ -2153,7 +2144,7 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
-!$ACC DATA PCOPYIN( upflx_top_p1, mflx_top_p1, mflx_top, parent_topflx ), &
+!$ACC DATA PCOPYIN( upflx_top_p1, mflx_top_p1, mflx_top, q_top ), &
 !$ACC      PCOPYOUT( upflx_top, upflx_bottom ), IF( i_am_accel_node .AND. acc_on )
 
     ! 
@@ -2174,8 +2165,12 @@ CONTAINS
 !$ACC END KERNELS
 
       CASE ( iparent_flx ) ! interpolated flux from parent grid
+      !
+      ! multiply horizontally interpolated face value q_ubc with time averaged 
+      ! mass flux at (nest) upper boundary
+
 !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-        upflx_top(i_start:i_end) = parent_topflx(i_start:i_end)
+        upflx_top(i_start:i_end) = q_top(i_start:i_end)*mflx_top(i_start:i_end)
 !$ACC END KERNELS
     END SELECT
 

@@ -62,7 +62,7 @@ MODULE mo_nwp_phy_init
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
 #ifdef __ECRAD
   USE mo_nwp_ecrad_init,      ONLY: setup_ecrad
-  USE mo_ecrad,               ONLY: ecrad_conf
+  USE mo_ecrad,               ONLY: ecrad_conf, IGasModelIFSRRTMG
 #endif
 
   ! microphysics
@@ -90,21 +90,19 @@ MODULE mo_nwp_phy_init
 
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_sea_lists, &
     &                               aggregate_tg_qvs, copy_lnd_prog_now2new
-  USE mo_lnd_nwp_config,      ONLY: ntiles_total, lsnowtile, ntiles_water, &
-    &                               lseaice, zml_soil, itype_canopy
-  USE sfc_terra_data,         ONLY: csalbw!, z0_lu
+  USE mo_lnd_nwp_config,      ONLY: ntiles_total, lsnowtile, ntiles_water, ntiles_lnd, &
+    &                               lseaice, zml_soil, itype_canopy, nlev_soil, dzsoil_icon => dzsoil
+  USE sfc_terra_data,         ONLY: csalbw, cpwp, cfcap
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                               sat_pres_ice, &    !! saturation vapor pressure w.r.t. ice
     &                               spec_humi          !! Specific humidity
 
   USE data_gwd,               ONLY: sugwwms
 
-  USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case, th_cbl, sol_const
-  USE mo_ape_params,          ONLY: ape_sst
   USE mo_master_config,       ONLY: isRestart
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
-  USE mo_initicon_config,     ONLY: init_mode, lread_tke, icpl_da_sfcevap, dt_ana
+  USE mo_initicon_config,     ONLY: init_mode, lread_tke, icpl_da_sfcevap, dt_ana, icpl_da_snowalb, icpl_da_skinc
 
   USE mo_nwp_tuning_config,   ONLY: tune_zceff_min, tune_v0snow, tune_zvz0i, tune_icesedi_exp
   USE mo_cuparameters,        ONLY: sugwd
@@ -122,7 +120,17 @@ MODULE mo_nwp_phy_init
   USE mo_upatmo_impl_const,   ONLY: iUpatmoPrcStat, iUpatmoStat
   USE mo_upatmo_phy_setup,    ONLY: init_upatmo_phy_nwp
 
+  USE mo_ape_params,          ONLY: ape_sst
+  USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case, th_cbl, sol_const
+  USE mo_grid_config,         ONLY: l_scm_mode
+  USE mo_scm_nml,             ONLY: i_scm_netcdf, lscm_read_tke, lscm_read_z0, &
+                                    scm_sfc_temp, scm_sfc_qv
+  USE mo_nh_torus_exp,        ONLY: read_soil_profile_nc,read_soil_profile_nc_uf
+
   USE mo_cover_koe,           ONLY: cover_koe_config
+  USE mo_bc_aeropt_kinne,     ONLY: read_bc_aeropt_kinne
+  USE mo_bc_aeropt_cmip6_volc,ONLY: read_bc_aeropt_cmip6_volc
+  USE mo_aerosol_util,        ONLY: init_aerosol_props_tegen_ecrad
 
   IMPLICIT NONE
 
@@ -170,6 +178,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   REAL(wp)            :: scale_fac ! scale factor used only for RCE cases
   REAL(wp) :: zvariaux(nproma,p_patch%nlevp1,ndim)  !< to pass values from turbdiff to vertdiff
   REAL(wp) :: zrhon   (nproma,p_patch%nlevp1)       !< to pass values from turbdiff to vertdiff
+  REAL(wp)            :: w_so_profile(nlev_soil)    !soil moisture for SCM initialization
+  REAL(wp)            :: t_so_profile(nlev_soil+1)  !soil temperature for SCM initialization
+  REAL(wp)            :: t_g_in                     !T,g for SCM initialization
 
   INTEGER             :: icur_date    ! current date converted to integer
 
@@ -195,7 +206,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   LOGICAL :: lland, lglac, lshallow, lgrayzone_dc, ldetrain_prec
   LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
   LOGICAL :: linit_mode, lturb_init, lreset_mode
-  LOGICAL :: lupatmo_phy
+  LOGICAL :: lupatmo_phy, l_filename_year
 
   INTEGER :: jb,ic,jc,jt,jg,ist,nzprv
   INTEGER :: nlev, nlevp1, nlevcm    !< number of full, half and canopy levels
@@ -250,6 +261,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   ENDIF
 
   i_nchdom  = MAX(1,p_patch%n_childdom)
+
+  ierrstat=0
+  eroutine=''
+  errormsg=''
 
   ! number of vertical levels
   nlev   = p_patch%nlev
@@ -363,10 +378,12 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     IF (itype_canopy == 2 .AND. icpl_da_sfcevap == 3) THEN
       DO jt = 1, ntiles_total + ntiles_water
         DO jc = i_startidx,i_endidx
-          IF (jt <= ntiles_total) THEN
-            prm_diag%rlamh_fac_t(jc,jb,jt) =                                                                              &
-              1._wp - 0.9_wp*MAX(0._wp,MIN(1._wp,(60._wp-ext_data%atm%skinc_t(jc,jb,jt))/30._wp)) *                       &
-              MAX(0._wp,MIN(1._wp,2.5_wp*(10800._wp/dt_ana*(100._wp*p_diag%rh_avginc(jc,jb)-4._wp*p_diag%t_avginc(jc,jb))-0.4_wp)))
+          IF (jt <= ntiles_lnd) THEN ! snow-free land points
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 1._wp - 0.9_wp*MAX(0._wp, MIN(1._wp,                              &
+              2.5_wp*(10800._wp/dt_ana*(100._wp*p_diag%rh_avginc(jc,jb)-4._wp*p_diag%t_avginc(jc,jb))-0.4_wp) ))
+          ELSE IF (jt <= ntiles_total) THEN ! snow-covered land points
+            prm_diag%rlamh_fac_t(jc,jb,jt) = 1._wp - 0.9_wp*MAX(0._wp, MIN(1._wp, &
+              2.5_wp*(10800._wp/dt_ana*(MAX(0._wp,100._wp*p_diag%rh_avginc(jc,jb))-4._wp*p_diag%t_avginc(jc,jb))-0.4_wp) ))
           ELSE IF (jt == ntiles_total + ntiles_water) THEN ! seaice points
             prm_diag%rlamh_fac_t(jc,jb,jt) = 0.25_wp
           ELSE
@@ -390,6 +407,30 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       ENDDO
     ELSE
       prm_diag%rlamh_fac_t(:,jb,:) = 1._wp
+    ENDIF
+    IF (icpl_da_snowalb >= 1) THEN
+      ! Tuning factor for snow albedo
+      DO jc = i_startidx,i_endidx
+        IF (ANY(p_diag_lnd%h_snow_t(jc,jb,1:ntiles_total) > 0._wp)) THEN
+          IF (p_diag%t_avginc(jc,jb) > 0._wp) THEN
+            prm_diag%snowalb_fac(jc,jb) = MAX(0.75_wp,1._wp/(1._wp+10800._wp/dt_ana*0.8_wp*p_diag%t_avginc(jc,jb)))
+          ELSE
+            prm_diag%snowalb_fac(jc,jb) = MIN(4._wp/3._wp,1._wp-10800._wp/dt_ana*0.8_wp*p_diag%t_avginc(jc,jb))
+          ENDIF
+        ENDIF
+      ENDDO
+    ENDIF
+    IF (icpl_da_skinc >= 2) THEN
+      ! Tuning factors for soil heat capacity and conductivity
+      DO jc = i_startidx,i_endidx
+        IF (p_diag%t_wgt_avginc(jc,jb) < 0._wp) THEN
+          prm_diag%heatcond_fac(jc,jb) = MAX(0.1_wp,  1._wp+10800._wp/dt_ana*2.5_wp*p_diag%t_wgt_avginc(jc,jb))
+          prm_diag%heatcap_fac(jc,jb)  = MAX(0.25_wp, 1._wp+10800._wp/dt_ana*2.0_wp*p_diag%t_wgt_avginc(jc,jb))
+        ELSE
+          prm_diag%heatcond_fac(jc,jb) = 1._wp/MAX(0.1_wp,  1._wp-10800._wp/dt_ana*2.5_wp*p_diag%t_wgt_avginc(jc,jb)) 
+          prm_diag%heatcap_fac(jc,jb)  = 1._wp/MAX(0.25_wp, 1._wp-10800._wp/dt_ana*2.0_wp*p_diag%t_wgt_avginc(jc,jb))
+        ENDIF
+      ENDDO
     ENDIF
   ENDDO
 
@@ -452,6 +493,82 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
             p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
           END DO
 
+        !initialize soil moisture and temperature and Tskin for SCM case
+        ELSEIF (l_scm_mode .AND. (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. &
+      &          (i_scm_netcdf == 1)) THEN 
+
+          !IF (i_scm_netcdf==2) THEN !unified format
+          ! CALL read_soil_profile_nc_uf(w_so_profile,t_so_profile,t_g_in) 
+          !ELSE
+           CALL read_soil_profile_nc(w_so_profile,t_so_profile,t_g_in) 
+          !ENDIF
+
+          DO jt = 1, ntiles_total
+            DO jc = i_startidx, i_endidx
+              DO jk = 1,nlev_soil+1 
+                p_prog_lnd_now%t_so_t(jc,jk,jb,jt) = t_so_profile(jk)
+                p_prog_lnd_new%t_so_t(jc,jk,jb,jt) = t_so_profile(jk)
+              END DO
+              DO jk = 1,nlev_soil
+                ! soil moisture from SCM input needs to be converted from kg/m2 to m
+                p_prog_lnd_now%w_so_t(jc,jk,jb,jt) = w_so_profile(jk)/1000._wp 
+                p_prog_lnd_new%w_so_t(jc,jk,jb,jt) = w_so_profile(jk)/1000._wp 
+              END DO
+            END DO
+          END DO
+
+          ! set T_G
+          DO jc = i_startidx, i_endidx
+            p_prog_lnd_now%t_g(jc,jb) = t_g_in
+          END DO
+
+          ! cold start when T_SO=0
+          IF ( MAXVAL(p_prog_lnd_now%t_so_t) == 0.0_wp ) THEN
+            WRITE(*,*) 'init_nwp_phy: perform cold start of T_SO and W_SO because they are 0.0 at input'
+            ! set soil temperature to T_G
+            DO jt = 1, ntiles_total
+              DO jk = 1,nlev_soil+1
+                DO jc = i_startidx, i_endidx
+                  p_prog_lnd_now%t_so_t(jc,jk,jb,jt) = p_prog_lnd_now%t_g(jc,jb)
+                  p_prog_lnd_new%t_so_t(jc,jk,jb,jt) = p_prog_lnd_now%t_g(jc,jb)
+                END DO
+              END DO
+            ! set soil water content to 0.5*(fcap+pwp), use soil type loam (5)
+              DO jk = 1,nlev_soil
+                DO jc = i_startidx, i_endidx
+                  p_prog_lnd_now%w_so_t(jc,jk,jb,jt) = 0.5_wp * (cfcap(5)+cpwp(5)) * dzsoil_icon(jk)
+                  p_prog_lnd_new%w_so_t(jc,jk,jb,jt) = 0.5_wp * (cfcap(5)+cpwp(5)) * dzsoil_icon(jk)
+                END DO
+              END DO
+            END DO
+            WRITE(*,*) "init_nwp_phy after cold start: w_so ", p_prog_lnd_now%w_so_t(i_startidx,:,jb,:)
+            WRITE(*,*) "init_nwp_phy after cold start: t_so ", p_prog_lnd_now%t_so_t(i_startidx,:,jb,:)
+          END IF
+
+          ! initialize T skin as top soil layer (as done in mo_initicon_utils.f90)
+          DO jt = 1, ntiles_total
+            DO jc = i_startidx, i_endidx
+              p_prog_lnd_now%t_sk_t(jc,jb,jt) =  p_prog_lnd_now%t_so_t(jc,1,jb,jt)
+              p_prog_lnd_new%t_sk_t(jc,jb,jt) =  p_prog_lnd_new%t_so_t(jc,1,jb,jt)
+            END DO
+          END DO
+
+        ELSEIF ( l_scm_mode .AND. (atm_phy_nwp_config(jg)%inwp_surface == 0) .AND. &
+      &          (scm_sfc_temp==1) .AND. (scm_sfc_qv==3) .AND. (i_scm_netcdf > 0) ) THEN 
+
+          CALL read_soil_profile_nc(t_g_in=t_g_in) 
+      
+      	  ! set T_G
+          DO jc = i_startidx, i_endidx
+            p_prog_lnd_now%t_g(jc,jb) = t_g_in
+            p_prog_lnd_new%t_g(jc,jb) = t_g_in
+            p_prog_lnd_now%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g  (jc,jb)
+            p_prog_lnd_new%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g  (jc,jb)
+
+            p_diag_lnd%qv_s(jc,jb) = spec_humi( sat_pres_water(t_g_in), p_diag%pres_sfc(jc,jb)) 
+            p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
+          END DO
+
         ELSE  ! any other testcase
 
           ! t_g  =  t(nlev)
@@ -469,7 +586,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
               & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
             p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
           END DO
-        ENDIF
+        ENDIF ! nh_test_name
 
         ! Copy t_g to t_seasfc for idealized cases with surface scheme (would be undefined otherwise)
         IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
@@ -790,8 +907,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     SELECT CASE ( irad_aero )
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
-    CASE (0,2,5,6,9)
+    CASE (0,2,6,9,12,13,14,15)
       !ok
+    CASE (5)
+      !ok for RRTM and captured in mo_nml_crosscheck for ecRad
     CASE DEFAULT
       WRITE (message_text, '(a,i2,a)') 'irad_aero = ',irad_aero, &
         &                  ' not implemented for RRTM/ecRad'
@@ -831,13 +950,54 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
         CALL setup_srtm
         CALL lrtm_setup(lrtm_filename)
         CALL setup_newcld_optics(cldopt_filename)
-      CASE(4)
+
+        IF ( irad_aero == 5 ) THEN
+          CALL init_aerosol_props_tanre_rrtm
+          CALL init_aerosol_dstrb_tanre (        &
+            & kbdim    = nproma,                 & !in
+            & pt_patch = p_patch,                & !in
+            & aersea   = prm_diag%aersea,        & !out
+            & aerlan   = prm_diag%aerlan,        & !out
+            & aerurb   = prm_diag%aerurb,        & !out
+            & aerdes   = prm_diag%aerdes )         !out
+
+        ELSEIF ( irad_aero == 6 .OR. irad_aero == 9) THEN
+          CALL init_aerosol_props_tegen_rrtm
+        ELSE
+          zaea_rrtm(:,:) = 0.0_wp
+          zaes_rrtm(:,:) = 0.0_wp
+          zaeg_rrtm(:,:) = 0.0_wp
+        ENDIF
+
+      CASE(4) ! ecRad init
 #ifdef __ECRAD
-        !
         IF (msg_level >= 12)  CALL message(modname, 'init ECRAD')
         !
         ! Do ecrad initialization only once
-        IF (.NOT.lreset_mode .AND. jg==1) CALL setup_ecrad(ecrad_conf)
+        IF (.NOT.lreset_mode .AND. jg==1) THEN
+          CALL setup_ecrad(p_patch,ecrad_conf,ini_date)
+          !
+          ! Setup Tegen aerosol needs to be done only once for all domains
+          IF (irad_aero == 6) THEN
+            IF (ecrad_conf%i_gas_model == IGasModelIFSRRTMG) THEN
+              CALL init_aerosol_props_tegen_ecrad(ecrad_conf%n_bands_sw, ecrad_conf%n_bands_lw, .TRUE.)
+            ELSE
+              CALL init_aerosol_props_tegen_ecrad(ecrad_conf%n_bands_sw, ecrad_conf%n_bands_lw, .FALSE.)
+            ENDIF !ecrad_conf%i_gas_model
+          ENDIF !irad_aero==6
+        ENDIF ! .NOT.lreset_mode .AND. jg==1
+        !
+        ! Domain-specific aerosol setups
+        IF (irad_aero == 12) THEN                 ! Use constant Kinne aerosol
+          CALL read_bc_aeropt_kinne(ini_date, p_patch, .FALSE., ecrad_conf%n_bands_lw, ecrad_conf%n_bands_sw)
+        ENDIF
+        IF (ANY( irad_aero == (/13,15/) )) THEN   ! Use Kinne climatology
+          CALL read_bc_aeropt_kinne(ini_date, p_patch, .TRUE., ecrad_conf%n_bands_lw, ecrad_conf%n_bands_sw)
+        ENDIF
+        IF (ANY( irad_aero == (/14,15/) )) THEN   ! Use volcanic aerosol from CMIP6
+          CALL read_bc_aeropt_cmip6_volc(ini_date, p_patch%id, ecrad_conf%n_bands_lw, ecrad_conf%n_bands_sw)
+        ENDIF
+        !
 #else
         CALL finish(routine,  &
           &      'atm_phy_nwp_config(jg)%inwp_radiation = 4 needs -D__ECRAD.')
@@ -963,30 +1123,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     ENDDO      !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-    IF ( irad_aero == 5 ) THEN
-
-      CALL init_aerosol_props_tanre_rrtm
-
-      CALL init_aerosol_dstrb_tanre (        &
-        & kbdim    = nproma,                 & !in
-        & pt_patch = p_patch,                & !in
-        & aersea   = prm_diag%aersea,        & !out
-        & aerlan   = prm_diag%aerlan,        & !out
-        & aerurb   = prm_diag%aerurb,        & !out
-        & aerdes   = prm_diag%aerdes )         !out
-
-    ELSEIF ( irad_aero == 6 .OR. irad_aero == 9) THEN
-
-      CALL init_aerosol_props_tegen_rrtm
-
-    ELSE
-
-      zaea_rrtm(:,:) = 0.0_wp
-      zaes_rrtm(:,:) = 0.0_wp
-      zaeg_rrtm(:,:) = 0.0_wp
-
-    ENDIF
 
     DO ist = 1, UBOUND(csalbw,1)
       rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
@@ -1250,7 +1386,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     ALLOCATE( turbdiff_config(jg)%impl_weight(nlevp1), &
               STAT=istatus )
     ! note that impl_weight => turbdiff_config(jg)%impl_weight
-    !$ACC ENTER DATA CREATE(turbdiff_config(jg))
+    !$ACC ENTER DATA CREATE(turbdiff_config(jg:jg))
     !$ACC ENTER DATA CREATE(turbdiff_config(jg)%impl_weight)
     IF(istatus/=SUCCESS)THEN
       CALL finish(routine, &
@@ -1322,19 +1458,22 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 #ifndef __PGI
 !FIXME: PGI + OpenMP produce deadlock in this loop. Compiler bug suspected
 !$OMP PARALLEL DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt, &
-!$OMP            ltkeinp_loc,lgz0inp_loc,nlevcm,l_hori,nzprv,zvariaux,zrhon) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            ltkeinp_loc,lgz0inp_loc,nlevcm,l_hori,nzprv,zvariaux,zrhon, &
+!$OMP            ierrstat, errormsg, eroutine) ICON_OMP_DEFAULT_SCHEDULE
 #endif
+
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
 
-      IF (lturb_init) THEN
+      IF (.not. ltestcase) THEN
+       IF (lturb_init) THEN
 
         ltkeinp_loc = .FALSE.  ! initialize TKE field
         lgz0inp_loc = .FALSE.  ! initialize gz0 field (water points only)
 
-      ELSE
+       ELSE
         !
         ! TKE and gz0 are not re-initialized, but re-used from the first guess
         !
@@ -1352,6 +1491,30 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
             p_prog_now%tke(jc,jk,jb)= SQRT(2.0_wp*MAX(5.e-5_wp,p_prog_now%tke(jc,jk,jb)))
           ENDDO
         ENDDO
+       ENDIF
+      ELSE !ltestcase
+
+       IF (lscm_read_tke) THEN
+        ltkeinp_loc = .TRUE.   ! do NOT re-initialize TKE field (read from FG)
+        ! Note that TKE in turbtran/turbdiff is defined as the turbulence velocity scale
+        ! TVS=SQRT(2*TKE). The TKE is limited to 5.e-5 here because it may be zero on lateral
+        ! boundary points for the limited-area mode, which would cause a crash in the initialization
+        ! performed here but hs no impact on the results otherwise.
+        !
+        DO jk =1,nlevp1
+          DO jc = i_startidx, i_endidx
+            p_prog_now%tke(jc,jk,jb)= SQRT(2.0_wp*MAX(5.e-5_wp,p_prog_now%tke(jc,jk,jb)))
+          ENDDO
+        ENDDO
+       ELSE
+        ltkeinp_loc = .FALSE.  ! initialize TKE field
+       ENDIF
+       IF (lscm_read_z0) THEN
+        lgz0inp_loc = .TRUE.   ! do NOT re-initialize gz0 field (read from FG)
+       ELSE
+        lgz0inp_loc = .FALSE.  ! initialize gz0 field (water points only)
+       ENDIF
+
       ENDIF
 
       l_hori(i_startidx:i_endidx)=phy_params%mean_charlen

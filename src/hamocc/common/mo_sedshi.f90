@@ -4,23 +4,26 @@
 !!
 !! By this routine solid components are shifted (upward and) downward
 !! to account for sedimant gain and loss. This includes a layer for
-!! permanent burial which collects the partical matter (P, Si, C, clay)
+!! permanent local_sediment_mem%burial which collects the partical matter (P, Si, C, clay)
 !! over the full time of integration.
 !!
 !! Upward shift is currently disabled.
 !!
-#include "hamocc_omp_definitions.inc"
+ 
 
 MODULE mo_sedshi
 
     USE mo_kind, ONLY       : wp
-    USE mo_sedmnt, ONLY     : sedlay, seddw, burial, orgfa, oplfa, &
+    USE mo_sedmnt, ONLY     : seddw, orgfa, oplfa, &
        &                    calfa, clafa, porsol, solfu
-    USE mo_memory_bgc, ONLY : bolay,  rcar
+    USE mo_memory_bgc, ONLY : rcar
     USE mo_param1_bgc, ONLY : nsedtra, &
        &                    issso12, isssc12, issssil, issster
     USE mo_control_bgc, ONLY: bgc_nproma
     USE mo_hamocc_nml, ONLY: l_up_sedshi,ks
+    
+    USE mo_bgc_memory_types, ONLY: t_bgc_memory, t_sediment_memory
+    
 
     IMPLICIT NONE
 
@@ -30,13 +33,15 @@ MODULE mo_sedshi
 
 CONTAINS
 
-SUBROUTINE sedshi(start_idx,end_idx)
+SUBROUTINE sedshi(local_bgc_mem, local_sediment_mem, start_idx,end_idx)
 
   
  
   IMPLICIT NONE
 
   !! Arguments
+  TYPE(t_bgc_memory), POINTER :: local_bgc_mem
+  TYPE(t_sediment_memory), POINTER :: local_sediment_mem
 
   INTEGER, INTENT(in)  :: start_idx       !< 1st REAL of model grid.
   INTEGER, INTENT(in)  :: end_idx       !< 2nd REAL of model grid.
@@ -57,21 +62,19 @@ SUBROUTINE sedshi(start_idx,end_idx)
   ! shift solid sediment downwards, if layer is full, i.e., if
   ! the volume filled by the four constituents poc, opal, caco3, clay
   ! is more than porsol*seddw
-  ! the outflow of layer i is given by sedlay(i)*porsol(i)*seddw(i), it is
+  ! the outflow of layer i is given by local_sediment_mem%sedlay(i)*porsol(i)*seddw(i), it is
   ! distributed in the layer below over a volume of porsol(i+1)*seddw(i+1)
   if (start_idx==0)RETURN
 
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(k,j,iv,uebers,sedlo,wsed) HAMOCC_OMP_DEFAULT_SCHEDULE
   DO k = 1, ks-1
 
      DO j = start_idx, end_idx
         
-           IF (bolay(j) > 0._wp) THEN
-              sedlo  = orgfa*rcar*sedlay(j,k,issso12)    &
-                   & +      calfa*sedlay(j,k,isssc12)    &
-                   & +      oplfa*sedlay(j,k,issssil)    &
-                   & +      clafa*sedlay(j,k,issster)
+           IF (local_bgc_mem%bolay(j) > 0._wp) THEN
+              sedlo  = orgfa*rcar*local_sediment_mem%sedlay(j,k,issso12)    &
+                   & +      calfa*local_sediment_mem%sedlay(j,k,isssc12)    &
+                   & +      oplfa*local_sediment_mem%sedlay(j,k,issssil)    &
+                   & +      clafa*local_sediment_mem%sedlay(j,k,issster)
               ! "full" sediment has sedlo=1. for sedlo>1., wsed is >0.
               wsed( j) = MAX(0._wp, (sedlo - 1._wp) / (sedlo + 1.e-10_wp)) ! downward shifting velocity (?)
            ENDIF
@@ -82,10 +85,10 @@ SUBROUTINE sedshi(start_idx,end_idx)
      DO iv = 1, nsedtra
         DO j = start_idx, end_idx
 
-              IF (bolay(j) > 0._wp) THEN
-                 uebers = wsed(j)*sedlay(j,k,iv)                     ! 'uebersaettigung?'
-                 sedlay(j,k  ,iv) = sedlay(j,k  ,iv) - uebers
-                 sedlay(j,k+1,iv) = sedlay(j,k+1,iv) + uebers        &
+              IF (local_bgc_mem%bolay(j) > 0._wp) THEN
+                 uebers = wsed(j)*local_sediment_mem%sedlay(j,k,iv)                     ! 'uebersaettigung?'
+                 local_sediment_mem%sedlay(j,k  ,iv) = local_sediment_mem%sedlay(j,k  ,iv) - uebers
+                 local_sediment_mem%sedlay(j,k+1,iv) = local_sediment_mem%sedlay(j,k+1,iv) + uebers        &
                       &             *(seddw(k)*porsol(k))/(seddw(k+1)*porsol(k+1))
               ENDIF
 
@@ -93,11 +96,11 @@ SUBROUTINE sedshi(start_idx,end_idx)
      ENDDO !end iv-loop
 
   ENDDO !end k-loop
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+ 
+ 
 
   ! store amount lost from bottom sediment layer - this is a kind of
-  ! permanent burial in deep consolidated layer, and this stuff is
+  ! permanent local_sediment_mem%burial in deep consolidated layer, and this stuff is
   ! effectively lost from the whole ocean+sediment(+atmosphere) system.
   ! Would have to be supplied by river runoff or simple addition e.g.
   ! to surface layers in the long range. Can be supplied again if a
@@ -105,31 +108,29 @@ SUBROUTINE sedshi(start_idx,end_idx)
 
   DO j = start_idx, end_idx
 
-        IF (bolay(j) > 0._wp) THEN
-           sedlo  = orgfa*rcar*sedlay(j,ks,issso12)    &
-                & +      calfa*sedlay(j,ks,isssc12)    &
-                & +      oplfa*sedlay(j,ks,issssil)    &
-                & +      clafa*sedlay(j,ks,issster)
+        IF (local_bgc_mem%bolay(j) > 0._wp) THEN
+           sedlo  = orgfa*rcar*local_sediment_mem%sedlay(j,ks,issso12)    &
+                & +      calfa*local_sediment_mem%sedlay(j,ks,isssc12)    &
+                & +      oplfa*local_sediment_mem%sedlay(j,ks,issssil)    &
+                & +      clafa*local_sediment_mem%sedlay(j,ks,issster)
            wsed( j) = MAX(0._wp, (sedlo - 1._wp) / (sedlo + 1.e-10_wp))
         ENDIF
 
   ENDDO !end j-loop
 
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(j,sedlo,iv,uebers) HAMOCC_OMP_DEFAULT_SCHEDULE
   DO iv = 1, nsedtra
      DO j = start_idx, end_idx
 
-           IF (bolay(j) > 0._wp) THEN
-              uebers = wsed(j)*sedlay(j,ks,iv)
-              sedlay(j,ks,iv) = sedlay(j,ks ,iv)-uebers
-              burial(j,iv)    = burial(j,iv) + uebers*seddw(ks)*porsol(ks)
+           IF (local_bgc_mem%bolay(j) > 0._wp) THEN
+              uebers = wsed(j)*local_sediment_mem%sedlay(j,ks,iv)
+              local_sediment_mem%sedlay(j,ks,iv) = local_sediment_mem%sedlay(j,ks ,iv)-uebers
+              local_sediment_mem%burial(j,iv)    = local_sediment_mem%burial(j,iv) + uebers*seddw(ks)*porsol(ks)
            ENDIF
 
      ENDDO !end j-loop
   ENDDO !end iv-loop
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+ 
+ 
 
  IF(l_up_sedshi)THEN 
 
@@ -144,94 +145,89 @@ SUBROUTINE sedshi(start_idx,end_idx)
 
   fulsed(:) = 0._wp
 
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(k,j,sedlo) HAMOCC_OMP_DEFAULT_SCHEDULE
+ 
   ! determine how the total sediment column is filled
   DO k = 1, ks
      DO j = start_idx, end_idx
-           IF (bolay(j) > 0._wp) THEN
-              sedlo  = orgfa*rcar*sedlay(j,k,issso12)        &
-                   & +      calfa*sedlay(j,k,isssc12)        &
-                   & +      oplfa*sedlay(j,k,issssil)        &
-                   & +      clafa*sedlay(j,k,issster)
+           IF (local_bgc_mem%bolay(j) > 0._wp) THEN
+              sedlo  = orgfa*rcar*local_sediment_mem%sedlay(j,k,issso12)        &
+                   & +      calfa*local_sediment_mem%sedlay(j,k,isssc12)        &
+                   & +      oplfa*local_sediment_mem%sedlay(j,k,issssil)        &
+                   & +      clafa*local_sediment_mem%sedlay(j,k,issster)
               fulsed(j) = fulsed(j) + porsol(k)*seddw(k)*sedlo
            ENDIF
      ENDDO !end j-loop
   ENDDO !end k-loop
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+ 
+ 
 
-  ! shift the sediment deficiency from the deepest (burial)
+  ! shift the sediment deficiency from the deepest (local_sediment_mem%burial)
   ! layer into layer ks
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(j,seddef,spresent,buried,refill,frac) HAMOCC_OMP_DEFAULT_SCHEDULE
+ 
   DO j = start_idx, end_idx
 
-        IF (bolay(j) > 0._wp) THEN
+        IF (local_bgc_mem%bolay(j) > 0._wp) THEN
 
-           ! deficiency with respect to fully loaded sediment |packed in sedlay(i,j,ks) ??
-           ! this is the volume of sediment shifted upwards from the burial layer
+           ! deficiency with respect to fully loaded sediment |packed in local_sediment_mem%sedlay(i,j,ks) ??
+           ! this is the volume of sediment shifted upwards from the local_sediment_mem%burial layer
 
            ! 'sediment deficiency', solfu = total column inegrated solid fraction volume (bodensed)
            seddef = solfu-fulsed(j)
 
            ! total volume of solid constituents in buried layer
-           spresent = orgfa*rcar*burial(j,issso12)             &
-                &   +      calfa*burial(j,isssc12)             &
-                &   +      oplfa*burial(j,issssil)             &
-                &   +      clafa*burial(j,issster)
+           spresent = orgfa*rcar*local_sediment_mem%burial(j,issso12)             &
+                &   +      calfa*local_sediment_mem%burial(j,isssc12)             &
+                &   +      oplfa*local_sediment_mem%burial(j,issssil)             &
+                &   +      clafa*local_sediment_mem%burial(j,issster)
 
-           ! determine whether an additional amount of clay is needed from the burial
+           ! determine whether an additional amount of clay is needed from the local_sediment_mem%burial
            ! layer to fill the whole sediment; I assume that there is an infinite
            ! supply of clay from below
-           burial(j,issster) = burial(j,issster)             &
+           local_sediment_mem%burial(j,issster) = local_sediment_mem%burial(j,issster)             &
                 &              + MAX(0._wp, seddef - spresent) / clafa
 
            ! determine new volume of buried layer
-           buried = orgfa*rcar*burial(j,issso12)               &
-                & +      calfa*burial(j,isssc12)               &
-                & +      oplfa*burial(j,issssil)               &
-                & +      clafa*burial(j,issster)
+           buried = orgfa*rcar*local_sediment_mem%burial(j,issso12)               &
+                & +      calfa*local_sediment_mem%burial(j,isssc12)               &
+                & +      oplfa*local_sediment_mem%burial(j,issssil)               &
+                & +      clafa*local_sediment_mem%burial(j,issster)
 
            ! fill the deepest active sediment layer
            refill=seddef/buried
            frac = porsol(ks)*seddw(ks) !changed k to ks, ik
 
-           sedlay(j,ks,issso12) = sedlay(j,ks,issso12)       &
-                &                 + refill*burial(j,issso12)/frac
-           sedlay(j,ks,isssc12) = sedlay(j,ks,isssc12)       &
-                &                 + refill*burial(j,isssc12)/frac
-           sedlay(j,ks,issssil) = sedlay(j,ks,issssil)       &
-                &                 + refill*burial(j,issssil)/frac
-           sedlay(j,ks,issster) = sedlay(j,ks,issster)       &
-                &                 + refill*burial(j,issster)/frac
+           local_sediment_mem%sedlay(j,ks,issso12) = local_sediment_mem%sedlay(j,ks,issso12)       &
+                &                 + refill*local_sediment_mem%burial(j,issso12)/frac
+           local_sediment_mem%sedlay(j,ks,isssc12) = local_sediment_mem%sedlay(j,ks,isssc12)       &
+                &                 + refill*local_sediment_mem%burial(j,isssc12)/frac
+           local_sediment_mem%sedlay(j,ks,issssil) = local_sediment_mem%sedlay(j,ks,issssil)       &
+                &                 + refill*local_sediment_mem%burial(j,issssil)/frac
+           local_sediment_mem%sedlay(j,ks,issster) = local_sediment_mem%sedlay(j,ks,issster)       &
+                &                 + refill*local_sediment_mem%burial(j,issster)/frac
 
            ! account for losses in buried sediment
-           burial(j,issso12) = burial(j,issso12)             &
-                &              - refill*burial(j,issso12)
-           burial(j,isssc12) = burial(j,isssc12)             &
-                &              - refill*burial(j,isssc12)
-           burial(j,issssil) = burial(j,issssil)             &
-                &              - refill*burial(j,issssil)
-           burial(j,issster) = burial(j,issster)             &
-                &              - refill*burial(j,issster)
-        ENDIF ! bolay >0
+           local_sediment_mem%burial(j,issso12) = local_sediment_mem%burial(j,issso12)             &
+                &              - refill*local_sediment_mem%burial(j,issso12)
+           local_sediment_mem%burial(j,isssc12) = local_sediment_mem%burial(j,isssc12)             &
+                &              - refill*local_sediment_mem%burial(j,isssc12)
+           local_sediment_mem%burial(j,issssil) = local_sediment_mem%burial(j,issssil)             &
+                &              - refill*local_sediment_mem%burial(j,issssil)
+           local_sediment_mem%burial(j,issster) = local_sediment_mem%burial(j,issster)             &
+                &              - refill*local_sediment_mem%burial(j,issster)
+        ENDIF ! local_bgc_mem%bolay >0
 
   ENDDO !end j-loop
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
-
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(j,k,sedlo,iv,uebers,frac) HAMOCC_OMP_DEFAULT_SCHEDULE
+ 
+ 
   !     redistribute overload of deepest layer ks to layers 2 to ks
   DO  k = ks, 2, -1
      DO j = start_idx, end_idx
 
-           IF (bolay(j) > 0._wp) THEN
-              sedlo  = orgfa*rcar*sedlay(j,k,issso12)          &
-                   & +      calfa*sedlay(j,k,isssc12)          &
-                   & +      oplfa*sedlay(j,k,issssil)          &
-                   & +      clafa*sedlay(j,k,issster)
+           IF (local_bgc_mem%bolay(j) > 0._wp) THEN
+              sedlo  = orgfa*rcar*local_sediment_mem%sedlay(j,k,issso12)          &
+                   & +      calfa*local_sediment_mem%sedlay(j,k,isssc12)          &
+                   & +      oplfa*local_sediment_mem%sedlay(j,k,issssil)          &
+                   & +      clafa*local_sediment_mem%sedlay(j,k,issster)
               wsed(j) = MAX(0._wp, (sedlo - 1._wp) / (sedlo + 1.e-10_wp))
            ENDIF
 
@@ -239,17 +235,17 @@ SUBROUTINE sedshi(start_idx,end_idx)
 
      DO iv = 1, 4
         DO j = start_idx, end_idx
-              IF (bolay(j) > 0._wp) THEN
-                 uebers = sedlay(j,k,iv)*wsed(j)
+              IF (local_bgc_mem%bolay(j) > 0._wp) THEN
+                 uebers = local_sediment_mem%sedlay(j,k,iv)*wsed(j)
                  frac   = porsol(k)*seddw(k)/(porsol(k-1)*seddw(k-1))
-                 sedlay(j,k,iv)   = sedlay(j,k,iv)   - uebers
-                 sedlay(j,k-1,iv) = sedlay(j,k-1,iv) + uebers*frac ! note k-1 here = upward shift
+                 local_sediment_mem%sedlay(j,k,iv)   = local_sediment_mem%sedlay(j,k,iv)   - uebers
+                 local_sediment_mem%sedlay(j,k-1,iv) = local_sediment_mem%sedlay(j,k-1,iv) + uebers*frac ! note k-1 here = upward shift
               ENDIF
         ENDDO !end j-loop
      ENDDO !end iv-loop
   ENDDO !end k-loop
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+ 
+ 
  ENDIF ! l_up_sedshi
 
 END SUBROUTINE 

@@ -40,10 +40,12 @@ MODULE mo_echam_phy_bcs
   USE mo_psrad_solar_data           ,ONLY: ssi_radt, tsi_radt, tsi
   USE mo_psrad_radiation            ,ONLY: pre_psrad_radiation
   USE mo_atmo_psrad_interface       ,ONLY: dtrad_shift
+  USE mo_psrad_general              ,ONLY: nbndlw, nbndsw
 #else
   USE mo_radiation_solar_data       ,ONLY: ssi_radt, tsi_radt, tsi
   USE mo_rte_rrtmgp_radiation       ,ONLY: pre_rte_rrtmgp_radiation
   USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
+  USE mo_radiation_general          ,ONLY: nbndlw, nbndsw
 #endif
 
   USE mo_echam_sfc_indices          ,ONLY: nsfc_type, iwtr, iice
@@ -66,15 +68,13 @@ MODULE mo_echam_phy_bcs
   USE mo_time_config,          ONLY: time_config
   USE mo_reader_sst_sic,       ONLY: t_sst_sic_reader
   USE mo_interpolate_time,     ONLY: t_time_intp
+  USE mo_echam_phy_init,       ONLY: sst_intp, sic_intp, sst_sic_reader
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: echam_phy_bcs
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_echam_phy_bcs'
 
-  TYPE(t_sst_sic_reader), TARGET :: sst_sic_reader
-  TYPE(t_time_intp)      :: sst_intp
-  TYPE(t_time_intp)      :: sic_intp
   REAL(wp), ALLOCATABLE  :: sst_dat(:,:,:,:)
   REAL(wp), ALLOCATABLE  :: sic_dat(:,:,:,:)
 
@@ -121,6 +121,7 @@ CONTAINS
 
     LOGICAL                                  :: luse_rad       !< use LW radiation
     LOGICAL                                  :: ltrig_rad      !< trigger for LW radiative transfer computation
+    LOGICAL                                  :: l_filename_year   !< determine if the year-dependent aerosol data will be read
 
     LOGICAL                                  :: ghg_time_interpol_already_done
 
@@ -134,7 +135,7 @@ CONTAINS
 
     ! Shortcuts to components of echam_cld_config
     !
-    INTEGER          :: jc, jb, jg
+    INTEGER          :: jc, jb, jg,  jcs, jce, jbs, jbe
     TYPE(t_echam_phy_field) , POINTER    :: field
     !
     !
@@ -155,6 +156,7 @@ CONTAINS
       !
       IF (echam_phy_config(jg)%lamip) THEN
        field => prm_field(jg)
+       !$ACC DATA PRESENT( field )
        IF (iwtr <= nsfc_type .OR. iice <= nsfc_type) THEN
         !
         IF (.NOT.  ANY(echam_phy_config(:)%lsstice)) THEN
@@ -162,13 +164,13 @@ CONTAINS
             CALL read_bc_sst_sic(mtime_old%date%year, patch)
           END IF
           ALLOCATE(mask_sftof(SIZE(field%sftof,1), SIZE(field%sftof,2)))
-          !$ACC DATA PRESENT( field%sftof ) &
-          !$ACC       CREATE( mask_sftof )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP SEQ
-          DO jb = 1, SIZE(field%sftof,2)
-            !$ACC LOOP GANG VECTOR
-            DO jc = 1, SIZE(field%sftof,1)
+          jbs = 1; jbe = SIZE(field%sftof, 2)
+          jcs = 1; jce = SIZE(field%sftof, 1)
+          !$ACC DATA CREATE( mask_sftof )
+          !$ACC PARALLEL DEFAULT(NONE)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          DO jb = jbs, jbe
+            DO jc = jcs, jce
               mask_sftof(jc, jb) = field%sftof(jc,jb) > 0._wp
             END DO
           END DO
@@ -185,34 +187,31 @@ CONTAINS
 
         ELSE
           !
-          ! READ 6-hourly sst values (dyamond+- setup, preliminary)
-          CALL sst_sic_reader%init(p_patch(jg), 'sst-sic-runmean_G.nc')
-          CALL sst_intp%init(sst_sic_reader, time_config%tc_current_date, "SST")
+          ! Interpolate 6-hourly sst values
           CALL sst_intp%intp(time_config%tc_current_date, sst_dat)
-          !$ACC DATA PRESENT( field%ts_tile ) &
-          !$ACC      CREATE( sst_dat )
-          !$ACC UPDATE DEVICE( sst_dat )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP SEQ
-          DO jb = LBOUND(field%ts_tile, 2), UBOUND(field%ts_tile,2)
-            !$ACC LOOP GANG VECTOR
-            DO jc = LBOUND(field%ts_tile, 1), UBOUND(field%ts_tile,1)
+          jbs = LBOUND(field%ts_tile, 2); jbe = UBOUND(field%ts_tile, 2)
+          jcs = LBOUND(field%ts_tile, 1); jce = UBOUND(field%ts_tile, 1)
+
+          !$ACC PARALLEL DEFAULT(NONE) PRESENT( sst_dat )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          DO jb = jbs, jbe
+            DO jc = jcs, jce
               IF (sst_dat(jc,1,jb,1) > 0.0_wp) THEN
-                prm_field(jg)%ts_tile(jc,jb,iwtr) = sst_dat(jc,1,jb,1)
+                field%ts_tile(jc,jb,iwtr) = sst_dat(jc,1,jb,1)
               END IF
             END DO
           END DO
           !$ACC END PARALLEL
-          !$ACC END DATA
           !
-          CALL sic_intp%init(sst_sic_reader, time_config%tc_current_date, "SIC")
+          ! Interpolate 6-hourly sic values
           CALL sic_intp%intp(time_config%tc_current_date, sic_dat)
-          !$ACC DATA PRESENT( field%seaice, sic_dat )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP SEQ
-          DO jb = LBOUND(field%seaice, 2), UBOUND(field%seaice,2)
-            !$ACC LOOP GANG VECTOR
-            DO jc = LBOUND(field%seaice, 1), UBOUND(field%seaice,1)
+
+          jbs = LBOUND(field%seaice, 2); jbe = UBOUND(field%seaice, 2)
+          jcs = LBOUND(field%seaice, 1); jce = UBOUND(field%seaice, 1)
+          !$ACC PARALLEL DEFAULT(NONE) PRESENT( sic_dat )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          DO jb = jbs, jbe
+            DO jc = jcs, jce
               field%seaice(jc,jb) = sic_dat(jc,1,jb,1)   !160:164
               field%seaice(jc,jb) = MERGE(0.99_wp, field%seaice(jc,jb),  &
                                               & field%seaice(jc,jb) > 0.99_wp)
@@ -221,15 +220,14 @@ CONTAINS
             END DO
           END DO
           !$ACC END PARALLEL
-          !$ACC END DATA
 
           ! set ice thickness
-          !$ACC DATA PRESENT( field%seaice, field%siced, sic_dat, p_patch(jg)%cells%center )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP SEQ
-          DO jb = LBOUND(field%siced, 2), UBOUND(field%siced,2)
-            !$ACC LOOP GANG VECTOR
-            DO jc = LBOUND(field%siced, 1), UBOUND(field%siced,1)
+          jbs = LBOUND(field%siced, 2); jbe = UBOUND(field%siced, 2)
+          jcs = LBOUND(field%siced, 1); jce = UBOUND(field%siced, 1)
+          !$ACC PARALLEL DEFAULT(NONE) PRESENT( p_patch ) 
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          DO jb = jbs, jbe
+            DO jc = jcs, jce
               IF (field%seaice(jc,jb) > 0.0_wp) THEN
                 field%siced(jc,jb) = MERGE(2.0_wp, 1.0_wp, p_patch(jg)%cells%center(jc,jb)%lat > 0.0_wp)
               ELSE
@@ -238,26 +236,25 @@ CONTAINS
             END DO
           END DO
           !$ACC END PARALLEL
-          !$ACC END DATA
         !
         END IF
        END IF
         ! The ice model should be able to handle different thickness classes, 
         ! but for AMIP we only use one ice class.
         IF (iice <= nsfc_type) THEN
-          !$ACC DATA PRESENT( field%conc, field%seaice, field%hi, field%siced )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP SEQ
-          DO jb = LBOUND(field%conc,3), UBOUND(field%conc,3)
-            !$ACC LOOP GANG VECTOR
-            DO jc = LBOUND(field%conc,1), UBOUND(field%conc,1)
+          jbs = LBOUND(field%conc, 3); jbe = UBOUND(field%conc, 3)
+          jcs = LBOUND(field%conc, 1); jce = UBOUND(field%conc, 1)
+          !$ACC PARALLEL DEFAULT(NONE)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          DO jb = jbs, jbe
+            DO jc = jcs, jce
               field%conc(jc,1,jb) = field%seaice(jc,jb)
               field%hi  (jc,1,jb) = field%siced (jc,jb)
             END DO
           END DO
           !$ACC END PARALLEL
-          !$ACC END DATA
         END IF
+        !$ACC END DATA
       END IF
       !
     END IF
@@ -334,18 +331,20 @@ CONTAINS
         !
         ! tropospheric aerosol optical properties after S. Kinne
         IF (echam_rad_config(jg)% irad_aero == 12) THEN
-          CALL read_bc_aeropt_kinne(mtime_old, patch)
+          l_filename_year = .FALSE.
+          CALL read_bc_aeropt_kinne(mtime_old, patch, l_filename_year, nbndlw, nbndsw)
         END IF
         !
         ! tropospheric aerosol optical properties after S. Kinne
         IF (echam_rad_config(jg)% irad_aero == 13) THEN
-          CALL read_bc_aeropt_kinne(mtime_old, patch)
+          l_filename_year = .TRUE.
+          CALL read_bc_aeropt_kinne(mtime_old, patch, l_filename_year, nbndlw, nbndsw)
         END IF
         !
         ! stratospheric aerosol optical properties
         IF (echam_rad_config(jg)% irad_aero == 14) THEN
 #ifdef __NO_RTE_RRTMGP__
-          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
+          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id, nbndlw, nbndsw)
 #else
           CALL read_bc_aeropt_stenchikov(mtime_old, patch)
 #endif
@@ -353,9 +352,10 @@ CONTAINS
         !
         ! tropospheric aerosols after S. Kinne and stratospheric aerosol optical properties
         IF (echam_rad_config(jg)% irad_aero == 15) THEN
-          CALL read_bc_aeropt_kinne     (mtime_old, patch)
+          l_filename_year = .TRUE.
+          CALL read_bc_aeropt_kinne     (mtime_old, patch, l_filename_year, nbndlw, nbndsw)
 #ifdef __NO_RTE_RRTMGP__
-          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
+          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id, nbndlw, nbndsw)
 #else
           CALL read_bc_aeropt_stenchikov(mtime_old, patch)
 #endif
@@ -365,9 +365,10 @@ CONTAINS
         ! aerosols (CMIP6) + simple plumes (analytical, nothing to be read
         ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
         IF (echam_rad_config(jg)% irad_aero == 18) THEN
-          CALL read_bc_aeropt_kinne     (mtime_old, patch)
+          l_filename_year = .FALSE.
+          CALL read_bc_aeropt_kinne     (mtime_old, patch, l_filename_year, nbndlw, nbndsw)
 #ifdef __NO_RTE_RRTMGP__
-          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
+          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id, nbndlw, nbndsw)
 #else
           CALL read_bc_aeropt_stenchikov(mtime_old, patch)
 #endif
@@ -376,7 +377,8 @@ CONTAINS
         ! aerosols + simple plumes (analytical, nothing to be read
         ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
         IF (echam_rad_config(jg)% irad_aero == 19) THEN
-          CALL read_bc_aeropt_kinne     (mtime_old, patch)
+          l_filename_year = .FALSE.
+          CALL read_bc_aeropt_kinne     (mtime_old, patch, l_filename_year, nbndlw, nbndsw)
         END IF
         !
         ! greenhouse gas concentrations, assumed constant in horizontal dimensions

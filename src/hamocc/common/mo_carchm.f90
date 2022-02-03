@@ -1,4 +1,3 @@
-#include "hamocc_omp_definitions.inc"
 MODULE mo_carchm
 
 !> @file mo_carchm.f90
@@ -6,10 +5,10 @@ MODULE mo_carchm
 !!        Calc dissolution, update of hydrogen ions
 !!
 !!
-#include "hamocc_omp_definitions.inc"
+  
+USE mo_bgc_memory_types, ONLY  : t_bgc_memory
 
-USE mo_memory_bgc, ONLY     : hi, aksp, akb3, akw3, ak13, ak23, co3, bgctra,bgcflux, &
-       &                      aks3,akf3,ak1p3,ak2p3,ak3p3,aksi3,rrrcl
+USE mo_memory_bgc, ONLY     : rrrcl
 
 USE mo_kind, ONLY           : wp
 USE mo_control_bgc, ONLY    : bgc_nproma, bgc_zlevs
@@ -41,13 +40,14 @@ INTEGER :: niter_atgen    = jp_maxniter_atgen
 
 CONTAINS
 
-SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao,ptiestu)
+SUBROUTINE calc_dissol (local_bgc_mem, start_idx, end_idx, klevs, pddpo, psao,ptiestu)
 
 !! Computes calcium carbonate dissolution
   
   IMPLICIT NONE
 
   !! Arguments
+  TYPE(t_bgc_memory), POINTER    :: local_bgc_mem
 
   INTEGER, INTENT(in) :: start_idx             !< start index for j loop (ICON cells, MPIOM lat dir)    
   INTEGER, INTENT(in) :: end_idx               !< end index  for j loop  (ICON cells, MPIOM lat dir)    
@@ -71,9 +71,6 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao,ptiestu)
   ! Dissolution of calcite, whole water column
   !
   !*********************************************************************
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(k,supsat,undsa, dissol) HAMOCC_OMP_DEFAULT_SCHEDULE
-
  ! Dissolution in surface layer, 
  ! needs to be separate from subsurface due to lysocline depth different calculation
   DO j= start_idx, end_idx
@@ -84,25 +81,26 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao,ptiestu)
         IF(pddpo(j,k) > 0.5_wp) THEN
 
        
-              hi(j,k) = update_hi(hi(j,k), bgctra(j,k,isco212), ak13(j,k) , &
-          &          ak23(j,k), akw3(j,k),aks3(j,k),akf3(j,k), aksi3(j,k),&
-          &          ak1p3(j,k),ak2p3(j,k),ak3p3(j,k),psao(j,k) , akb3(j,k), &
-          &          bgctra(j,k,isilica),bgctra(j,k,iphosph),bgctra(j,k,ialkali) )
+              local_bgc_mem%hi(j,k) = update_hi(local_bgc_mem%hi(j,k), local_bgc_mem%bgctra(j,k,isco212), local_bgc_mem%ak13(j,k) , &
+          &          local_bgc_mem%ak23(j,k), local_bgc_mem%akw3(j,k),local_bgc_mem%aks3(j,k),local_bgc_mem%akf3(j,k), local_bgc_mem%aksi3(j,k),&
+          &          local_bgc_mem%ak1p3(j,k),local_bgc_mem%ak2p3(j,k),local_bgc_mem%ak3p3(j,k),psao(j,k) , local_bgc_mem%akb3(j,k), &
+          &          local_bgc_mem%bgctra(j,k,isilica),local_bgc_mem%bgctra(j,k,iphosph),local_bgc_mem%bgctra(j,k,ialkali) )
 
-              co3(j,k) = bgctra(j,k,isco212)/(1._wp+hi(j,k)*(1._wp+hi(j,k)/ak13(j,k))/ak23(j,k))
+              local_bgc_mem%co3(j,k) = local_bgc_mem%bgctra(j,k,isco212)/(1._wp+local_bgc_mem%hi(j,k)* &
+                & (1._wp+local_bgc_mem%hi(j,k)/local_bgc_mem%ak13(j,k))/local_bgc_mem%ak23(j,k))
 
-              supsat = co3(j,k)-97._wp*aksp(j,k)   ! 97. = 1./1.03e-2 (MEAN TOTAL [CA++] IN SEAWATER [kmol/m3])
+              supsat = local_bgc_mem%co3(j,k)-97._wp*local_bgc_mem%aksp(j,k)   ! 97. = 1./1.03e-2 (MEAN TOTAL [CA++] IN SEAWATER [kmol/m3])
               undsa  = MAX(0._wp, -supsat)
              
-              dissol = MIN(undsa,dremcalc*bgctra(j,k,icalc))
-              bgctra(j,k,icalc)   = bgctra(j,k,icalc)-dissol
-              bgctra(j,k,ialkali) = bgctra(j,k,ialkali)+2._wp*dissol
+              dissol = MIN(undsa,dremcalc*local_bgc_mem%bgctra(j,k,icalc))
+              local_bgc_mem%bgctra(j,k,icalc)   = local_bgc_mem%bgctra(j,k,icalc)-dissol
+              local_bgc_mem%bgctra(j,k,ialkali) = local_bgc_mem%bgctra(j,k,ialkali)+2._wp*dissol
 
-              bgctra(j,k,isco212) = bgctra(j,k,isco212)+dissol
+              local_bgc_mem%bgctra(j,k,isco212) = local_bgc_mem%bgctra(j,k,isco212)+dissol
 
               IF (supsat < 0._wp) THEN
                  iflag = 1
-                 bgcflux(j,klysocl) = ptiestu(j,1)
+                 local_bgc_mem%bgcflux(j,klysocl) = ptiestu(j,1)
               END IF
 
         ENDIF   ! wet cell
@@ -116,36 +114,35 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao,ptiestu)
            IF(pddpo(j,k) > 0.5_wp) THEN
 
        
-              hi(j,k) = update_hi(hi(j,k), bgctra(j,k,isco212), ak13(j,k) , &
-          &          ak23(j,k), akw3(j,k),aks3(j,k),akf3(j,k), aksi3(j,k),&
-          &          ak1p3(j,k),ak2p3(j,k),ak3p3(j,k),psao(j,k) , akb3(j,k), &
-          &          bgctra(j,k,isilica),bgctra(j,k,iphosph),bgctra(j,k,ialkali) )
+              local_bgc_mem%hi(j,k) = update_hi(local_bgc_mem%hi(j,k), local_bgc_mem%bgctra(j,k,isco212), local_bgc_mem%ak13(j,k) , &
+          &          local_bgc_mem%ak23(j,k), local_bgc_mem%akw3(j,k),local_bgc_mem%aks3(j,k),local_bgc_mem%akf3(j,k), local_bgc_mem%aksi3(j,k),&
+          &          local_bgc_mem%ak1p3(j,k),local_bgc_mem%ak2p3(j,k),local_bgc_mem%ak3p3(j,k),psao(j,k) , local_bgc_mem%akb3(j,k), &
+          &          local_bgc_mem%bgctra(j,k,isilica),local_bgc_mem%bgctra(j,k,iphosph),local_bgc_mem%bgctra(j,k,ialkali) )
 
-              co3(j,k) = bgctra(j,k,isco212)/(1._wp+hi(j,k)*(1._wp+hi(j,k)/ak13(j,k))/ak23(j,k))
+              local_bgc_mem%co3(j,k) = local_bgc_mem%bgctra(j,k,isco212)/(1._wp+local_bgc_mem%hi(j,k) * &
+                & (1._wp+local_bgc_mem%hi(j,k)/local_bgc_mem%ak13(j,k))/local_bgc_mem%ak23(j,k))
 
-              supsat = co3(j,k)-97._wp*aksp(j,k)   ! 97. = 1./1.03e-2 (MEAN TOTAL [CA++] IN SEAWATER [kmol/m3])
+              supsat = local_bgc_mem%co3(j,k)-97._wp*local_bgc_mem%aksp(j,k)   ! 97. = 1./1.03e-2 (MEAN TOTAL [CA++] IN SEAWATER [kmol/m3])
               undsa  = MAX(0._wp, -supsat)
              
-              dissol = MIN(undsa,dremcalc*bgctra(j,k,icalc))
-              bgctra(j,k,icalc)   = bgctra(j,k,icalc)-dissol
-              bgctra(j,k,ialkali) = bgctra(j,k,ialkali)+2._wp*dissol
+              dissol = MIN(undsa,dremcalc*local_bgc_mem%bgctra(j,k,icalc))
+              local_bgc_mem%bgctra(j,k,icalc)   = local_bgc_mem%bgctra(j,k,icalc)-dissol
+              local_bgc_mem%bgctra(j,k,ialkali) = local_bgc_mem%bgctra(j,k,ialkali)+2._wp*dissol
 
-              bgctra(j,k,isco212) = bgctra(j,k,isco212)+dissol
+              local_bgc_mem%bgctra(j,k,isco212) = local_bgc_mem%bgctra(j,k,isco212)+dissol
 
               IF (supsat < 0._wp .AND. iflag == 0) THEN
                  iflag = 1
-                 supsatup  = co3(j,k-1)-97._wp*aksp(j,k-1)
+                 supsatup  = local_bgc_mem%co3(j,k-1)-97._wp*local_bgc_mem%aksp(j,k-1)
                  depthdiff = 0.5_wp * (pddpo(j,k)+pddpo(j,k-1))
                  satdiff   = supsatup-supsat
-                 bgcflux(j,klysocl) = ptiestu(j,k-1)+depthdiff*(supsatup/satdiff)  ! depth of lysokline
+                 local_bgc_mem%bgcflux(j,klysocl) = ptiestu(j,k-1)+depthdiff*(supsatup/satdiff)  ! depth of lysokline
               END IF
 
             ENDIF   ! wet cell
 
          END DO
   END DO
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
 END SUBROUTINE
 
 

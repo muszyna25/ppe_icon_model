@@ -89,7 +89,7 @@ MODULE radar_interface
        &                              timer_radar_out      , & 
        &                              timer_radar_barrier
 
-  USE mo_opt_nwp_diagnostics,   ONLY: compute_field_dbz_1mom, compute_field_dbz_2mom
+  USE mo_opt_nwp_reflectivity,  ONLY: compute_field_dbz_1mom, compute_field_dbz_2mom
   USE gscp_data,                ONLY: cloud_num
   USE mo_emvorado_warmbubbles_type,  ONLY: autobubs_list
 
@@ -180,9 +180,7 @@ MODULE radar_interface
        get_utc_date,         &
        init_vari
 
-#ifdef GRIBAPI
   USE radar_data_io, ONLY : t_grib2_modelspec
-#endif
   
 #endif
 
@@ -384,15 +382,18 @@ MODULE radar_interface
             bottomlevel, bottomlevel_stag, toplevel, levelincr, get_model_top_height,  &
             get_fdbk_metadata, get_composite_metadata,                                 &
             set_testpattern_hydrometeors_mg, initialize_tmax_1mom_vec_par, finalize_tmax,&
-            initialize_tmax_2mom_vec_par,                                              &
-            get_obstime_ind_of_currtime, get_obs_time_tolerance,                       &
+            initialize_tmax_2mom_vec_par, initialize_tmax_atomic_1mom,                 &
+            initialize_tmax_atomic_2mom,                                               &
+            get_obstime_ind_of_currtime, get_obstime_ind_of_modtime,                   &
+            get_obs_time_tolerance,                                                    &
             check_obstime_within_forecast, check_obstime_within_modelrun,              &
             check_if_currtime_is_obstime, get_domain_starttime_in_sec,                 &
             alloc_aux_model_variables, dealloc_aux_model_variables,                    &
             it_is_time_for_radar, num_regular_obstimes,                                &
             it_is_time_for_bubblecheck,                                                &
             grid_length_model, one_level_up, one_level_down, ndoms_max_model,          &
-            get_dbz3dlin_with_model_method_1mom, get_dbz3dlin_with_model_method_2mom
+            get_dbz3dlin_with_model_method_1mom, get_dbz3dlin_with_model_method_2mom,  &
+            init_1mom_types, init_2mom_types
 
   PUBLIC :: t, rho, qv, qc, qi, qr, qs ,qg, qh,            &
             qnc, qni, qnr, qns ,qng, qnh, qgl, qhl, qnc_s, &
@@ -413,9 +414,7 @@ MODULE radar_interface
             get_domaincenter_global,                                                    &
             get_rotlatlon_domain_for_superobing, set_fdbk_metadata
 
-#ifdef GRIBAPI
   PUBLIC :: grib2_add_modelspec_info
-#endif
 
   PUBLIC :: trigger_warm_bubbles
 #endif
@@ -2635,6 +2634,37 @@ CONTAINS
 
   !============================================================================
   ! 
+  ! Function for computing the index of the nearest obs_time to the input
+  !  model time. The obs times are given in an input vector. If none of the
+  !  obs times falls within the current model time step +/- 0.5*dt, no
+  !  index can be found and missval is returned.
+  !
+  !============================================================================
+
+  FUNCTION get_obstime_ind_of_modtime ( time_mod, obs_times ) RESULT (i_time)
+
+    IMPLICIT NONE
+
+    REAL(KIND=dp), INTENT(in) :: time_mod
+    REAL(KIND=dp), INTENT(in) :: obs_times(:)
+    INTEGER                   :: i_time
+
+    INTEGER       :: n
+
+    i_time = -999
+    DO n = 1, UBOUND(obs_times,1)
+      IF ((obs_times(n) - 0.5_dp*dtime < time_mod .AND. time_mod <= obs_times(n) + 0.5_dp*dtime)) THEN
+        i_time = n
+        EXIT
+      END IF
+    END DO
+    
+  END FUNCTION get_obstime_ind_of_modtime
+
+  !------------------------------------------------------------------------------
+
+  !============================================================================
+  ! 
   ! Function for checking if one specific observation time of a radar
   !  falls within the current model time step.
   !
@@ -3127,145 +3157,125 @@ CONTAINS
   !
   !=======================================================================================
 
-  SUBROUTINE initialize_tmax_2mom_vec_par(neigh,namlist,do_always)
+  SUBROUTINE initialize_tmax_atomic_1mom(qx, t, neigh, qthresh, Tmax_min, Tmax_max, Tmax_x)
 
     IMPLICIT NONE
-    REAL(KIND=dp), INTENT(in) :: neigh
-    TYPE(dbzcalc_params), INTENT(in) :: namlist
-    LOGICAL, OPTIONAL, INTENT(in)    :: do_always
-
-    INTEGER :: iu, ju, i, j, k, im, jm, ierr
-    LOGICAL :: do_all
-
-    do_all = .false.
-    IF(PRESENT(do_always)) do_all=do_always
-
-    !!!!******** neigh is ignored here ********!!!
     
-    ALLOCATE(Tmax_i_modelgrid(ie_fwo,ke_fwo),Tmax_s_modelgrid(ie_fwo,ke_fwo),Tmax_g_modelgrid(ie_fwo,ke_fwo))
+    REAL(kind=dp), INTENT(in)    :: qx(:,:,:), t(:,:,:)
+    REAL(KIND=dp), INTENT(in)    :: neigh
+    REAL(KIND=dp), INTENT(in)    :: qthresh, Tmax_min, Tmax_max
+    REAL(kind=dp), INTENT(inout) :: Tmax_x(:,:)
+    
+    INTEGER :: ni, nj, nk, im, jm, k
 
-    ! Initial (minimal) values of Tmax_x: 
-    CALL init_vari(Tmax_i_modelgrid, namlist%Tmax_min_i)
-    CALL init_vari(Tmax_s_modelgrid, namlist%Tmax_min_s)
-    CALL init_vari(Tmax_g_modelgrid, namlist%Tmax_min_g)
+    !!!!******** neigh (horizontal neighbourhood) is ignored here in case of ICON ********!!!
 
+    ni = SIZE(qx,dim=1)   ! nproma
+    nj = SIZE(qx,dim=2)   ! vertical level
+    nk = SIZE(qx,dim=3)   ! block
+    
     ! Tmax is the highest temperature of a point within a neighbourhood (neigh) of the point im, jm, 
     ! where liquid-water-content is still above a small threshold (qthresh).
     ! Due to this, there is a strong dependency on the parameterization of melting applied in cloud physic package.
 
-    ! First, compute max. Temperature where hydrometeors are present within each vertical column:
-    DO jm=1,je_fwo
-!!$omp parallel do collapse(2) private(k,im)
-!$omp parallel do private(k,im)
-      DO k=1,ke_fwo
-        DO im=1,ie_fwo
-          
-          IF (qi(im,jm,k) > namlist%qthresh_i .AND. qni(im,jm,k) > namlist%qnthresh_i) THEN
-            Tmax_i_modelgrid(im,k) = MAX(Tmax_i_modelgrid(im,k), t(im,jm,k))
-          END IF
-          IF (qs(im,jm,k) > namlist%qthresh_s .AND. qns(im,jm,k) > namlist%qnthresh_s) THEN
-            Tmax_s_modelgrid(im,k) = MAX(Tmax_s_modelgrid(im,k), t(im,jm,k))
-          END IF
-          IF (qg(im,jm,k) > namlist%qthresh_g .AND. qng(im,jm,k) > namlist%qnthresh_g) THEN
-            Tmax_g_modelgrid(im,k) = MAX(Tmax_g_modelgrid(im,k), t(im,jm,k))
-          END IF
+    ! Compute max. temperature where hydrometeors are present within each vertical column:
 
+    ! Initial (minimal) value of Tmax_x: 
+    CALL init_vari(Tmax_x, Tmax_min)
+
+    DO jm=1,nj   ! vertical index in case of ICON
+!!$omp parallel do collapse(2) private(im,k)
+!$omp parallel do private(im,k)
+      DO k=1,nk
+        DO im=1,ni
+          
+          IF (qx(im,jm,k) > qthresh) THEN
+            Tmax_x(im,k) = MAX(Tmax_x(im,k), t(im,jm,k))
+          END IF
+          
         END DO
       END DO
 !$omp end parallel do
     END DO
-    
-    ! Maximum acceptable values of Tmax_x_modelgrid: 
-!$omp parallel
-!$omp workshare
-    Tmax_i_modelgrid = MIN(Tmax_i_modelgrid , namlist%Tmax_max_i)
-    Tmax_s_modelgrid = MIN(Tmax_s_modelgrid , namlist%Tmax_max_s)
-    Tmax_g_modelgrid = MIN(Tmax_g_modelgrid , namlist%Tmax_max_g)
-!$omp end workshare
-!$omp end parallel
-   
-    IF (lalloc_qh .OR. do_all) THEN
-      
-      ALLOCATE(Tmax_h_modelgrid(ie_fwo,ke_fwo))
-      ! Initial (minimal) value of Tmax_h_modelgrid: 
-      CALL init_vari(Tmax_h_modelgrid, namlist%Tmax_min_h)
-
-      DO jm=1,je_fwo
-!!$omp parallel do collapse(2) private(im,k)
-!$omp parallel do private(im,k)
-        DO k=1,ke_fwo
-          DO im=1,ie_fwo
-            
-            IF (qh(im,jm,k) > namlist%qthresh_h .AND. qnh(im,jm,k) > namlist%qnthresh_h) THEN
-              Tmax_h_modelgrid(im,k) = MAX(Tmax_h_modelgrid(im,k), t(im,jm,k))
-            END IF
-            
-          END DO
-        END DO
-!$omp end parallel do
-      END DO
-      
-      ! Maximum acceptable value of Tmax_h_modelgrid: 
-!$omp parallel
-!$omp workshare
-      Tmax_h_modelgrid = MIN(Tmax_h_modelgrid ,  namlist%Tmax_max_h)
-!$omp end workshare
-!$omp end parallel
-
-    END IF
-
-  END SUBROUTINE initialize_tmax_2mom_vec_par
-
-  SUBROUTINE initialize_tmax_1mom_vec_par(neigh,namlist,do_always)
-
-    IMPLICIT NONE
-    REAL(KIND=dp), INTENT(in) :: neigh
-    TYPE(dbzcalc_params), INTENT(in) :: namlist
-    LOGICAL, OPTIONAL, INTENT(in)    :: do_always
-
-    INTEGER :: iu, ju, i, j, k, im, jm, ierr
-    LOGICAL :: do_all
-
-
-    do_all = .false.
-    IF(PRESENT(do_always)) do_all=do_always
-
-    !!!!******** neigh is ignored here ********!!!
-    
-
-    ! Tmax is the highest temperature of a point within a neighbourhood (neigh) of the point im, jm, 
-    ! where liquid-water-content is still above a small threshold (qthresh).
-    ! Due to this, there is a strong dependency on the parameterization of melting applied in cloud physic package.
-
-    ! First, compute max. Temperature where hydrometeors are present within each vertical column:
-    IF (lalloc_qi) THEN
-
-      ALLOCATE(Tmax_i_modelgrid(ie_fwo,ke_fwo))
-
-      ! Initial (minimal) value of Tmax_g: 
-      CALL init_vari(Tmax_i_modelgrid, namlist%Tmax_min_i)
-
-      DO jm=1,je_fwo
-!!$omp parallel do collapse(2) private(im,k)
-!$omp parallel do private(im,k)
-        DO k=1,ke_fwo
-          DO im=1,ie_fwo
-          
-            IF (qi(im,jm,k) > namlist%qthresh_i) THEN
-              Tmax_i_modelgrid(im,k) = MAX(Tmax_i_modelgrid(im,k), t(im,jm,k))
-            END IF
-
-          END DO
-        END DO
-!$omp end parallel do
-      END DO
 
       ! Maximum acceptable value of Tmax_i_modelgrid: 
 !$omp parallel
 !$omp workshare
-      Tmax_i_modelgrid = MIN(Tmax_i_modelgrid , namlist%Tmax_max_i)
+    Tmax_x = MIN(Tmax_x, Tmax_max)
 !$omp end workshare
 !$omp end parallel
+
+  END SUBROUTINE initialize_tmax_atomic_1mom
+
+  SUBROUTINE initialize_tmax_atomic_2mom(qx, qnx, t, neigh, qthresh, qnthresh, Tmax_min, Tmax_max, Tmax_x)
+
+    IMPLICIT NONE
+    
+    REAL(kind=dp), INTENT(in)    :: qx(:,:,:), qnx(:,:,:), t(:,:,:)
+    REAL(KIND=dp), INTENT(in)    :: neigh
+    REAL(KIND=dp), INTENT(in)    :: qthresh, qnthresh, Tmax_min, Tmax_max
+    REAL(kind=dp), INTENT(inout) :: Tmax_x(:,:)
+    
+    INTEGER :: ni, nj, nk, im, jm, k
+
+    !!!!******** neigh (horizontal neighbourhood) is ignored here in case of ICON ********!!!
+
+    ni = SIZE(qx,dim=1)   ! nproma
+    nj = SIZE(qx,dim=2)   ! vertical level
+    nk = SIZE(qx,dim=3)   ! block
+    
+    ! Tmax is the highest temperature of a point within a neighbourhood (neigh) of the point im, jm, 
+    ! where liquid-water-content is still above a small threshold (qthresh).
+    ! Due to this, there is a strong dependency on the parameterization of melting applied in cloud physic package.
+
+    ! Compute max. temperature where hydrometeors are present within each vertical column:
+
+    ! Initial (minimal) value of Tmax_x: 
+    CALL init_vari(Tmax_x, Tmax_min)
+
+    DO jm=1,nj   ! vertical index in case of ICON
+!!$omp parallel do collapse(2) private(im,k)
+!$omp parallel do private(im,k)
+      DO k=1,nk
+        DO im=1,ni
+          
+          IF (qx(im,jm,k) > qthresh .AND. qnx(im,jm,k) > qnthresh) THEN
+            Tmax_x(im,k) = MAX(Tmax_x(im,k), t(im,jm,k))
+          END IF
+          
+        END DO
+      END DO
+!$omp end parallel do
+    END DO
+
+      ! Maximum acceptable value of Tmax_i_modelgrid: 
+!$omp parallel
+!$omp workshare
+    Tmax_x = MIN(Tmax_x, Tmax_max)
+!$omp end workshare
+!$omp end parallel
+
+  END SUBROUTINE initialize_tmax_atomic_2mom
+
+  SUBROUTINE initialize_tmax_1mom_vec_par(neigh,namlist,do_always)
+
+    IMPLICIT NONE
+    REAL(KIND=dp), INTENT(in)        :: neigh
+    TYPE(dbzcalc_params), INTENT(in) :: namlist
+    LOGICAL, OPTIONAL, INTENT(in)    :: do_always
+
+    LOGICAL :: do_all
+
+
+    do_all = .FALSE.
+    IF(PRESENT(do_always)) do_all=do_always
+
+    IF (lalloc_qi) THEN
+
+      ALLOCATE(Tmax_i_modelgrid(ie_fwo,ke_fwo))
+
+      CALL initialize_tmax_atomic_1mom(qi, t, neigh, namlist%qthresh_i, &
+                                       namlist%Tmax_min_i, namlist%Tmax_max_i, Tmax_i_modelgrid)
 
     END IF
 
@@ -3273,30 +3283,8 @@ CONTAINS
 
       ALLOCATE(Tmax_s_modelgrid(ie_fwo,ke_fwo))
       
-      ! Initial (minimal) value of Tmax_s: 
-      CALL init_vari(Tmax_s_modelgrid, namlist%Tmax_min_s)
-
-      DO jm=1,je_fwo
-!!$omp parallel do collapse(2) private(k,im)
-!$omp parallel do  private(k,im)
-        DO k=1,ke_fwo
-          DO im=1,ie_fwo
-          
-            IF (qs(im,jm,k) > namlist%qthresh_s) THEN
-              Tmax_s_modelgrid(im,k) = MAX(Tmax_s_modelgrid(im,k), t(im,jm,k))
-            END IF
-
-          END DO
-        END DO
-!$omp end parallel do
-      END DO
-      
-      ! Maximum acceptable value of Tmax_s_modelgrid: 
-!$omp parallel
-!$omp workshare
-      Tmax_s_modelgrid = MIN(Tmax_s_modelgrid , namlist%Tmax_max_s)
-!$omp end workshare
-!$omp end parallel
+      CALL initialize_tmax_atomic_1mom(qs, t, neigh, namlist%qthresh_s, &
+                                       namlist%Tmax_min_s, namlist%Tmax_max_s, Tmax_s_modelgrid)
 
     END IF
 
@@ -3304,37 +3292,46 @@ CONTAINS
       
       ALLOCATE(Tmax_g_modelgrid(ie_fwo,ke_fwo))
 
-      ! Initial (minimal) value of Tmax_g: 
-      CALL init_vari(Tmax_g_modelgrid, namlist%Tmax_min_g)
-
-      DO jm=1,je_fwo
-!!$omp parallel do collapse(2) private(im,k)
-!$omp parallel do private(im,k)
-        DO k=1,ke_fwo
-           DO im=1,ie_fwo
-          
-            IF (qg(im,jm,k) > namlist%qthresh_g) THEN
-              Tmax_g_modelgrid(im,k) = MAX(Tmax_g_modelgrid(im,k), t(im,jm,k))
-            END IF
-            
-          END DO
-        END DO
-!$omp end parallel do
-      END DO
-      
-      ! Maximum acceptable value of Tmax_g_modelgrid: 
-!$omp parallel
-!$omp workshare
-      Tmax_g_modelgrid = MIN(Tmax_g_modelgrid , namlist%Tmax_max_g)
-!$omp end workshare
-!$omp end parallel
+      CALL initialize_tmax_atomic_1mom(qg, t, neigh, namlist%qthresh_g, &
+                                       namlist%Tmax_min_g, namlist%Tmax_max_g, Tmax_g_modelgrid)
       
     END IF
 
-
-    RETURN
   END SUBROUTINE initialize_tmax_1mom_vec_par
 
+  SUBROUTINE initialize_tmax_2mom_vec_par(neigh,namlist,do_always)
+
+    IMPLICIT NONE
+    REAL(KIND=dp), INTENT(in)        :: neigh
+    TYPE(dbzcalc_params), INTENT(in) :: namlist
+    LOGICAL, OPTIONAL, INTENT(in)    :: do_always
+
+    LOGICAL :: do_all
+
+    do_all = .FALSE.
+    IF(PRESENT(do_always)) do_all=do_always
+
+    ALLOCATE(Tmax_i_modelgrid(ie_fwo,ke_fwo),Tmax_s_modelgrid(ie_fwo,ke_fwo),Tmax_g_modelgrid(ie_fwo,ke_fwo))
+
+    CALL initialize_tmax_atomic_2mom(qi, qni, t, neigh, namlist%qthresh_i, namlist%qnthresh_i, &
+                                     namlist%Tmax_min_i, namlist%Tmax_max_i, Tmax_i_modelgrid)
+
+    CALL initialize_tmax_atomic_2mom(qs, qns, t, neigh, namlist%qthresh_s, namlist%qnthresh_s, &
+                                     namlist%Tmax_min_s, namlist%Tmax_max_s, Tmax_s_modelgrid)
+
+    CALL initialize_tmax_atomic_2mom(qg, qng, t, neigh, namlist%qthresh_g, namlist%qnthresh_g, &
+                                     namlist%Tmax_min_g, namlist%Tmax_max_g, Tmax_g_modelgrid)
+   
+    IF (lalloc_qh .OR. do_all) THEN
+
+      ALLOCATE(Tmax_h_modelgrid(ie_fwo,ke_fwo))
+
+      CALL initialize_tmax_atomic_2mom(qh, qnh, t, neigh, namlist%qthresh_h, namlist%qnthresh_h, &
+                                     namlist%Tmax_min_h, namlist%Tmax_max_h, Tmax_h_modelgrid)
+
+    END IF
+
+  END SUBROUTINE initialize_tmax_2mom_vec_par
 
   ! Clean-up of Tmax_XX:
   SUBROUTINE finalize_tmax()
@@ -3367,7 +3364,8 @@ CONTAINS
 
     IMPLICIT NONE
 
-    INTEGER       :: i, j, k, i_startblk, i_endblk, is, ie, ierr, alt, ni, nj
+    INTEGER       :: i, j, k, i_startblk, i_endblk, is, ie, ierr, alt, ni, nj, &
+                     ni_board, nj_board, ni_board_min, nj_board_min
     LOGICAL       :: minmaxrange
     REAL(kind=wp) :: tc_min, tr_min, ti_max, ts_max, tg_min, tg_max, th_min, th_max
     REAL(kind=wp) :: scalelim, &
@@ -3378,7 +3376,7 @@ CONTAINS
                      xc_min, xi_min, xr_min, xs_min, xg_min, xh_min, &
                      xc_max, xi_max, xr_max, xs_max, xg_max, xh_max
     REAL(kind=wp) :: lon_min, lon_max, lat_min, lat_max, lon_span, lat_span, &
-                     lon_fold, lat_fold
+                     lon_fold, lat_fold, dx, dlon, dlat
     CHARACTER(len=cmaxlen)  :: yerrmsg
     REAL(kind=wp), ALLOCATABLE, SAVE :: &
          spatial_modulation(:,:,:)   , spatial_modulation_2d(:,:)   , &
@@ -3387,11 +3385,8 @@ CONTAINS
 
     !=================================================================
     ! Some testpattern control parameters:
-    !
-    ! Number of patches in x- and y-direction:
-    
-    ni = 4
-    nj = 3
+
+    ! General setup of the spatial modulation function in the testpattern:
     minmaxrange = .TRUE.
     
     ! Temperature limits [°C]:
@@ -3470,7 +3465,20 @@ CONTAINS
 
       ALLOCATE(lon_mat(ie_fwo,ke_fwo), lat_mat(ie_fwo,ke_fwo))
 
-      ! .. 4x3 checkerboard pattern on total domain, provided the domain does not cross the date line:
+      !===================================================================================================
+      ! .. ni x nj checkerboard pattern on total domain, provided the domain does not cross the date line:
+      !
+      !    The desired single patch size (one checkerboard) is about 50x50 = 2500 grid points,
+      !     but if the model domain is smaller than a size to accomodate 4x3 patches,
+      !     the patch size is decreased so as to accomodate 4x3 patches. However, if the domain is so small
+      !     that these 4x3 patches would be smaller than 10x10 gridpoints each, the number of patches
+      !     is reduced so that one patch is at least 10x10 grid points:
+
+      ni_board = 50
+      nj_board = 50
+
+      ni_board_min = 10
+      nj_board_min = 10
 
       lon_mat = -HUGE(1.0_dp)
       lat_mat = -HUGE(1.0_dp)
@@ -3499,22 +3507,38 @@ CONTAINS
         CALL global_values_radar(lat_max, 'MAX', icomm_cart_fwo, -1, yerrmsg, ierr)
       END IF
 
+      ! Number of patches in x- and y-direction with desired size of about 50x50 grid points:
+      dx = p_patch_for_testpattern % geometry_info % mean_characteristic_length
+      dlon = dx / (earth_radius * COS(0.5_wp*(lat_min+lat_max)*degrad)) * raddeg 
+      dlat = dx / earth_radius * raddeg
+      ni = NINT((lon_max-lon_min)/dlon / ni_board)
+      nj = NINT((lat_max-lat_min)/dlat / nj_board)
+
+      ! Enforce min. 4x3 patches:
+      ni = MAX(ni, 4)
+      nj = MAX(nj, 3)
+
+      ! But make sure that the patches have at least 10x10 grid points:
+      ni = MIN(ni, NINT((lon_max-lon_min)/dlon / ni_board_min))
+      nj = MIN(nj, NINT((lat_max-lat_min)/dlat / nj_board_min))
+
       lon_span = (lon_max - lon_min) / ni
       lat_span = (lat_max - lat_min) / nj
 
-      spatial_modulation_2d(:,:) = 0.0_wp
+      spatial_modulation_2d(:,:)    = 0.0_wp
+      spatial_modulation_qn_2d(:,:) = 0.0_wp
       DO k=1, ke_fwo
         DO i=1, ie_fwo
           IF (lon_mat(i,k) > -HUGE(1.0_dp)+1e-20_dp .AND. lat_mat(i,k) > -HUGE(1.0_dp)+1e-20_dp) THEN
-            lon_fold = MODULO(lon_mat(i,k)-lon_min, lon_span)
-            lat_fold = MODULO(lat_mat(i,k)-lat_min, lat_span)
+            lon_fold = lon_span - MODULO(-(lon_mat(i,k)-lon_min), lon_span)  ! (0.0, 1.0]
+            lat_fold = lat_span - MODULO(-(lat_mat(i,k)-lat_min), lat_span)  ! (0.0, 1.0]
 
             alt = MODULO( INT((lon_mat(i,k)-lon_min)/lon_span) + INT((lat_mat(i,k)-lat_min)/lat_span), 2)            
             IF (alt == 0) THEN
               ! horizontal pattern for q and vertical pattern for qn:
               IF (minmaxrange) THEN
-                spatial_modulation_2d(i,k)    = (lon_fold-lon_min)/lon_span
-                spatial_modulation_qn_2d(i,k) = (lat_fold-lat_min)/lat_span
+                spatial_modulation_2d(i,k)    = lon_fold / lon_span
+                spatial_modulation_qn_2d(i,k) = lat_fold / lat_span
               ELSE
                 spatial_modulation_2d(i,k)    = 1.0_dp + scalelim * (lon_fold-0.5_wp*lon_span)/(0.5_wp*lon_span)
                 spatial_modulation_qn_2d(i,k) = 1.0_dp + scalelim * (lat_fold-0.5_wp*lat_span)/(0.5_wp*lat_span)
@@ -3522,8 +3546,8 @@ CONTAINS
             ELSE
               ! vertical pattern for q and horizontal pattern for qn:
               IF (minmaxrange) THEN
-                spatial_modulation_2d(i,k)    = (lat_fold-lat_min)/lat_span
-                spatial_modulation_qn_2d(i,k) = (lon_fold-lon_min)/lon_span
+                spatial_modulation_2d(i,k)    = lat_fold / lat_span
+                spatial_modulation_qn_2d(i,k) = lon_fold / lon_span
               ELSE
                 spatial_modulation_2d(i,k)    = 1.0_dp + scalelim * (lat_fold-0.5_wp*lat_span)/(0.5_wp*lat_span)
                 spatial_modulation_qn_2d(i,k) = 1.0_dp + scalelim * (lat_fold-0.5_wp*lat_span)/(0.5_wp*lat_span)
@@ -3541,8 +3565,7 @@ CONTAINS
       END DO
 
     END IF
-    
-    
+
     ! Vertical profiles for model variables:
     IF (minmaxrange) THEN
       qc = qc_min * (qc_max/qc_min)**spatial_modulation
@@ -5473,7 +5496,6 @@ CONTAINS
 !
 !==============================================================================
   
-#ifdef GRIBAPI
   SUBROUTINE grib2_add_modelspec_info(idom_model, grib_locinfo, error)
 
     IMPLICIT NONE
@@ -5529,7 +5551,6 @@ CONTAINS
     grib_locinfo%numberOfForecastsInEnsemble  = gribout_config(idom_model)%numberOfForecastsInEnsemble
 
   END SUBROUTINE grib2_add_modelspec_info
-#endif
 
 !================================================================================
 !================================================================================

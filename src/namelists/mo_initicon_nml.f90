@@ -51,7 +51,10 @@ MODULE mo_initicon_nml
     & config_ltile_coldstart     => ltile_coldstart,     &
     & config_ltile_init          => ltile_init,          &
     & config_icpl_da_sfcevap     => icpl_da_sfcevap,     &
+    & config_icpl_da_skinc       => icpl_da_skinc,       &
+    & config_icpl_da_snowalb     => icpl_da_snowalb,     &
     & config_dt_ana              => dt_ana,              &
+    & config_adjust_tso_tsnow    => adjust_tso_tsnow,    &
     & config_start_time_avg_fg   => start_time_avg_fg,   &
     & config_end_time_avg_fg     => end_time_avg_fg,     &
     & config_interval_avg_fg     => interval_avg_fg,     &
@@ -130,9 +133,15 @@ CONTAINS
 
   LOGICAL  :: ltile_init       ! If true, initialize tile-based surface fields from first guess without tiles
 
-  INTEGER  :: icpl_da_sfcevap  ! Type of coupling between data assimilation and medel parameters affecting surface evaporation (plants + bare soil)
+  INTEGER  :: icpl_da_sfcevap  ! Type of coupling between data assimilation and model parameters affecting surface evaporation (plants + bare soil)
+
+  INTEGER  :: icpl_da_skinc    ! Coupling between data assimilation and skin conductivity
+
+  INTEGER  :: icpl_da_snowalb  ! Coupling between data assimilation and snow albedo
 
   REAL(wp) :: dt_ana           ! Time interval of assimilation cycle [s] (relevant for icpl_da_sfcevap >= 2)
+
+  LOGICAL  :: adjust_tso_tsnow ! Apply T increments for lowest model level also to snow and upper soil layers
 
   LOGICAL  :: use_lakeiceana   ! If true, use ice fraction analysis data also over lakes (otherwise sea points only)
 
@@ -222,8 +231,8 @@ CONTAINS
                           lvert_remap_fg, iterate_iau, niter_divdamp,       &
                           niter_diffu, qcana_mode, qiana_mode, qrsgana_mode,&
                           qnxana_2mom_mode, itype_vert_expol, pinit_seed,   &
-                          pinit_amplitude, icpl_da_sfcevap, dt_ana
-                          
+                          pinit_amplitude, icpl_da_sfcevap, dt_ana,         &
+                          icpl_da_skinc, icpl_da_snowalb, adjust_tso_tsnow
 
   !------------------------------------------------------------
   ! 2.0 set up the default values for initicon
@@ -285,7 +294,15 @@ CONTAINS
                         ! 0: none
                         ! 1: use filtered T2M bias 
                         ! 2: use filtered T2M bias and filtered RH increment at lowest model level
-                        !    more options to follow ...
+                        ! 3: use filtered T and RH increments at lowest model level
+
+  icpl_da_skinc = 0     ! Coupling between data assimilation and skin conductivity
+                        ! 0: off, 1: on
+
+  icpl_da_snowalb = 0   ! Coupling between data assimilation and snow albedo
+                        ! 0: off, 1: on
+
+  adjust_tso_tsnow = .FALSE. ! If .TRUE., apply T increments for lowest model level also to snow and upper soil layers
 
   dt_ana  = 10800._wp   ! Time interval of assimilation cycle (relevant for icpl_da_sfcevap >= 2; set 3600 s for ICON-D2
 
@@ -377,6 +394,12 @@ CONTAINS
     CALL finish(TRIM(routine),message_text)
   ENDIF
 
+  ! this is needed because the I/O of the filtered T increment is controlled via icpl_da_sfcevap >= 3
+  IF (icpl_da_snowalb >= 1 .AND. icpl_da_sfcevap < 3) THEN
+    WRITE(message_text,'(a)') 'icpl_da_snowalb = 1 must be combined with icpl_da_sfcevap = 3'
+    CALL finish(TRIM(routine),message_text)
+  ENDIF
+
   ! IAU iteration is meaningless if the model starts without backward time shift
   IF (dt_shift == 0._wp) THEN
     iterate_iau = .FALSE.
@@ -419,7 +442,10 @@ CONTAINS
   config_ltile_coldstart     = ltile_coldstart
   config_ltile_init          = ltile_init
   config_icpl_da_sfcevap     = icpl_da_sfcevap
+  config_icpl_da_skinc       = icpl_da_skinc
+  config_icpl_da_snowalb     = icpl_da_snowalb
   config_dt_ana              = dt_ana
+  config_adjust_tso_tsnow    = adjust_tso_tsnow
   config_lvert_remap_fg      = lvert_remap_fg
   config_start_time_avg_fg   = start_time_avg_fg
   config_end_time_avg_fg     = end_time_avg_fg

@@ -51,6 +51,7 @@ MODULE mo_sea_ice_nml
   INTEGER,PUBLIC :: i_ice_dyn           !< Dynamical model switch:
                                         ! 0: No dynamics
                                         ! 1: FEM dynamics (from AWI)
+                                        ! 2: C-GRID dynamics (C.Mehlmann)
   INTEGER,PUBLIC :: i_Qio_type          !< Methods to calculate ice-ocean heatflux
                                         ! 1: Proportional to temperature difference below ice-covered part only
                                         ! 2: Proportional to speed difference btwn. ice and ocean
@@ -263,18 +264,20 @@ CONTAINS
       CALL finish(TRIM(routine), 'i_ice_albedo must be either 1 or 2.')
     END IF
 
-    IF (i_ice_dyn < 0 .OR. i_ice_dyn > 1) THEN
-      CALL finish(TRIM(routine), 'i_ice_dyn must be either 0 or 1.')
+    IF (i_ice_dyn < 0 .OR. i_ice_dyn > 2) THEN
+      CALL finish(TRIM(routine), 'i_ice_dyn must be either 0, 1 or 2.')
     END IF
 
-    IF (i_ice_dyn == 1 ) THEN
-      CALL message(TRIM(routine), 'WARNING: i_ice_dyn is 1 - BUT SEA ICE DYNAMICS INCLUDE ERRORS')
+    IF (i_ice_dyn > 0 ) THEN
+      IF (i_ice_dyn == 1 ) THEN
+        CALL message(TRIM(routine), 'WARNING: i_ice_dyn is 1 - BUT SEA ICE DYNAMICS INCLUDE ERRORS')
+      ENDIF
       ! TODO: This can be changed when we start advecting T1 and T2
    !  CALL message(TRIM(routine), 'WARNING: i_ice_therm set to 1 because i_ice_dyn is 1')
    !  i_ice_therm = 1   !  no Winton thermodynamics allowed, switched off by default
 
       ! When using routine ice_ocean_stress, ocean stress below sea ice is considered accordingly
-      CALL message(TRIM(routine), 'WARNING: stress_ice_zero=FALSE because i_ice_dyn is 1')
+      CALL message(TRIM(routine), 'WARNING: stress_ice_zero=FALSE because i_ice_dyn is 1 or 2')
       stress_ice_zero = .TRUE.
     ENDIF
 

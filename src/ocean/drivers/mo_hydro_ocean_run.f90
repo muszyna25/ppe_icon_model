@@ -90,7 +90,9 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_hamocc_interface, ONLY: ocean_to_hamocc_interface
   USE mo_derived_variable_handling, ONLY: update_statistics
   USE mo_ocean_output
-  USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
+#ifdef YAC_coupling
+  USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
+#endif
   USE mo_hamocc_nml,             ONLY: l_cpl_co2
   USE mo_ocean_time_events,      ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
   USE mo_ocean_ab_timestepping_mimetic, ONLY: clear_ocean_ab_timestepping_mimetic
@@ -574,7 +576,9 @@ CONTAINS
         ! send and receive coupling fluxes for ocean at the end of time stepping loop
         IF (iforc_oce == Coupled_FluxFromAtmo) THEN  !  14
 
+#ifdef YAC_coupling
           CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as)
+#endif
 
           ! copy fluxes updated in coupling from p_atm_f into p_oce_sfc
           p_oce_sfc%FrshFlux_Precipitation = p_atm_f%FrshFlux_Precipitation

@@ -69,8 +69,9 @@ CONTAINS
     REAL(wp) :: zqrsflux(nproma,nlev)
     REAL(wp) :: zqnc(nproma)
     !
-    REAL(wp)                            :: tend_ta_mig  (nproma,nlev)
-    REAL(wp)                            :: tend_qtrc_mig(nproma,nlev,ntracer)
+    REAL(wp) :: tend_ta_mig, tend_qtrc_mig_iqv, tend_qtrc_mig_iqc, tend_qtrc_mig_iqi, &
+                tend_qtrc_mig_iqr, tend_qtrc_mig_iqs, tend_qtrc_mig_iqg
+    LOGICAL  :: associated_ta_mig, associated_qtrc_mig
     !
     ! Local variables for security
     !
@@ -94,75 +95,55 @@ CONTAINS
     field     => prm_field(jg)
     tend      => prm_tend (jg)
 
+    associated_ta_mig   = ASSOCIATED(tend% ta_mig)
+    associated_qtrc_mig = ASSOCIATED(tend% qtrc_mig)
+
     !$ACC DATA PCREATE( zqrsflux, zqnc           , &
-    !$ACC               tend_ta_mig              , &
-    !$ACC               tend_qtrc_mig            , &
     !$ACC               xlta                     , &
     !$ACC               xlqv, xlqc               , &
     !$ACC               xlqi, xlqr               , &
-    !$ACC               xlqs, xlqg               )
+    !$ACC               xlqs, xlqg               ) &
+    !$ACC      PRESENT( field, tend              )
 
-    !$ACC PARALLEL
-    !$ACC LOOP GANG VECTOR
+    !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1)
     DO jl = 1, nproma
       zqnc(jl) = cloud_num
     END DO
-    !$ACC END PARALLEL
-
-    ! preset local mig tendencies to avoid NaNs
-
-       !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP GANG VECTOR COLLAPSE(2)
-       DO jk = 1, nlev
-         DO jl = jcs, jce
-         tend_ta_mig(jl,jk)       = 0.0_wp
-         tend_qtrc_mig(jl,jk,iqv) = 0.0_wp
-         tend_qtrc_mig(jl,jk,iqc) = 0.0_wp
-         tend_qtrc_mig(jl,jk,iqi) = 0.0_wp
-         tend_qtrc_mig(jl,jk,iqr) = 0.0_wp
-         tend_qtrc_mig(jl,jk,iqs) = 0.0_wp
-         tend_qtrc_mig(jl,jk,iqg) = 0.0_wp
-         ENDDO
-       ENDDO
-       !$ACC END PARALLEL
 
     ! reciprocal of timestep
-
     zdtr = 1.0_wp/pdtime
 
     IF ( is_in_sd_ed_interval ) THEN
-       !
-       IF ( is_active ) THEN
-
-       ! Copy fields to local variables
-       ! This prevents the fields to be updated directly in graupel scheme
-       !  and is used for the calculation of tendencies at the end of the complete
-       !  satad - graupel - satad -cycle
-       !
-       !$ACC DATA PRESENT(field%ta, field%qtrc)
-       !$ACC PARALLEL
-       !$ACC LOOP GANG VECTOR COLLAPSE(2)
-       DO jk = 1,nlev
-         DO jl = jcs,jce
-           xlta(jl,jk) = field% ta   (jl,jk,jb)
-           xlqv(jl,jk) = field% qtrc (jl,jk,jb,iqv)
-           xlqc(jl,jk) = field% qtrc (jl,jk,jb,iqc)
-           xlqi(jl,jk) = field% qtrc (jl,jk,jb,iqi)
-           xlqr(jl,jk) = field% qtrc (jl,jk,jb,iqr)
-           xlqs(jl,jk) = field% qtrc (jl,jk,jb,iqs)
-           xlqg(jl,jk) = field% qtrc (jl,jk,jb,iqg)
-         END DO
-       END DO
-       !$ACC END PARALLEL
-       !$ACC END DATA
+      !
+      IF ( is_active ) THEN
+        !
+        ! Copy fields to local variables
+        ! This prevents the fields to be updated directly in graupel scheme
+        !  and is used for the calculation of tendencies at the end of the complete
+        !  satad - graupel - satad -cycle
+        !
+        !$ACC PARALLEL LOOP GANG VECTOR TILE(128,1) DEFAULT(NONE) ASYNC(1)
+        DO jk = 1,nlev
+          DO jl = jcs,jce
+            xlta(jl,jk) = field% ta   (jl,jk,jb)
+            xlqv(jl,jk) = field% qtrc (jl,jk,jb,iqv)
+            xlqc(jl,jk) = field% qtrc (jl,jk,jb,iqc)
+            xlqi(jl,jk) = field% qtrc (jl,jk,jb,iqi)
+            xlqr(jl,jk) = field% qtrc (jl,jk,jb,iqr)
+            xlqs(jl,jk) = field% qtrc (jl,jk,jb,iqs)
+            xlqg(jl,jk) = field% qtrc (jl,jk,jb,iqg)
+          END DO
+        END DO
+        !$ACC END PARALLEL
 
       !!-------------------------------------------------------------------------
       !> Initial saturation adjustment (a second one follows at the end of the microphysics)
       !!-------------------------------------------------------------------------
 #ifdef _OPENACC
-       CALL satad_v_3d_gpu(                                &
+        !$ACC WAIT
+        CALL satad_v_3d_gpu(                               &
 #else
-       CALL satad_v_3d(                                    &
+        CALL satad_v_3d(                                   &
 #endif
               & maxiter  = 10                             ,& !> IN
               & tol      = 1.e-3_wp                       ,& !> IN
@@ -177,9 +158,8 @@ CONTAINS
               & klo      = jkscov                         ,& !> IN
               & kup      = nlev                            & !> IN
               )
-!
-       !
-       CALL graupel (                            &
+        !
+        CALL graupel (                                &
               & nvec   =nproma                      , & !> in:  actual array size
               & ke     =nlev                        , & !< in:  actual array size
               & ivstart=jcs                         , & !< in:  start index of calculation
@@ -209,13 +189,13 @@ CONTAINS
               & ldiag_qtend = echam_mig_config(jg)%ldiag_qtend )   !< in:  if moisture tendencies shall be diagnosed
                                                                    ! IF true tendencies have to be re-implemented
 
-      !!-------------------------------------------------------------------------
-      !> Final saturation adjustment (as this has been removed from the end of the microphysics)
-      !!-------------------------------------------------------------------------
+        !!-------------------------------------------------------------------------
+        !> Final saturation adjustment (as this has been removed from the end of the microphysics)
+        !!-------------------------------------------------------------------------
 #ifdef _OPENACC
-       CALL satad_v_3d_gpu(                                &
+        CALL satad_v_3d_gpu(                                &
 #else
-       CALL satad_v_3d(                                    &
+        CALL satad_v_3d(                                    &
 #endif
               & maxiter  = 10                             ,& !> IN
               & tol      = 1.e-3_wp                       ,& !> IN
@@ -231,193 +211,173 @@ CONTAINS
               & kup      = nlev                            & !> IN
               )
 
-       !
-       ! Calculate rain and snow
-       !
-       !$ACC DATA PRESENT( field%rsfl, field%ssfl, field%rain_gsp_rate, field%snow_gsp_rate, &
-       !$ACC               field%graupel_gsp_rate )
-       !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP GANG VECTOR
-       DO jl = jcs, jce
-         field% rsfl(jl,jb) = field%rain_gsp_rate (jl,jb)
-         field% ssfl(jl,jb) = field%snow_gsp_rate (jl,jb) + field%graupel_gsp_rate (jl,jb)
-       END DO
-       !$ACC END PARALLEL
-       !$ACC END DATA
-       !
-       ! Calculate tendencies and convert temperature tendency, as computed for constant volume in satad/graupel
-       !  to constant pressure
-       !
-       !$ACC DATA PRESENT( field%ta, field%qtrc, field% cpair )
-       !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP GANG VECTOR COLLAPSE(2)
-       DO jk = jkscov, nlev
-         DO jl = jcs, jce
-         tend_ta_mig(jl,jk) = (xlta(jl,jk)-field% ta(jl,jk,jb))*zdtr                &
-                                     & * cvd/field% cpair(jl,jk,jb)
-         tend_qtrc_mig(jl,jk,iqv) = MAX(-field% qtrc(jl,jk,jb,iqv)*zdtr,            &
-                                     & (xlqv(jl,jk)-field% qtrc(jl,jk,jb,iqv))*zdtr)
-         tend_qtrc_mig(jl,jk,iqc) = MAX(-field% qtrc(jl,jk,jb,iqc)*zdtr,            &
-                                     & (xlqc(jl,jk)-field% qtrc(jl,jk,jb,iqc))*zdtr)
-         tend_qtrc_mig(jl,jk,iqi) = MAX(-field% qtrc(jl,jk,jb,iqi)*zdtr,            &
-                                     & (xlqi(jl,jk)-field% qtrc(jl,jk,jb,iqi))*zdtr)
-         tend_qtrc_mig(jl,jk,iqr) = MAX(-field% qtrc(jl,jk,jb,iqr)*zdtr,            &
-                                     & (xlqr(jl,jk)-field% qtrc(jl,jk,jb,iqr))*zdtr)
-         tend_qtrc_mig(jl,jk,iqs) = MAX(-field% qtrc(jl,jk,jb,iqs)*zdtr,            &
-                                     & (xlqs(jl,jk)-field% qtrc(jl,jk,jb,iqs))*zdtr)
-         tend_qtrc_mig(jl,jk,iqg) = MAX(-field% qtrc(jl,jk,jb,iqg)*zdtr,            &
-                                     & (xlqg(jl,jk)-field% qtrc(jl,jk,jb,iqg))*zdtr)
-         ENDDO
-       ENDDO
-       !$ACC END PARALLEL
-       !$ACC END DATA
-       !
-       ! store in memory for output or recycling
-       !
-       IF (ASSOCIATED(tend% ta_mig)) THEN 
-         !$ACC DATA PRESENT( tend%ta_mig, tend_ta_mig )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG VECTOR COLLAPSE(2)
-         DO jk = jkscov,nlev
-           DO jl = jcs,jce
-             tend% ta_mig(jl,jk,jb) = tend_ta_mig(jl,jk)
-           ENDDO
-         ENDDO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       ENDIF
-       !
-       IF (ASSOCIATED(tend% qtrc_mig)) THEN
-         !$ACC DATA PRESENT( tend%qtrc_mig, tend_qtrc_mig )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG VECTOR COLLAPSE(2)
-         DO jk = jkscov,nlev
-           DO jl = jcs,jce
-             tend% qtrc_mig(jl,jk,jb,iqv) = tend_qtrc_mig(jl,jk,iqv)
-             tend% qtrc_mig(jl,jk,jb,iqc) = tend_qtrc_mig(jl,jk,iqc)
-             tend% qtrc_mig(jl,jk,jb,iqi) = tend_qtrc_mig(jl,jk,iqi)
-             tend% qtrc_mig(jl,jk,jb,iqr) = tend_qtrc_mig(jl,jk,iqr)
-             tend% qtrc_mig(jl,jk,jb,iqs) = tend_qtrc_mig(jl,jk,iqs)
-             tend% qtrc_mig(jl,jk,jb,iqg) = tend_qtrc_mig(jl,jk,iqg)
-           ENDDO
-         ENDDO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       !
-       ELSE    ! is_active
-         !
-         ! retrieve from memory for recycling
-         !
-         IF (ASSOCIATED(tend% ta_mig)) THEN 
-           !$ACC DATA PRESENT( tend%ta_mig, tend_ta_mig )
-           !$ACC PARALLEL DEFAULT(PRESENT)
-           !$ACC LOOP GANG VECTOR COLLAPSE(2)
-           DO jk = jkscov,nlev
-             DO jl = jcs,jce
-               tend_ta_mig(jl,jk) = tend% ta_mig(jl,jk,jb)
-             ENDDO
-           ENDDO
-           !$ACC END PARALLEL
-           !$ACC END DATA
-         ENDIF
-         !
-         IF (ASSOCIATED(tend% qtrc_mig)) THEN
-           !$ACC DATA PRESENT( tend%qtrc_mig, tend_qtrc_mig )
-           !$ACC PARALLEL DEFAULT(PRESENT)
-           !$ACC LOOP GANG VECTOR COLLAPSE(2)
-           DO jk = jkscov,nlev
-             DO jl = jcs,jce
-               tend_qtrc_mig(jl,jk,iqv) = tend% qtrc_mig(jl,jk,jb,iqv)
-               tend_qtrc_mig(jl,jk,iqc) = tend% qtrc_mig(jl,jk,jb,iqc)
-               tend_qtrc_mig(jl,jk,iqi) = tend% qtrc_mig(jl,jk,jb,iqi)
-               tend_qtrc_mig(jl,jk,iqr) = tend% qtrc_mig(jl,jk,jb,iqr)
-               tend_qtrc_mig(jl,jk,iqs) = tend% qtrc_mig(jl,jk,jb,iqs)
-               tend_qtrc_mig(jl,jk,iqg) = tend% qtrc_mig(jl,jk,jb,iqg)
-             ENDDO
-           ENDDO
-           !$ACC END PARALLEL
-           !$ACC END DATA
-         END IF
-         !
-       END IF  ! is_active
-       !
-
-       ! accumulate tendencies for later updating the model state
-       SELECT CASE(fc_mig)
-       CASE(0)
-          ! diagnostic, do not use tendency
-       CASE(1)
-          !$ACC DATA PRESENT( tend%ta_phy, tend%qtrc_phy, tend_ta_mig, tend_qtrc_mig )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG VECTOR COLLAPSE(2)
-          DO jk = 1, nlev
-            DO jl = jcs, jce
-              ! use tendency to update the model state
-              tend%   ta_phy(jl,jk,jb)      = tend%   ta_phy(jl,jk,jb)     + tend_ta_mig  (jl,jk)
-              tend% qtrc_phy(jl,jk,jb,iqv)  = tend% qtrc_phy(jl,jk,jb,iqv) + tend_qtrc_mig(jl,jk,iqv)
-              tend% qtrc_phy(jl,jk,jb,iqc)  = tend% qtrc_phy(jl,jk,jb,iqc) + tend_qtrc_mig(jl,jk,iqc)
-              tend% qtrc_phy(jl,jk,jb,iqi)  = tend% qtrc_phy(jl,jk,jb,iqi) + tend_qtrc_mig(jl,jk,iqi)
-              tend% qtrc_phy(jl,jk,jb,iqr)  = tend% qtrc_phy(jl,jk,jb,iqr) + tend_qtrc_mig(jl,jk,iqr)
-              tend% qtrc_phy(jl,jk,jb,iqs)  = tend% qtrc_phy(jl,jk,jb,iqs) + tend_qtrc_mig(jl,jk,iqs)
-              tend% qtrc_phy(jl,jk,jb,iqg)  = tend% qtrc_phy(jl,jk,jb,iqg) + tend_qtrc_mig(jl,jk,iqg)
-            END DO
-          END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
-!!$       CASE(2)
-!!$          ! use tendency as forcing in the dynamics
-!!$          ...
-       END SELECT
-       !
-       ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-         SELECT CASE(fc_mig)
-         CASE(0)
+        !
+        ! Calculate rain and snow
+        !
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+        !$ACC LOOP GANG VECTOR
+        DO jl = jcs, jce
+          field% rsfl(jl,jb) = field%rain_gsp_rate (jl,jb)
+          field% ssfl(jl,jb) = field%snow_gsp_rate (jl,jb) + field%graupel_gsp_rate (jl,jb)
+        END DO
+        !$ACC END PARALLEL
+        !
+        !
+        ! is_active true: calculate new tendencies, update memory if required, update model state
+        ! cases by is_active are deliberately separated to avoid temporary memory
+        !
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+        !$ACC LOOP GANG VECTOR TILE(128,1)
+        DO jk = jkscov, nlev
+          DO jl = jcs, jce
+            !
+            ! Calculate tendencies and convert temperature tendency, as computed for constant volume in satad/graupel
+            !  to constant pressure
+            !
+            tend_ta_mig = (xlta(jl,jk)-field% ta(jl,jk,jb))*zdtr                &
+                                        & * cvd/field% cpair(jl,jk,jb)
+            tend_qtrc_mig_iqv = MAX(-field% qtrc(jl,jk,jb,iqv)*zdtr,            &
+                                        & (xlqv(jl,jk)-field% qtrc(jl,jk,jb,iqv))*zdtr)
+            tend_qtrc_mig_iqc = MAX(-field% qtrc(jl,jk,jb,iqc)*zdtr,            &
+                                        & (xlqc(jl,jk)-field% qtrc(jl,jk,jb,iqc))*zdtr)
+            tend_qtrc_mig_iqi = MAX(-field% qtrc(jl,jk,jb,iqi)*zdtr,            &
+                                        & (xlqi(jl,jk)-field% qtrc(jl,jk,jb,iqi))*zdtr)
+            tend_qtrc_mig_iqr = MAX(-field% qtrc(jl,jk,jb,iqr)*zdtr,            &
+                                        & (xlqr(jl,jk)-field% qtrc(jl,jk,jb,iqr))*zdtr)
+            tend_qtrc_mig_iqs = MAX(-field% qtrc(jl,jk,jb,iqs)*zdtr,            &
+                                        & (xlqs(jl,jk)-field% qtrc(jl,jk,jb,iqs))*zdtr)
+            tend_qtrc_mig_iqg = MAX(-field% qtrc(jl,jk,jb,iqg)*zdtr,            &
+                                        & (xlqg(jl,jk)-field% qtrc(jl,jk,jb,iqg))*zdtr)
+            !
+            ! store in memory for output or recycling
+            !
+            IF (associated_ta_mig) tend% ta_mig(jl,jk,jb) = tend_ta_mig
+            !
+            IF (associated_qtrc_mig) THEN
+              tend% qtrc_mig(jl,jk,jb,iqv) = tend_qtrc_mig_iqv
+              tend% qtrc_mig(jl,jk,jb,iqc) = tend_qtrc_mig_iqc
+              tend% qtrc_mig(jl,jk,jb,iqi) = tend_qtrc_mig_iqi
+              tend% qtrc_mig(jl,jk,jb,iqr) = tend_qtrc_mig_iqr
+              tend% qtrc_mig(jl,jk,jb,iqs) = tend_qtrc_mig_iqs
+              tend% qtrc_mig(jl,jk,jb,iqg) = tend_qtrc_mig_iqg
+            ENDIF
+            !
+            ! Accumulate tendencies for later updating the model state
+            !
+            SELECT CASE(fc_mig)
+            CASE(0)
             ! diagnostic, do not use tendency
-         CASE(1)
-             !$ACC DATA PRESENT( field%ta, field%qtrc, tend_ta_mig, tend_qtrc_mig )
-             !$ACC PARALLEL DEFAULT(PRESENT)
-             !$ACC LOOP GANG VECTOR COLLAPSE(2)
-             DO jk = 1, nlev
-               DO jl = jcs, jce
-                 field%   ta(jl,jk,jb)      = field%   ta(jl,jk,jb)      + tend_ta_mig  (jl,jk)    *pdtime
-                 field% qtrc(jl,jk,jb,iqv)  = field% qtrc(jl,jk,jb,iqv)  + tend_qtrc_mig(jl,jk,iqv)*pdtime
-                 field% qtrc(jl,jk,jb,iqc)  = field% qtrc(jl,jk,jb,iqc)  + tend_qtrc_mig(jl,jk,iqc)*pdtime
-                 field% qtrc(jl,jk,jb,iqi)  = field% qtrc(jl,jk,jb,iqi)  + tend_qtrc_mig(jl,jk,iqi)*pdtime
-                 field% qtrc(jl,jk,jb,iqr)  = field% qtrc(jl,jk,jb,iqr)  + tend_qtrc_mig(jl,jk,iqr)*pdtime
-                 field% qtrc(jl,jk,jb,iqs)  = field% qtrc(jl,jk,jb,iqs)  + tend_qtrc_mig(jl,jk,iqs)*pdtime
-                 field% qtrc(jl,jk,jb,iqg)  = field% qtrc(jl,jk,jb,iqg)  + tend_qtrc_mig(jl,jk,iqg)*pdtime
-               END DO
-             END DO
-             !$ACC END PARALLEL
-             !$ACC END DATA
-             !
-!!$         CASE(2)
-!!$            ! use tendency as forcing in the dynamics
-!!$            ...
-         END SELECT
-       END IF
-       !
+            CASE(1)
+            ! use tendency to update the model state
+              tend%   ta_phy(jl,jk,jb)      = tend%   ta_phy(jl,jk,jb)     + tend_ta_mig  
+              tend% qtrc_phy(jl,jk,jb,iqv)  = tend% qtrc_phy(jl,jk,jb,iqv) + tend_qtrc_mig_iqv
+              tend% qtrc_phy(jl,jk,jb,iqc)  = tend% qtrc_phy(jl,jk,jb,iqc) + tend_qtrc_mig_iqc
+              tend% qtrc_phy(jl,jk,jb,iqi)  = tend% qtrc_phy(jl,jk,jb,iqi) + tend_qtrc_mig_iqi
+              tend% qtrc_phy(jl,jk,jb,iqr)  = tend% qtrc_phy(jl,jk,jb,iqr) + tend_qtrc_mig_iqr
+              tend% qtrc_phy(jl,jk,jb,iqs)  = tend% qtrc_phy(jl,jk,jb,iqs) + tend_qtrc_mig_iqs
+              tend% qtrc_phy(jl,jk,jb,iqg)  = tend% qtrc_phy(jl,jk,jb,iqg) + tend_qtrc_mig_iqg
+            END SELECT
+            !
+            ! update physics state for input to the next physics process
+            IF (lparamcpl) THEN
+              SELECT CASE(fc_mig)
+              CASE(0)
+                  ! diagnostic, do not use tendency
+              CASE(1)
+                field%   ta(jl,jk,jb)      = field%   ta(jl,jk,jb)      + tend_ta_mig      *pdtime
+                field% qtrc(jl,jk,jb,iqv)  = field% qtrc(jl,jk,jb,iqv)  + tend_qtrc_mig_iqv*pdtime
+                field% qtrc(jl,jk,jb,iqc)  = field% qtrc(jl,jk,jb,iqc)  + tend_qtrc_mig_iqc*pdtime
+                field% qtrc(jl,jk,jb,iqi)  = field% qtrc(jl,jk,jb,iqi)  + tend_qtrc_mig_iqi*pdtime
+                field% qtrc(jl,jk,jb,iqr)  = field% qtrc(jl,jk,jb,iqr)  + tend_qtrc_mig_iqr*pdtime
+                field% qtrc(jl,jk,jb,iqs)  = field% qtrc(jl,jk,jb,iqs)  + tend_qtrc_mig_iqs*pdtime
+                field% qtrc(jl,jk,jb,iqg)  = field% qtrc(jl,jk,jb,iqg)  + tend_qtrc_mig_iqg*pdtime
+              END SELECT
+            END IF
+          ENDDO
+        ENDDO
+        !$ACC END PARALLEL
+        !
+      ELSE    ! is_active
+        !
+        ! is_active false: reuse tendencies from memory if available, update model state
+        !
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+        !$ACC LOOP GANG VECTOR TILE(128,1)
+        DO jk = jkscov, nlev
+          DO jl = jcs, jce
+            !
+            ! retrieve from memory for recycling
+            !
+            tend_ta_mig       = 0.0_wp
+            tend_qtrc_mig_iqv = 0.0_wp
+            tend_qtrc_mig_iqc = 0.0_wp
+            tend_qtrc_mig_iqi = 0.0_wp
+            tend_qtrc_mig_iqr = 0.0_wp
+            tend_qtrc_mig_iqs = 0.0_wp
+            tend_qtrc_mig_iqg = 0.0_wp
+            !
+            IF (associated_ta_mig) tend_ta_mig = tend% ta_mig(jl,jk,jb)
+            !
+            IF (associated_qtrc_mig) THEN
+              tend_qtrc_mig_iqv = tend% qtrc_mig(jl,jk,jb,iqv)
+              tend_qtrc_mig_iqc = tend% qtrc_mig(jl,jk,jb,iqc)
+              tend_qtrc_mig_iqi = tend% qtrc_mig(jl,jk,jb,iqi)
+              tend_qtrc_mig_iqr = tend% qtrc_mig(jl,jk,jb,iqr)
+              tend_qtrc_mig_iqs = tend% qtrc_mig(jl,jk,jb,iqs)
+              tend_qtrc_mig_iqg = tend% qtrc_mig(jl,jk,jb,iqg)
+            ENDIF
+            !
+            ! Accumulate tendencies for later updating the model state
+            !
+            SELECT CASE(fc_mig)
+            CASE(0)
+            ! diagnostic, do not use tendency
+            CASE(1)
+            ! use tendency to update the model state
+              tend%   ta_phy(jl,jk,jb)      = tend%   ta_phy(jl,jk,jb)     + tend_ta_mig  
+              tend% qtrc_phy(jl,jk,jb,iqv)  = tend% qtrc_phy(jl,jk,jb,iqv) + tend_qtrc_mig_iqv
+              tend% qtrc_phy(jl,jk,jb,iqc)  = tend% qtrc_phy(jl,jk,jb,iqc) + tend_qtrc_mig_iqc
+              tend% qtrc_phy(jl,jk,jb,iqi)  = tend% qtrc_phy(jl,jk,jb,iqi) + tend_qtrc_mig_iqi
+              tend% qtrc_phy(jl,jk,jb,iqr)  = tend% qtrc_phy(jl,jk,jb,iqr) + tend_qtrc_mig_iqr
+              tend% qtrc_phy(jl,jk,jb,iqs)  = tend% qtrc_phy(jl,jk,jb,iqs) + tend_qtrc_mig_iqs
+              tend% qtrc_phy(jl,jk,jb,iqg)  = tend% qtrc_phy(jl,jk,jb,iqg) + tend_qtrc_mig_iqg
+            END SELECT
+            !
+            ! update physics state for input to the next physics process
+            IF (lparamcpl) THEN
+              SELECT CASE(fc_mig)
+              CASE(0)
+                  ! diagnostic, do not use tendency
+              CASE(1)
+                field%   ta(jl,jk,jb)      = field%   ta(jl,jk,jb)      + tend_ta_mig      *pdtime
+                field% qtrc(jl,jk,jb,iqv)  = field% qtrc(jl,jk,jb,iqv)  + tend_qtrc_mig_iqv*pdtime
+                field% qtrc(jl,jk,jb,iqc)  = field% qtrc(jl,jk,jb,iqc)  + tend_qtrc_mig_iqc*pdtime
+                field% qtrc(jl,jk,jb,iqi)  = field% qtrc(jl,jk,jb,iqi)  + tend_qtrc_mig_iqi*pdtime
+                field% qtrc(jl,jk,jb,iqr)  = field% qtrc(jl,jk,jb,iqr)  + tend_qtrc_mig_iqr*pdtime
+                field% qtrc(jl,jk,jb,iqs)  = field% qtrc(jl,jk,jb,iqs)  + tend_qtrc_mig_iqs*pdtime
+                field% qtrc(jl,jk,jb,iqg)  = field% qtrc(jl,jk,jb,iqg)  + tend_qtrc_mig_iqg*pdtime
+              END SELECT
+            END IF
+          ENDDO
+        ENDDO
+        !$ACC END PARALLEL
+        !
+      END IF
+      !
     ELSE       ! is_in_sd_ed_interval
        !
-       IF (ASSOCIATED(tend% ta_mig)) THEN 
-         !$ACC DATA PRESENT( tend%ta_mig )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG VECTOR COLLAPSE(2)
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+       IF (associated_ta_mig) THEN 
+         !$ACC LOOP GANG(static:1) VECTOR TILE(128,1)
          DO jk = 1, nlev
            DO jl = jcs, jce
              tend% ta_mig(jl,jk,jb) = 0.0_wp
            END DO
          END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
        END IF
        !
-       IF (ASSOCIATED(tend% qtrc_mig )) THEN
-          !$ACC DATA PRESENT( tend%qtrc_mig )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+       IF (associated_qtrc_mig) THEN
+          !$ACC LOOP GANG(static:1) VECTOR TILE(128,1)
           DO jk = 1, nlev
             DO jl = jcs, jce
               tend% qtrc_mig(jl,jk,jb,iqv) = 0.0_wp
@@ -428,12 +388,12 @@ CONTAINS
               tend% qtrc_mig(jl,jk,jb,iqg) = 0.0_wp
             END DO
           END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
        END IF
+       !$ACC END PARALLEL
        !
     END IF     ! is_in_sd_ed_interval
 
+    !$ACC WAIT
     !$ACC END DATA
 
     ! disassociate pointers
