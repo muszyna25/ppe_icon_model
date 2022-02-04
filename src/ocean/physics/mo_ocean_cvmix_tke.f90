@@ -63,8 +63,10 @@ MODULE mo_ocean_cvmix_tke
     &  c_eps,                       &
     &  alpha_tke,                   &
     &  mxl_min,                     &
-    &  kappaM_min,                  &
-    &  kappaM_max,                  &
+    &  use_Kappa_min,               &
+    &  KappaM_min,                  &
+    &  KappaH_min,                  &
+    &  KappaM_max,                  &
     &  cd,                          &
     &  tke_min,                     &
     &  tke_mxl_choice,              &
@@ -128,8 +130,10 @@ CONTAINS
     !REAL(wp) :: c_eps
     !REAL(wp) :: alpha_tke
     !REAL(wp) :: mxl_min
-    !REAL(wp) :: kappaM_min
-    !REAL(wp) :: kappaM_max
+    !LOGICAL  :: use_Kappa_min
+    !REAL(wp) :: KappaM_min
+    !REAL(wp) :: KappaH_min
+    !REAL(wp) :: KappaM_max
     !REAL(wp) :: cd
     !REAL(wp) :: tke_min
     !INTEGER  :: tke_mxl_choice
@@ -143,8 +147,10 @@ CONTAINS
     !c_eps      = 0.7_wp
     !alpha_tke  = 30.0_wp
     !mxl_min    = 1.d-8_wp
-    !kappaM_min = 0.0_wp
-    !kappaM_max = 100.0_wp
+    !use_Kappa_min = .false.
+    !KappaM_min = 1.d-4_wp
+    !KappaH_min = 1.d-5_wp
+    !KappaM_max = 100.0_wp
     !cd         = 3.75_wp
     !tke_min    = 1.d-6_wp
     !tke_mxl_choice = 2
@@ -157,8 +163,10 @@ CONTAINS
     !write(*,*) c_eps
     !write(*,*) alpha_tke
     !write(*,*) mxl_min
-    !write(*,*) kappaM_min
-    !write(*,*) kappaM_max
+    !write(*,*) use_Kappa_min
+    !write(*,*) KappaM_min
+    !write(*,*) KappaH_min
+    !write(*,*) KappaM_max
     !write(*,*) cd
     !write(*,*) tke_min
     !write(*,*) tke_mxl_choice
@@ -172,8 +180,10 @@ CONTAINS
                   cd             = cd,             &
                   alpha_tke      = alpha_tke,      &
                   mxl_min        = mxl_min,        &
-                  kappaM_min     = kappaM_min,     &
-                  kappaM_max     = kappaM_max,     &
+                  use_Kappa_min  = use_Kappa_min,  &
+                  KappaM_min     = KappaM_min,     &
+                  KappaH_min     = KappaH_min,     &
+                  KappaM_max     = KappaM_max,     &
                   tke_mxl_choice = tke_mxl_choice, &
                   use_ubound_dirichlet = use_ubound_dirichlet, &
                   use_lbound_dirichlet = use_lbound_dirichlet, &

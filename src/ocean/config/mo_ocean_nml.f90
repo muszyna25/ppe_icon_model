@@ -492,8 +492,10 @@ MODULE mo_ocean_nml
   REAL(wp) :: c_eps = 0.7_wp
   REAL(wp) :: alpha_tke = 30.0_wp
   REAL(wp) :: mxl_min = 1.E-8_wp 
-  REAL(wp) :: kappaM_min = 0.0_wp
-  REAL(wp) :: kappaM_max = 100.0_wp
+  LOGICAL  :: use_Kappa_min = .false.
+  REAL(wp) :: KappaM_min = 1.E-4_wp
+  REAL(wp) :: KappaH_min = 1.E-5_wp
+  REAL(wp) :: KappaM_max = 100.0_wp
   REAL(wp) :: cd = 3.75_wp
   REAL(wp) :: tke_min = 1.E-6_wp
   INTEGER  :: tke_mxl_choice = 2
@@ -640,8 +642,10 @@ MODULE mo_ocean_nml
     &  c_eps,                       &
     &  alpha_tke,                   &
     &  mxl_min,                     &
-    &  kappaM_min,                  &
-    &  kappaM_max,                  &
+    &  use_Kappa_min,               &
+    &  KappaM_min,                  &
+    &  KappaH_min,                  &
+    &  KappaM_max,                  &
     &  cd,                          &
     &  tke_min,                     &
     &  tke_mxl_choice,              &
