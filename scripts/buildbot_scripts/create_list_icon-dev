@@ -113,7 +113,7 @@ $addexp checksuite.rcnl.dwd.de/exp.run_ICON_14_R2B6N7_oper_IAU_and_restarttest.r
 
 #-----------------------------------------------------------
 # Ruby0 coupled tests, only with mpi
-#off##$addexp exp.esm_bb_rte_rrtmgp_ruby0 --without-configureflags without-mpi --machines mistral --runflags "cpu_time=00:20:00 no_of_nodes=4" --list $listname
+$addexp exp.esm_bb_rte_rrtmgp_ruby0 --without-configureflags without-mpi --machines mistral --runflags "cpu_time=00:20:00 no_of_nodes=4" --list $listname
 
 #-----------------------------------------------------------
 #off## Other tests
@@ -126,10 +126,10 @@ $addexp checksuite.rcnl.dwd.de/exp.run_ICON_14_R2B6N7_oper_IAU_and_restarttest.r
 #off##   very old test from Pilar
 #off#$addexp exp.nat_jww_nwp_mpiomp --without-configureflags without-mpi  --machines mistral --runflags "cpu_time=00:30:00" --list $listname
 
-#off## test memory loggin in amip setup
-#off#$addexp checksuite.infrastructure/memLog/exp.atm_memLog         --builders MISTRAL_intel18_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
-#off#$addexp checksuite.infrastructure/memLog/exp.atm_memLog_AsyncIO --builders MISTRAL_intel18_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
-#off#$addexp checksuite.infrastructure/memLog/exp.oce_memLog         --builders MISTRAL_intel18_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
+# test memory loggin in amip setup
+$addexp checksuite.infrastructure/memLog/exp.atm_memLog         --builders MISTRAL_intel18_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
+$addexp checksuite.infrastructure/memLog/exp.atm_memLog_AsyncIO --builders MISTRAL_intel18_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
+$addexp checksuite.infrastructure/memLog/exp.oce_memLog         --builders MISTRAL_intel18_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
 #-----------------------------------------------------------
 #remove red setups
 ./rmexp exp.test_nwp_R02B04N06_multifile_restart exp.test_nwp_R02B04N06multi2 --builders MISTRAL_nag --list $listname
@@ -141,8 +141,8 @@ $addexp checksuite.rcnl.dwd.de/exp.run_ICON_14_R2B6N7_oper_IAU_and_restarttest.r
 for builder in MISTRAL_intel18_pio; do
   $addexp checksuite.infrastructure/output/exp.atm_rte_rrtmgp_amip_R2B4_1day_pio --builders ${builder} --list $listname
   $addexp checksuite.infrastructure/output/exp.atm_rte_rrtmgp_amip_R2B4_1day     --builders ${builder} --list $listname
-#off##  $addexp exp.esm_bb_rte_rrtmgp_ruby0_pio  --builders ${builder} --list $listname --runflags "cpu_time=00:20:00 no_of_nodes=4"
-#off##  $addexp exp.esm_bb_rte_rrtmgp_ruby0      --builders ${builder} --list $listname --runflags "cpu_time=00:20:00 no_of_nodes=4"
+  $addexp exp.esm_bb_rte_rrtmgp_ruby0_pio  --builders ${builder} --list $listname --runflags "cpu_time=00:20:00 no_of_nodes=4"
+  $addexp exp.esm_bb_rte_rrtmgp_ruby0      --builders ${builder} --list $listname --runflags "cpu_time=00:20:00 no_of_nodes=4"
   $addexp checksuite.infrastructure/output/exp.hamocc_omip_10days  --builder ${builder} --list $listname
 done
 
@@ -158,6 +158,9 @@ done
 $addexp  checksuite.infrastructure/checkExternals/exp.check_externals_MISTRAL.run --builders MISTRAL_gcc --list ${listname}
 $addexp  checksuite.infrastructure/checkExternals/exp.check_externals_DWD.run --builders DWD_nec_yac2 --list ${listname}
 
+# add a test for the lrestart_cont parameter of add_var()
+$addexp checksuite.infrastructure/restart/exp.oce_lrestart_cont --builders MISTRAL_gcc            --list ${listname}
+$addexp checksuite.infrastructure/restart/exp.oce_lrestart_cont --builders MISTRAL_intel18_hybrid --list ${listname}
 #lets see the list
 ./lslist $listname
 #-----------------------------------------------------------

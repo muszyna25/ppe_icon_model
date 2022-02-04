@@ -687,7 +687,7 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%irad_co2   =  3
  echam_rad_config(1)%irad_ch4   = 13
  echam_rad_config(1)%irad_n2o   = 13 
- echam_rad_config(1)%irad_o3    =  5          ! constant annual cycle climatology
+ echam_rad_config(1)%irad_o3    =  6          ! constant annual cycle climatology
  echam_rad_config(1)%irad_o2    =  2
  echam_rad_config(1)%irad_cfc11 =  3
  echam_rad_config(1)%irad_cfc12 =  3
