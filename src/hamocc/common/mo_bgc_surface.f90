@@ -175,7 +175,7 @@ SUBROUTINE gasex (local_bgc_mem, start_idx,end_idx, pddpo, za, ptho, psao,  &
        &                        ioxygen, isco212, isilica,       &
        &                        ialkali, kcflux, koflux, knflux,          &
        &                        kn2oflux, idms, kdmsflux,kpco2, &
-       &                        iammo, knh3flux
+       &                        iammo, knh3flux, kcflux_cpl
 
   USE mo_memory_bgc, ONLY         : kg_denom
 
@@ -251,7 +251,8 @@ SUBROUTINE gasex (local_bgc_mem, start_idx,end_idx, pddpo, za, ptho, psao,  &
            !  Compute the transfer (piston) velocity in m/s
            !  660 = Schmidt number of CO2 @ 20 degC in seawater
 
-           kwco2 = (1._wp - psicomo( j)) * cmh2ms * pfu10( j)**2        &
+           ! Ignore ice for co2 here because coupling needs unscaled flux
+           kwco2 =                        cmh2ms * pfu10( j)**2        &
                 &           * (660._wp / scco2)**0.5_wp
 
 
@@ -352,8 +353,9 @@ SUBROUTINE gasex (local_bgc_mem, start_idx,end_idx, pddpo, za, ptho, psao,  &
 
 !         ! new concentrations ocean (kmol/m3 -->ppm)
            thickness = pddpo(j,1) + za(j)                             
-           local_bgc_mem%bgctra(j,1,isco212) = local_bgc_mem%bgctra(j,1,isco212)+(fluxd-fluxu)/thickness
-           local_bgc_mem%bgcflux(j,kcflux) = (fluxu-fluxd)/dtbgc
+           local_bgc_mem%bgctra(j,1,isco212) = local_bgc_mem%bgctra(j,1,isco212)+ (1._wp - psicomo(j)) * (fluxd-fluxu)/thickness
+           local_bgc_mem%bgcflux(j,kcflux) = (1._wp - psicomo(j)) * (fluxu-fluxd)/dtbgc
+           local_bgc_mem%bgcflux(j,kcflux_cpl) = (fluxu-fluxd)/dtbgc
            local_bgc_mem%bgcflux(j,kpco2) = pco2
 
 

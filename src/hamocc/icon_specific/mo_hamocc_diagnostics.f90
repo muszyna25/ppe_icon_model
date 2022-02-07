@@ -106,16 +106,80 @@ END SUBROUTINE get_omz
 
   SUBROUTINE get_monitoring(hamocc_state, tracer, ssh, p_patch_3d)
 
-    USE mo_memory_bgc, ONLY: rn2, n2prod, doccya_fac
+    USE mo_memory_bgc, ONLY: n2prod, doccya_fac, rcar
     TYPE(t_hamocc_state) :: hamocc_state
     REAL(wp), INTENT(IN) :: ssh(:,:)
     REAL(wp), INTENT(IN) :: tracer(:,:,:,:)
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
 
     REAL(wp) :: glob_n2b, glob_pwn2b
+    REAL(wp) :: glob_det, glob_doc, glob_phy, glob_zoo, glob_cya
+    REAL(wp) :: glob_dic, glob_calc, glob_pwic, glob_sedo12
+    REAL(wp) :: glob_bo12, glob_sedc12, glob_bc12 
 
     glob_n2b = 0.0_wp
     glob_pwn2b = 0.0_wp
+    glob_det = 0.0_wp
+    glob_doc = 0.0_wp
+    glob_phy = 0.0_wp
+    glob_zoo = 0.0_wp
+    glob_cya = 0.0_wp
+    glob_dic = 0.0_wp
+    glob_calc = 0.0_wp
+    glob_pwic = 0.0_wp
+    glob_sedo12 = 0.0_wp
+    glob_bo12 = 0.0_wp
+    glob_sedc12 = 0.0_wp
+    glob_bc12 = 0.0_wp
+
+    IF (isRegistered('global_carbon_inventory')) THEN
+      CALL calc_inventory3d(p_patch_3d, &
+         &                  ssh, &
+         &                  tracer(:,:,:,idoc), &
+         &                  glob_doc)
+      CALL calc_inventory3d(p_patch_3d, &
+         &                  ssh, &
+         &                  tracer(:,:,:,idet), &
+         &                  glob_det)
+      CALL calc_inventory3d(p_patch_3d, &
+         &                  ssh, &
+         &                  tracer(:,:,:,iphy), &
+         &                  glob_phy)
+      CALL calc_inventory3d(p_patch_3d, &
+         &                  ssh, &
+         &                  tracer(:,:,:,izoo), &
+         &                  glob_zoo)
+      CALL calc_inventory3d(p_patch_3d, &
+         &                  ssh, &
+         &                  tracer(:,:,:,icya), &
+         &                  glob_cya)
+      CALL calc_inventory3d(p_patch_3d, &
+         &                  ssh, &
+         &                  tracer(:,:,:,isco212), &
+         &                  glob_dic)
+      CALL calc_inventory3d(p_patch_3d, &
+         &                  ssh, &
+         &                  tracer(:,:,:,icalc), &
+         &                  glob_calc)
+      CALL calc_inventory_sed(p_patch_3d, &
+         &                        hamocc_state%p_sed%pwic(:,:,:), &
+         &                        porwat, &
+         &                        glob_pwic)
+      CALL calc_inventory_sed(p_patch_3d, &
+         &                    hamocc_state%p_sed%so12(:,:,:), &
+         &                    porsol, &
+         &                    glob_sedo12)
+      CALL calc_inventory_sed(p_patch_3d, &
+         &                    hamocc_state%p_sed%sc12(:,:,:), &
+         &                    porsol, &
+         &                    glob_sedc12)
+      CALL calc_inventory2d(p_patch_3d, &
+         &                  hamocc_state%p_sed%bo12(:,:), &
+         &                  glob_bo12,-2)
+      CALL calc_inventory2d(p_patch_3d, &
+         &                  hamocc_state%p_sed%bc12(:,:), &
+         &                  glob_bc12,-2)
+    ENDIF
 
     IF (isRegistered('global_primary_production')) THEN
       CALL calc_inventory3d(p_patch_3d, &
@@ -307,6 +371,12 @@ END SUBROUTINE get_omz
         &                   hamocc_state%p_tend%monitor%sfsil(1), &
         &                   -2)
     ENDIF
+    IF (isRegistered('global_surface_nitrate')) THEN
+      CALL calc_inventory2d(p_patch_3d, &
+        &                   tracer(:,1,:,iano3), &
+        &                   hamocc_state%p_tend%monitor%sfnit(1), &
+        &                   -2)
+    ENDIF
 
     IF (isRegistered('global_zalkn2')) THEN
       CALL calc_inventory_sed(p_patch_3d, &
@@ -408,7 +478,7 @@ END SUBROUTINE get_omz
     hamocc_state%p_tend%monitor%net_co2_flux(1) = hamocc_state%p_tend%monitor%net_co2_flux(1) * c2gtc
     hamocc_state%p_tend%monitor%delcar(1)       = hamocc_state%p_tend%monitor%delcar(1) * c2gtc
     
-    hamocc_state%p_tend%monitor%n2fix(1)        = hamocc_state%p_tend%monitor%n2fix(1) * n2tgn * rn2
+    hamocc_state%p_tend%monitor%n2fix(1)        = hamocc_state%p_tend%monitor%n2fix(1) * n2tgn
     hamocc_state%p_tend%monitor%omex90(1)       = hamocc_state%p_tend%monitor%omex90(1) * p2gtc
     hamocc_state%p_tend%monitor%calex90(1)      = hamocc_state%p_tend%monitor%calex90(1) * c2gtc
     hamocc_state%p_tend%monitor%omex1000(1)     = hamocc_state%p_tend%monitor%omex1000(1) * p2gtc
@@ -424,7 +494,14 @@ END SUBROUTINE get_omz
     hamocc_state%p_tend%monitor%sfdic(1)        = hamocc_state%p_tend%monitor%sfdic(1)/totalarea
     hamocc_state%p_tend%monitor%sfsil(1)        = hamocc_state%p_tend%monitor%sfsil(1)/totalarea
     hamocc_state%p_tend%monitor%sfphos(1)       = hamocc_state%p_tend%monitor%sfphos(1)/totalarea
+    hamocc_state%p_tend%monitor%sfnit(1)        = hamocc_state%p_tend%monitor%sfnit(1)/totalarea
     hamocc_state%p_tend%monitor%zalkn2(1)       = glob_n2b + glob_pwn2b
+
+    ! total carbon
+    hamocc_state%p_tend%monitor%carbinv(1)   = ((glob_det + glob_doc + glob_phy + glob_zoo + glob_cya) * rcar &
+           &                                     + glob_dic + glob_calc + glob_pwic &
+           &                                     + (glob_sedo12 + glob_bo12) * rcar + glob_sedc12 + glob_bc12 ) &
+           &                                     * c2gtc
 
     IF (.not. l_N_cycle) THEN
       hamocc_state%p_tend%monitor%wcdenit(1)      = hamocc_state%p_tend%monitor%wcdenit(1) * 2._wp * n2prod* n2tgn
