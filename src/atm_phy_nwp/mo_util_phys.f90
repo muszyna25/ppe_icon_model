@@ -40,7 +40,7 @@ MODULE mo_util_phys
        &                              nudge_start_height, nudge_full_height, dt_relax
   USE mo_loopindices,           ONLY: get_indices_c
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
-  USE mo_nwp_tuning_config,     ONLY: tune_gust_factor
+  USE mo_nwp_tuning_config,     ONLY: tune_gust_factor, itune_gust_diag
   USE mo_advection_config,      ONLY: advection_config
   USE mo_art_config,            ONLY: art_config
   USE mo_initicon_config,       ONLY: iau_wgt_adv, qcana_mode, qiana_mode, qrsgana_mode
@@ -100,13 +100,14 @@ CONTAINS
 
     REAL(wp) :: vgust_dyn               ! dynamic gust at 10 m above ground [m/s]
 
-    REAL(wp) :: ff10m, ustar, uadd_sso, gust_add
+    REAL(wp) :: ff10m, ustar, uadd_sso, gust_add, offset
     !$acc routine seq
 
+    offset = MERGE(10._wp, 8._wp, itune_gust_diag == 1)
     ff10m = SQRT( u_10m**2 + v_10m**2)
     uadd_sso = MAX(0._wp, SQRT(u_env**2 + v_env**2) - SQRT(u1**2 + v1**2))
     ustar = calc_ustar(tcm, u1, v1)
-    gust_add = MAX(0._wp,MIN(2._wp,0.2_wp*(ff10m-10._wp)))*(1._wp+mtnmask)
+    gust_add = MAX(0._wp,MIN(2._wp,0.2_wp*(ff10m-offset)))*(1._wp+mtnmask)
     vgust_dyn = ff10m + mtnmask*uadd_sso + (tune_gust_factor+gust_add+2._wp*mtnmask)*ustar
 
   END FUNCTION nwp_dyn_gust
