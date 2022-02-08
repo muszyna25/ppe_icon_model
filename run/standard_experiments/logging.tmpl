@@ -1,0 +1,16 @@
+# Set up diagnostic output
+
+import logging
+
+logging.basicConfig(format='%(asctime)s: %(levelname)s%(message)s',
+                    level=logging.INFO)
+logging.addLevelName(logging.DEBUG, 'Debug: ')
+logging.addLevelName(logging.INFO, '')
+logging.addLevelName(logging.WARNING, 'Hey: ')
+logging.addLevelName(logging.ERROR, 'Oops: ')
+logging.addLevelName(logging.CRITICAL, 'Sorry: ')
+#%  if JOB.debug_level|d(0)|int > 0:
+logging.getLogger().setLevel(logging.DEBUG)
+#%  endif
+#%#
+

@@ -147,7 +147,8 @@ MODULE mo_param1_bgc
       &                 kpco2      = 23,               &
       &                 klysocl    = 24,               &
       &                 knitinp    = 25,               &
-      &                 nbgcflux_base   = 25  
+      &                 kcflux_cpl = 26,               &
+      &                 nbgcflux_base   = 26  
 
   INTEGER :: nbgcflux, nbgctend
 

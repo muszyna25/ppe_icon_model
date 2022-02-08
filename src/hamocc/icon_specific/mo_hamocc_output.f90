@@ -579,6 +579,13 @@
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE.)
 
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_global_carbon_inventory', hamocc_state_moni%carbinv , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_carbon_inventory', 'GT C', 'global_carbon_inventory', datatype_flt,'global_carbon_inventory'),&
+      & grib2_var(255, 255, 510, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE.)
+
    CALL add_var(hamocc_tendency_list, 'HAMOCC_global_surface_dic', hamocc_state_moni%sfdic , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('global_surface_dic', &
@@ -752,6 +759,13 @@
    CALL add_var(hamocc_tendency_list, 'HAMOCC_global_surface_silicate', hamocc_state_moni%sfsil , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('global_surface_silicate', 'kmol  m-3', 'global_surface_silicate', datatype_flt,'global_surface_silicate'),&
+      & grib2_var(255, 255, 537, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_global_surface_nitrate', hamocc_state_moni%sfnit , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_surface_nitrate', 'kmol  m-3', 'global_surface_nitrate', datatype_flt,'global_surface_nitrate'),&
       & grib2_var(255, 255, 537, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE.)

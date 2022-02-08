@@ -35,6 +35,9 @@ set -e
 set -x
 #%  endif
 
+# Utilities
+PATH=%{MODEL_DIR}/utils:$PATH
+
 # Support log style output
 pipe=%{EXP_ID}_%{JOB.id}_$$.pipe
 mkfifo $pipe
@@ -125,7 +128,7 @@ icon_data_rootFolder="/pool/data/ICON"
 
 # how to start the icon model
 # ---------------------------
-export START="%{MPI.command} --cpu-freq=HighM1 --nodes=${SLURM_JOB_NUM_NODES:-1} --ntasks=$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=${mpi_procs_pernode} --cpus-per-task=$((2 * OMP_NUM_THREADS))"
+export START="%{MPI.command} --nodes=${SLURM_JOB_NUM_NODES:-1} --ntasks=$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=${mpi_procs_pernode} --cpus-per-task=$((2 * OMP_NUM_THREADS))"
 export MODEL="%{BIN_DIR}/%{MODEL_EXE}"
 
 # how to submit the next job
@@ -175,7 +178,7 @@ final_date="%{FINAL_DATE}"
 
 # restart/checkpoint/output intervals
 # -----------------
-restart_interval="%{INTERVAL}"
+restart_interval="%{namelists['icon_master.namelist'].master_time_control_nml.restarttimeintval}"
 
 # Read and compute time control information
 
@@ -247,6 +250,7 @@ echo $(date -u +'%Y-%m-%dT%H:%M:%SZ') ${start_date%:*} ${end_date%:*} ${%{JOB.id
 mpi_atm_io_procs=0      # >0 for atmosphere plus land (not working for monitoring)
 mpi_oce_io_procs=0      # >0 for ocean is not working yet
 
+
 #------------------------------------------------------------------------------
 
 # (5) Define the model configuration
@@ -283,6 +287,8 @@ oce_inc_rank=1
 atm_min_rank=0
 atm_max_rank=`expr ${oce_min_rank} - 1`
 atm_inc_rank=1
+
+
 
 #
 # create ICON master, coupling and model namelists
@@ -338,6 +344,17 @@ EOF
 cat > NAMELIST_oce << EOF
 %{format_namelist(namelists.NAMELIST_oce)}
 EOF
+
+# Selectively add disturbance to overcome model failure
+# ------------------------------------------------
+
+#% set (file, group, setting, delta) = DISTURBANCE_SETTINGS|split(' ')
+#% set value = namelists[file][group][setting]|float + delta|float
+if [[ " %{DISTURBANCE_YEARS|join(" ")} " == *" ${y0} "* ]]
+then   
+    print "disturbing model in year ${y0}, setting rayleigh_coeff to %{value}"
+    patch_namelist %{group} %{setting} %{value} %{file}
+fi
 
 #-----------------------------------------------------------------------------
 
@@ -445,15 +462,17 @@ echo $(date -u +'%Y-%m-%dT%H:%M:%SZ') ${start_date%:*} ${end_date%:*} ${%{JOB.id
 
 cd $SCRIPT_DIR
 
+#% for job in JOB['.trigger']|list:
+#%   if jobs[job]['.type'] == 'restart':
 if [ $finish_status = "RESTART" ]
 then
-  echo "restart next experiment..."
-  echo "this_script: $job_name"
-  %{JOB.batch_command} ${job_name}
+  echo "restart: submitting '%{EXP_ID}.%{job}'"
+  %{JOB.batch_command} %{EXP_ID}.%{job}
 fi
-
-#% for job in JOB['.trigger']|list:
+#%   else:
+echo "submitting '%{EXP_ID}.%{job}'"
 %{JOB.batch_command} %{EXP_ID}.%{job} $start_date
+#%   endif
 #% endfor
 
 #-----------------------------------------------------------------------------

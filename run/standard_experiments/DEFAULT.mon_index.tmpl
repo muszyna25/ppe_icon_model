@@ -37,7 +37,7 @@ indexfile_text = '''\
 #%  if jobs.mon.tags is defined:
 #%      set tags = jobs.mon.tags
 #%      for tag in tags.scalars|sort if tags[tag] is set:
-        <tr><th><a href="%{EXP_ID}_%{tag}.html">%{tag|split('_')|map('capitalize')|join(' ')}</a></th></tr>
+        <tr><th><a href="%{EXP_ID}_%{tag}.html">%{tag|split('_')|join(' ')}</a></th></tr>
 #%      endfor
 #%  endif
     </table>
