@@ -249,6 +249,9 @@ CONTAINS
       ENDDO !jk
       !$ACC END PARALLEL
 
+#ifndef __ECRAD_ACC
+      !$ACC UPDATE HOST( ecrad_thermodynamics%pressure_hl, ecrad_thermodynamics%temperature_hl ) IF( lacc )
+#endif
       CALL ecrad_thermodynamics%calc_saturation_wrt_liquid(istartcol=i_startidx, iendcol=i_endidx, use_acc=lacc)
 #ifndef __ECRAD_ACC
       !$ACC ENTER DATA CREATE(ecrad_thermodynamics%h2o_sat_liq) IF(lacc)
@@ -557,13 +560,12 @@ CONTAINS
         CALL finish(routine, 'Current implementation only supports irad_ch4 = 0, 2, 3, 4')
     END SELECT
 
-    ! remove updates when radiation_gas:set_units_gas is ported to GPU
-#ifdef __ECRAD_ACC
-    !$ACC UPDATE HOST(ecrad_gas%mixing_ratio) IF(lacc)
-#endif
     CALL ecrad_set_gas_units(ecrad_conf, ecrad_gas, use_acc=lacc)
     ! Possible further gases to be added: CO, HCFC22, CCl4, NO2
+
+#ifndef __ECRAD_ACC
     !$ACC UPDATE DEVICE(ecrad_gas%mixing_ratio) IF(lacc)
+#endif
 
   END SUBROUTINE ecrad_set_gas
   !---------------------------------------------------------------------------------------
