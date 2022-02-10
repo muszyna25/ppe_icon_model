@@ -35,7 +35,7 @@ MODULE mo_limarea_config
   PRIVATE
 
   PUBLIC :: t_latbc_config, latbc_config, configure_latbc, generate_filename
-  PUBLIC :: LATBC_TYPE_CONST, LATBC_TYPE_EXT, LATBC_TYPE_TEST
+  PUBLIC :: LATBC_TYPE_CONST, LATBC_TYPE_EXT
 
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_limarea_config'
@@ -50,12 +50,6 @@ MODULE mo_limarea_config
   ! provided by an external source (IFS, COSMO-DE or a
   ! coarser-resolution ICON run)
   INTEGER, PARAMETER :: LATBC_TYPE_EXT         = 1
-
-  ! LATBC_TYPE_TEST: Test mode using time-dependent lateral boundary
-  ! conditions from a nested ICON run in which the present
-  ! limited-area domain was operated as a nested grid with
-  ! identical(!) model level configuration
-  INTEGER, PARAMETER :: LATBC_TYPE_TEST        = 2
 
 
 
@@ -125,14 +119,14 @@ CONTAINS
        WRITE(message_text,'(a)')'Lateral boundary condition using interpolated boundary data.'
        CALL message(TRIM(routine),message_text)
 
-    ELSE IF (latbc_config%itype_latbc == LATBC_TYPE_TEST) THEN
-
-       WRITE(message_text,'(a)')'Test mode with lateral boundary conditions from a nested global ICON run.'
-       CALL message(TRIM(routine),message_text)
+       IF (num_prefetch_proc == 0) THEN
+         WRITE(message_text,'(a)') 'Synchronous latBC input has been disabled'
+         CALL finish(TRIM(routine),message_text)
+       END IF
 
     ELSE
 
-       WRITE(message_text,'(a,i8)') 'Wrong lateral boundary condition mode:', latbc_config%itype_latbc
+       WRITE(message_text,'(a,i8)') 'Invalid lateral boundary condition mode:', latbc_config%itype_latbc
        CALL finish(TRIM(routine),message_text)
 
     END IF
@@ -140,20 +134,11 @@ CONTAINS
     ! Check whether an mapping file is provided for prefetching boundary data
     ! calls a finish either when the flag is absent
     !
-    IF ((num_prefetch_proc == 1) .AND. (latbc_config%latbc_varnames_map_file == ' ')) THEN
+    IF (latbc_config%latbc_varnames_map_file == ' ') THEN
        WRITE(message_text,'(a)') 'no latbc_varnames_map_file provided.'
        CALL message(TRIM(routine),message_text)
     ENDIF
 
-    IF (latbc_config%lsparse_latbc .AND. (num_prefetch_proc == 0)) THEN
-      WRITE(message_text,'(a)') 'Synchronous latBC mode: sparse read-in not implemented!'
-      CALL finish(TRIM(routine),message_text)
-    END IF
-
-    IF (latbc_config%itype_latbc == LATBC_TYPE_TEST .AND. num_prefetch_proc > 0) THEN
-      WRITE(message_text,'(a)') 'Test mode is available for synchronous latBC mode only'
-      CALL finish(TRIM(routine),message_text)
-    ENDIF
   
   END SUBROUTINE configure_latbc
   !--------------------------------------------------------------------------------------
