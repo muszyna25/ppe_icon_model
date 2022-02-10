@@ -183,7 +183,9 @@ MODULE mo_nwp_lnd_types
 
     !> (Optional:) Additional diagnostic fields:
     REAL(wp), POINTER ::  &
-    &  smi          (:,:,:)     ! soil moisture index                            (  -  )
+    &  smi             (:,:,:) , & ! soil moisture index                           (  -  )
+    &  snow_melt       (:,:)   , & ! snow melt                                     (kg/m2)
+    &  snow_melt_flux_t(:,:,:)     ! snow melt flux tiled                          (kg/m2/s)
 
     TYPE(t_ptr_2d3d), ALLOCATABLE :: qv_st_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: h_snow_ptr(:)
@@ -195,6 +197,7 @@ MODULE mo_nwp_lnd_types
     TYPE(t_ptr_2d3d), ALLOCATABLE :: runoff_s_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: runoff_g_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: resid_wso_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: snow_melt_ptr(:)
 
   END TYPE t_lnd_diag
 

@@ -1228,6 +1228,18 @@ CONTAINS
 
 !-------------------------------------------------------------------------
 
+  !>
+  !! Aggregation of tile-specific, instantaneous soil and surface fields
+  !!
+  !! Please note that this routine is only called at output time steps 
+  !! and meteogramm timesteps. Therefore, it may only contain the aggregation 
+  !! of purely diagnostic instantaneous fields. I.e. the computation of 
+  !! accumulated fields, or the aggregation of fields that enter the prognostic 
+  !! computations is not allowed, as this will lead to erroneous results. 
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2018-02-23)
+  !!
   SUBROUTINE aggregate_landvars( p_patch, ext_data, lnd_prog, lnd_diag, use_acc)
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch       !< grid/patch info
@@ -1298,12 +1310,7 @@ CONTAINS
           lnd_diag%h_snow   (jc,jb) = lnd_diag%h_snow_t   (jc,jb,1)
           lnd_diag%freshsnow(jc,jb) = lnd_diag%freshsnow_t(jc,jb,1)
           lnd_diag%snowfrac (jc,jb) = lnd_diag%snowfrac_t (jc,jb,1)
-          lnd_diag%runoff_s (jc,jb) = lnd_diag%runoff_s_t (jc,jb,1)
-          lnd_diag%runoff_g (jc,jb) = lnd_diag%runoff_g_t (jc,jb,1)
           lnd_diag%rstom    (jc,jb) = lnd_diag%rstom_t    (jc,jb,1)
-          IF (var_in_output(jg)%res_soilwatb) THEN
-            lnd_diag%resid_wso(jc,jb) = lnd_diag%resid_wso_t(jc,jb,1)
-          ENDIF
         ENDDO
 
         IF (itype_interception == 2) THEN
@@ -1354,11 +1361,6 @@ CONTAINS
 
         ! First initialize fields to zero in order to prepare
         ! subsequent summation over the tiles
-        ! Ronny Petrik, Hereon: the quantities which are summed up in time (runoff, resid_wso)
-        ! are not initialized here because their fraction-weighted aggregation
-        !   over the tiles needs to be treated like this: starting from the value
-        !   of the former timestep they are updated using the area-weighted mean 
-        !   of instanteneous values
         !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lacc)
         !$ACC LOOP GANG VECTOR
         DO jc = i_startidx, i_endidx
@@ -1459,16 +1461,6 @@ CONTAINS
               &                         * lnd_diag%snowfrac_t(jc,jb,isubs)
             lnd_diag%rstom(jc,jb)     = lnd_diag%rstom(jc,jb) + tilefrac     &
               &                         * lnd_diag%rstom_t(jc,jb,isubs)
-
-            ! aggregation of variables summed up over the forecast (different procedure)
-            lnd_diag%runoff_s(jc,jb)  = lnd_diag%runoff_s(jc,jb) + tilefrac  &
-              &                         * lnd_diag%runoff_s_inst_t(jc,jb,isubs)
-            lnd_diag%runoff_g(jc,jb)  = lnd_diag%runoff_g(jc,jb) + tilefrac  &
-              &                         * lnd_diag%runoff_g_inst_t(jc,jb,isubs)
-            IF (var_in_output(jg)%res_soilwatb) THEN
-              lnd_diag%resid_wso(jc,jb) = lnd_diag%resid_wso(jc,jb) + tilefrac &
-              &                         * lnd_diag%resid_wso_inst_t(jc,jb,isubs) 
-            ENDIF
           ENDDO
 
           IF (itype_interception == 2) THEN

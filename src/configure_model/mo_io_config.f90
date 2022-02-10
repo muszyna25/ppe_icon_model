@@ -53,6 +53,7 @@ MODULE mo_io_config
   CHARACTER(len=max_timedelta_str_len) :: precip_interval(max_dom)   ! time interval over which precipitation variables are accumulated
   CHARACTER(len=max_timedelta_str_len) :: runoff_interval(max_dom)   ! time interval over which runoff variables are accumulated
   CHARACTER(len=max_timedelta_str_len) :: sunshine_interval(max_dom) ! time interval over which sunshine duration is accumulated
+  CHARACTER(len=max_timedelta_str_len) :: melt_interval(max_dom)     ! time interval over which snow melt rate is accumulated
   CHARACTER(len=max_timedelta_str_len) :: maxt_interval(max_dom)     ! time interval for tmax_2m, tmin_2m
   REAL(wp):: dt_lpi                     ! calling frequency [seconds] of lpi diagnosis for hourly maximum calculation
   REAL(wp):: dt_celltracks              ! calling frequency [seconds] of celltrack diagnosis for hourly maximum calculation
@@ -105,13 +106,13 @@ MODULE mo_io_config
 
   ! Derived type to collect logical variables indicating if optional diagnostics are requested for output
   TYPE t_var_in_output
-    LOGICAL :: pres_msl    = .FALSE. !< Flag. TRUE if computation of mean sea level pressure desired
-    LOGICAL :: omega       = .FALSE. !< Flag. TRUE if computation of vertical velocity desired
-    LOGICAL :: rh          = .FALSE. !< Flag. TRUE if computation of relative humidity desired
-    LOGICAL :: pv          = .FALSE. !< Flag. TRUE if computation of potential vorticity desired
-    LOGICAL :: sdi2        = .FALSE. !< Flag. TRUE if computation of supercell detection index desired
-    LOGICAL :: lpi         = .FALSE. !< Flag. TRUE if computation of lightning potential index desired
-    LOGICAL :: lpi_max     = .FALSE. !< Flag. TRUE if computation of max. of lightning potential index desired
+    LOGICAL :: pres_msl     = .FALSE. !< Flag. TRUE if computation of mean sea level pressure desired
+    LOGICAL :: omega        = .FALSE. !< Flag. TRUE if computation of vertical velocity desired
+    LOGICAL :: rh           = .FALSE. !< Flag. TRUE if computation of relative humidity desired
+    LOGICAL :: pv           = .FALSE. !< Flag. TRUE if computation of potential vorticity desired
+    LOGICAL :: sdi2         = .FALSE. !< Flag. TRUE if computation of supercell detection index desired
+    LOGICAL :: lpi          = .FALSE. !< Flag. TRUE if computation of lightning potential index desired
+    LOGICAL :: lpi_max      = .FALSE. !< Flag. TRUE if computation of max. of lightning potential index desired
     LOGICAL :: lpi_con      = .FALSE. !< Flag. TRUE if computation of convective lightning potential index desired
     LOGICAL :: mlpi_con     = .FALSE. !< Flag. TRUE if computation of modified convective lightning potential index desired
     LOGICAL :: lpi_con_max  = .FALSE. !< Flag. TRUE if computation of maximum convective lightning potential index desired
@@ -119,33 +120,34 @@ MODULE mo_io_config
     LOGICAL :: lfd_con      = .FALSE. !< Flag. TRUE if computation of lighting flash density desired
     LOGICAL :: lfd_con_max  = .FALSE. !< Flag. TRUE if computation of maximum lighting flash density  desired
     LOGICAL :: koi          = .FALSE. !< Flag. TRUE if computation of convection index
-    LOGICAL :: ceiling     = .FALSE. !< Flag. TRUE if computation of ceiling height desired
-    LOGICAL :: hbas_sc     = .FALSE. !< Flag. TRUE if computation of height of base from shallow convection desired
-    LOGICAL :: htop_sc     = .FALSE. !< Flag. TRUE if computation of height of top  from shallow convection desired
-    LOGICAL :: twater      = .FALSE. !< Flag. TRUE if computation of total column integrated water desired
-    LOGICAL :: q_sedim     = .FALSE. !< Flag. TRUE if computation of specific content of precipitation particles desired
-    LOGICAL :: dbz         = .FALSE. !< Flag. TRUE if computation of radar reflectivity is desired
-    LOGICAL :: dbz850      = .FALSE. !< Flag. TRUE if computation of radar reflectivity in approx. 850 hPa is desired
-    LOGICAL :: dbzcmax     = .FALSE. !< Flag. TRUE if computation of radar reflectivity column maximum is desired
-    LOGICAL :: dbzctmax    = .FALSE. !< Flag. TRUE if computation of radar reflectivity column and time maximum is desired
-    LOGICAL :: echotop     = .FALSE. !< Flag. TRUE if computation of echo tops in hPa of radar reflectivity is desired
-    LOGICAL :: echotopinm  = .FALSE. !< Flag. TRUE if computation of echo tops in m MSL of radar reflectivity is desired
-    LOGICAL :: smi         = .FALSE. !< Flag. TRUE if computation of soil moisture index desired
-    LOGICAL :: tcond_max   = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate desired
-    LOGICAL :: tcond10_max = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
-    LOGICAL :: uh_max_low  = .FALSE. !< Flag. TRUE if computation of updraft helicity (0 - 3000 m) desired
-    LOGICAL :: uh_max_med  = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 5000 m) desired
-    LOGICAL :: uh_max      = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 8000 m) desired
-    LOGICAL :: vorw_ctmax  = .FALSE. !< Flag. TRUE if computation of maximum rotation amplitude desired
-    LOGICAL :: w_ctmax     = .FALSE. !< Flag. TRUE if computation of maximum updraft track desired
-    LOGICAL :: vor_u       = .FALSE. !< Flag. TRUE if computation of zonal component of relative vorticity desired
-    LOGICAL :: vor_v       = .FALSE. !< Flag. TRUE if computation of meridional component of relative vorticity desired
-    LOGICAL :: bvf2        = .FALSE. !< Flag. TRUE if computation of square of Brunt-Vaisala frequency desired
-    LOGICAL :: parcelfreq2 = .FALSE. !< Flag. TRUE if computation of square of general parcel oscillation frequency desired
-    LOGICAL :: dursun      = .FALSE. !< Flag. TRUE if computation of sunshine duration is required
-    LOGICAL :: dursun_m    = .FALSE. !< Flag. TRUE if computation of maximum sunshine duration is required
-    LOGICAL :: dursun_r    = .FALSE. !< Flag. TRUE if computation of relative sunshine duration is required
-    LOGICAL :: res_soilwatb= .FALSE. !< Flag. TRUE if computation of residuum of soil water is desired
+    LOGICAL :: ceiling      = .FALSE. !< Flag. TRUE if computation of ceiling height desired
+    LOGICAL :: hbas_sc      = .FALSE. !< Flag. TRUE if computation of height of base from shallow convection desired
+    LOGICAL :: htop_sc      = .FALSE. !< Flag. TRUE if computation of height of top  from shallow convection desired
+    LOGICAL :: twater       = .FALSE. !< Flag. TRUE if computation of total column integrated water desired
+    LOGICAL :: q_sedim      = .FALSE. !< Flag. TRUE if computation of specific content of precipitation particles desired
+    LOGICAL :: dbz          = .FALSE. !< Flag. TRUE if computation of radar reflectivity is desired
+    LOGICAL :: dbz850       = .FALSE. !< Flag. TRUE if computation of radar reflectivity in approx. 850 hPa is desired
+    LOGICAL :: dbzcmax      = .FALSE. !< Flag. TRUE if computation of radar reflectivity column maximum is desired
+    LOGICAL :: dbzctmax     = .FALSE. !< Flag. TRUE if computation of radar reflectivity column and time maximum is desired
+    LOGICAL :: echotop      = .FALSE. !< Flag. TRUE if computation of echo tops in hPa of radar reflectivity is desired
+    LOGICAL :: echotopinm   = .FALSE. !< Flag. TRUE if computation of echo tops in m MSL of radar reflectivity is desired
+    LOGICAL :: smi          = .FALSE. !< Flag. TRUE if computation of soil moisture index desired
+    LOGICAL :: tcond_max    = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate desired
+    LOGICAL :: tcond10_max  = .FALSE. !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
+    LOGICAL :: uh_max_low   = .FALSE. !< Flag. TRUE if computation of updraft helicity (0 - 3000 m) desired
+    LOGICAL :: uh_max_med   = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 5000 m) desired
+    LOGICAL :: uh_max       = .FALSE. !< Flag. TRUE if computation of updraft helicity (2000 - 8000 m) desired
+    LOGICAL :: vorw_ctmax   = .FALSE. !< Flag. TRUE if computation of maximum rotation amplitude desired
+    LOGICAL :: w_ctmax      = .FALSE. !< Flag. TRUE if computation of maximum updraft track desired
+    LOGICAL :: vor_u        = .FALSE. !< Flag. TRUE if computation of zonal component of relative vorticity desired
+    LOGICAL :: vor_v        = .FALSE. !< Flag. TRUE if computation of meridional component of relative vorticity desired
+    LOGICAL :: bvf2         = .FALSE. !< Flag. TRUE if computation of square of Brunt-Vaisala frequency desired
+    LOGICAL :: parcelfreq2  = .FALSE. !< Flag. TRUE if computation of square of general parcel oscillation frequency desired
+    LOGICAL :: dursun       = .FALSE. !< Flag. TRUE if computation of sunshine duration is required
+    LOGICAL :: dursun_m     = .FALSE. !< Flag. TRUE if computation of maximum sunshine duration is required
+    LOGICAL :: dursun_r     = .FALSE. !< Flag. TRUE if computation of relative sunshine duration is required
+    LOGICAL :: res_soilwatb = .FALSE. !< Flag. TRUE if computation of residuum of soil water is desired
+    LOGICAL :: snow_melt    = .FALSE. !< Flag. TRUE if computation of snow melt desired
     !
     ! diagnostics for the horizontal wind tendencies in the dynamical core
     LOGICAL :: ddt_vn_dyn  = .FALSE. !< Flag. TRUE if the storage of ddt_vn_dyn is required
@@ -296,6 +298,7 @@ CONTAINS
         var_in_output(jg)%dursun      = is_variable_in_output_dom(var_name="dursun", jg=jg)
         var_in_output(jg)%dursun_m    = is_variable_in_output_dom(var_name="dursun_m", jg=jg)
         var_in_output(jg)%dursun_r    = is_variable_in_output_dom(var_name="dursun_r", jg=jg)
+        var_in_output(jg)%snow_melt   = is_variable_in_output_dom(var_name="snow_melt", jg=jg)
 
         ! Check for special case: SMI is not in one of the output lists but it is part of a output group.
         ! In this case, the group can not be checked, as the connection between SMI and the group will be

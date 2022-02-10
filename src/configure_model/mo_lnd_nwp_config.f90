@@ -180,8 +180,8 @@ CONTAINS
     DO js=1,nlev_soil
       IF (depth_hl(js) <= czbot_w_so) ibot_w_so=js
     ENDDO
-    ! make sure that 2 <= ibot_w_so <= nlev_soil-2
-    ibot_w_so = MAX(2, MIN(ibot_w_so,nlev_soil-2))
+    ! make sure that 2 <= ibot_w_so <= nlev_soil-1
+    ibot_w_so = MAX(2, MIN(ibot_w_so,nlev_soil-1))
     !
     WRITE(message_text,'(a,I2)') 'Number of hydrological active soil layers ibot_w_so is set to: ',ibot_w_so
     CALL message(TRIM(routine),message_text)
