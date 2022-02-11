@@ -74,6 +74,7 @@ real(cvmix_r8)       ::  &
   c_eps                 ,& ! dissipation parameter
   cd                    ,& ! 
   alpha_tke             ,& ! 
+  clc                   ,& ! factor for Langmuir turbulence
   mxl_min               ,& ! minimum value for mixing length
   KappaM_min            ,& ! minimum value for Kappa momentum
   KappaH_min            ,& ! minimum value for Kappa tracer
@@ -88,6 +89,7 @@ integer               :: &
 
 logical                :: &
   only_tke               ,&
+  l_lc                   ,&
   use_Kappa_min          ,&
   use_ubound_dirichlet   ,&
   use_lbound_dirichlet                           
@@ -106,7 +108,7 @@ CHARACTER(LEN=*), PARAMETER :: module_name = 'cvmix_tke'
 subroutine init_tke(c_k, c_eps, cd, alpha_tke, mxl_min, &
                     use_Kappa_min, KappaM_min, KappaH_min, KappaM_max, &
                     tke_mxl_choice, use_ubound_dirichlet, use_lbound_dirichlet, &
-                    handle_old_vals, only_tke, tke_min, tke_surf_min, &
+                    handle_old_vals, only_tke, l_lc, clc, tke_min, tke_surf_min, &
                     tke_userdef_constants)
 
 ! This subroutine sets user or default values for TKE parameters
@@ -121,6 +123,7 @@ real(cvmix_r8),optional, intent(in)           ::  &
   KappaH_min                                     ,& 
   KappaM_max                                     ,&
   tke_surf_min                                   ,&
+  clc                                            ,&
   tke_min
 
 integer, intent(in),optional                   :: &
@@ -129,6 +132,7 @@ integer, intent(in),optional                   :: &
 
 logical, intent(in), optional                  :: &
   only_tke                                       ,&
+  l_lc                                           ,&
   use_Kappa_min                                  ,&
   use_ubound_dirichlet                           ,&
   use_lbound_dirichlet                           
@@ -256,6 +260,17 @@ else
   call put_tke('handle_old_vals', 1, tke_userdef_constants)
 end if
 
+if (present(clc)) then
+  if(clc.lt. 0.0 .or. clc .gt. 30.0) then
+    print*, "ERROR:clc can only be allowed_range"
+    stop 1
+  end if
+  call put_tke('clc', clc, tke_userdef_constants)
+else
+  call put_tke('clc',0.15d0 , tke_userdef_constants)
+end if
+
+
 if (present(tke_min)) then
   if(tke_min.lt. 1.d-9 .or. tke_min.gt. 1.d-2 ) then
 !    print*, "ERROR:tke_min can only be allowed_range"
@@ -297,6 +312,13 @@ else
   call put_tke('only_tke', .true., tke_userdef_constants)
 end if
 
+if (present(l_lc)) then
+
+  call put_tke('l_lc', l_lc, tke_userdef_constants)
+else
+  call put_tke('l_lc', .false., tke_userdef_constants)
+end if
+
 end subroutine init_tke
 
 !=================================================================================
@@ -330,6 +352,7 @@ real(cvmix_r8), dimension(Vmix_vars%nlev)  ::  &
   !tke                                               ,&
   tke_Lmix                                          ,&
   tke_Pr                                            ,&
+  tke_plc                                           ,& !by_Oliver
   new_KappaM                                    ,& !
   new_KappaH                                    ,& !
   new_tke                                       ,& !
@@ -400,6 +423,7 @@ call cvmix_coeffs_tke( &
                  tke_Ttot     = tke_Ttot,                                         &
                  tke_Lmix     = tke_Lmix,                                         &
                  tke_Pr       = tke_Pr,                                           &
+                 tke_plc      = Vmix_vars%tke_plc,                                & !by_Oliver 
                  ! debugging
                  cvmix_int_1   = cvmix_int_1,             &
                  cvmix_int_2   = cvmix_int_2,             &
@@ -463,6 +487,7 @@ subroutine integrate_tke( &
                          !tke,                  &
                          tke_Lmix,             & ! diagnostic
                          tke_Pr,               & ! diagnostic
+                         tke_plc,              & ! langmuir turbulence
                          forc_tke_surf,        &
                          E_iw,                 &
                          dtime,                &
@@ -501,6 +526,10 @@ subroutine integrate_tke( &
    
   real(cvmix_r8), dimension(max_nlev), intent(in)                  :: &
     dzw                                                             !
+
+  ! Langmuir turbulence
+  real(cvmix_r8), dimension(max_nlev+1), intent(in), optional  :: &
+    tke_plc
    
   ! IDEMIX variables, if run coupled iw_diss is added as forcing to TKE
   real(cvmix_r8), dimension(max_nlev+1), intent(in), optional  :: &
@@ -542,6 +571,7 @@ subroutine integrate_tke( &
      !tke                                                          ,&
      tke_Lmix                                                     ,&
      tke_Pr                                                       !,&
+
   real(cvmix_r8), dimension(max_nlev+1), intent(out) ::                &
      cvmix_int_1                                                  ,&
      cvmix_int_2                                                  ,&
@@ -572,11 +602,12 @@ subroutine integrate_tke( &
     KappaH_min                                                   ,& ! 
     mxl_min                                                      ,& ! {1e-8}
     c_k                                                          ,& ! {0.1}
+    clc                                                          ,& ! {0.15}
     tke_surf_min                                                 ,& ! {1e-4}
     tke_min                                                         ! {1e-6}
   integer :: tke_mxl_choice
 
-  logical :: only_tke, use_ubound_dirichlet, use_lbound_dirichlet, use_Kappa_min
+  logical :: only_tke, use_ubound_dirichlet, use_lbound_dirichlet, l_lc, use_Kappa_min
   
   real(cvmix_r8)                                               :: &
     zzw                                                          ,& ! depth of interface k 
@@ -653,6 +684,8 @@ subroutine integrate_tke( &
   tke_surf_min   = tke_constants_in%tke_surf_min
   tke_mxl_choice = tke_constants_in%tke_mxl_choice
   only_tke = tke_constants_in%only_tke
+  l_lc     = tke_constants_in%l_lc 
+  clc      = tke_constants_in%clc
   use_ubound_dirichlet = tke_constants_in%use_ubound_dirichlet
   use_lbound_dirichlet = tke_constants_in%use_lbound_dirichlet
 
@@ -742,6 +775,11 @@ subroutine integrate_tke( &
   P_diss_v(1) = -forc_rho_surf*grav/rho_ref
   forc = forc + K_diss_v - P_diss_v
    
+  ! --- additional langmuir turbulence term
+  if (l_lc) then
+    forc = forc + tke_plc
+  endif
+
   ! --- forcing by internal wave dissipation
   if (.not.only_tke) then
     forc = forc + iw_diss
@@ -1043,7 +1081,9 @@ subroutine cvmix_tke_put_tke_logical(varname,val,tke_userdef_constants)
     case('use_ubound_dirichlet')
       tke_constants_out%use_ubound_dirichlet=val  
     case('use_lbound_dirichlet')
-      tke_constants_out%use_lbound_dirichlet=val  
+      tke_constants_out%use_lbound_dirichlet=val 
+    case('l_lc')
+      tke_constants_out%l_lc=val 
     case DEFAULT
 !      print*, "ERROR:", trim(varname), " not a valid choice"
 !      stop 1
@@ -1089,7 +1129,9 @@ subroutine cvmix_tke_put_tke_real(varname,val,tke_userdef_constants)
     case('KappaM_max')
       tke_constants_out%KappaM_max = val
     case('tke_min')
-      tke_constants_out%tke_min = val    
+      tke_constants_out%tke_min = val   
+    case('clc')
+      tke_constants_out%clc = val 
     case('tke_surf_min')
       tke_constants_out%tke_surf_min = val    
     case DEFAULT

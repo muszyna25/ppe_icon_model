@@ -492,6 +492,8 @@ MODULE mo_ocean_nml
   INTEGER  :: tke_mxl_choice = 2
   REAL(wp) :: tke_surf_min = 1.E-4_wp
   LOGICAL  :: only_tke = .true.
+  LOGICAL  :: l_lc = .false.
+  REAL(wp) :: clc = 0.15_wp
   LOGICAL  :: use_ubound_dirichlet = .false.
   LOGICAL  :: use_lbound_dirichlet = .false.
   ! cvmix_idemix parameters ! by_nils
@@ -642,6 +644,8 @@ MODULE mo_ocean_nml
     &  tke_mxl_choice,              &
     &  tke_surf_min,                &
     &  only_tke,                    &
+    &  l_lc,                        &
+    &  clc,                         &
     &  use_ubound_dirichlet,        &
     &  use_lbound_dirichlet,        &
     ! cvmix_idemix parameters ! by_nils

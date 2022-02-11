@@ -240,6 +240,8 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
   tke_min    = 1.d-6
   tke_mxl_choice = 2                                                              
   tke_surf_min = 1.d-4
+  l_lc         = .TRUE.                     ! Use Langmuir parameterisation (Axell, 2002)
+  clc          = 0.15                       ! Factor in the vertical velocity profile of the Langmuir circulation (default clc=0.1 in Axell (2002))
   only_tke = .true.                                                               
   use_ubound_dirichlet = .false.                                                  
   use_lbound_dirichlet = .false. 
