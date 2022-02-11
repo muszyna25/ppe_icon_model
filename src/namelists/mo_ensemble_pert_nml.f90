@@ -261,7 +261,7 @@ CONTAINS
     ! Ranges for ensemble perturbations:
 
     ! SSO tuning
-    range_gkwake     = 0.5_wp       ! low-level blocking parameter
+    range_gkwake     = 1.5_wp       ! low-level blocking parameter
     range_gkdrag     = 0.04_wp      ! parameter for wave drag deposition in the atmosphere
     range_gfrcrit    = 0.1_wp       ! parameter for critical Froude number
     !
