@@ -333,9 +333,9 @@ CONTAINS
             ! calculate additional salt restoring rate F_S due to relaxation [psu/s]
             p_oce_sfc%SaltFlux_Relax(jc,jb) = -relax_strength*(s_top(jc,jb)-p_oce_sfc%data_surfRelax_Salt(jc,jb))
 
-            ! Diagnosed freshwater flux due to relaxation (equivalent to heat flux Q)
+            ! Diagnostic freshwater flux due to relaxation (equivalent to heat flux Q)
             !  Fw_S = F_S*dz/S = dz/tau * (S-S*)/S  [m/s]
-            ! this flux is applied as volume forcing in surface equation in fill_rhs4surface_eq_ab
+
             thick = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * stretch_c(jc,jb)
             p_oce_sfc%FrshFlux_Relax(jc,jb) = -p_oce_sfc%SaltFlux_Relax(jc,jb) * thick / s_top(jc,jb)
 
