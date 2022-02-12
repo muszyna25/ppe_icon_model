@@ -215,8 +215,11 @@ cat > ${ocean_namelist} << EOF
   Salinity_HorizontalDiffusion_Reference     = 0 !  40
 /
 &ocean_vertical_diffusion_nml
-  vert_mix_type                            = 1 ! 1=PP, 2=TKE, 3=KPP
-  PPscheme_type                            = 4
+  vert_mix_type                            = 2 ! 1=PP, 2=TKE, 3=KPP
+  only_tke                                 = .true. ! .true. for TKE; .false. for TKE+IDEMIX
+  l_lc                                     = .TRUE.
+  clc                                      = 0.15
+  PPscheme_type                            = 0
   velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
   Temperature_VerticalDiffusion_background =   5.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
   Salinity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
@@ -265,6 +268,20 @@ cat > ${ocean_namelist} << EOF
 !  lconvection             = .TRUE.             ! True => convection param. 'enhanced diff.' is called below the OBL               
 !  fixedOBLdepth           = .FALSE.            ! True => fixed OBL depth at fixedOBLdepth_value (only for testing)                
 !  fixedOBLdepth_value     = 30.0               ! value for the fixed OBL depth when fixedOBLdepth=.True.                          
+  ! cvmix/tke parameters
+  c_k        = 0.1
+  c_eps      = 0.7
+  alpha_tke  = 30.0
+  mxl_min    = 1.d-8
+  kappaM_min = 0.0
+  kappaM_max = 100.0
+  cd         = 3.75
+  tke_min    = 1.d-6
+  tke_mxl_choice = 2
+  tke_surf_min = 1.d-4
+  only_tke = .true.
+  use_ubound_dirichlet = .false.
+  use_lbound_dirichlet = .false.
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
