@@ -994,11 +994,11 @@ CONTAINS
     CASE(vmix_tke)
       !write(*,*) 'Do calc_tke...'
       ! tke does not need a special routine for zstar
-      CALL calc_tke(patch_3d, ocean_state, params_oce, atmos_fluxes)
+      CALL calc_tke(patch_3d, ocean_state, params_oce, atmos_fluxes, fu10)
     CASE(vmix_idemix_tke)
       !write(*,*) 'Do calc_idemix...'
       CALL calc_idemix(patch_3d, ocean_state, params_oce, op_coeffs, atmos_fluxes)
-      CALL calc_tke(patch_3d, ocean_state, params_oce, atmos_fluxes)
+      CALL calc_tke(patch_3d, ocean_state, params_oce, atmos_fluxes, fu10)
     CASE(3) ! by_ogut 
       CALL calc_kpp(patch_3d, ocean_state, params_oce, atmos_fluxes, p_oce_sfc, concsum)
     CASE default
