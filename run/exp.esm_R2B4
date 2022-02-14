@@ -643,13 +643,13 @@ cat > ${atm_namelist} << EOF
 !
  echam_rad_config(1)%isolrad    =  1
  echam_rad_config(1)%irad_h2o   =  1
- echam_rad_config(1)%irad_co2   =  4
- echam_rad_config(1)%irad_ch4   =  4
- echam_rad_config(1)%irad_n2o   =  4
- echam_rad_config(1)%irad_o3    =  2
+ echam_rad_config(1)%irad_co2   =  3
+ echam_rad_config(1)%irad_ch4   =  3
+ echam_rad_config(1)%irad_n2o   =  3
+ echam_rad_config(1)%irad_o3    =  6
  echam_rad_config(1)%irad_o2    =  2
- echam_rad_config(1)%irad_cfc11 =  4
- echam_rad_config(1)%irad_cfc12 =  4
+ echam_rad_config(1)%irad_cfc11 =  3
+ echam_rad_config(1)%irad_cfc12 =  3
  echam_rad_config(1)%irad_aero  = 12
 /
 &echam_gwd_nml
@@ -756,8 +756,10 @@ EOF
 
 # model files
 #
-add_link_file ${basedir}/data/lsdata.nc                                 ./
-add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
+add_link_file ${basedir}/externals/rte-rrtmgp/rrtmgp/data/rrtmgp-data-lw-g128-210809.nc         ./coefficients_lw.nc
+add_link_file ${basedir}/externals/rte-rrtmgp/rrtmgp/data/rrtmgp-data-sw-g112-210809.nc         ./coefficients_sw.nc
+add_link_file ${basedir}/data/ECHAM6_CldOptProps_rrtmgp_lw.nc           ./rrtmgp-cloud-optics-coeffs-lw.nc
+add_link_file ${basedir}/data/ECHAM6_CldOptProps_rrtmgp_sw.nc           ./rrtmgp-cloud-optics-coeffs-sw.nc
 
 # namelist files
 # --------------
@@ -794,7 +796,7 @@ start_year=$(( ${start_date%%-*} - 1 ))
 end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - ozone
-# -- for irad_o3=8
+# -- for irad_o3=6
 #
 datadir=${atmo_data_InputFolder}/ozone/r0001
 #

@@ -558,6 +558,8 @@ CONTAINS
 #else
        CASE(5)
           CALL message('','O3    transient 3-dim. volume mixing ratio from file')
+       CASE(6)
+          CALL message('','O3    clim. annual cycle 3-dim. volume mixing ratio from file')
 #endif
        CASE default
           WRITE (message_text, '(a,i0,a)') 'ERROR: irad_o3    =', irad_o3, ' is not supported'
