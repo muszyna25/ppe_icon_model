@@ -36,10 +36,7 @@ icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/mch"
 # used at MeteoSwiss for production. This simulation computes a few time steps on 
 # a low-resolution grid over Switzerland. The setup is for development purposes.
 #
-# The vertical grid of this simulation has been tweaked to allow for vertical
-# nesting. (There were constrains regarding the flat_height being too close
-# to the top and having the 100 hPa level within the vertical grid as required
-# by the radiation.)
+# Uses the non-orographic gravity wave drag parametrization.
 # ==========================================================================
 
 # ----------------------------------------------------------------------
@@ -336,7 +333,7 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
  inwp_turb                   =                          1         ! vertical diffusion and transfer
  inwp_satad                  =                          1         ! saturation adjustment
  inwp_sso                    =                          1         ! subgrid scale orographic drag
- inwp_gwd                    =                          0         ! non-orographic gravity wave drag
+ inwp_gwd                    =                          1         ! non-orographic gravity wave drag
  inwp_surface                =                          1         ! surface scheme
  latm_above_top              =                      .TRUE.        ! take into account atmosphere above model top for radiation computation
  ldetrain_conv_prec          =                      .TRUE.
