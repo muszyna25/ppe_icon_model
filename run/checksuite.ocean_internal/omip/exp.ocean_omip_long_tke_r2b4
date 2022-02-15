@@ -211,7 +211,7 @@ cat > ${ocean_namelist} << EOF
   !tracer_TopWindMixing            = 0.5E-3 ! [m2/s] windmixing diffusivity in MPIOM-type pp-scheme
   !velocity_TopWindMixing          = 0.5E-3 ! [m2/s] windmixing viscosity in MPIOM-type pp-scheme
   ! cvmix/tke parameters
-  c_k        = 0.1
+  c_k        = 0.3
   c_eps      = 0.7
   alpha_tke  = 30.0
   mxl_min    = 1.d-8
