@@ -8,6 +8,7 @@ MODULE mo_nwp_gpu_util
   USE mo_nwp_parameters,          ONLY: t_phy_params
   USE mo_nonhydrostatic_config,   ONLY: kstart_moist, kstart_tracer
   USE mo_run_config,              ONLY: ldass_lhn
+  USE mo_atm_phy_nwp_config,      ONLY: t_atm_phy_nwp_config
 
 #ifdef _OPENACC
   USE mo_var_list_gpu,            ONLY: gpu_update_var_list
@@ -21,13 +22,16 @@ MODULE mo_nwp_gpu_util
 
   CONTAINS
 
-  SUBROUTINE gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data, p_int, phy_params)
+  SUBROUTINE gpu_d2h_nh_nwp(pt_patch, prm_diag, ext_data, p_int, phy_params, atm_phy_nwp_config)
 
     TYPE(t_patch), TARGET, INTENT(in) :: pt_patch
     TYPE(t_nwp_phy_diag), INTENT(inout) :: prm_diag
     TYPE(t_external_data), OPTIONAL, INTENT(inout):: ext_data
     TYPE(t_int_state), OPTIONAL, INTENT(inout) :: p_int
     TYPE(t_phy_params), OPTIONAL, INTENT(inout) :: phy_params
+    TYPE(t_atm_phy_nwp_config), OPTIONAL, TARGET, INTENT(inout) :: atm_phy_nwp_config
+    
+    TYPE(t_atm_phy_nwp_config), POINTER :: a
 
     INTEGER :: jg
 
@@ -96,21 +100,38 @@ MODULE mo_nwp_gpu_util
 
     IF (PRESENT(phy_params)) THEN
       ! This is save as long as all t_phy_params components are scalars.
-      !$ACC UPDATE HOST(phy_params) 
-    END IF
+      !$ACC UPDATE HOST(phy_params)
+    ENDIF
+
+    IF (PRESENT(atm_phy_nwp_config)) THEN
+      a => atm_phy_nwp_config
+      ! a%phyProc* are not allocated on GPU yet.
+      !$ACC UPDATE HOST(a%inwp_gscp, a%inwp_satad, a%inwp_convection, a%lshallowconv_only, a%lgrayzone_deepconv) &
+      !$ACC HOST(a%ldetrain_conv_prec, a%inwp_radiation, a%inwp_sso, a%inwp_gwd, a%inwp_cldcover, a%inwp_turb) &
+      !$ACC HOST(a%inwp_surface, a%itype_z0, a%dt_conv, a%dt_ccov, a%dt_rad, a%dt_sso, a%dt_gwd, a%dt_fastphy) &
+      !$ACC HOST(a%mu_rain, a%mu_snow, a%rain_n0_factor, a%qi0, a%qc0, a%icpl_aero_gscp, a%ustart_raylfric) &
+      !$ACC HOST(a%efdt_min_raylfric, a%latm_above_top, a%icalc_reff, a%icpl_rad_reff, a%ithermo_water) &
+      !$ACC HOST(a%lupatmo_phy, a%lenabled, a%lcall_phy, a%lcalc_acc_avg, a%lcalc_moist_integral_avg) &
+      !$ACC HOST(a%lcalc_extra_avg, a%lhave_graupel, a%l2moment, a%lhydrom_read_from_fg, a%lhydrom_read_from_ana) &
+      !$ACC HOST(a%is_les_phy, a%nclass_gscp, a%l_3d_rad_fluxes, a%l_3d_turb_fluxes, a%fac_ozone, a%shapefunc_ozone) &
+      !$ACC HOST(a%ozone_maxinc)
+    ENDIF
 
   END SUBROUTINE gpu_d2h_nh_nwp
 
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
 
-  SUBROUTINE gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data, p_int, phy_params)
+  SUBROUTINE gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data, p_int, phy_params, atm_phy_nwp_config)
 
     TYPE(t_patch), TARGET, INTENT(in) :: pt_patch
     TYPE(t_nwp_phy_diag), INTENT(inout) :: prm_diag
     TYPE(t_external_data), OPTIONAL, INTENT(inout):: ext_data
     TYPE(t_int_state), OPTIONAL, INTENT(inout) :: p_int
     TYPE(t_phy_params), OPTIONAL, INTENT(inout) :: phy_params
+    TYPE(t_atm_phy_nwp_config), OPTIONAL, TARGET, INTENT(inout) :: atm_phy_nwp_config
+    
+    TYPE(t_atm_phy_nwp_config), POINTER :: a
 
     INTEGER :: jg
 
@@ -182,6 +203,20 @@ MODULE mo_nwp_gpu_util
       ! This is save as long as all t_phy_params components are scalars.
       !$ACC UPDATE DEVICE(phy_params) 
     END IF
+
+    IF (PRESENT(atm_phy_nwp_config)) THEN
+      a => atm_phy_nwp_config
+      ! a%phyProc* are not allocated on GPU yet.
+      !$ACC UPDATE DEVICE(a%inwp_gscp, a%inwp_satad, a%inwp_convection, a%lshallowconv_only, a%lgrayzone_deepconv) &
+      !$ACC DEVICE(a%ldetrain_conv_prec, a%inwp_radiation, a%inwp_sso, a%inwp_gwd, a%inwp_cldcover, a%inwp_turb) &
+      !$ACC DEVICE(a%inwp_surface, a%itype_z0, a%dt_conv, a%dt_ccov, a%dt_rad, a%dt_sso, a%dt_gwd, a%dt_fastphy) &
+      !$ACC DEVICE(a%mu_rain, a%mu_snow, a%rain_n0_factor, a%qi0, a%qc0, a%icpl_aero_gscp, a%ustart_raylfric) &
+      !$ACC DEVICE(a%efdt_min_raylfric, a%latm_above_top, a%icalc_reff, a%icpl_rad_reff, a%ithermo_water) &
+      !$ACC DEVICE(a%lupatmo_phy, a%lenabled, a%lcall_phy, a%lcalc_acc_avg, a%lcalc_moist_integral_avg) &
+      !$ACC DEVICE(a%lcalc_extra_avg, a%lhave_graupel, a%l2moment, a%lhydrom_read_from_fg, a%lhydrom_read_from_ana) &
+      !$ACC DEVICE(a%is_les_phy, a%nclass_gscp, a%l_3d_rad_fluxes, a%l_3d_turb_fluxes, a%fac_ozone, a%shapefunc_ozone) &
+      !$ACC DEVICE(a%ozone_maxinc)
+    ENDIF
 
   END SUBROUTINE gpu_h2d_nh_nwp
 

@@ -2261,6 +2261,11 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn, use_acc)
         ELSE
           z_aux3dl2_p(jc,12,jb) = 0._wp
         ENDIF
+        IF (var_in_output(jg)%snow_melt) THEN
+          z_aux3dl2_p(jc,19,jb) = ptr_ldiagp%snow_melt(jc,jb)
+        ELSE
+          z_aux3dl2_p(jc,19,jb) = 0._wp
+        ENDIF
       ENDDO
       !$ACC END PARALLEL
 
@@ -2516,8 +2521,11 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn, use_acc)
         ptr_ldiagc%runoff_s(jc,jb)         = z_aux3dl2_c(jc,9,jb)
         ptr_ldiagc%runoff_g(jc,jb)         = z_aux3dl2_c(jc,10,jb)
         ptr_ldiagc%t_so(jc,nlev_soil+1,jb) = z_aux3dl2_c(jc,11,jb)
-        IF (var_in_output(jg)%res_soilwatb) THEN
+        IF (var_in_output(jgc)%res_soilwatb) THEN
           ptr_ldiagc%resid_wso(jc,jb)     = z_aux3dl2_c(jc,12,jb)
+        ENDIF
+        IF (var_in_output(jgc)%snow_melt) THEN
+          ptr_ldiagc%snow_melt(jc,jb)      = z_aux3dl2_c(jc,19,jb)
         ENDIF
       ENDDO
       !$ACC END PARALLEL

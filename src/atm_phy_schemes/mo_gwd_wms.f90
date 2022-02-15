@@ -55,10 +55,11 @@ MODULE mo_gwd_wms
  
 CONTAINS
   
-  SUBROUTINE gwdrag_wms(kidia,  kfdia,   klon,  klev, klaunch, ptstep,&
-    & ptm1 ,  pum1,    pvm1,  papm1,  paphm1, pgeo1 ,&
-    & pgelat, pprecip,&
-    & ptenu, ptenv,   pfluxu, pfluxv)
+  SUBROUTINE gwdrag_wms(kidia,  kfdia,   klon,  klev, klaunch, ptstep, &
+    & ptm1 ,  pum1,    pvm1,  papm1,  paphm1, pgeo1, &
+    & pgelat, pprecip, &
+    & ptenu, ptenv,   pfluxu, pfluxv, &
+    & lacc)
     
    !<**** *GWDRAG_WMS*
    !!
@@ -95,13 +96,15 @@ CONTAINS
     REAL(KIND=jprb),INTENT(in) :: pgeo1(:,:)  ! (klon,klev)   full model level geopotential
     REAL(KIND=jprb),INTENT(in) :: pgelat(:)   ! (klon)        latitude
     REAL(KIND=jprb),INTENT(in) :: pprecip(:)  ! (klon)        total surface precipitation
-    
+
     !inout
     REAL(KIND=vp),  INTENT(out):: ptenu(:,:)  ! (klon,klev)   full-model level zonal momentum tendency
     REAL(KIND=vp),  INTENT(out):: ptenv(:,:)  ! (klon,klev)   full-model level meridional momentum tendency
     REAL(KIND=jprb),INTENT(out):: pfluxu(:,:) ! (klon,klev+1) zonal component of vertical momentum flux (Pa)
     REAL(KIND=jprb),INTENT(out):: pfluxv(:,:) ! (klon,klev+1) meridional component of vertical momentum flux (Pa)
     
+    LOGICAL, INTENT(in) :: lacc               ! If .TRUE. use openACC. (.FALSE. is used during initialization)
+
     !work
     INTEGER(KIND=jpim), PARAMETER :: iazidim=4      !number of azimuths
     INTEGER(KIND=jpim), PARAMETER :: incdim=20      !number of discretized c spectral elements in launch spectrum
@@ -150,6 +153,13 @@ CONTAINS
     
     !--------------------------------------------------------------------------
     
+    !$ACC DATA PRESENT( pum1, pvm1, ptm1, papm1, paphm1, pgeo1, pgelat, pprecip, ptenu, ptenv, pfluxu, pfluxv ) &
+    !$ACC CREATE( zfnorm, zfct, zacc, zui, zcngl, zrhohm1, zsinang, zthm1, zul, zgauss, zcosang, zdci, zci, zcrt ) &
+    !$ACC CREATE( zbvfl, zx, zvhm1, zact, zbvfhm1, zuhm1, zdfl, zpu, zflux, zfluxlaun, zci_min ) &
+    !$ACC IF( lacc )
+
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( lacc )
+
     !*       INPUT PARAMETERS
     !*       ----------------
     
@@ -163,11 +173,20 @@ CONTAINS
     !*       INITIALIZE FIELDS TO ZERO
     !*       -------------------------
     
-    ptenu(:,:)=0.0_JPRB
-    ptenv(:,:)=0.0_JPRB
+    !$ACC LOOP SEQ
+    DO jk=1,klev
+      !$ACC LOOP GANG(STATIC:1) VECTOR
+      DO jl=kidia,kfdia
+        ptenu(jl,jk)=0.0_JPRB
+        ptenv(jl,jk)=0.0_JPRB
+      ENDDO
+    ENDDO
     
+    !$ACC LOOP SEQ
     DO iazi=1,iazidim
+      !$ACC LOOP SEQ
       DO jk=1,klev
+        !$ACC LOOP GANG(STATIC:1) VECTOR
         DO jl=kidia,kfdia
           zpu(jl,jk,iazi)=0.0_JPRB
           zcrt(jl,jk,iazi)=0.0_JPRB
@@ -176,7 +195,9 @@ CONTAINS
       ENDDO
     ENDDO
     
+    !$ACC LOOP SEQ
     DO jk=1,klev+1
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jl=kidia,kfdia
         pfluxu(jl,jk)=0.0_JPRB
         pfluxv(jl,jk)=0.0_JPRB
@@ -198,7 +219,9 @@ CONTAINS
     
     ! set initial min ci in each column and azimuth (used for critical levels)
     
+    !$ACC LOOP SEQ
     DO iazi=1,iazidim
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jl=kidia,kfdia
         zci_min(jl,iazi)=zcimin
       ENDDO
@@ -208,7 +231,9 @@ CONTAINS
     !*       DEFINE HALF MODEL LEVEL WINDS AND TEMPERATURE
     !*       -----------------------------------
     
+    !$ACC LOOP SEQ
     DO jk=2,klev
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jl=kidia,kfdia
         zthm1(jl,jk) =0.5_JPRB*(ptm1(jl,jk-1)+ptm1(jl,jk))
         zuhm1(jl,jk) =0.5_JPRB*(pum1(jl,jk-1)+pum1(jl,jk))
@@ -216,6 +241,7 @@ CONTAINS
       ENDDO
     ENDDO
     jk=1
+    !$ACC LOOP GANG(STATIC:1) VECTOR
     DO jl=kidia,kfdia
       zthm1(jl,jk)=ptm1(jl,jk)
       zuhm1(jl,jk)=pum1(jl,jk)
@@ -228,7 +254,9 @@ CONTAINS
     
     zcons1=1.0_JPRB/rd
     zcons2=rg**2/rcpd
+    !$ACC LOOP SEQ
     DO jk=klev,2,-1
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jl=kidia,kfdia
         zrhohm1(jl,jk)=paphm1(jl,jk)*zcons1/zthm1(jl,jk)
         zbvfhm1(jl,jk)=zcons2/zthm1(jl,jk)*(1.0_JPRB+rcpd           &
@@ -250,6 +278,7 @@ CONTAINS
     ! of azimuthal directions (ie 4,8,16,32,...)
     
     znorm=0.0_JPRB
+    !$ACC LOOP SEQ
     DO iazi=1,iazidim
       zang1=(REAL(iazi,jprb)-1.0_jprb)*zang
       zcosang(iazi)=COS(zang1)
@@ -275,6 +304,7 @@ CONTAINS
     zx1=zxran/(EXP(zxran/zgam)-1.0_JPRB)
     zx2=zxmin-zx1
     
+    !$ACC LOOP SEQ
     DO inc=1,incdim
      !ZTX=REAL(INC-1)*ZDX+ZXMIN
       ztx=REAL((inc-1),KIND(1._jprb))*zdx+zxmin
@@ -287,17 +317,23 @@ CONTAINS
     !*       DEFINE INTRINSIC VELOCITY (RELATIVE TO LAUNCH LEVEL VELOCITY) U(Z)-U(Zo), AND COEFFICINETS
     !*       ------------------------------------------------------------------------------------------
     
+    !$ACC LOOP SEQ
     DO iazi=1,iazidim
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jl=kidia,kfdia
         zul(jl,iazi)=zcosang(iazi)*zuhm1(jl,klaunch)+zsinang(iazi)*zvhm1(jl,klaunch)
       ENDDO
     ENDDO
+    !$ACC LOOP GANG(STATIC:1) VECTOR
     DO jl=kidia,kfdia
       zbvfl(jl)=zbvfhm1(jl,klaunch)
     ENDDO
     
+    !$ACC LOOP SEQ
     DO jk=2,klaunch
+      !$ACC LOOP SEQ
       DO iazi=1,iazidim
+        !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE( zu )
         DO jl=kidia,kfdia
           zu=zcosang(iazi)*zuhm1(jl,jk)+zsinang(iazi)*zvhm1(jl,jk)
           zui(jl,jk,iazi)=zu-zul(jl,iazi)
@@ -308,7 +344,9 @@ CONTAINS
     !*       DEFINE RHO(Zo)/N(Zo)
     !*       -------------------
     
+    !$ACC LOOP SEQ
     DO jk=2,klaunch
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jl=kidia,kfdia
         zfct(jl,jk)=zrhohm1(jl,jk)/zbvfhm1(jl,jk)
       ENDDO
@@ -322,9 +360,11 @@ CONTAINS
     
     IF(nslope==1) THEN
       ! s=1 case
+      !$ACC LOOP SEQ
       DO inc=1,incdim
         zcin=zci(inc)
         zcin4=(zms*zcin)**4
+        !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE( zbvfl4 )
         DO jl=kidia,kfdia
           zbvfl4=zbvfl(jl)**4
           zflux(jl,inc,1)=zfct(jl,klaunch)*zbvfl4*zcin/(zbvfl4+zcin4)
@@ -333,9 +373,11 @@ CONTAINS
       ENDDO
     ELSEIF(nslope==-1) THEN
       ! s=-1 case
+      !$ACC LOOP SEQ
       DO inc=1,incdim
         zcin=zci(inc)
         zcin2=(zms*zcin)**2
+        !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE( zbvfl2 )
         DO jl=kidia,kfdia
           zbvfl2=zbvfl(jl)**2
           zflux(jl,inc,1)=zfct(jl,klaunch)*zbvfl2*zcin/(zbvfl2+zcin2)
@@ -344,9 +386,11 @@ CONTAINS
       ENDDO
     ELSEIF(nslope==0) THEN
       ! s=0 case
+      !$ACC LOOP SEQ
       DO inc=1,incdim
         zcin=zci(inc)
         zcin3=(zms*zcin)**3
+        !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE( zbvfl3 )
         DO jl=kidia,kfdia
           zbvfl3=zbvfl(jl)**3
           zflux(jl,inc,1)=zfct(jl,klaunch)*zbvfl3*zcin/(zbvfl3+zcin3)
@@ -362,8 +406,10 @@ CONTAINS
     ! (rho x F^H = rho_o x F_p^total)
     
     ! integrate (ZFLUX x dX)
+    !$ACC LOOP SEQ
     DO inc=1,incdim
       zcinc=zdci(inc)
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jl=kidia,kfdia
         zpu(jl,klaunch,1)=zpu(jl,klaunch,1)+zflux(jl,inc,1)*zcinc
       ENDDO
@@ -375,6 +421,7 @@ CONTAINS
     ! Also other options to alter tropical values
     
     ! A=ZFNORM in Scinocca 2003.  A is independent of height.
+    !$ACC LOOP GANG(STATIC:1) VECTOR
     DO jl=kidia,kfdia
       zfluxlaun(jl)=gfluxlaun
       zfnorm(jl)=zfluxlaun(jl)/zpu(jl,klaunch,1)
@@ -383,12 +430,14 @@ CONTAINS
     ! If LOZPR=TRUR then increase EPLAUNCH over tropics
     IF (lozpr) THEN
       IF (ngauss==1) THEN
+        !$ACC LOOP GANG(STATIC:1) VECTOR
         DO jl=kidia,kfdia
           zfluxlaun(jl)=gfluxlaun*(1.0_JPRB+MIN(0.5_JPRB,gcoeff*pprecip(jl)))     !precip
           !  ZFLUXLAUN(JL)=GFLUXLAUN*(1.0_JPRB+MIN(0.5_JPRB,1.0E-3_JPRB*PPRECIP(JL)))!cape
           zfnorm(jl)=zfluxlaun(jl)/zpu(jl,klaunch,1)
         ENDDO
       ELSEIF (ngauss==2) THEN
+        !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE( zgelatdeg )
         DO jl=kidia,kfdia
           zgelatdeg=pgelat(jl)*zradtodeg
           zgauss(jl)=ggaussb*EXP((-zgelatdeg*zgelatdeg)/(2._jprb*ggaussa*ggaussa))
@@ -398,6 +447,7 @@ CONTAINS
       ELSEIF (ngauss==4) THEN
         ! Set latitudinal dependence to optimize stratospheric winds for 36r1
         z50s=-50.0_JPRB
+        !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE( zgelatdeg )
         DO jl=kidia,kfdia
           zgelatdeg=pgelat(jl)*zradtodeg-z50s
           zgauss(jl)=ggaussb*EXP((-zgelatdeg*zgelatdeg)/(2._jprb*ggaussa*ggaussa))
@@ -407,7 +457,9 @@ CONTAINS
       ENDIF
     ENDIF
     
+    !$ACC LOOP SEQ
     DO iazi=1,iazidim
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jl=kidia,kfdia
         zpu(jl,klaunch,iazi)=zfluxlaun(jl)
       ENDDO
@@ -415,7 +467,9 @@ CONTAINS
     
     !*       ADJUST CONSTANT ZFCT
     !*       --------------------
+    !$ACC LOOP SEQ
     DO jk=2,klaunch
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jl=kidia,kfdia
         zfct(jl,jk)=zfnorm(jl)*zfct(jl,jk)
       ENDDO
@@ -423,7 +477,9 @@ CONTAINS
     
     !*       RENORMALIZE EACH SPECTRAL ELEMENT IN FIRST AZIMUTH
     !*       --------------------------------------------------
+    !$ACC LOOP SEQ
     DO inc=1,incdim
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jl=kidia,kfdia
         zflux(jl,inc,1)=zfnorm(jl)*zflux(jl,inc,1)
       ENDDO
@@ -435,8 +491,11 @@ CONTAINS
     ! ZACT=1 then no critical level
     ! ZACT=0 then critical level
     
+    !$ACC LOOP SEQ
     DO iazi=2,iazidim
+      !$ACC LOOP SEQ
       DO inc=1,incdim
+        !$ACC LOOP GANG(STATIC:1) VECTOR
         DO jl=kidia,kfdia
           zflux(jl,inc,iazi)=zflux(jl,inc,1)
           zact(jl,inc,iazi)=1.0_JPRB
@@ -453,17 +512,19 @@ CONTAINS
     !* begin IAZIDIM do-loop
     !* --------------------
     
+    !$ACC LOOP SEQ
     DO iazi=1,iazidim
       
       !* begin JK do-loop
       !* ----------------
-      
+      !$ACC LOOP SEQ
       DO jk=klaunch-1,2,-1
         
         
         !* first do critical levels
         !* ------------------------
         
+        !$ACC LOOP GANG(STATIC:1) VECTOR
         DO jl=kidia,kfdia
           zci_min(jl,iazi)=MAX(zci_min(jl,iazi),zui(jl,jk,iazi))
         ENDDO
@@ -472,8 +533,10 @@ CONTAINS
         !* ----------------------------------------------
         
         z0p5=0.5_JPRB
+        !$ACC LOOP SEQ
         DO inc=1,incdim
           zcin=zci(inc)
+          !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE( zatmp )
           DO jl=kidia,kfdia
             zatmp=z0p5+SIGN(z0p5,zcin-zci_min(jl,iazi))
             zacc(jl,inc,iazi)=zact(jl,inc,iazi)-zatmp
@@ -484,8 +547,10 @@ CONTAINS
         !* integrate to get critical-level contribution to mom deposition on this level, i.e. ZACC=1
         !* ----------------------------------------------------------------------------------------
         
+        !$ACC LOOP SEQ
         DO inc=1,incdim
           zcinc=zdci(inc)
+          !$ACC LOOP GANG(STATIC:1) VECTOR
           DO jl=kidia,kfdia
             zdfl(jl,jk,iazi)=zdfl(jl,jk,iazi)+&
               & zacc(jl,inc,iazi)*zflux(jl,inc,iazi)*zcinc
@@ -495,10 +560,12 @@ CONTAINS
         !* get weighted average of phase speed in layer
         !* --------------------------------------------
         
+        !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE( zatmp )
         DO jl=kidia,kfdia
           IF(zdfl(jl,jk,iazi)>0.0_JPRB) THEN
             zatmp=zcrt(jl,jk,iazi)
 !$NEC unroll(incdim)
+            !$ACC LOOP SEQ
             DO inc=1,incdim
               zatmp=zatmp+zci(inc)*&
                 & zacc(jl,inc,iazi)*zflux(jl,inc,iazi)*zdci(inc)
@@ -513,9 +580,11 @@ CONTAINS
         !* -------------------------------------------------
         
         IF(gptwo==3.0_JPRB) THEN
+          !$ACC LOOP SEQ
           DO inc=1,incdim
             zcin=zci(inc)
             zcinc=1.0_JPRB/zcin
+            !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE( ze1, ze2, zfluxsq, zdep )
             DO jl=kidia,kfdia
               ze1=zcin-zui(jl,jk,iazi)
               ze2=gcstar*zfct(jl,jk)*ze1
@@ -528,9 +597,11 @@ CONTAINS
             ENDDO
           ENDDO
         ELSEIF(gptwo==2.0_JPRB) THEN
+          !$ACC LOOP SEQ
           DO inc=1,incdim
             zcin=zci(inc)
             zcinc=1.0_JPRB/zcin
+            !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE( zfluxs, zdep )
             DO jl=kidia,kfdia
               zfluxs=gcstar*zfct(jl,jk)*&
                 & (zcin-zui(jl,jk,iazi))**2*zcinc
@@ -546,8 +617,10 @@ CONTAINS
         !* integrate spectrum
         !* ------------------
         
+        !$ACC LOOP SEQ
         DO inc=1,incdim
           zcinc=zdci(inc)
+          !$ACC LOOP GANG(STATIC:1) VECTOR
           DO jl=kidia,kfdia
             zpu(jl,jk,iazi)=zpu(jl,jk,iazi)+&
               & zact(jl,inc,iazi)*zflux(jl,inc,iazi)*zcinc
@@ -571,11 +644,15 @@ CONTAINS
     
     z0p0=0._jprb
     zrgpts=1.0_JPRB/(rg*ptstep)
+    !$ACC LOOP SEQ
     DO iazi=1,iazidim
+      !$ACC LOOP GANG(STATIC:1) VECTOR
       DO jl=kidia,kfdia
         zcngl(jl)=0.0_JPRB
       ENDDO
+      !$ACC LOOP SEQ
       DO jk=2,klaunch
+        !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE( zulm, zdft )
         DO jl=kidia,kfdia
           zulm=zcosang(iazi)*pum1(jl,jk)+zsinang(iazi)*pvm1(jl,jk)-zul(jl,iazi)
           zdfl(jl,jk-1,iazi)=zdfl(jl,jk-1,iazi)+zcngl(jl)
@@ -592,8 +669,11 @@ CONTAINS
     !*       SUM CONTRIBUTION FOR TOTAL ZONAL AND MERIDIONAL FLUX
     !*       ---------------------------------------------------
     
+    !$ACC LOOP SEQ
     DO iazi=1,iazidim
+      !$ACC LOOP SEQ
       DO jk=klaunch,2,-1
+        !$ACC LOOP GANG(STATIC:1) VECTOR
         DO jl=kidia,kfdia
           pfluxu(jl,jk)=pfluxu(jl,jk)+zpu(jl,jk,iazi)*zaz_fct*zcosang(iazi)
           pfluxv(jl,jk)=pfluxv(jl,jk)+zpu(jl,jk,iazi)*zaz_fct*zsinang(iazi)
@@ -606,8 +686,10 @@ CONTAINS
     !*    ----------------------------
     
     zcons1=1.0_JPRB/rcpd
+    !$ACC LOOP SEQ
     DO jk=1,klaunch
-      DO jl=kidia, kfdia
+      !$ACC LOOP GANG(STATIC:1) VECTOR PRIVATE( zdelp, ze1, ze2 )
+      DO jl=kidia,kfdia
         zdelp= rg/(paphm1(jl,jk+1)-paphm1(jl,jk))
         ze1=(pfluxu(jl,jk+1)-pfluxu(jl,jk))*zdelp
         ze2=(pfluxv(jl,jk+1)-pfluxv(jl,jk))*zdelp
@@ -617,7 +699,10 @@ CONTAINS
     ENDDO
     
     !---------------------------------------------------------------------------
+    !$ACC END PARALLEL
     
+    !$ACC WAIT IF(lacc)
+    !$ACC END DATA
     !IF (LHOOK) CALL DR_HOOK('GWDRAG_WMS',1,ZHOOK_HANDLE)
     
   END SUBROUTINE gwdrag_wms

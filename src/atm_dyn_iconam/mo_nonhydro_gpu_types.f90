@@ -329,23 +329,22 @@ CONTAINS
 
     INTEGER :: j
 
+!$ACC ENTER DATA COPYIN( advection_config ) IF ( i_am_accel_node .AND. host_to_device  )
     DO j=1, SIZE(advection_config)
 
       IF ( host_to_device ) THEN
-
 !$ACC ENTER DATA &
-!$ACC       COPYIN( advection_config(j)%trHydroMass%list, advection_config(j)%iadv_slev, advection_config(j)%trAdvect%list ) &
-!$ACC       IF ( i_am_accel_node  )
-
+!$ACC       COPYIN( advection_config(j)%trHydroMass%list, advection_config(j)%trAdvect%list ) &
+!$ACC       IF ( i_am_accel_node )
       ELSE
 
 !$ACC EXIT DATA &
-!$ACC      DELETE( advection_config(j)%trHydroMass%list, advection_config(j)%iadv_slev, advection_config(j)%trAdvect%list )  &
-!$ACC      IF ( i_am_accel_node  )
-
+!$ACC      DELETE( advection_config(j)%trHydroMass%list, advection_config(j)%trAdvect%list )  &
+!$ACC      IF ( i_am_accel_node )
       ENDIF
 
     ENDDO
+!$ACC EXIT DATA DELETE(advection_config) IF ( i_am_accel_node .AND. .NOT. host_to_device )
 
   END SUBROUTINE transfer_advection_config
 

@@ -12,6 +12,7 @@ author_list="Remo Dietlicher, MeteoSwiss"
 #
 # This experiment uses "cloudice" microphysics. (Other mch_opr_r04b07* experiments use
 # "graupel" instead.)
+# Uses the non-orographic gravity wave drag parametrization
 #--------------------------------------------------------------------------------------------------
 
 # (0) unset some setting of create_target_header for mistral
@@ -290,7 +291,7 @@ cat > ${atmo_namelist} << EOF
  inwp_turb                   =                          1         ! vertical diffusion and transfer
  inwp_satad                  =                          1         ! saturation adjustment
  inwp_sso                    =                          1         ! subgrid scale orographic drag
- inwp_gwd                    =                          0         ! non-orographic gravity wave drag
+ inwp_gwd                    =                          1         ! non-orographic gravity wave drag
  inwp_surface                =                          1         ! surface scheme
  latm_above_top              =                      .TRUE.        ! take into account atmosphere above model top for radiation computation
  ldetrain_conv_prec          =                      .TRUE.

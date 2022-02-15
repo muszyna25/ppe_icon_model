@@ -36,8 +36,9 @@ MODULE mo_process_topo
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_extpar_config,      ONLY: fac_smooth_topo, n_iter_smooth_topo,           &
     &                              heightdiff_threshold, hgtdiff_max_smooth_topo, &
-    &                              lrevert_sea_height
+    &                              lrevert_sea_height, pp_sso
   USE mo_impl_constants,     ONLY: min_rlcell, min_rlcell_int
+  USE mo_math_constants,     ONLY: rad2deg
   USE mo_math_laplace,       ONLY: nabla2_scalar, nabla4_scalar
   USE mo_intp_rbf,           ONLY: rbf_interpol_c2grad
 
@@ -46,7 +47,7 @@ MODULE mo_process_topo
   PRIVATE
 
   PUBLIC :: smooth_topo 
-  PUBLIC :: smooth_topo_real_data, postproc_glacier_sso
+  PUBLIC :: smooth_topo_real_data, postproc_sso
 
 CONTAINS
 
@@ -373,21 +374,23 @@ CONTAINS
       ENDDO  !jb
     ENDIF
 
-
     ! re-compute SSO_STDH based on smoothed topography
     !
-    DO jb = i_startblk,nblks_c
+    IF (pp_sso <= 1) THEN
 
-      CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
-                         i_startidx, i_endidx, 3)
+      DO jb = i_startblk,nblks_c
 
-      DO jc = i_startidx, i_endidx
+        CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, i_startidx, i_endidx, 3)
 
-        zhdiff = topography_c(jc,jb) - z_topo_c_sv(jc,jb)
-        sso_stdh(jc,jb) = SQRT(sso_stdh(jc,jb)**2 + zhdiff**2)
+        DO jc = i_startidx, i_endidx
 
+          zhdiff = topography_c(jc,jb) - z_topo_c_sv(jc,jb)
+          sso_stdh(jc,jb) = SQRT(sso_stdh(jc,jb)**2 + zhdiff**2)
+
+        ENDDO
       ENDDO
-    ENDDO
+
+    ENDIF
 
 
   END SUBROUTINE smooth_topo_real_data
@@ -404,7 +407,7 @@ CONTAINS
   !! @par Revision History
   !! Developed by G. Zaengl  (2020-07-13).
   !!
-  SUBROUTINE postproc_glacier_sso (p_patch, p_int, fr_glac, topography_c, sso_stdh, sso_sigma)
+  SUBROUTINE postproc_sso (p_patch, p_int, fr_glac, topography_c, sso_stdh, sso_sigma)
 
     TYPE(t_patch)      , INTENT(INOUT) :: p_patch
     TYPE(t_int_state)  , INTENT(IN)    :: p_int
@@ -417,7 +420,7 @@ CONTAINS
     INTEGER  :: jb, jc
     INTEGER  :: i_startblk, i_endblk, nblks_c, i_startidx, i_endidx
     REAL(wp), DIMENSION(nproma,1,p_patch%nblks_c) :: z_topo_c, slope_x, slope_y, slope
-    REAL(wp) :: glac_fac, slope_fac, red_fac
+    REAL(wp) :: slc_fac, slope_ratio, slred_fac, offset_fac
 
 
     nblks_c    = p_patch%nblks_c
@@ -445,24 +448,32 @@ CONTAINS
     CALL sync_patch_array(SYNC_C, p_patch, slope)
 
     ! Reduce SSO stdh and slope depending on the glacier fration and the ratio between SSO slope and grid-scale slope
+    ! With Merit/Rema raw data, it turned out to be beneficial to extend the slope correction the whole Arctic region
     DO jb = i_startblk,nblks_c
 
       CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, i_startidx, i_endidx, 2)
 
       DO jc = i_startidx, i_endidx
 
-        glac_fac = MAX(0._wp, 2._wp*(fr_glac(jc,jb) - 0.5_wp))
-        slope_fac = MIN(1._wp, slope(jc,1,jb)/(1.e-4_wp + sso_sigma(jc,jb)))
-        red_fac = (1._wp - 0.6_wp*glac_fac*slope_fac)
-
-        sso_stdh(jc,jb)  = red_fac*sso_stdh(jc,jb)
-        sso_sigma(jc,jb) = red_fac*sso_sigma(jc,jb)
+        slope_ratio = MIN(1._wp, slope(jc,1,jb)/(1.e-4_wp + sso_sigma(jc,jb)))
+        slc_fac = MAX(0._wp, 2._wp*(fr_glac(jc,jb) - 0.5_wp))
+        IF (pp_sso == 1) THEN
+          slred_fac = (1._wp - 0.6_wp*slc_fac*slope_ratio)
+          sso_stdh(jc,jb)  = slred_fac*sso_stdh(jc,jb)
+          sso_sigma(jc,jb) = slred_fac*sso_sigma(jc,jb)
+        ELSE
+          IF (p_patch%cells%center(jc,jb)%lat*rad2deg > 66.5_wp) slc_fac = 1._wp
+          offset_fac = slc_fac
+          slred_fac = MAX(0.05_wp,1._wp - slc_fac*slope_ratio)
+          sso_stdh(jc,jb)  = MAX(0._wp, MIN(slred_fac*sso_stdh(jc,jb),sso_stdh(jc,jb)-offset_fac*10._wp) )
+          sso_sigma(jc,jb) = slred_fac*sso_sigma(jc,jb)
+        ENDIF
 
       ENDDO
     ENDDO
 
 
-  END SUBROUTINE postproc_glacier_sso
+  END SUBROUTINE postproc_sso
 
 
 END MODULE mo_process_topo
