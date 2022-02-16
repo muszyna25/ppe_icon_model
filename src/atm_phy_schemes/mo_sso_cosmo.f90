@@ -102,6 +102,8 @@ REAL (KIND = wp) ::      &
   Gkwake                  , &   ! gw drag constant (set in mo_nwp_tuning_nml)
   Grcrit                  , &   ! critical Richardson number (set in mo_nwp_tuning_nml)
   Gfrcrit                 , &   ! critical Froude number (determines depth of blocking layer; set in mo_nwp_tuning_nml)
+  minsso                  , &   ! minimum SSO standard deviation (m) for which SSO information is used
+  blockred                , &   ! multiple of SSO standard deviation above which blocking tendency is reduced
 
 ! Security constants
 ! ------------------
@@ -288,6 +290,8 @@ SUBROUTINE sso (                                                       &
       Gkwake  = params%Gkwake
       Grcrit  = params%Grcrit
       Gfrcrit = params%Gfrcrit
+      minsso  = params%minsso
+      blockred= params%blockred
 
       ! openACC flag (initialization run is left on)
       IF(PRESENT(use_acc)) THEN
@@ -324,12 +328,12 @@ SUBROUTINE sso (                                                       &
       !$ACC END PARALLEL
 
 !     Control operation of scheme by selection of points with standard
-!     deviation of sub-grid scale orography > 10 m only
+!     deviation of sub-grid scale orography > 10 m only (default value of minsso)
 !     =================================================
       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF(lzacc)
       !$ACC LOOP GANG VECTOR
       DO j1=istart,iend
-        IF (psso_stdh(j1).GT.10._wp) THEN
+        IF (psso_stdh(j1).GT.minsso) THEN
           lo_sso(j1)=.TRUE.
         ELSE
           lo_sso(j1)=.FALSE.
@@ -422,6 +426,7 @@ SUBROUTINE sso (                                                       &
          zabsv =0.5_wp*SQRT(pu(j1,j3)**2+pv(j1,j3)**2)
          zratio=(zcs+psso_gamma(j1)*zss)/(psso_gamma(j1)*zcs+zss)
          zbet  =MAX(0._wp,2._wp-1._wp/zratio)*zconb*zzdep(j1,j3)*zzd1*zabsv
+         zbet = zbet * MIN(1._wp,blockred*psso_stdh(j1)/(zfi(j1,j3)/G))
 !        Partially implicit tendency calculation
 !        ---------------------------------------
          zdudt(j1)=-pu(j1,j3)/zdt2*(zbet/(1._wp+zbet))

@@ -63,7 +63,8 @@ MODULE mo_nwp_lnd_state
     &                                lmulti_snow, ntiles_water, lseaice, llake, &
     &                                itype_interception, l2lay_rho_snow, itype_trvg, &
     &                                itype_snowevap, groups_smi, zml_soil
-  USE mo_io_config,            ONLY: lnetcdf_flt64_output, runoff_interval
+  USE mo_io_config,            ONLY: lnetcdf_flt64_output, runoff_interval, &
+    &                                melt_interval                                                
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_var_list,             ONLY: add_var, add_ref, t_var_list_ptr
   USE mo_var_list_register,    ONLY: vlr_add, vlr_del
@@ -1583,7 +1584,7 @@ MODULE mo_nwp_lnd_state
           &                'residuum of the mass content of water in soil', datatype_flt)
       grib2_desc = grib2_var(2, 3, 195, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, vname_prefix//'resid_wso', p_diag_lnd%resid_wso,     &
-            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc,     &
+            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G, cf_desc, grib2_desc,       &
             & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
             & isteptype=TSTEP_ACCUM,                                                &
             & hor_interp=create_hor_interp_metadata(                                &
@@ -1621,7 +1622,7 @@ MODULE mo_nwp_lnd_state
           &                'residuum of the mass content of water in soil; instanteaneous value', datatype_flt)
       grib2_desc = grib2_var(2, 3, 195, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, vname_prefix//'resid_wso_inst_t', p_diag_lnd%resid_wso_inst_t, &
-            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc,               &
+            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G, cf_desc, grib2_desc,                 &
             & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
             & lopenacc=.TRUE.)
       __acc_attach(p_diag_lnd%resid_wso_inst_t) 
@@ -1657,7 +1658,7 @@ MODULE mo_nwp_lnd_state
       &                'residuum of the mass content of water in soil', datatype_flt)
       grib2_desc = grib2_var(2, 3, 195, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, vname_prefix//'resid_wso_t', p_diag_lnd%resid_wso_t, &
-            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc,        &
+            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G, cf_desc, grib2_desc,       &
             & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,&
             & initval=0._wp, resetval=0._wp,                              &
             & action_list=actions(new_action(ACTION_RESET,runoff_interval(p_jg))), &
@@ -1709,7 +1710,7 @@ MODULE mo_nwp_lnd_state
         CALL add_ref( diag_list, vname_prefix//'resid_wso_t',                     &
                 & vname_prefix//'resid_wso_t_'//ADJUSTL(TRIM(csfc)),              &
                 & p_diag_lnd%resid_wso_ptr(jsfc)%p_2d,                            &
-                & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,                    &
+                & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G,                      &
                 & t_cf_var('resid_wso_t_'//csfc, '', '', datatype_flt),           &
                 & grib2_var(2, 3, 195, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
                 & ref_idx=jsfc,                                                   &
@@ -1717,6 +1718,49 @@ MODULE mo_nwp_lnd_state
   !               & isteptype=TSTEP_ACCUM,                                          &
                 & var_class=CLASS_TILE_LAND )
        END DO
+    ENDIF
+    
+    IF (var_in_output(p_jg)%snow_melt) THEN
+        NULLIFY(p_diag_lnd%snow_melt,p_diag_lnd%snow_melt_flux_t)
+        
+        ! & lnd_diag%snow_melt(nproma,nblks_c)
+        cf_desc     = t_cf_var('surface_snow_melt_amount', 'kg m-2', &
+          &           'snow melt amount', datatype_flt)
+        grib2_desc  = grib2_var(0, 1, 16, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_var( diag_list, vname_prefix//'snow_melt', p_diag_lnd%snow_melt, &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,  cf_desc, grib2_desc,          & 
+             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,                    &
+             & isteptype=TSTEP_ACCUM,                                             &
+             & initval=0._wp, resetval=0._wp, lopenacc=.TRUE.,                    &
+             & action_list=actions(new_action(ACTION_RESET,melt_interval(p_jg))) )
+        __acc_attach(p_diag_lnd%snow_melt)
+
+        ! & lnd_diag%snow_melt_flux_t(nproma,nblks_c,ntiles_total)
+        cf_desc    = t_cf_var('surface_snow_melt_flux_t', 'kg m-2 s-1', &
+         &                'snow melt flux tile', datatype_flt)
+        grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_var( diag_list, vname_prefix//'snow_melt_flux_t',                     &
+           & p_diag_lnd%snow_melt_flux_t, GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, &
+           & grib2_desc, ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE.,      &
+           & loutput=.FALSE., initval=0._wp, resetval=0._wp, lopenacc=.TRUE.)
+        __acc_attach(p_diag_lnd%snow_melt_flux_t)
+
+        ! fill the separate variables belonging to the container snow_melt
+        ALLOCATE(p_diag_lnd%snow_melt_ptr(ntiles_total))
+        DO jsfc = 1,ntiles_total
+          NULLIFY(p_diag_lnd%snow_melt_ptr(jsfc)%p_2d,                            &
+          &       p_diag_lnd%snow_melt_ptr(jsfc)%p_3d)
+          WRITE(csfc,'(i2)') jsfc 
+          CALL add_ref( diag_list, vname_prefix//'snow_melt_flux_t',              &
+                & vname_prefix//'snow_melt_flux_t_'//ADJUSTL(TRIM(csfc)),         &
+                & p_diag_lnd%snow_melt_ptr(jsfc)%p_2d,                            &
+                & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,                    &
+                & t_cf_var('snow_melt_flux_t_'//csfc, '', '', datatype_flt),      &
+                & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
+                & ref_idx=jsfc,                                                   &
+                & ldims=shape2d,                                                  &
+                & var_class=CLASS_TILE_LAND )
+        END DO
     ENDIF
 
     ! & p_diag_lnd%rstom(nproma,nblks_c)

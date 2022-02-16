@@ -29,22 +29,15 @@
 !!
 MODULE mo_cuparameters
 
-#ifdef __ICON__
   USE mo_kind,       ONLY: jpim=>i4, jprb=>wp
   USE mo_exception,  ONLY: message_text, message
   USE mo_physical_constants, ONLY: rday => rdaylen
   USE mo_nwp_parameters,  ONLY: t_phy_params
   USE mo_nwp_tuning_config, ONLY: tune_entrorg, tune_rhebc_land, tune_rhebc_ocean, tune_rcucov, &
     tune_texc, tune_qexc, tune_rhebc_land_trop, tune_rhebc_ocean_trop, tune_rcucov_trop, tune_gkdrag, &
-    tune_gkwake, tune_gfrcrit, tune_grcrit, tune_rprcon, tune_rdepths
-#endif
+    tune_gkwake, tune_gfrcrit, tune_grcrit, tune_rprcon, tune_rdepths, tune_minsso, tune_blockred
 
-#ifdef __GME__
-!  USE parkind1,      ONLY: jpim,     jprb
-#endif
-  
-!  USE yomhook,       ONLY: lhook,    dr_hook
-  
+    
   IMPLICIT NONE
 
   PRIVATE
@@ -59,9 +52,6 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: rkbol
   REAL(KIND=jprb) :: rnavo
   ! A1.1 Astronomical constants
-#ifdef __GME__
-  REAL(KIND=jprb) :: rday
-#endif
   REAL(KIND=jprb) :: rea
   REAL(KIND=jprb) :: repsm
   REAL(KIND=jprb) :: rsiyea
@@ -864,9 +854,6 @@ CONTAINS
     
     !*       2.    DEFINE ASTRONOMICAL CONSTANTS.
     !              ------------------------------
-#ifdef __GME__    
-    rday=86400._jprb
-#endif
     rea=149597870000._jprb
     repsm=0.409093_JPRB
     
@@ -1108,9 +1095,6 @@ REAL(KIND=jprb)   , INTENT(in), OPTIONAL :: pmean(klev)
 
 !* change to operations
 
-#ifdef __GME__
-INTEGER(KIND=jpim) :: nulout=6
-#endif
 
 INTEGER(KIND=jpim) :: jlev
 !INTEGER(KIND=JPIM) :: myrank,ierr,size
@@ -1391,17 +1375,7 @@ DO jlev=nflevg,2,-1
   IF(pmean(jlev) >  60.e2_jprb) phy_params%kcon2=jlev
 ENDDO
 
-#ifdef __GME__
-WRITE(6,*)'SUCUMF: NJKT1=',njkt1,' NJKT2=',njkt2,' NJKT3=',njkt3,' RESOLUTION=',rsltn
-!WRITE(6,*)'SUCUMF: KSMAX=',KSMAX
-WRITE(UNIT=nulout,FMT='('' COMMON YOECUMF '')')
-WRITE(UNIT=nulout,FMT='('' LMFMID = '',L5 &
-  & ,'' LMFDD = '',L5,'' LMFDUDV = '',L5 &
-  & ,'' RTAU = '',E12.5,'' s-1'')') &
-  & phy_params%lmfmid,lmfdd,lmfdudv,rtau
-#endif
 
-#ifdef __ICON__
 CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, KSMAX')
 WRITE(message_text,'(2i7,E12.5)') phy_params%kcon1, phy_params%kcon2, rsltn 
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
@@ -1413,7 +1387,6 @@ CALL message('mo_cuparameters, sucumf', 'RHEBC_LND, RHEBC_LND_TROP, RHEBC_OCE, R
 WRITE(message_text,'(4x,6F8.4)') phy_params%rhebc_land,phy_params%rhebc_land_trop,phy_params%rhebc_ocean, &
   phy_params%rhebc_ocean_trop,phy_params%rcucov,phy_params%rcucov_trop
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
-#endif
 
 IF (lhook) CALL dr_hook('SUCUMF',1,zhook_handle)
 
@@ -2096,7 +2069,9 @@ IF (lhook) CALL dr_hook('SUCUMF',1,zhook_handle)
   phy_params%gkwake  = tune_gkwake(jg)
   phy_params%grcrit  = tune_grcrit(jg)
   phy_params%gfrcrit = tune_gfrcrit(jg)
-  
+  phy_params%minsso  = tune_minsso(jg)
+  phy_params%blockred= tune_blockred(jg)
+
   !      ----------------------------------------------------------------
   
   !*       2.    SET VALUES OF SECURITY PARAMETERS

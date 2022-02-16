@@ -121,7 +121,6 @@ USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent
 USE mo_limarea_config,      ONLY: latbc_config
 USE mo_async_latbc_types,   ONLY: t_latbc_data
 USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
-USE mo_sync_latbc,          ONLY: deallocate_latbc_data
 USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lhn_fields, destruct_lhn
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
@@ -742,8 +741,6 @@ CONTAINS
       IF (num_prefetch_proc >= 1) THEN
         CALL close_prefetch()
         CALL latbc%finalize()
-      ELSE
-        CALL deallocate_latbc_data()
       END IF
     END IF
 

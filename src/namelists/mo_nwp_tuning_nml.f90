@@ -33,6 +33,8 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_gkdrag    => tune_gkdrag,    &
     &                               config_tune_gfrcrit   => tune_gfrcrit,   &
     &                               config_tune_grcrit    => tune_grcrit,    &
+    &                               config_tune_minsso    => tune_minsso,    &
+    &                               config_tune_blockred  => tune_blockred,  &
     &                               config_tune_gfluxlaun => tune_gfluxlaun, &
     &                               config_tune_zceff_min => tune_zceff_min, &
     &                               config_tune_v0snow    => tune_v0snow,    &
@@ -62,6 +64,7 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_dust_abs  => tune_dust_abs,      &  
     &                               config_tune_difrad_3dcont => tune_difrad_3dcont, &  
     &                               config_tune_gust_factor => tune_gust_factor, &  
+    &                               config_itune_gust_diag => itune_gust_diag, &  
     &                               config_itune_albedo   => itune_albedo,       &
     &                               config_lcalib_clcov   => lcalib_clcov,       &
     &                               config_max_calibfac_clcl => max_calibfac_clcl, &
@@ -88,6 +91,12 @@ MODULE mo_nwp_tuning_nml
 
   REAL(wp) :: &                    !< critical Richardson number in SSO scheme
     &  tune_grcrit(max_dom)
+
+  REAL(wp) :: &                    !< minimum SSO standard deviation (m) for which SSO information is used
+    &  tune_minsso(max_dom)
+
+  REAL(wp) :: &                    !< multiple of SSO standard deviation above which blocking tendency is reduced
+    &  tune_blockred(max_dom)
 
   REAL(wp) :: &                    !< total launch momentum flux in each azimuth (rho_o x F_o)
     &  tune_gfluxlaun
@@ -180,8 +189,10 @@ MODULE mo_nwp_tuning_nml
 
   INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 0: no tuning
-                                   ! 1: dimmed Sahara
-                                   ! 2: dimmed Sahara and brighter Antarctica
+
+  INTEGER :: &                     !< Type of gust tuning / SSO coupling
+    &  itune_gust_diag             ! 1: use level above top of SSO envelope layer
+                                   ! 2: use envelope top level, combined with adjusted tuning
 
   LOGICAL :: &                     ! cloud cover calibration over land points
     &  lcalib_clcov
@@ -204,7 +215,8 @@ MODULE mo_nwp_tuning_nml
     &                      tune_icesedi_exp, tune_rprcon, tune_gust_factor,     &
     &                      tune_rdepths, tune_thicklayfac, tune_sgsclifac,      &
     &                      icpl_turb_clc, tune_difrad_3dcont, max_calibfac_clcl,&
-    &                      tune_box_liq_sfc_fac, allow_overcast
+    &                      tune_box_liq_sfc_fac, allow_overcast, tune_minsso,   &
+    &                      tune_blockred, itune_gust_diag
 
 
 CONTAINS
@@ -234,7 +246,7 @@ CONTAINS
     INTEGER :: istat, funit
     INTEGER :: iunit, jg
 
-    REAL(wp) :: gkwake_def, gkdrag_def, gfrcrit_def, grcrit_def
+    REAL(wp) :: gkwake_def, gkdrag_def, gfrcrit_def, grcrit_def, minsso_def, blockred_def
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nwp_tuning_nml: read_tuning_namelist'
@@ -252,11 +264,15 @@ CONTAINS
     gkdrag_def  = 0.075_wp     ! original COSMO value 0.075
     gfrcrit_def = 0.4_wp       ! original COSMO value 0.5
     grcrit_def  = 0.25_wp      ! original COSMO value 0.25
+    minsso_def  = 10._wp       ! default 10 m (hardcoded value in original scheme)
+    blockred_def = 100._wp     ! effectively deactivates the blocking reduction
 
     tune_gkwake(:)  = gkwake_def
     tune_gkdrag(:)  = gkdrag_def
     tune_gfrcrit(:) = gfrcrit_def
     tune_grcrit(:)  = grcrit_def
+    tune_minsso(:)  = minsso_def
+    tune_blockred(:) = blockred_def
     !
     ! GWD tuning
     tune_gfluxlaun  = 2.50e-3_wp   ! original IFS value 3.75e-3
@@ -323,6 +339,7 @@ CONTAINS
     icpl_turb_clc    = 1           ! use strong dependency of box with on rcld (with factor 4) and upper and lower limit
 
     tune_gust_factor = 8.0_wp      ! tuning factor for gust parameterization
+    itune_gust_diag  = 1           ! variant using level above SSO envelope
 
     tune_dust_abs   = 0._wp        ! no tuning of LW absorption of mineral dust
     tune_difrad_3dcont = 0.5_wp    ! tuning factor for 3D contribution to diagnosed diffuse radiation (no impact on prognostic results!)
@@ -360,6 +377,8 @@ CONTAINS
       tune_gkdrag(:)  = -1._wp
       tune_gfrcrit(:) = -1._wp
       tune_grcrit(:)  = -1._wp
+      tune_minsso(:)  = -1._wp
+      tune_blockred(:) = -1._wp
 
       READ (nnml, nwp_tuning_nml)    ! overwrite default settings
 
@@ -368,6 +387,8 @@ CONTAINS
       IF (tune_gkdrag(1)  < 0._wp) tune_gkdrag(1)  = gkdrag_def
       IF (tune_gfrcrit(1) < 0._wp) tune_gfrcrit(1) = gfrcrit_def
       IF (tune_grcrit(1)  < 0._wp) tune_grcrit(1)  = grcrit_def
+      IF (tune_minsso(1)  < 0._wp) tune_minsso(1)  = minsso_def
+      IF (tune_blockred(1) < 0._wp) tune_blockred(1) = blockred_def
 
       ! Fill remaining array elements with entry of parent domain if not specified in the namelist
       DO jg = 2, max_dom
@@ -375,6 +396,8 @@ CONTAINS
         IF (tune_gkdrag(jg)  < 0._wp) tune_gkdrag(jg)  = tune_gkdrag(jg-1)
         IF (tune_gfrcrit(jg) < 0._wp) tune_gfrcrit(jg) = tune_gfrcrit(jg-1)
         IF (tune_grcrit(jg)  < 0._wp) tune_grcrit(jg)  = tune_grcrit(jg-1)
+        IF (tune_minsso(jg)  < 0._wp) tune_minsso(jg)  = tune_minsso(jg-1)
+        IF (tune_blockred(jg) < 0._wp) tune_blockred(jg) = tune_blockred(jg-1)
       ENDDO
 
       IF (my_process_is_stdio()) THEN
@@ -400,6 +423,8 @@ CONTAINS
     config_tune_gkdrag           = tune_gkdrag
     config_tune_gfrcrit          = tune_gfrcrit
     config_tune_grcrit           = tune_grcrit
+    config_tune_minsso           = tune_minsso
+    config_tune_blockred         = tune_blockred
     config_tune_gfluxlaun        = tune_gfluxlaun
     config_tune_zceff_min        = tune_zceff_min 
     config_tune_v0snow           = tune_v0snow
@@ -429,12 +454,13 @@ CONTAINS
     config_tune_dust_abs         = tune_dust_abs
     config_tune_difrad_3dcont    = tune_difrad_3dcont
     config_tune_gust_factor      = tune_gust_factor
+    config_itune_gust_diag       = itune_gust_diag
     config_itune_albedo          = itune_albedo
     config_lcalib_clcov          = lcalib_clcov
     config_max_calibfac_clcl     = max_calibfac_clcl
     config_max_freshsnow_inc     = max_freshsnow_inc
 
-    !$acc update device(config_tune_gust_factor)
+    !$acc update device(config_tune_gust_factor,config_itune_gust_diag)
 
     !-----------------------------------------------------
     ! 6. Store the namelist for restart

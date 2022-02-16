@@ -643,6 +643,12 @@ CONTAINS
           &              "residuum of the soil water budget", &
           &              sfc_var_info, lnd_diag%resid_wso(:,:))
       ENDIF
+      IF (var_in_output(jg)%snow_melt) THEN
+        CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+          &              "SNOW_MELT", "kg m-2", &
+          &              "snow melt amount", &
+          &              sfc_var_info, lnd_diag%snow_melt(:,:))
+      ENDIF
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "T_SNOW", "K", "temperature of the snow-surface", &
         &              sfc_var_info, lnd_diag%t_snow(:,:))
@@ -887,6 +893,12 @@ CONTAINS
           &            "RESID_WSO_T", "kg/m2", &
           &            "residuum of the soil water budget", &
           &            sfc_var_info, lnd_diag%resid_wso_t(:,:,:))
+      ENDIF
+      IF (var_in_output(jg)%snow_melt) THEN
+        CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+          &            "SNOW_MELT_FLUX_T", "kg m-2 s-1", &
+          &            "snow melt flux tile", &
+          &            sfc_var_info, lnd_diag%snow_melt_flux_t(:,:,:))
       ENDIF
     ENDIF
 

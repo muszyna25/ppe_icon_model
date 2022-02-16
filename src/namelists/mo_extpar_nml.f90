@@ -34,7 +34,7 @@ MODULE mo_extpar_nml
                                   & config_extpar_filename          => extpar_filename,              &
                                   & config_extpar_varnames_map_file => extpar_varnames_map_file,     &
                                   & config_lrevert_sea_height       => lrevert_sea_height,           &
-                                  & config_pp_glacier_sso           => pp_glacier_sso    ,           &
+                                  & config_pp_sso                   => pp_sso,                       &
                                   & config_itype_vegetation_cycle   => itype_vegetation_cycle
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
@@ -55,7 +55,7 @@ MODULE mo_extpar_nml
   LOGICAL  :: read_nc_via_cdi ! read netcdf input via cdi library (alternative: parallel netcdf)
   REAL(wp) :: heightdiff_threshold(max_dom)
   LOGICAL  :: lrevert_sea_height  ! if true: bring sea points back to original height
-  LOGICAL  :: pp_glacier_sso      ! if true: postprocess SSO over glaciers to reduce contribution of mean slope
+  INTEGER  :: pp_sso      ! if >0: postprocess SSO over glaciers to reduce contribution of mean slope
   INTEGER  :: itype_vegetation_cycle
   CHARACTER(LEN=filename_max) :: extpar_filename
 
@@ -64,7 +64,7 @@ MODULE mo_extpar_nml
   CHARACTER(LEN=filename_max) :: extpar_varnames_map_file
 
   NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo,itype_lwemiss, &
-                        heightdiff_threshold, extpar_filename, pp_glacier_sso,   &
+                        heightdiff_threshold, extpar_filename, pp_sso,           &
                         extpar_varnames_map_file, hgtdiff_max_smooth_topo,       &
                         lrevert_sea_height, itype_vegetation_cycle, read_nc_via_cdi
 
@@ -89,7 +89,7 @@ CONTAINS
     read_nc_via_cdi         = .FALSE.
     heightdiff_threshold(:) = 3000._wp
     lrevert_sea_height      = .FALSE.
-    pp_glacier_sso          = .TRUE.
+    pp_sso                  = 1
     itype_vegetation_cycle  = 1
     extpar_filename         = "<path>extpar_<gridfile>"
     extpar_varnames_map_file = " "
@@ -143,7 +143,7 @@ CONTAINS
     config_read_nc_via_cdi    = read_nc_via_cdi
     config_heightdiff_threshold = heightdiff_threshold
     config_lrevert_sea_height = lrevert_sea_height
-    config_pp_glacier_sso     = pp_glacier_sso
+    config_pp_sso             = pp_sso
     config_itype_vegetation_cycle = itype_vegetation_cycle
     config_extpar_filename    = extpar_filename
     config_extpar_varnames_map_file = extpar_varnames_map_file

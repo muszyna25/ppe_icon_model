@@ -52,10 +52,10 @@ MODULE mo_ext_data_init
   USE mo_extpar_config,      ONLY: itopo, itype_lwemiss, extpar_filename, generate_filename,   &
     &                              generate_td_filename, extpar_varnames_map_file,       &
     &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext, &
-    &                              itype_vegetation_cycle, read_nc_via_cdi, pp_glacier_sso
+    &                              itype_vegetation_cycle, read_nc_via_cdi, pp_sso
   USE mo_initicon_config,    ONLY: icpl_da_sfcevap, dt_ana, icpl_da_skinc
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
-  USE mo_process_topo,       ONLY: smooth_topo_real_data, postproc_glacier_sso
+  USE mo_process_topo,       ONLY: smooth_topo_real_data, postproc_sso
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot
@@ -342,13 +342,13 @@ CONTAINS
       IF ( iforcing == inwp ) THEN
 
         DO jg = 1, n_dom
-          IF (pp_glacier_sso) THEN
-            CALL postproc_glacier_sso ( p_patch(jg)                   ,&
-              &                         p_int_state(jg)               ,&
-              &                         ext_data(jg)%atm%fr_glac      ,&
-              &                         ext_data(jg)%atm%topography_c ,&
-              &                         ext_data(jg)%atm%sso_stdh     ,&
-              &                         ext_data(jg)%atm%sso_sigma     )
+          IF (pp_sso > 0) THEN
+            CALL postproc_sso ( p_patch(jg)                   ,&
+              &                 p_int_state(jg)               ,&
+              &                 ext_data(jg)%atm%fr_glac      ,&
+              &                 ext_data(jg)%atm%topography_c ,&
+              &                 ext_data(jg)%atm%sso_stdh     ,&
+              &                 ext_data(jg)%atm%sso_sigma     )
          ENDIF
 
          ! topography smoothing

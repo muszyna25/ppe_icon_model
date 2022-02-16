@@ -309,8 +309,6 @@ SUBROUTINE organize_lhn ( &
   i_endblk   = pt_patch%cells%end_block(i_rlend)
 
 !$ACC ENTER DATA COPYIN(kstart_moist(jg:jg), assimilation_config(jg:jg))
-!$ACC UPDATE DEVICE(lhn_fields%brightband, radar_data%radar_ct%blacklist, radar_data%radar_td%obs,  &
-!$ACC               radar_data%radar_td%radheight, radar_data%radar_td%spqual)
 !$ACC DATA PRESENT(prm_diag, pt_diag, pt_diag%temp, p_metrics, p_metrics%z_ifc,                     &
 !$ACC              p_metrics%z_mc, lhn_fields, lhn_fields%ttend_lhn, lhn_fields%qvtend_lhn,         &
 !$ACC              kstart_moist(jg:jg))                                                                &
@@ -457,7 +455,6 @@ SUBROUTINE organize_lhn ( &
 !-------------------------------------------------------------------------------
 
 !$ACC ENTER DATA CREATE(zprmod)
-!$ACC UPDATE DEVICE(lhn_fields%pr_obs_sum, lhn_fields%pr_mod_sum, lhn_fields%pr_ref_sum)
 !$ACC DATA PRESENT(prm_diag, prm_diag%rain_gsp_rate, prm_diag%snow_gsp_rate, prm_diag%graupel_gsp_rate, &
 !$ACC              prm_diag%hail_gsp_rate, prm_diag%qrs_flux, prm_diag%rain_con_rate_3d,                &
 !$ACC              prm_diag%snow_con_rate_3d, prm_diag%tt_lheat, prm_diag%ttend_lhn,                    &
