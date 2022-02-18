@@ -208,6 +208,8 @@ MODULE mo_ocean_types
       & div_of_GMRedi_flux_vertical,  &
       & div_of_GM_flux,               &
       & div_of_Redi_flux,             &
+      & kappa_GM,                     & !by_Oliver
+      & Nratio,                       & !by_Oliver
       & vertical_mixing_coeff_GMRedi_implicit,&
       & w_bolus,                      &
       & opottemptend,                 &
@@ -266,6 +268,7 @@ MODULE mo_ocean_types
       & zos_square     ,&
       & Rossby_Radius    ,&
       & Wavespeed_baroclinic ,&
+      & N2_ref           ,& ! diag: first N2>0 below mld !by_Oliver 
       & global_moc       ,& ! MOC global
       & atlantic_moc     ,& ! MOC atlantic
       & pacific_moc      ,& ! MOC pacific

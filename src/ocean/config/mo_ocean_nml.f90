@@ -735,6 +735,10 @@ MODULE mo_ocean_nml
   REAL(wp) :: RossbyRadius_min = 15000.0_wp
   REAL(wp) :: RossbyRadius_max =100000.0_wp
 
+  !by_Oliver
+  !Parameters for Danabasoglu & Marshall (2007) paramterisation (vertical variable GM coefficient)
+  LOGICAL  :: lvertical_GM = .false.                ! if .true. the D&M2007 parameterisation is switched on
+  REAL(wp) :: Nmin       = 0.1_wp                   ! minimum value for the profile N2/N_ref
 
  NAMELIST/ocean_GentMcWilliamsRedi_nml/&
     &  GMRedi_configuration           ,&
@@ -749,6 +753,8 @@ MODULE mo_ocean_nml
     &  k_tracer_GM_kappa_parameter    ,&
     &  RossbyRadius_min               ,&
     &  RossbyRadius_max               ,&
+    &  lvertical_GM                   ,& ! by_Oliver
+    &  Nmin                           ,& ! by_Oliver
     &  switch_off_diagonal_vert_expl, &
     &  GMREDI_COMBINED_DIAGNOSTIC,    &
     & TEST_MODE_GM_ONLY,              &

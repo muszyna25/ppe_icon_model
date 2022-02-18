@@ -2059,7 +2059,26 @@ CONTAINS
       & t_cf_var('rhopot', 'kg/m^3', 'potential density', datatype_flt),&
       & dflt_g2_decl_cell,&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups_oce_diag)
-  
+ 
+!_by_Oliver
+     CALL add_var(ocean_default_list, 'kappa_GM', ocean_state_diag%kappa_GM , grid_unstructured_cell,&
+      & za_depth_below_sea, &
+      & t_cf_var('kappa_GM', 'm^2 s-1', 'kappa_GM', datatype_flt),&
+      & dflt_g2_decl_cell,&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups_oce_diag,lrestart_cont=.FALSE.,loutput=.TRUE.)
+
+     CALL add_var(ocean_default_list, 'Nratio', ocean_state_diag%Nratio , grid_unstructured_cell,&
+      & za_depth_below_sea, &
+      & t_cf_var('Nratio', '', 'Nratio', datatype_flt),&
+      & dflt_g2_decl_cell,&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups_oce_diag,lrestart_cont=.FALSE.,loutput=.TRUE.)
+
+     CALL add_var(ocean_default_list, 'N2_ref', ocean_state_diag%N2_ref , grid_unstructured_cell,&
+      & za_surface, &
+      & t_cf_var('N2_ref', '1/s', 'N2_ref', datatype_flt),&
+      & dflt_g2_decl_cell,&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups_oce_diag,lrestart_cont=.FALSE.,loutput=.TRUE.)
+
     CALL add_var(ocean_default_list,'osaltGMRedi',ocean_state_diag%osaltGMRedi,grid_unstructured_cell,&
       & za_depth_below_sea, &
       & t_cf_var('osaltGMRedi', 'kg m-3 s-1', 'osaltGMRedi', datatype_flt),&
