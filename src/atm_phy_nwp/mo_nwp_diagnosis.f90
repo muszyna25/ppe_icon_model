@@ -807,7 +807,7 @@ CONTAINS
     !$acc kernels if(lzacc)
     zdecorr(:) = 2000._wp
     !$acc end kernels
-    !$acc parallel copyin (vct_a) default(present) if(lzacc)
+    !$acc parallel default(present) if(lzacc)
     !$acc loop private(jk1,z_help)
     DO jk = nlev, 1, -1
       jk1 = jk + pt_patch%nshift_total

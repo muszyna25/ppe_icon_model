@@ -176,11 +176,6 @@ MODULE mo_nh_stepping
   USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
   USE mo_synsat_config,            ONLY: lsynsat
   USE mo_rttov_interface,          ONLY: rttov_driver, copy_rttov_ubc
-  USE mo_sync_latbc,               ONLY: prepare_latbc_data,                    &
-    &                                    read_latbc_data_sync=>read_latbc_data, &
-    &                                    p_latbc_data,   &
-    &                                    read_latbc_tlev, last_latbc_tlev,      &
-    &                                    update_lin_interc
   USE mo_interface_les,            ONLY: les_phy_interface
   USE mo_restart,                  ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
   USE mo_prepadv_types,            ONLY: t_prepare_adv
@@ -901,7 +896,7 @@ MODULE mo_nh_stepping
   IF ( iforcing == inwp ) THEN
      DO jg=1, n_dom
         CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg), &
-          phy_params=phy_params(jg))
+          phy_params=phy_params(jg), atm_phy_nwp_config=atm_phy_nwp_config(jg))
      ENDDO
      CALL devcpy_nwp()
   ENDIF
@@ -942,15 +937,6 @@ MODULE mo_nh_stepping
 
     ! turn on calculation of averaged and accumulated quantities at the first regular time step
     IF (jstep-jstep0 == 1) atm_phy_nwp_config(:)%lcalc_acc_avg = .TRUE.
-
-
-    ! read boundary data if necessary
-    IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
-#ifdef _OPENACC
-          CALL finish (routine, 'read_latbc_data_sync: OpenACC version currently not implemented')
-#endif
-      CALL read_latbc_data_sync(p_patch(1), p_nh_state(1), ext_data(1), p_int_state(1), mtime_current)
-    ENDIF
 
     lprint_timestep = msg_level > 2 .OR. MOD(jstep,25) == 0
 
@@ -2263,25 +2249,6 @@ MODULE mo_nh_stepping
                 &  p_latbc_new=ptr_latbc_data_atm_new )
             ENDIF
 
-          ELSE  ! Synchronous LatBC read-in:
-
-#ifdef _OPENACC
-            CALL finish(TRIM(routine), 'Synchronous lateral boundary data is not supported on GPU')
-#endif
-            ! Please note that upper boundary nudging for child domains is not implemented 
-            ! for the synchronous latbc read-in mode.
-            IF (jg==1) THEN
-              ! update the coefficients for the linear interpolation
-              CALL update_lin_interc(datetime_local(jg)%ptr)
-
-              ! this is a wrapper for limarea_nudging_latbdy + limarea_nudging_upbdy
-              CALL limarea_nudging_bdy(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-                &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
-                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
-                &  p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,                     &
-                &  p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
-            ENDIF
-
           ENDIF
 
         ELSE  ! constant lateral boundary data
@@ -2309,7 +2276,6 @@ MODULE mo_nh_stepping
         ! Apply global nudging
         CALL nudging_interface( p_patch          = p_patch(jg),            & !in
           &                     p_nh_state       = p_nh_state(jg),         & !inout
-          &                     p_latbc_data     = p_latbc_data,           & !in
           &                     latbc            = latbc,                  & !in
           &                     p_int_state      = p_int_state(jg),        & !in
           &                     mtime_datetime   = datetime_local(jg)%ptr, & !in
@@ -2318,8 +2284,6 @@ MODULE mo_nh_stepping
           &                     ndyn_substeps    = ndyn_substeps,          & !in
           &                     nnew             = nnew(jg),               & !in
           &                     nnew_rcf         = n_new_rcf,              & !in
-          &                     last_latbc_tlev  = last_latbc_tlev,        & !in
-          &                     read_latbc_tlev  = read_latbc_tlev,        & !in
           &                     upatmo_config    = upatmo_config(jg),      & !in
           &                     nudging_config   = nudging_config(jg)      ) !inout
 
@@ -2589,7 +2553,8 @@ MODULE mo_nh_stepping
 
 #ifdef _OPENACC
             CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg)) ! necessary as Halo-Data can be modified
-            CALL gpu_h2d_nh_nwp(p_patch(jgc), prm_diag(jgc), ext_data=ext_data(jgc), phy_params=phy_params(jgc)) 
+            CALL gpu_h2d_nh_nwp(p_patch(jgc), prm_diag(jgc), ext_data=ext_data(jgc), phy_params=phy_params(jgc), &
+                                atm_phy_nwp_config=atm_phy_nwp_config(jg))
             i_am_accel_node = my_process_is_work()
             IF (msg_level >= 7) &
               & CALL message (routine, 'NESTING online init: Switching back to GPU')
@@ -3595,9 +3560,6 @@ MODULE mo_nh_stepping
 
     ENDDO
 
-    IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
-      CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
-    ENDIF
 
   END SUBROUTINE allocate_nh_stepping
   !-------------------------------------------------------------------------

@@ -42,6 +42,7 @@ MODULE mo_io_nml
                                  & config_runoff_interval         => runoff_interval        , &
                                  & config_itype_dursun            => itype_dursun           , &
                                  & config_sunshine_interval       => sunshine_interval      , &
+                                 & config_melt_interval           => melt_interval          , &
                                  & config_maxt_interval           => maxt_interval          , &
                                  & config_dt_checkpoint           => dt_checkpoint          , &
                                  & config_inextra_2d              => inextra_2d             , &
@@ -112,6 +113,7 @@ CONTAINS
     CHARACTER(len=max_timedelta_str_len) :: precip_interval(max_dom)   ! time interval over which precipitation variables are accumulated
     CHARACTER(len=max_timedelta_str_len) :: runoff_interval(max_dom)   ! time interval over which runoff variables are accumulated
     CHARACTER(len=max_timedelta_str_len) :: sunshine_interval(max_dom) ! time interval over which sunshine duration is accumulated
+    CHARACTER(len=max_timedelta_str_len) :: melt_interval(max_dom)     ! time interval over which snow melt is accumulated
     CHARACTER(len=max_timedelta_str_len) :: maxt_interval(max_dom)     ! time interval for tmax_2m and tmin_2m 
     REAL(wp):: dt_lpi                     ! calling frequency [seconds] of lpi diagnosis for hourly maximum calculation
     REAL(wp):: dt_celltracks              ! calling frequency [seconds] of celltrack diagnosis for hourly maximum calculation
@@ -190,7 +192,8 @@ CONTAINS
       &              nrestart_streams, celltracks_interval, echotop_meta, &
       &              precip_interval, runoff_interval, maxt_interval,     &
       &              nrestart_streams, dt_lpi, dt_celltracks, dt_radar_dbz, &
-      &              bvf2_mode, parcelfreq2_mode, sunshine_interval, itype_dursun
+      &              bvf2_mode, parcelfreq2_mode, sunshine_interval, itype_dursun, &
+      &              melt_interval
 
     !-----------------------
     ! 1. default settings
@@ -214,6 +217,7 @@ CONTAINS
     precip_interval(:)      = "P01Y"       ! 1 year
     runoff_interval(:)      = "P01Y"       ! 1 year
     sunshine_interval(:)    = "P01Y"       ! 1 year
+    melt_interval(:)        = "P01Y"       ! 1 year
     maxt_interval(:)        = "PT06H"      ! 6 hours
     dt_lpi                  = 180._wp      ! 3 minutes
     dt_celltracks           = 120._wp      ! 2 minutes
@@ -297,6 +301,7 @@ CONTAINS
     config_runoff_interval(:)      = runoff_interval(:)
     config_itype_dursun            = itype_dursun
     config_sunshine_interval(:)    = sunshine_interval(:)
+    config_melt_interval(:)        = melt_interval(:)
     config_maxt_interval(:)        = maxt_interval(:)
     config_dt_checkpoint           = dt_checkpoint
     config_dt_lpi                  = dt_lpi

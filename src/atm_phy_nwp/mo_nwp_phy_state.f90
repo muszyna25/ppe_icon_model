@@ -3824,8 +3824,8 @@ __acc_attach(diag%clct_avg)
 
       ! &      diag%lpi_con(nproma,nblks_c)
       cf_desc    = t_cf_var('lpi_con', 'J kg-1 ',                               &
-       &           'convective lightning potential index', datatype_flt)
-      grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+       &           'subgrid-scale lightning potential index', datatype_flt)
+      grib2_desc = grib2_var(0,17,5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'lpi_con', diag%lpi_con   ,                      &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                   & ldims=shape2d, lrestart=.FALSE.,                            &
@@ -3857,9 +3857,9 @@ __acc_attach(diag%clct_avg)
 
       ! &      diag%lpi_con_max(nproma,nblks_c)
       cf_desc    = t_cf_var('lpi_con_max', 'J kg-1 ',                          &
-          &  'lightning potential index, maximum during the last '             &
+          &  'subgrid-scale lightning potential index, maximum during the last '             &
           &//'01H (- +48h), 03H (+48 - +72h) and 06h (+72h -) ', datatype_flt)
-      grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var(0,17,5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'lpi_con_max', diag%lpi_con_max   ,             &
                     & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                      &
                     & cf_desc, grib2_desc,                                     &

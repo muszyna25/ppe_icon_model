@@ -745,11 +745,6 @@ CONTAINS
 
     ENDIF
 
-    !$ACC ENTER DATA COPYIN(advection_config)
-    ! Update advection_config(jg): (range syntax is required, as `(jg)` would mean `(:jg)`)
-    !$ACC UPDATE DEVICE(advection_config(jg:jg))
-    !$ACC ENTER DATA COPYIN(advection_config(jg)%iadv_slev, advection_config(jg)%trAdvect%list)
-
   END SUBROUTINE configure_advection
 
 

@@ -71,7 +71,8 @@ MODULE mo_lnd_nwp_nml
     &                               config_sst_td_filename    => sst_td_filename   , &
     &                               config_ci_td_filename     => ci_td_filename    , &
     &                               config_zml_soil           => zml_soil          , &
-    &                               config_nlev_soil          => nlev_soil
+    &                               config_nlev_soil          => nlev_soil         , &
+    &                               config_czbot_w_so         => czbot_w_so
 
   IMPLICIT NONE
 
@@ -113,6 +114,7 @@ CONTAINS
     INTEGER ::  nlev_snow         !< number of snow layers
     INTEGER ::  nlev_soil         !< number of soil layers
     REAL(wp):: zml_soil(max_nsoil)!< Soil full levels
+    REAL(wp)::  czbot_w_so        !< thickness of the hydraulical active soil layer [m]
     INTEGER ::  ntiles            !< number of static tiles
     REAL(wp)::  frlnd_thrhld      !< fraction threshold for creating a land grid point
     REAL(wp)::  frlndtile_thrhld  !< fraction threshold for retaining the respective
@@ -173,7 +175,8 @@ CONTAINS
          &               lsnowtile, itype_snowevap                       , &
          &               sstice_mode                                     , &
          &               sst_td_filename                                 , &
-         &               ci_td_filename, cwimax_ml, c_soil, c_soil_urb
+         &               ci_td_filename, cwimax_ml, c_soil, c_soil_urb   , &
+         &               czbot_w_so
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_lnd_nwp_nml:read_nwp_lnd_namelist'
@@ -193,6 +196,7 @@ CONTAINS
 
     nlev_snow      = 2       ! 2 = default value for number of snow layers
     zml_soil(:)    = -1._wp
+    czbot_w_so     = 2.5_wp  ! default thickness of 2.5m for hydraulical active soil layer 
     ntiles         = 1       ! 1 = default value for number of static surface types
     frlnd_thrhld   = 0.05_wp ! fraction threshold for creating a land grid point
 
@@ -290,6 +294,10 @@ CONTAINS
       CALL finish( TRIM(routine), 'multi-layer snow model cannot be combined with l2lay_rho_snow option')
     ENDIF
 
+    IF ( czbot_w_so <= 0._wp) THEN
+      CALL finish(TRIM(routine), 'thickness of hydrological active soil layer czbot_w_wo must be > 0.')
+    ENDIF
+
     ! For simplicity, in order to avoid further case discriminations
     IF (l2lay_rho_snow) nlev_snow = 2
 
@@ -369,6 +377,7 @@ CONTAINS
     config_sst_td_filename    = sst_td_filename
     config_ci_td_filename     = ci_td_filename
     config_nlev_soil          = nlev_soil
+    config_czbot_w_so         = czbot_w_so
     !$ACC UPDATE DEVICE(config_itype_interception)
 
     !-----------------------------------------------------

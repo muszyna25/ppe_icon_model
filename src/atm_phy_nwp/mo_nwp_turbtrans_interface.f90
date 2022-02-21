@@ -38,6 +38,7 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_physical_constants,   ONLY: rd_o_cpd, grav, lh_v=>alv, lh_s=>als, rd, cpd
   USE mo_ext_data_types,       ONLY: t_external_data
+  USE mo_nwp_tuning_config,    ONLY: itune_gust_diag
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_tend
@@ -319,7 +320,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       !$acc loop gang vector
       DO jc = i_startidx, i_endidx
         IF (prm_diag%ktop_envel(jc,jb) < nlev) THEN
-          jk_gust(jc) = prm_diag%ktop_envel(jc,jb) - 1
+          jk_gust(jc) = MERGE(prm_diag%ktop_envel(jc,jb)-1, prm_diag%ktop_envel(jc,jb), itune_gust_diag == 1)
         ELSE
           jk_gust(jc) = nlev
         ENDIF

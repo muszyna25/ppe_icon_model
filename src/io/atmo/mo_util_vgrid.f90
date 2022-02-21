@@ -246,6 +246,7 @@ CONTAINS
 
       END IF
     END IF
+    !$ACC UPDATE DEVICE(vct_a)
 
   END SUBROUTINE construct_vertical_grid
 

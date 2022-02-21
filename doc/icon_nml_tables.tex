@@ -1603,9 +1603,9 @@ Time-dependence of ensemble perturbations (except tkred\_sfc, which oscillates w
 \hline
 range\_gkwake&
 R&
-0.5&
+1.5&
 &
-Variability range for low level wake drag constant&
+Variability range (multiplicative) for low level wake drag constant&
 \tabularnewline
 
 \hline
@@ -3644,12 +3644,7 @@ Type of lateral boundary nudging.\\
 conditions,\\
 %
 1: time-dependent lateral boundary conditions provided by an external
-source (IFS, COSMO or a coarser-resolution ICON run), \\
-%
-2: Test mode using time-dependent lateral boundary conditions from a
-nested ICON run in which the present limited-area domain was operated
-as a nested grid with identical(!) model level configuration. \\
-Available for synchronous read mode (num\_prefetch\_proc = 0) only!
+source (IFS, COSMO or a coarser-resolution ICON run) 
 \tabularnewline
 
 %\hline
@@ -3715,7 +3710,7 @@ will be automatically replaced during the run-time.
 See the table below for a list of allowed keywords.
 %
 &
-itype\_latbc $\ge$ 1
+itype\_latbc = 1
 \tabularnewline
 
 %\hline
@@ -3725,7 +3720,7 @@ C &
 &
 Absolute path to boundary data.
 &
-itype\_latbc $\ge$ 1
+itype\_latbc = 1
 \tabularnewline
 
 %\hline
@@ -3742,7 +3737,7 @@ contain two integer index arrays:
 both with attributes \texttt{nglobal} which contains the global size
 size of the non-sparse cells and edges.
 &
-itype\_latbc $\ge$ 1
+itype\_latbc = 1
 \tabularnewline
 
 
@@ -3834,13 +3829,23 @@ number of tiles&
 
 %\hline
 zml\_soil &
-R&
+R(:)&
 0.005, 0.02, 0.06,\newline
 0.18, 0.54, 1.62,\newline
 4.86, 14.58&
+m
 &
 soil full layer depths&
 init\_mode = 2, 3
+\tabularnewline
+
+%\hline
+czbot\_w\_so &
+R&
+2.5&
+m
+&
+thickness of the hydrological active soil layer&
 \tabularnewline
 
 %\hline
@@ -5518,6 +5523,27 @@ run\_nml:iforcing = inwp
 
 \hline
 
+tune\_minsso&
+R (max\_ dom)&
+10.&
+m &
+minimum SSO standard deviation for which SSO scheme is applied&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+
+\hline
+
+tune\_blockred&
+R (max\_ dom)&
+100.&
+ &
+multiple of SSO standard deviation above which blocking tendency is reduced &
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+
 \multicolumn{6}{|l|}{\textbf{GWD} (Warner McIntyre)} 
 \tabularnewline
 
@@ -5787,6 +5813,17 @@ Multiplicative factor for friction velocity in gust parameterization &
 run\_nml:iforcing = inwp
 \tabularnewline
 
+
+\hline
+itune\_gust\_diag&
+I&
+1&
+&
+Method of SSO blocking correction used in the gust diagnostics\\
+1: Use level above ``SSO envelope top'' for gust enhancement over mountains \\
+2: Use ``SSO envelope top'' level for gust enhancement over mountains, combined with an adjusted nonlinearity factor &
+run\_nml:iforcing = inwp
+\tabularnewline
 
 \hline
 itune\_albedo&
@@ -6555,7 +6592,7 @@ I & 1& &
 Number of processors for prefetching of boundary data asynchronously for
 a limited area run (running exclusively for reading Input boundary
 data. Maximum no of processors used for it is limited to 1). &
-itype\_latbc $\ge$ 1 
+Mandatory for itype\_latbc = 1 
 \tabularnewline  
 
 %\hline 
@@ -9511,12 +9548,14 @@ height difference between neighboring grid points above which additional local n
 \tabularnewline
 
 %\hline
-pp\_glacier\_sso&
-L &
-.TRUE. &
+pp\_sso&
+I &
+1 &
  &
-Postprocess SSO standard deviation and slope over glaciers based on the ratio between grid-scale and subgrid-scale slope:
-both quantities are reduced if the subgrid-scale slope calculated in extpar largely reflects the grid-scale slope.
+1: Postprocess SSO standard deviation and slope over glaciers based on the ratio between grid-scale and subgrid-scale slope:
+both quantities are reduced if the subgrid-scale slope calculated in extpar largely reflects the grid-scale slope. \\
+2: Optimized tuning for MERIT/REMA orography data: the reduction is also applied at non-glacier points in the Arctic,
+and the adjustment of the SSO standard deviation to orography smoothing is turned off.
 &
 n\_iter\_smooth\_topo $>$ 0
 \tabularnewline

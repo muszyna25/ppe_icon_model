@@ -6,12 +6,12 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2024-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
+  end_date="2201-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
-restart_interval="P1Y"
-checkpoint_interval="P1Y"
+restart_interval="P10Y"
+checkpoint_interval="P10Y"
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
@@ -211,7 +211,7 @@ cat > ${ocean_namelist} << EOF
   !tracer_TopWindMixing            = 0.5E-3 ! [m2/s] windmixing diffusivity in MPIOM-type pp-scheme
   !velocity_TopWindMixing          = 0.5E-3 ! [m2/s] windmixing viscosity in MPIOM-type pp-scheme
   ! cvmix/tke parameters
-  c_k        = 0.1
+  c_k        = 0.3
   c_eps      = 0.7
   alpha_tke  = 30.0
   mxl_min    = 1.d-8
@@ -221,6 +221,8 @@ cat > ${ocean_namelist} << EOF
   tke_min    = 1.d-6
   tke_mxl_choice = 2                                                              
   tke_surf_min = 1.d-4
+  l_lc         = .false.                     ! Use Langmuir parameterisation (Axell, 2002)
+  clc          = 0.15                       ! Factor in the vertical velocity profile of the Langmuir circulation (default clc=0.1 in Axell (2002))
   only_tke = .true.                                                               
   use_ubound_dirichlet = .false.                                                  
   use_lbound_dirichlet = .false. 

@@ -40,7 +40,7 @@ MODULE mo_util_phys
        &                              nudge_start_height, nudge_full_height, dt_relax
   USE mo_loopindices,           ONLY: get_indices_c
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
-  USE mo_nwp_tuning_config,     ONLY: tune_gust_factor
+  USE mo_nwp_tuning_config,     ONLY: tune_gust_factor, itune_gust_diag
   USE mo_advection_config,      ONLY: advection_config
   USE mo_art_config,            ONLY: art_config
   USE mo_initicon_config,       ONLY: iau_wgt_adv, qcana_mode, qiana_mode, qrsgana_mode
@@ -100,13 +100,14 @@ CONTAINS
 
     REAL(wp) :: vgust_dyn               ! dynamic gust at 10 m above ground [m/s]
 
-    REAL(wp) :: ff10m, ustar, uadd_sso, gust_add
+    REAL(wp) :: ff10m, ustar, uadd_sso, gust_add, offset
     !$acc routine seq
 
+    offset = MERGE(10._wp, 8._wp, itune_gust_diag == 1)
     ff10m = SQRT( u_10m**2 + v_10m**2)
     uadd_sso = MAX(0._wp, SQRT(u_env**2 + v_env**2) - SQRT(u1**2 + v1**2))
     ustar = calc_ustar(tcm, u1, v1)
-    gust_add = MAX(0._wp,MIN(2._wp,0.2_wp*(ff10m-10._wp)))*(1._wp+mtnmask)
+    gust_add = MAX(0._wp,MIN(2._wp,0.2_wp*(ff10m-offset)))*(1._wp+mtnmask)
     vgust_dyn = ff10m + mtnmask*uadd_sso + (tune_gust_factor+gust_add+2._wp*mtnmask)*ustar
 
   END FUNCTION nwp_dyn_gust
@@ -380,27 +381,12 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL     :: opt_slev, opt_elev
     ! start and end values of refin_ctrl flag:
     INTEGER, INTENT(in), OPTIONAL     :: opt_rlstart, opt_rlend
-   
+
     ! local variables
     REAL(wp) :: temp, qv, p_ex
     INTEGER  :: slev, elev, rl_start, rl_end, i_nchdom,     &
       &         i_startblk, i_endblk, i_startidx, i_endidx, &
       &         jc, jk, jb
-
-    LOGICAL out_var_is_present
-    REAL(wp), POINTER :: out_var_ptr(:,:,:)
-
-#ifdef _OPENACC
-    out_var_is_present = acc_is_present( out_var )
-    IF ( .NOT. out_var_is_present ) THEN
-      ALLOCATE ( out_var_ptr( SIZE(out_var,1), SIZE(out_var,2), SIZE(out_var,3) ) )
-!$ACC ENTER DATA CREATE( out_var_ptr )
-    ELSE
-      out_var_ptr => out_var
-    ENDIF
-#else
-    out_var_ptr => out_var
-#endif
 
     ! default values
     slev     = 1
@@ -417,14 +403,15 @@ CONTAINS
     i_startblk = ptr_patch%cells%start_blk(rl_start,1)
     i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP PARALLEL    
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,temp,qv,p_ex), ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
         i_startidx, i_endidx, rl_start, rl_end)
-      
-!$ACC PARALLEL IF ( i_am_accel_node )
-!$ACC LOOP GANG VECTOR COLLAPSE(2) 
+
+! MJ: it might be that out_var is not present on GPU, so we use COPY
+!$ACC PARALLEL DEFAULT(PRESENT) COPY(out_var) IF ( i_am_accel_node )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
@@ -439,7 +426,7 @@ CONTAINS
           qv   = p_prog%tracer_ptr(iqv)%p_3d(jc,jk,jb)
           p_ex = p_prog%exner(jc,jk,jb)
           !-- compute relative humidity as r = e/e_s:
-          out_var_ptr(jc,jk,jb) = rel_hum(temp, qv, p_ex)
+          out_var(jc,jk,jb) = rel_hum(temp, qv, p_ex)
 
         END DO
       END DO
@@ -448,14 +435,6 @@ CONTAINS
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-#ifdef _OPENACC
-    IF ( .NOT. out_var_is_present ) THEN
-!$ACC UPDATE HOST( out_var_ptr )
-      out_var = out_var_ptr 
-!$ACC EXIT DATA DELETE( out_var_ptr)
-    ENDIF
-#endif
 
   END SUBROUTINE compute_field_rel_hum_wmo
 

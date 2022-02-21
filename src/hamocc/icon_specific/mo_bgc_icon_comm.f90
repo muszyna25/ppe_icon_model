@@ -83,7 +83,7 @@
       SUBROUTINE update_icon(local_bgc_mem, start_idx, end_idx, &
 &             klevs, pddpo, ptracer,pco2flx)
 
-      USE mo_param1_bgc, ONLY: n_bgctra,kcflux
+      USE mo_param1_bgc, ONLY: n_bgctra,kcflux_cpl
 
       TYPE(t_bgc_memory), POINTER :: local_bgc_mem
       REAL(wp)     :: ptracer(nproma,n_zlev,n_bgctra)    
@@ -102,7 +102,7 @@
       DO jc=start_idx,end_idx 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
-          pco2flx(jc)=local_bgc_mem%bgcflux(jc,kcflux) * molw_co2
+          pco2flx(jc)=local_bgc_mem%bgcflux(jc,kcflux_cpl) * molw_co2
         DO jk =1,kpke
           DO itrac=1,n_bgctra
              ptracer(jc,jk,itrac) = local_bgc_mem%bgctra(jc,jk,itrac)
@@ -549,7 +549,7 @@
  &                             ipowaox, ipown2, ipowno3,  &
  &                             ipownh4, ipowno2, &
  &                             ipowasi, ipowafe, ipowh2s, &
- &                             kcflux
+ &                             kcflux_cpl
   
       TYPE(t_bgc_memory), POINTER :: local_bgc_mem
       TYPE(t_sediment_memory), POINTER :: local_sediment_mem
@@ -572,7 +572,7 @@
       DO jc=start_index,end_index 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
-         if(l_cpl_co2)pco2flux(jc)=local_bgc_mem%bgcflux(jc,kcflux) * molw_co2
+         if(l_cpl_co2)pco2flux(jc)=local_bgc_mem%bgcflux(jc,kcflux_cpl) * molw_co2
         DO jk =1,kpke
           DO itrac=1,n_bgctra
              ptracer(jc,jk,itrac) = local_bgc_mem%bgctra(jc,jk,itrac)

@@ -59,6 +59,8 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER :: sfdic(:)
     REAL(wp), POINTER :: sfphos(:)
     REAL(wp), POINTER :: sfsil(:)
+    REAL(wp), POINTER :: sfnit(:)
+    REAL(wp), POINTER :: carbinv(:)
     REAL(wp), POINTER :: bacfra(:)
     REAL(wp), POINTER :: phymor(:)
     REAL(wp), POINTER :: zoomor(:)
