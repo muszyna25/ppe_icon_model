@@ -568,6 +568,10 @@ CONTAINS
     !$ACC UPDATE DEVICE(ecrad_gas%mixing_ratio) IF(lacc)
 #endif
 
+#ifndef __ECRAD_ACC
+    !$ACC UPDATE DEVICE(ecrad_gas%mixing_ratio) IF(lacc)
+#endif
+
   END SUBROUTINE ecrad_set_gas
   !---------------------------------------------------------------------------------------
 

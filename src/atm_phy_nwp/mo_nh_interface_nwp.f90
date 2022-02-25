@@ -1921,6 +1921,7 @@ CONTAINS
 #endif
 
 
+
         ! combine convective and EDMF rain and snow
         IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
 !DIR$ IVDEP

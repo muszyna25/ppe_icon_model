@@ -139,6 +139,13 @@ MODULE mo_nwp_phy_init
                                     scm_sfc_temp, scm_sfc_qv
   USE mo_nh_torus_exp,        ONLY: read_soil_profile_nc,read_soil_profile_nc_uf
 
+  USE mo_ape_params,          ONLY: ape_sst
+  USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case, th_cbl, sol_const
+  USE mo_grid_config,         ONLY: l_scm_mode
+  USE mo_scm_nml,             ONLY: i_scm_netcdf, lscm_read_tke, lscm_read_z0, &
+                                    scm_sfc_temp, scm_sfc_qv
+  USE mo_nh_torus_exp,        ONLY: read_soil_profile_nc,read_soil_profile_nc_uf
+
   USE mo_cover_koe,           ONLY: cover_koe_config
   USE mo_bc_aeropt_kinne,     ONLY: read_bc_aeropt_kinne
   USE mo_bc_aeropt_cmip6_volc,ONLY: read_bc_aeropt_cmip6_volc
