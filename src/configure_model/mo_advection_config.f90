@@ -146,11 +146,10 @@ MODULE mo_advection_config
       &  itype_vlimit(MAX_NTRACER)  !< for vertical transport                    
 
     INTEGER :: &                    !< parameter used to select the limiter
-      &  itype_hlimit(MAX_NTRACER)  !< for horizontal transport                  
-                                    !< 0: no limiter                             
-                                    !< 1: semi-monotonous slope limiter          
-                                    !< 2: monotonous slope limiter               
-                                    !< 3: monotonous flux limiter                
+      &  itype_hlimit(MAX_NTRACER)  !< for horizontal transport 
+                                    !< 0: no limiter
+                                    !< 3: monotonous flux limiter
+                                    !< 4: positive definite flux limiter           
 
     INTEGER :: &                    !< additional method for identifying and avoiding 
       & ivlimit_selective(MAX_NTRACER)!< spurious limiting of smooth extrema
@@ -321,14 +320,12 @@ CONTAINS
 
     ! The full set of setup computations is NOT executed in prepare_tracer 
     ! when the tracer advection is running together with the dynmical core 
-    ! (solve_nh) and only standard namelist settings are chosen (i.e. flux limiter,
-    ! first-order backward trajectory computation, CFL-safe vertical advection, idiv_method = 1)
+    ! (solve_nh) and only standard namelist settings are chosen (i.e. 
+    ! first-order backward trajectory computation, idiv_method = 1)
     !
-    IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 )     .OR. &
-      &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 )     .OR. &
-      &  advection_config(jg)%iord_backtraj == 2                      .OR. &
-      &  idiv_method  == 2                                            .OR. &
-      &  itime_scheme == TRACER_ONLY                                       ) THEN
+    IF ( advection_config(jg)%iord_backtraj == 2      .OR. &
+      &  idiv_method  == 2                            .OR. &
+      &  itime_scheme == TRACER_ONLY                       ) THEN
       advection_config(jg)%lfull_comp = .TRUE.
     ELSE
       advection_config(jg)%lfull_comp = .FALSE. ! do not perform full set of computations in prepare_tracer
@@ -747,10 +744,6 @@ CONTAINS
 
 
     ENDIF
-
-    !$ACC ENTER DATA COPYIN(advection_config)
-    !$ACC UPDATE DEVICE(advection_config(jg))
-    !$ACC ENTER DATA COPYIN(advection_config(jg)%iadv_slev, advection_config(jg)%trAdvect%list)
 
   END SUBROUTINE configure_advection
 

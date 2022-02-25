@@ -614,7 +614,7 @@ cat >> ${ocean_namelist} << EOF
   vert_mix_type                            = 2  ! 1: PP; 2: TKE; 3: KPP; 4 TKE+IDEMIX
   only_tke                                 = .true. ! .true. for TKE; .false. for TKE+IDEMIX
   ! cvmix/tke parameters
-  c_k        = 0.1
+  c_k        = 0.3
   c_eps      = 0.7
   alpha_tke  = 30.0
   mxl_min    = 1.d-8
@@ -624,7 +624,9 @@ cat >> ${ocean_namelist} << EOF
   tke_min    = 1.d-6
   tke_mxl_choice = 2                                                              
   tke_surf_min = 1.d-4
-  only_tke = .true.                                                               
+  only_tke = .true.   
+  l_lc         = .false.                     ! Use Langmuir parameterisation (Axell, 2002)
+  clc          = 0.15                       ! Factor in the vertical velocity profile of the Langmuir circulation (default clc=0.1 in Axell (2002))                                                           
   use_ubound_dirichlet = .false.                                                  
   use_lbound_dirichlet = .false. 
 /

@@ -69,7 +69,9 @@ MODULE mo_nwp_gscp_interface
   USE mo_exception,            ONLY: finish
   USE mo_2mom_mcrph_driver,    ONLY: two_moment_mcrph, set_qnc, &
        &                             set_qnr,set_qni,set_qns,set_qng,set_qnh
+#ifdef __ICON_ART
   USE mo_art_clouds_interface, ONLY: art_clouds_interface_2mom
+#endif
   USE mo_nwp_diagnosis,        ONLY: nwp_diag_output_minmax_micro
   USE gscp_data,               ONLY: cloud_num
   USE mo_cpl_aerosol_microphys,ONLY: specccn_segalkhain, ncn_from_tau_aerosol_speccnconst, &
@@ -237,7 +239,7 @@ CONTAINS
     END IF
     
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,zncn,qnc,qnc_s,ddt_tend_t,ddt_tend_qv,        &
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,zncn,qnc,qnc_s,ddt_tend_t,ddt_tend_qv,        &
 !$OMP            ddt_tend_qc,ddt_tend_qi,ddt_tend_qr,ddt_tend_qs) ICON_OMP_GUIDED_SCHEDULE
 
       DO jb = i_startblk, i_endblk
@@ -515,7 +517,7 @@ CONTAINS
                        msg_level = msg_level                ,    &
                        & l_cv=.TRUE.                        ,    &
                        & ithermo_water=atm_phy_nwp_config(jg)%ithermo_water) !< in: latent heat choice
-
+#ifdef __ICON_ART
         CASE(6)  ! two-moment scheme with prognostic cloud droplet number
                  ! and chemical composition taken from the ART extension
 
@@ -543,7 +545,7 @@ CONTAINS
 ! not impl yet!        qrsflux= prm_diag%qrs_flux(:,:,jb),      & !inout: 3D precipitation flux for LHN
                        tkvh   = prm_diag%tkvh(:,:,jb),           &!in: turbulent diffusion coefficients for heat     (m/s2 )
                        l_cv=.TRUE.     )
-    
+#endif
         CASE(7)  ! two-moment scheme with liquid water on graupel and hail (lwf scheme)
 
           CALL two_moment_mcrph(                       &

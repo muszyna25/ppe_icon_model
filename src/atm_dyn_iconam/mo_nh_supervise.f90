@@ -70,13 +70,7 @@ MODULE mo_nh_supervise
   PUBLIC :: compute_dpsdt
 
 #if defined( _OPENACC )
-#define ACC_DEBUG NOACC
-#if defined(__NH_SUPERVISE_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -596,6 +590,7 @@ CONTAINS
         & max_vn, max_vn_level, max_vn_process, &
         & max_w, max_w_level, max_w_process )
 
+
     !--- Get max over all PEs
     IF (msg_level >= 7) THEN
 
@@ -672,8 +667,6 @@ CONTAINS
 
 !$ACC DATA PRESENT( vn, w ) COPYOUT( vn_aux, w_aux ) &
 !$ACC      IF ( i_am_accel_node .AND. acc_on )
-
-!$ACC UPDATE DEVICE ( vn, w ) IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
     IF (jg > 1 .OR. l_limited_area) THEN
 !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF ( i_am_accel_node .AND. acc_on )

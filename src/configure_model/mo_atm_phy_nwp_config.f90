@@ -148,13 +148,17 @@ MODULE mo_atm_phy_nwp_config
     LOGICAL :: lhydrom_read_from_fg(1:20)  ! Flag for each hydrometeor tracer, if it has been read from fg file
     LOGICAL :: lhydrom_read_from_ana(1:20) ! Flag for each hydrometeor tracer, if it has been read from ana file
 
+#ifndef __NO_ICON_LES__
     LOGICAL :: is_les_phy          !>TRUE is turbulence is 3D 
                                    !>FALSE otherwise
-
+#endif
     INTEGER :: nclass_gscp         !> number of hydrometeor classes for 
                                    ! chosen grid scale microphysics
 
     LOGICAL :: l_3d_rad_fluxes     ! logical to determine if 3d radiative flux variable are allocated
+
+    LOGICAL :: l_3d_turb_fluxes    ! logical to determine if 3d turbulent flux variable are allocated
+
 
     ! NWP events
     TYPE(t_phyProcGroup) :: phyProcs        !> physical processes event group
@@ -259,6 +263,9 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
+
+    !$ACC ENTER DATA CREATE(atm_phy_nwp_config)
+
     ! for each fast physics process the time interval is set 
     ! equal to the time interval for advection.
     DO jg = 1,n_dom
@@ -333,11 +340,14 @@ CONTAINS
       atm_phy_nwp_config(jg)%lhydrom_read_from_fg(:) = .FALSE.
       atm_phy_nwp_config(jg)%lhydrom_read_from_ana(:) = .FALSE.
 
+      !$acc enter data copyin(atm_phy_nwp_config(jg)%lhydrom_read_from_fg, atm_phy_nwp_config(jg)%lhydrom_read_from_ana)
+
       ! check for contradicting convection settings
       IF (atm_phy_nwp_config(jg)%lshallowconv_only .AND. atm_phy_nwp_config(jg)%lgrayzone_deepconv) THEN
         CALL finish('configure_atm_phy_nwp', "lshallowconv_only and lgrayzone_deepconv are mutually exclusive")
       ENDIF
 
+#ifndef __NO_ICON_LES__
       ! Configure LES physics (if activated)
       !
       atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
@@ -371,7 +381,9 @@ CONTAINS
         END IF
 
       ENDIF ! is_les_phy
+#endif
 
+      !$acc enter data copyin(atm_phy_nwp_config(jg)%lenabled)
 
       ! Check, whether the user-defined slow-physics timesteps adhere 
       ! to ICON-internal rules. If not, adapt the timesteps accordingly.
@@ -561,6 +573,7 @@ CONTAINS
     ! o3clim_tuned = o3clim*(1.+fac_ozone*shapefunc_ozone)
     DO jg = 1, n_dom
       atm_phy_nwp_config(jg)%ozone_maxinc = tune_ozone_maxinc
+      !$ACC UPDATE DEVICE(atm_phy_nwp_config(jg)%ozone_maxinc)
       ALLOCATE(atm_phy_nwp_config(jg)%fac_ozone(p_patch(jg)%nlev), &
                atm_phy_nwp_config(jg)%shapefunc_ozone(nproma,p_patch(jg)%nblks_c) )
       ! Vertical profile function
@@ -581,6 +594,7 @@ CONTAINS
           atm_phy_nwp_config(jg)%fac_ozone(jk) = 0.0_wp
         ENDIF
       ENDDO
+      !$ACC ENTER DATA COPYIN(atm_phy_nwp_config(jg)%fac_ozone)
       ! Horizontal profile function for fac_ozone
       DO jb = 1, p_patch(jg)%nblks_c
         DO jc = 1, nproma          
@@ -603,7 +617,10 @@ CONTAINS
           END IF
         ENDDO
       ENDDO
+      !$ACC ENTER DATA COPYIN(atm_phy_nwp_config(jg)%shapefunc_ozone)
     ENDDO
+
+    !$acc enter data copyin(atm_phy_nwp_config(jg)%fac_ozone, atm_phy_nwp_config(jg)%shapefunc_ozone)
 
 
 
@@ -698,6 +715,8 @@ CONTAINS
       ! initialize lcall_phy (will be updated by mo_phy_events:mtime_ctrl_physics)
       atm_phy_nwp_config(jg)%lcall_phy(:) = .FALSE.
 
+      !$acc enter data copyin(atm_phy_nwp_config(jg)%lcall_phy)
+
 
       ! 3d radiative flux output: only allocate and write variable if at least one is requested as output
       atm_phy_nwp_config(jg)%l_3d_rad_fluxes &
@@ -710,8 +729,14 @@ CONTAINS
         .OR. is_variable_in_output(var_name="swflx_dn_clr") &
         .OR. is_variable_in_output(var_name="lwflx_up_clr") &
         .OR. is_variable_in_output(var_name="swflx_up_clr")
-    ENDDO  ! jg
 
+      ! output of turbulent fluxes in column
+      atm_phy_nwp_config(jg)%l_3d_turb_fluxes  =                 &
+               is_variable_in_output( var_name="tetfl_turb")     &
+          .OR. is_variable_in_output( var_name="vapfl_turb")     &
+          .OR. is_variable_in_output( var_name="liqfl_turb")     
+
+    ENDDO  ! jg
 
   END SUBROUTINE configure_atm_phy_nwp
 
@@ -1228,9 +1253,18 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//":t_atm_phy_nwp_config_finalize"
   !-----------------------------------------------------------------
 
+    !$acc exit data delete(me%lcall_phy) if(ALLOCATED(me%lcall_phy))
+    !$acc exit data delete(me%fac_ozone) if(ALLOCATED(me%fac_ozone))
+    !$acc exit data delete(me%shapefunc_ozone) if(ALLOCATED(me%shapefunc_ozone))
     IF (ALLOCATED(me%lcall_phy))          DEALLOCATE(me%lcall_phy) 
-    IF (ALLOCATED(me%fac_ozone))          DEALLOCATE(me%fac_ozone)
-    IF (ALLOCATED(me%shapefunc_ozone))    DEALLOCATE(me%shapefunc_ozone)
+    IF (ALLOCATED(me%fac_ozone)) THEN
+      !$ACC EXIT DATA DELETE(me%fac_ozone)
+      DEALLOCATE(me%fac_ozone)
+    ENDIF
+    IF (ALLOCATED(me%shapefunc_ozone)) THEN
+      !$ACC EXIT DATA DELETE(me%shapefunc_ozone)
+      DEALLOCATE(me%shapefunc_ozone)
+    ENDIF
 
     CALL me%phyProcs%finalize()
 

@@ -74,7 +74,7 @@ MODULE mo_nonhydro_state
   USE mo_turbdiff_config,      ONLY: turbdiff_config
   USE mo_initicon_config,      ONLY: init_mode, lcalc_avg_fg, iso8601_start_timedelta_avg_fg, &
     &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg, &
-    &                                qcana_mode, qiana_mode, qrsgana_mode, icpl_da_sfcevap
+    &                                qcana_mode, qiana_mode, qrsgana_mode, icpl_da_sfcevap, icpl_da_skinc
   USE mo_var_list, ONLY: add_var, find_list_element, add_ref, t_var_list_ptr
   USE mo_var_list_register, ONLY: vlr_add, vlr_del
   USE mo_var_list_register_utils, ONLY: vlr_add_vref
@@ -90,8 +90,10 @@ MODULE mo_nonhydro_state
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
   USE mo_gribout_config,       ONLY: gribout_config
+#ifdef __ICON_ART
   USE mo_art_tracer_interface, ONLY: art_tracer_interface
   USE mo_art_diagnostics_interface, ONLY: art_diagnostics_interface_init
+#endif
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_zaxis_type,           ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, &
     &                                ZA_REFERENCE_HALF_HHL, ZA_SURFACE, ZA_MEANSEA
@@ -282,12 +284,14 @@ MODULE mo_nonhydro_state
       CALL new_nh_state_diag_list(p_patch(jg), p_nh_state(jg)%diag, &
         &  p_nh_state_lists(jg)%diag_list, listname, var_in_output(jg))
 
+#ifdef __ICON_ART
       ! art: add ART diagnostics to diag list
       IF (lart) THEN
         CALL art_diagnostics_interface_init(jg, p_nh_state_lists(jg)%diag_list, &
           & p_prog_list=p_nh_state_lists(jg)%prog_list(1))
       ENDIF
-    
+#endif
+
       !
       ! Build metrics state list
       ! includes memory allocation
@@ -639,6 +643,7 @@ MODULE mo_nonhydro_state
       ENDIF
 
       ALLOCATE( p_prog%tracer_ptr(ntracer) )
+      !$ACC ENTER DATA CREATE(p_prog%tracer_ptr)
 
       IF ( iforcing == inwp .OR. iforcing == iecham ) THEN
         
@@ -697,6 +702,7 @@ MODULE mo_nonhydro_state
             &                           "mode_iau_anaatm_in",                          &
             &                           "mode_iau_old_ana_in",                         &
             &                           "mode_iniana","icon_lbc_vars") )
+          __acc_attach(p_prog%tracer_ptr(iqv)%p_3d)
         END IF
 
         IF ( latbc_config%latbc_contains_qcqi ) THEN
@@ -739,6 +745,7 @@ MODULE mo_nonhydro_state
             &                     l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
             &                     lower_limit=0._wp  ),                              &
             &         in_group=ingroup)
+          __acc_attach(p_prog%tracer_ptr(iqc)%p_3d)
         END IF ! iqc
 
         !QI
@@ -766,6 +773,7 @@ MODULE mo_nonhydro_state
             &                     l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
             &                     lower_limit=0._wp  ),                              &
             &         in_group=ingroup )
+          __acc_attach(p_prog%tracer_ptr(iqi)%p_3d)
         END IF ! iqi
 
         !QR
@@ -797,6 +805,7 @@ MODULE mo_nonhydro_state
             &                           "mode_iau_fg_in","mode_iau_old_fg_in",         &
             &                           "LATBC_PREFETCH_VARS",                         &
             &                           "mode_iniana","icon_lbc_vars") )
+          __acc_attach(p_prog%tracer_ptr(iqr)%p_3d)
         END IF
 
         !QS
@@ -828,6 +837,7 @@ MODULE mo_nonhydro_state
             &                           "mode_iau_fg_in","mode_iau_old_fg_in",         &
             &                           "LATBC_PREFETCH_VARS",                         &
             &                           "mode_iniana","icon_lbc_vars") )
+          __acc_attach(p_prog%tracer_ptr(iqs)%p_3d)
         END IF
 
         !QG
@@ -859,6 +869,7 @@ MODULE mo_nonhydro_state
             &                           "mode_iau_fg_in","mode_iau_old_fg_in",         &
             &                           "LATBC_PREFETCH_VARS",                         &
             &                           "mode_iniana","icon_lbc_vars") )
+          __acc_attach(p_prog%tracer_ptr(iqg)%p_3d)
         END IF
 
 
@@ -890,6 +901,7 @@ MODULE mo_nonhydro_state
             &                         "mode_iau_ana_in","mode_iau_anaatm_in",        &
             &                         "mode_iau_fg_in",                              &
             &                         "LATBC_PREFETCH_VARS")  )
+          __acc_attach(p_prog%tracer_ptr(iqh)%p_3d)
         END IF
 
 
@@ -922,6 +934,7 @@ MODULE mo_nonhydro_state
             &                           "mode_iau_ana_in","mode_iau_anaatm_in",       &
             &                           "mode_iau_fg_in",                             &
             &                           "LATBC_PREFETCH_VARS")  )
+          __acc_attach(p_prog%tracer_ptr(iqgl)%p_3d)
         END IF
 
         ! liquid water (meltwater) on hail  (shortname "QH_LIQ")
@@ -953,6 +966,7 @@ MODULE mo_nonhydro_state
             &                         "mode_iau_ana_in","mode_iau_anaatm_in",        &
             &                         "mode_iau_fg_in",                              &
             &                         "LATBC_PREFETCH_VARS")  )
+          __acc_attach(p_prog%tracer_ptr(iqhl)%p_3d)
         END IF
 
         !O3
@@ -976,6 +990,7 @@ MODULE mo_nonhydro_state
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
             &                       lower_limit=0.0_wp )                               )
+          __acc_attach(p_prog%tracer_ptr(io3)%p_3d)
         END IF
 
         !CO2
@@ -999,6 +1014,7 @@ MODULE mo_nonhydro_state
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
             &                       lower_limit=0.0_wp )                               )
+          __acc_attach(p_prog%tracer_ptr(ico2)%p_3d)
         END IF
 
         !CH4
@@ -1022,6 +1038,7 @@ MODULE mo_nonhydro_state
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
             &                       lower_limit=0.0_wp )                               )
+          __acc_attach(p_prog%tracer_ptr(ich4)%p_3d)
         END IF
 
         !N2O
@@ -1045,6 +1062,7 @@ MODULE mo_nonhydro_state
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
             &                       lower_limit=0.0_wp )                               )
+          __acc_attach(p_prog%tracer_ptr(in2o)%p_3d)
         END IF
 
 
@@ -1076,6 +1094,7 @@ MODULE mo_nonhydro_state
             &                           "mode_iau_ana_in", "mode_iau_anaatm_in",       &
             &                           "mode_iau_fg_in",                              &
             &                           "LATBC_PREFETCH_VARS")  )
+          __acc_attach(p_prog%tracer_ptr(iqni)%p_3d)
         END IF
 
 
@@ -1105,6 +1124,7 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0._wp  ),                              &
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "LATBC_PREFETCH_VARS")  )
+          __acc_attach(p_prog%tracer_ptr(iqni_nuc)%p_3d)
         END IF
         !CK<
 
@@ -1137,6 +1157,7 @@ MODULE mo_nonhydro_state
                     &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
                     &                 "mode_iau_fg_in",                              &
                     &                 "LATBC_PREFETCH_VARS")  )
+          __acc_attach(p_prog%tracer_ptr(iqnr)%p_3d)
         END IF
 
 
@@ -1168,6 +1189,7 @@ MODULE mo_nonhydro_state
                     &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
                     &                 "mode_iau_fg_in",                              &
                     &                 "LATBC_PREFETCH_VARS")  )
+          __acc_attach(p_prog%tracer_ptr(iqns)%p_3d)
         END IF
 
         !graupel concentration
@@ -1198,6 +1220,7 @@ MODULE mo_nonhydro_state
                     &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
                     &                 "mode_iau_fg_in",                              &
                     &                 "LATBC_PREFETCH_VARS")  )
+          __acc_attach(p_prog%tracer_ptr(iqng)%p_3d)
         END IF
 
         !hail concentration
@@ -1228,6 +1251,7 @@ MODULE mo_nonhydro_state
                     &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
                     &                 "mode_iau_fg_in",                              &
                     &                 "LATBC_PREFETCH_VARS")  )
+          __acc_attach(p_prog%tracer_ptr(iqnh)%p_3d)
         END IF
 
         ! cloud droplet concentration
@@ -1259,6 +1283,7 @@ MODULE mo_nonhydro_state
                     &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
                     &                 "mode_iau_fg_in",                              &
                     &                 "LATBC_PREFETCH_VARS")  )
+          __acc_attach(p_prog%tracer_ptr(iqnc)%p_3d)
         END IF
 
 
@@ -1286,6 +1311,7 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              &
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+          __acc_attach(p_prog%tracer_ptr(ininact)%p_3d)
         END IF ! inwp_gscp==4, inwp_gscp==5 .or. inwp_gscp==6 .or. inwp_gscp==7
 
         ! concentration of cloud condensation nuclei
@@ -1313,6 +1339,7 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              &
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+          __acc_attach(p_prog%tracer_ptr(inccn)%p_3d)
         END IF
 
         IF ( ininpot /= 0 ) THEN
@@ -1339,6 +1366,7 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              &
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+          __acc_attach(p_prog%tracer_ptr(ininpot)%p_3d)
         END IF
 
         ! EDMF: total water variance
@@ -1362,6 +1390,7 @@ MODULE mo_nonhydro_state
             &                       l_loglin=.FALSE.,                                  &
             &                       l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
             &                       lower_limit=0._wp  )  )
+          __acc_attach(p_prog%tracer_ptr(iqtvar)%p_3d)
         END IF
 
 
@@ -1386,16 +1415,17 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_pd_limit=.FALSE.,                                &
                     &             lower_limit=0._wp  )  )
+          __acc_attach(p_prog%tracer_ptr(iqtke)%p_3d)
         ENDIF
 
-
+#ifdef __ICON_ART
         ! art
         IF (lart) THEN
           CALL art_tracer_interface('prog',p_patch%id,p_patch%nblks_c,p_prog_list,vname_prefix,&
             &                       ptr_arr=p_prog%tracer_ptr,advconf=advconf,p_prog=p_prog,   &
             &                       timelev=timelev,ldims=shape3d_c)
         ENDIF
-
+#endif
 
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)
         ! for output take field from nnow_rcf slice
@@ -1445,6 +1475,7 @@ MODULE mo_nonhydro_state
             &             l_loglin=.FALSE.,                                     &
             &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,               &
             &             lower_limit=0._wp  )  )
+          __acc_attach(p_prog%tracer_ptr(jt)%p_3d)
         END DO
       ENDIF
 
@@ -1571,8 +1602,8 @@ MODULE mo_nonhydro_state
       &        shape3d_e(3), shape3d_v(3), shape3d_chalf(3),       &
       &        shape3d_ehalf(3), shape4d_chalf(4), shape4d_e(4),   &
       &        shape4d_entl(4), shape4d_chalfntl(4), shape4d_c(4), &
-      &        shape3d_ctra(3), shape2d_extra(3), shape3d_extra(4),&
-      &        shape3d_ubcc(3), shape3d_ubcp2(3)
+      &        shape2d_extra(3), shape3d_extra(4), shape3d_ubcc(3),&
+      &        shape3d_ubcp2(3)
  
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for some thermodynamic fields
@@ -1584,7 +1615,7 @@ MODULE mo_nonhydro_state
     LOGICAL :: lrestart
 
     CHARACTER(LEN=3) :: ctrc
-    CHARACTER(len=4) suffix
+    CHARACTER(len=4) :: suffix
     !--------------------------------------------------------------
 
     !determine size of arrays
@@ -1627,7 +1658,6 @@ MODULE mo_nonhydro_state
     shape3d_v     = (/nproma, nlev   , nblks_v    /)
     shape3d_chalf = (/nproma, nlevp1 , nblks_c    /)
     shape3d_ehalf = (/nproma, nlevp1 , nblks_e    /)
-    shape3d_ctra  = (/nproma, nblks_c, ntracer    /)
     shape3d_ubcp2 = (/nproma, nblks_c, ndyn_substeps_max+2 /)
     shape3d_ubcc  = (/nproma, nblks_c, 2  /)
     shape3d_extra = (/nproma, nlev   , nblks_c, inextra_3d  /)
@@ -1732,8 +1762,6 @@ MODULE mo_nonhydro_state
     &       p_diag%rho_ic_ubc, &
     &       p_diag%mflx_ic_int, &
     &       p_diag%mflx_ic_ubc, &
-    &       p_diag%q_int, &
-    &       p_diag%q_ubc, &
     &       p_diag%vn_incr, &
     &       p_diag%exner_incr, &
     &       p_diag%rho_incr, &
@@ -3001,57 +3029,6 @@ MODULE mo_nonhydro_state
     __acc_attach(p_diag%mflx_ic_ubc)
 
 
-    ! q_int        p_diag%q_int(nproma,nblks_c,ntracer)
-    !
-    cf_desc    = t_cf_var('q_at_parent_interface_level', 'kg kg-1',           &
-      &                   'q at parent interface level', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_diag_list, 'q_int', p_diag%q_int,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                & ldims=shape3d_ctra ,                                        &
-                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
-                & lopenacc = .TRUE. )
-    __acc_attach(p_diag%q_int)
-
-    ALLOCATE(p_diag%q_int_ptr(ntracer))
-    DO jt =1,ntracer
-      WRITE(ctrc,'(I3.3)')jt
-      CALL add_ref( p_diag_list, 'q_int',                                         &
-                  & 'q_int'//ctrc, p_diag%q_int_ptr(jt)%p_2d,                     &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                  & t_cf_var('q_int'//ctrc, 'kg kg-1','', datatype_flt),          &
-                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-                  & ref_idx=jt,                                                   &
-                  & ldims=shape2d_c, lrestart=.FALSE. )
-    ENDDO
-
-
-    ! q_ubc        p_diag%q_ubc(nproma,nblks_c,ntracer)
-    !
-    cf_desc    = t_cf_var('q_at_child_upper_boundary', 'kg kg-1',             &
-      &                   'q at child upper boundary', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_diag_list, 'q_ubc', p_diag%q_ubc,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                & ldims=shape3d_ctra,                                         &
-                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
-                & lopenacc = .TRUE. )
-    __acc_attach(p_diag%q_ubc)
-
-    ALLOCATE(p_diag%q_ubc_ptr(ntracer))
-    DO jt =1,ntracer
-      WRITE(ctrc,'(I3.3)')jt
-      CALL add_ref( p_diag_list, 'q_ubc',                                         &
-                  & 'q_ubc'//ctrc, p_diag%q_ubc_ptr(jt)%p_2d,                     &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                  & t_cf_var('q_ubc'//ctrc, 'kg kg-1','', datatype_flt),          &
-                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-                  & ref_idx=jt,                                                   &
-                  & ldims=shape2d_c, lrestart=.FALSE. )
-    ENDDO
-
-
-
     !
     ! tracers
     !
@@ -3555,6 +3532,20 @@ MODULE mo_nonhydro_state
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,     &
         &           ldims=shape2d_c, lrestart=.true.,                               &
         &           in_group=groups("mode_iau_fg_in","mode_dwd_fg_in","mode_combined_in") )
+    ENDIF
+
+    IF (icpl_da_skinc >= 1) THEN
+      !  Time-filtered near-surface level T increment from data assimilation, weighted with COS(local time)
+      cf_desc    = t_cf_var('t_wgt_avginc', 'K', 'Weighted filtered T increment', datatype_flt)
+      grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
+                 + t_grib2_int_key("typeOfGeneratingProcess", 208)     &
+                 + t_grib2_int_key("typeOfSecondFixedSurface", 1)      &
+                 + t_grib2_int_key("scaledValueOfFirstFixedSurface", 20)
+      CALL add_var( p_diag_list, 't_wgt_avginc', p_diag%t_wgt_avginc,               &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,     &
+        &           ldims=shape2d_c, lrestart=.true.,                               &
+        &           in_group=groups("mode_iau_fg_in","mode_dwd_fg_in","mode_combined_in") )
+
     ENDIF
 
     IF (latbc_config%fac_latbc_presbiascor > 0._wp) THEN
@@ -4253,7 +4244,11 @@ MODULE mo_nonhydro_state
                 & lopenacc = .TRUE. )
     __acc_attach(p_metrics%ddxt_z_full)
 
+#ifndef __NO_ICON_LES__
     IF (atm_phy_nwp_config(jg)%is_les_phy .OR. echam_vdf_config(jg)%turb==2) THEN
+#else
+    IF (echam_vdf_config(jg)%turb==2) THEN
+#endif
       ! slope of the terrain in normal direction (half level)
       ! ddxn_z_half_e  p_metrics%ddxn_z_full(nproma,nlevp1,nblks_e)
       !
@@ -4380,7 +4375,6 @@ MODULE mo_nonhydro_state
       __acc_attach(p_metrics%ddxt_z_full_v)
 
     ENDIF  !is_les_phy
-
 
     ! functional determinant of the metrics [sqrt(gamma)]
     ! ddqz_z_full_e  p_metrics%ddqz_z_full_e(nproma,nlev,nblks_e)
@@ -4997,8 +4991,11 @@ MODULE mo_nonhydro_state
       __acc_attach(p_metrics%slope_azimuth)
 
     !Add LES related variables : Anurag Dipankar MPIM (2013-04)
+#ifndef __NO_ICON_LES__
     IF(atm_phy_nwp_config(jg)%is_les_phy .OR. echam_vdf_config(jg)%turb==2)THEN
-
+#else
+    IF(echam_vdf_config(jg)%turb==2)THEN
+#endif
       ! inv_ddqz_z_half_e  p_metrics%inv_ddqz_z_half_e(nproma,nlevp1,nblks_e)
       !
       cf_desc    = t_cf_var('metrics_functional_determinant', '-',                    &

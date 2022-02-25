@@ -483,13 +483,17 @@ MODULE mo_ocean_nml
   REAL(wp) :: c_eps = 0.7_wp
   REAL(wp) :: alpha_tke = 30.0_wp
   REAL(wp) :: mxl_min = 1.E-8_wp 
-  REAL(wp) :: kappaM_min = 0.0_wp
-  REAL(wp) :: kappaM_max = 100.0_wp
+  LOGICAL  :: use_Kappa_min = .false.
+  REAL(wp) :: KappaM_min = 1.E-4_wp
+  REAL(wp) :: KappaH_min = 1.E-5_wp
+  REAL(wp) :: KappaM_max = 100.0_wp
   REAL(wp) :: cd = 3.75_wp
   REAL(wp) :: tke_min = 1.E-6_wp
   INTEGER  :: tke_mxl_choice = 2
   REAL(wp) :: tke_surf_min = 1.E-4_wp
   LOGICAL  :: only_tke = .true.
+  LOGICAL  :: l_lc = .false.
+  REAL(wp) :: clc = 0.15_wp
   LOGICAL  :: use_ubound_dirichlet = .false.
   LOGICAL  :: use_lbound_dirichlet = .false.
   ! cvmix_idemix parameters ! by_nils
@@ -631,13 +635,17 @@ MODULE mo_ocean_nml
     &  c_eps,                       &
     &  alpha_tke,                   &
     &  mxl_min,                     &
-    &  kappaM_min,                  &
-    &  kappaM_max,                  &
+    &  use_Kappa_min,               &
+    &  KappaM_min,                  &
+    &  KappaH_min,                  &
+    &  KappaM_max,                  &
     &  cd,                          &
     &  tke_min,                     &
     &  tke_mxl_choice,              &
     &  tke_surf_min,                &
     &  only_tke,                    &
+    &  l_lc,                        &
+    &  clc,                         &
     &  use_ubound_dirichlet,        &
     &  use_lbound_dirichlet,        &
     ! cvmix_idemix parameters ! by_nils

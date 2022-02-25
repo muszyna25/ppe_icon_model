@@ -16,11 +16,11 @@ MODULE mo_atmo_nonhydrostatic
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish, print_value
 USE mtime,                   ONLY: OPERATOR(>)
-USE mo_fortran_tools,        ONLY: copy, init
+USE mo_fortran_tools,        ONLY: init
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_init_latbc, &
   &                                timer_model_init, timer_init_icon, timer_read_restart, timer_init_dace
-USE mo_master_config,        ONLY: isRestart
+USE mo_master_config,        ONLY: isRestart, getModelBaseDir
 USE mo_time_config,          ONLY: time_config
 USE mo_load_restart,         ONLY: read_restart_files
 USE mo_key_value_store,      ONLY: t_key_value_store
@@ -33,8 +33,6 @@ USE mo_art_config,           ONLY: configure_art
 USE mo_assimilation_config,  ONLY: configure_lhn, assimilation_config
 USE mo_run_config,           ONLY: dtime,                & !    namelist parameter
   &                                ltestcase,            &
-  &                                ldynamics,            &
-  &                                ltransport,           &
   &                                iforcing,             & !    namelist parameter
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
@@ -42,16 +40,20 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                iqc, iqt,             &
   &                                ico2, io3,            &
   &                                number_of_grid_used
-USE mo_initicon_config,      ONLY: pinit_seed, pinit_amplitude
-USE mo_nh_testcases,         ONLY: init_nh_testcase
-USE mo_nh_testcases_nml,      ONLY: nh_test_name
+USE mo_initicon_config,      ONLY: pinit_seed, pinit_amplitude, init_mode
+USE mo_nh_testcases,         ONLY: init_nh_testcase, init_nh_testcase_scm
+USE mo_nh_testcases_nml,     ONLY: nh_test_name
+#ifndef __NO_ICON_LES__
 USE mo_ls_forcing_nml,       ONLY: is_ls_forcing, is_nudging
 USE mo_ls_forcing,           ONLY: init_ls_forcing
-USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
+USE mo_turbulent_diagnostic, ONLY: init_les_turbulent_output, close_les_turbulent_output
+USE mo_interface_les,        ONLY: init_les_phy_interface
+#endif
+USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, nnew, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
-USE mo_grid_config,          ONLY: n_dom, start_time, end_time, &
-     &                             is_plane_torus, l_limited_area
+USE mo_grid_config,          ONLY: n_dom, n_dom_start, start_time, end_time, &
+     &                             is_plane_torus, l_limited_area, l_scm_mode
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_intp_lonlat_types,    ONLY: lonlat_grids
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
@@ -61,7 +63,7 @@ USE mo_vertical_grid,        ONLY: set_nh_metrics
 USE mo_nh_nest_utilities,    ONLY: complete_nesting_setup
 ! NH-namelist state
 USE mo_nonhydrostatic_config,ONLY: configure_nonhydrostatic, kstart_moist, kend_qvsubstep, &
-  &                                l_open_ubc, itime_scheme, kstart_tracer
+  &                                l_open_ubc, itime_scheme, kstart_tracer, ndyn_substeps
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert
@@ -78,7 +80,6 @@ USE mo_nwp_phy_state,        ONLY: prm_diag, prm_nwp_tend,                     &
   &                                construct_nwp_phy_state
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state
 USE mo_nwp_phy_cleanup,      ONLY: cleanup_nwp_phy
-USE mo_interface_les,        ONLY: init_les_phy_interface
 ! Time integration
 USE mo_nh_stepping,          ONLY: perform_nh_stepping
 ! Initialization with real data
@@ -98,39 +99,47 @@ USE mo_name_list_output,    ONLY: close_name_list_output
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 
 ! ECHAM physics
-USE mo_echam_phy_memory,    ONLY: construct_echam_phy_state
-USE mo_cloud_two_memory,    ONLY: construct_cloud_two_memory
-#ifdef __NO_RTE_RRTMGP__
-USE mo_psrad_forcing_memory, ONLY: construct_rad_forcing_list => construct_psrad_forcing_list
-#else
-USE mo_radiation_forcing_memory, ONLY: construct_rad_forcing_list => construct_radiation_forcing_list
-#endif
-USE mo_physical_constants,  ONLY: amd, amco2
 USE mo_echam_phy_config,    ONLY: echam_phy_tc, dt_zero, echam_phy_config
 USE mo_echam_rad_config,    ONLY: echam_rad_config
 USE mo_echam_vdf_config,    ONLY: echam_vdf_config
+#ifndef __NO_ECHAM__
+USE mo_echam_phy_memory,    ONLY: construct_echam_phy_state
+USE mo_cloud_two_memory,    ONLY: construct_cloud_two_memory
+USE mo_radiation_forcing_memory, ONLY: construct_rad_forcing_list => construct_radiation_forcing_list
+USE mo_physical_constants,  ONLY: amd, amco2
 USE mo_echam_phy_init,      ONLY: init_echam_phy_params, init_echam_phy_external, &
    &                              init_echam_phy_field, init_o3_lcariolle
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
+#endif
 #ifndef __NO_JSBACH__
   USE mo_jsb_model_init,    ONLY: jsbach_init_after_restart
+#endif
+! Needed for upper atmosphere configuration
+USE mo_dynamics_config,     ONLY: ldeepatmo
+USE mo_sleve_config,        ONLY: flat_height
+USE mo_io_units,            ONLY: filename_max
+USE mo_vertical_coord_table,ONLY: vct_a
+USE mo_upatmo_impl_const,   ONLY: iUpatmoPrcStat
+USE mo_upatmo_config,       ONLY: upatmo_config, upatmo_phy_config, &
+    &                             configure_upatmo, destruct_upatmo
+#ifndef __NO_ICON_UPPER__
+USE mo_upatmo_state,        ONLY: construct_upatmo_state, &
+    &                             destruct_upatmo_state
+USE mo_upatmo_phy_setup,    ONLY: finalize_upatmo_phy_nwp
 #endif
 
 USE mo_util_mtime,          ONLY: getElapsedSimTimeInSeconds
 USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: ACTION_RESET, reset_act
-USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent_output
 USE mo_limarea_config,      ONLY: latbc_config
 USE mo_async_latbc_types,   ONLY: t_latbc_data
 USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
-USE mo_sync_latbc,          ONLY: deallocate_latbc_data
 USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lhn_fields, destruct_lhn
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
 USE mo_mpi,                 ONLY: my_process_is_stdio, p_comm_work_only, my_process_is_work_only
 USE mo_var_list_register_utils, ONLY: vlr_print_groups
 USE mo_sync,                ONLY: sync_patch_array, sync_c
-USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
 USE mo_nudging_config,      ONLY: l_global_nudging
 USE mo_random_util,         ONLY: add_random_noise
 
@@ -183,12 +192,14 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
-    INTEGER :: jg, jt, ist
+    INTEGER :: jg, ist
 
     TYPE(t_sim_step_info) :: sim_step_info  
-    INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
     REAL(wp) :: sim_time
     TYPE(t_key_value_store), POINTER :: restartAttributes
+    LOGICAL :: lrestart
+    CHARACTER(LEN=filename_max) :: model_base_dir
+
 
     IF (timers_level > 1) CALL timer_start(timer_model_init)
 
@@ -199,7 +210,11 @@ CONTAINS
     ENDDO
 
     IF (iforcing == iecham) THEN
+#ifdef __NO_ECHAM__   
+      CALL finish (routine, 'Error: remove --disable-echam and reconfigure')
+#else
       CALL init_echam_phy_params( p_patch(1:) )
+#endif
     END IF
 
     IF(iforcing == inwp) THEN
@@ -268,12 +283,55 @@ CONTAINS
     END IF
 
     IF (iforcing == iecham) THEN
+#ifdef __NO_ECHAM__   
+      CALL finish (routine, 'Error: remove --disable-echam and reconfigure')
+#else
       CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
       CALL construct_cloud_two_memory  ( p_patch(1:) )
       CALL construct_rad_forcing_list  ( p_patch(1:) )
+#endif
     END IF
 
-    CALL upatmo_initialize(p_patch)
+! Upper atmosphere
+
+    model_base_dir = getModelBaseDir()
+    lrestart       = isRestart()
+
+    CALL configure_upatmo( n_dom_start            = n_dom_start,                       & !in
+      &                    n_dom                  = n_dom,                             & !in
+      &                    p_patch                = p_patch(n_dom_start:),             & !in
+      &                    lrestart               = lrestart,                          & !in
+      &                    ldeepatmo              = ldeepatmo,                         & !in
+      &                    lupatmo_phy            = atm_phy_nwp_config(:)%lupatmo_phy, & !in
+      &                    init_mode              = init_mode,                         & !in
+      &                    iforcing               = iforcing,                          & !in
+      &                    tc_exp_startdate       = time_config%tc_exp_startdate,      & !in
+      &                    tc_exp_stopdate        = time_config%tc_exp_stopdate,       & !in
+      &                    start_time             = start_time(:),                     & !in
+      &                    end_time               = end_time(:),                       & !in
+      &                    dtime                  = dtime,                             & !in
+      &                    dt_rad_nwp             = atm_phy_nwp_config(:)%dt_rad,      & !in
+      &                    ndyn_substeps          = ndyn_substeps,                     & !in
+      &                    flat_height            = flat_height,                       & !in
+      &                    l_orbvsop87            = echam_rad_config(:)%l_orbvsop87,   & !in
+      &                    cecc                   = echam_rad_config(:)%cecc,          & !in
+      &                    cobld                  = echam_rad_config(:)%cobld,         & !in
+      &                    clonp                  = echam_rad_config(:)%clonp,         & !in
+      &                    lyr_perp               = echam_rad_config(:)%lyr_perp,      & !in
+      &                    yr_perp                = echam_rad_config(:)%yr_perp,       & !in
+      &                    model_base_dir         = model_base_dir,                    & !in
+      &                    msg_level              = msg_level,                         & !in
+      &                    vct_a                  = vct_a                              ) !(opt)in
+
+#ifndef __NO_ICON_UPPER__
+! Create state only if enabled
+    CALL construct_upatmo_state( n_dom             = n_dom,                 & !in
+      &                          nproma            = nproma,                & !in
+      &                          p_patch           = p_patch(1:),           & !in
+      &                          upatmo_config     = upatmo_config(1:),     & !in
+      &                          upatmo_phy_config = upatmo_phy_config(1:), & !in
+      &                          vct_a             = vct_a                  ) !(opt)in
+#endif
 
 #ifdef MESSY
     CALL messy_init_memory(n_dom)
@@ -330,7 +388,7 @@ CONTAINS
       CALL init_dace (comm=p_comm_work_only, p_io=0, ldetached=.NOT.my_process_is_work_only())
       IF (timers_level > 4) CALL timer_stop(timer_init_dace)
     END IF
-
+#ifndef __NO_ICON_LES__
     ! init LES
     DO jg = 1 , n_dom
       IF(atm_phy_nwp_config(jg)%is_les_phy) THEN
@@ -344,7 +402,7 @@ CONTAINS
            &                        p_nh_state(jg)%metrics)
       END IF
     END DO
-
+#endif
     !------------------------------------------------------------------
     ! Prepare initial conditions for time integration.
     !------------------------------------------------------------------
@@ -382,15 +440,25 @@ CONTAINS
         !
         ! Initialize testcase analytically
         !
-        CALL init_nh_testcase(p_patch(1:)     ,&
-          &                   p_nh_state      ,&
-          &                   p_int_state(1:) ,&
-          &                   p_lnd_state(1:) ,&
-          &                   ext_data        ,&
-          &                   ntl=2           )
+        IF (l_scm_mode) THEN
+          CALL init_nh_testcase_scm(p_patch(1:)     ,&
+            &                       p_nh_state      ,&
+            &                       p_int_state(1:) ,&
+            &                       p_lnd_state(1:) ,&
+            &                       ext_data        )
+        ELSE
+          CALL init_nh_testcase    (p_patch(1:)     ,&
+            &                       p_nh_state      ,&
+            &                       p_int_state(1:) ,&
+            &                       p_lnd_state(1:) ,&
+            &                       ext_data        ,&
+            &                       ntl=2           )
+        ENDIF
         !
+#ifndef __NO_ICON_LES__
         IF(is_ls_forcing .OR. is_nudging) &
           CALL init_ls_forcing(p_nh_state(1)%metrics)
+#endif
         !
       ELSE
         !
@@ -411,6 +479,9 @@ CONTAINS
             &             p_lnd_state(1:) )
           !
         ELSE ! iforcing == iecham, inoforcing, ...
+#ifdef __NO_ECHAM__   
+          CALL finish (routine, 'Error: remove --disable-echam and reconfigure')
+#else
           !
           ! Initialize the atmosphere only
           !
@@ -420,6 +491,7 @@ CONTAINS
             &             p_nh_state(1:)  ,&
             &             ext_data(1:)    )
           !
+#endif
         END IF ! iforcing
         !
         IF (timers_level > 4) CALL timer_stop(timer_init_icon)
@@ -457,6 +529,9 @@ CONTAINS
       ! but may be used with ECHAM physics, for real cases or test cases.
       !
       IF (iforcing == iecham ) THEN
+#ifdef __NO_ECHAM__   
+        CALL finish (routine, 'Error: remove --disable-echam and reconfigure')
+#else
         DO jg = 1,n_dom
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
           !
@@ -490,6 +565,7 @@ CONTAINS
           !
         END DO
         !
+#endif
       END IF
       !
     END IF ! isRestart()
@@ -498,6 +574,9 @@ CONTAINS
     ! Now set up ECHAM physics fields
     !
     IF ( iforcing == iecham ) THEN
+#ifdef __NO_ECHAM__   
+        CALL finish (routine, 'Error: remove --disable-echam and reconfigure')
+#else
       !
       ! read external data for real case
       IF (.NOT. ltestcase) THEN 
@@ -511,6 +590,7 @@ CONTAINS
           &                        p_nh_state(jg)% diag% temp(:,:,:) )
       END DO
       !
+#endif
     END IF
 
     !------------------------------------------------------------------
@@ -634,6 +714,7 @@ CONTAINS
         is_variable_in_output(var_name="adrag_v_grid")
      ENDIF
 
+#ifndef __NO_ICON_LES__
     !Anurag Dipankar, MPIM (2015-08-01): always call this routine
     !for LES simulation
     DO jg = 1 , n_dom
@@ -641,6 +722,7 @@ CONTAINS
            = atm_phy_nwp_config(jg)%lcalc_moist_integral_avg &
            .OR. atm_phy_nwp_config(jg)%is_les_phy
     END DO
+#endif
 
     !----------------------!
     !  Initialize actions  !
@@ -650,7 +732,7 @@ CONTAINS
     ! Initialize reset-Action, i.e. assign variables to action object
     CALL reset_act%initialize(ACTION_RESET)
 
-
+#ifndef __NO_ICON_LES__
     !Anurag Dipankar, MPIM (2014-01-14)
     !Special 1D and 0D output for LES runs till we get add_var/nml_out working
     !Only for Torus runs with single domain
@@ -661,7 +743,7 @@ CONTAINS
            &    time_config%tc_startdate, var_in_output(jg)%rh, ldelete=(.NOT. isRestart()))
 
     END DO
-
+#endif
     !-------------------------------------------------------!
     !  (Optional) detailed print-out of some variable info  !
     !-------------------------------------------------------!
@@ -715,30 +797,57 @@ CONTAINS
 
     CALL destruct_prepadv_state()
 
+#ifndef __NO_ICON_LES__
     ! close LES diag files
     DO jg = 1 , n_dom
       IF(atm_phy_nwp_config(jg)%is_les_phy .AND. is_plane_torus) &
         CALL close_les_turbulent_output(jg)
     END DO
-
+#endif
     ! cleanup NWP physics
     IF (iforcing == inwp) THEN
       CALL cleanup_nwp_phy()
     ENDIF
 
     IF (iforcing == iecham) THEN
+#ifdef __NO_ECHAM__   
+      CALL finish (routine, 'Error: remove --disable-echam and reconfigure')
+#else
       CALL cleanup_echam_phy()
+#endif
     ENDIF
 
-    CALL upatmo_finalize(p_patch)
+#ifndef __NO_ICON_UPPER__
+    ! This is required for NWP forcing only. 
+    ! For ECHAM forcing, the following will likely be done in 
+    ! 'src/atm_phy_echam/mo_echam_phy_cleanup: cleanup_echam_phy'
+    DO jg = 1, n_dom
+      IF (upatmo_config( jg )%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled )) THEN
+        CALL finalize_upatmo_phy_nwp( p_patch( jg ) ) !in
+      ENDIF
+    ENDDO  !jg
+
+    !---------------------------------------------------------------------
+    !             Destruct the upper-atmosphere data types
+    !---------------------------------------------------------------------
+
+    CALL destruct_upatmo_state( n_dom         = n_dom,            & !in
+      &                         upatmo_config = upatmo_config(1:) ) !in
+#endif
+
+    !---------------------------------------------------------------------
+    !          Destruct the upper-atmosphere configuration type
+    !---------------------------------------------------------------------
+
+    ! After the following call, 'upatmo_config' cannot be used anymore!
+    CALL destruct_upatmo( n_dom_start = n_dom_start, & !in
+      &                   n_dom       = n_dom        ) !in
 
     ! call close name list prefetch
     IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0) THEN
       IF (num_prefetch_proc >= 1) THEN
         CALL close_prefetch()
         CALL latbc%finalize()
-      ELSE
-        CALL deallocate_latbc_data()
       END IF
     END IF
 

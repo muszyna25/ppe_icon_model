@@ -300,6 +300,8 @@ CONTAINS
     TYPE(t_latbc_data)      :: latbc
     TYPE(datetime)          :: latbc_read_datetime
 
+    ! call to initalize the prefetch processor with grid data
+    CALL init_prefetch(latbc)
 #ifdef YAC_coupling
     ! The initialisation of YAC needs to be called by all (!) MPI processes
     ! in MPI_COMM_WORLD.
@@ -308,8 +310,6 @@ CONTAINS
     ! processes
     IF ( is_coupled_run() ) CALL construct_io_coupler ( "dummy" )
 #endif
-    ! call to initalize the prefetch processor with grid data
-    CALL init_prefetch(latbc)
     ! Enter prefetch loop
     done = .FALSE.
     DO WHILE(.NOT.done)

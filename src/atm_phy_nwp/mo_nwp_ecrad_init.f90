@@ -35,6 +35,8 @@ MODULE mo_nwp_ecrad_init
 
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: finish, message, message_text
+  USE mtime,                   ONLY: datetime
+  USE mo_model_domain,         ONLY: t_patch
   USE mo_radiation_config,     ONLY: icld_overlap, irad_aero, ecrad_data_path,           &
                                  &   llw_cloud_scat, iliquid_scat, iice_scat
 #ifdef __ECRAD
@@ -69,12 +71,16 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Daniel Rieger, Deutscher Wetterdienst, Offenbach (2019-01-31)
   !!
-  SUBROUTINE setup_ecrad ( ecrad_conf )
+  SUBROUTINE setup_ecrad ( p_patch, ecrad_conf, ini_date )
 
     CHARACTER(len=*), PARAMETER :: routine = modname//'::setup_ecrad'
 
-    TYPE(t_ecrad_conf), INTENT(inout) :: &
-      &  ecrad_conf           !< ecRad configuration state
+    TYPE(t_patch),TARGET,INTENT(in)    :: &
+      &  p_patch
+    TYPE(t_ecrad_conf),  INTENT(inout) :: &
+      &  ecrad_conf                         !< ecRad configuration state
+    TYPE(datetime), POINTER            :: &
+      &  ini_date                           !< current datetime (mtime)
 
     ! Local variables
     REAL(wp)                  :: &
@@ -119,7 +125,8 @@ CONTAINS
     SELECT CASE (irad_aero)
       CASE (0) ! No aerosol
         ecrad_conf%use_aerosols = .false.
-      CASE (2,5,6) ! Constant, Tanre, Tegen
+      CASE (2,5,6,12,13,14,15) ! Constant, Tanre, Tegen, constant Kinne aerosol, Kinne, 
+                               ! CMIP6 volcanic aerosol, Kinne+CMIP6 volcanic aerosol
         ecrad_conf%use_aerosols = .true.
       CASE DEFAULT
         CALL finish(routine, 'irad_aero not valid for ecRad')
@@ -221,6 +228,8 @@ CONTAINS
       &  nweight_par_ecrad, iband_par_ecrad, weight_par_ecrad, &
       &  'photosynthetically active radiation, PAR')
 
+    !$ACC UPDATE DEVICE(iband_par_ecrad, weight_par_ecrad)
+
     ! ICON external parameters have SW albedo for two different wavelength bands, visible and near infrared. The following call to
     ! ecrad_conf%define_sw_albedo_intervals tells ecrad about the two bands and the wavelength bound which is at 700 nm (according
     ! to a comment in mo_nwp_phy_types).
@@ -233,7 +242,23 @@ CONTAINS
     ! external data.
     i_band_in_lw           = 1
     CALL ecrad_conf%define_lw_emiss_intervals(1, wavelength_bound_lw, i_band_in_lw)
-    
+
+    !$ACC ENTER DATA COPYIN(ecrad_conf)
+    !$ACC ENTER DATA COPYIN(ecrad_conf%cloud_optics, &
+    !$ACC                   ecrad_conf%i_albedo_from_band_sw, &
+    !$ACC                   ecrad_conf%i_band_from_reordered_g_lw, &
+    !$ACC                   ecrad_conf%i_band_from_reordered_g_sw, &
+    !$ACC                   ecrad_conf%i_band_from_g_lw, &
+    !$ACC                   ecrad_conf%i_g_from_reordered_g_lw, &
+    !$ACC                   ecrad_conf%i_emiss_from_band_lw, &
+    !$ACC                   ecrad_conf%pdf_sampler, &
+    !$ACC                   ecrad_conf%sw_albedo_weights)
+    !$ACC ENTER DATA COPYIN(ecrad_conf%cloud_optics%liq_coeff_lw, &
+    !$ACC                   ecrad_conf%cloud_optics%liq_coeff_sw, &
+    !$ACC                   ecrad_conf%cloud_optics%ice_coeff_lw, &
+    !$ACC                   ecrad_conf%cloud_optics%ice_coeff_sw, &
+    !$ACC                   ecrad_conf%pdf_sampler%val)
+
   END SUBROUTINE setup_ecrad
   !---------------------------------------------------------------------------------------
 

@@ -196,6 +196,8 @@ module cvmix_kinds_and_types
     real(cvmix_r8), dimension(:), pointer :: Ssqr_iface => NULL()
     ! squared buoyancy frequency (s^-2) 
     real(cvmix_r8), dimension(:), pointer :: Nsqr_iface => NULL()
+    ! Langmuir turbulence (m^2/s2)
+    real(cvmix_r8), dimension(:), pointer :: tke_plc => NULL()
 
 
     ! Values at tracer points (dimsize = nlev)

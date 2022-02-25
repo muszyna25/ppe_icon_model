@@ -474,7 +474,7 @@ MODULE mo_surface_les
       !Ts(K) - qvs(kg/kg)
       
       !Skip the first line
-      READ(iunit,*,IOSTAT=ist)			      !skip
+      READ(iunit,*,IOSTAT=ist)            !skip
  
       !Read the second line with information about time levels 
       READ(iunit,*,IOSTAT=ist)stime,dt_interval,etime
@@ -668,6 +668,14 @@ MODULE mo_surface_les
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    !prescribed fluxes aka SCM
+    CASE(10)
+    !Fluxes are already setup in mo_sgs_turbulence.f90
+     !change sign of surface fluxes
+     prm_diag%shfl_s  = - prm_diag%shfl_s
+     prm_diag%lhfl_s  = - prm_diag%lhfl_s
+     prm_diag%umfl_s  = - prm_diag%umfl_s
+     prm_diag%vmfl_s  = - prm_diag%vmfl_s
 
     !No fluxes
     CASE(0)

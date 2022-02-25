@@ -53,7 +53,7 @@ MODULE mo_interface_les
   USE mo_run_config,            ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqm_max,   &
     &                                 msg_level, ltimer, timers_level, nqtendphy,  &
     &                                 ltransport, lart, iqni, iqnc
-  USE mo_physical_constants,    ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd, cvv
+  USE mo_physical_constants,    ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd, cvv, grav
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp, calc_qsum
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water
@@ -71,8 +71,11 @@ MODULE mo_interface_les
   USE mo_nwp_diagnosis,         ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
   USE mo_icon_comm_lib,         ONLY: new_icon_comm_variable, &
     &                                 icon_comm_sync_all, is_ready, until_sync
+#ifdef __ICON_ART
   USE mo_art_washout_interface, ONLY: art_washout_interface
-  USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
+#endif
+  USE mo_ls_forcing_nml,        ONLY: is_ls_forcing, is_nudging_uv, is_nudging_tq, is_sim_rad,   &
+    &                                 nudge_start_height, nudge_full_height, dt_relax
   USE mo_ls_forcing,            ONLY: apply_ls_forcing
   USE mo_advection_config,      ONLY: advection_config
   USE mo_nwp_turbtrans_interface, ONLY: nwp_turbtrans
@@ -80,7 +83,7 @@ MODULE mo_interface_les
                                       write_vertical_profiles, write_time_series, &
                                       avg_interval_step, sampl_freq_step,  &
                                       is_sampling_time, is_writing_time, les_cloud_diag
-  USE mo_les_utilities,         ONLY: init_vertical_grid_for_les
+  USE mo_nh_vert_interp_les,    ONLY: init_vertical_grid_for_les
   USE mo_fortran_tools,         ONLY: copy
   USE mo_nh_supervise,          ONLY: compute_dpsdt
 
@@ -174,6 +177,8 @@ CONTAINS
     INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:)
 
     REAL(wp), TARGET :: &                                     !> temporal arrays for
+      & z_ddt_u_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),&
+      & z_ddt_v_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& !< hor. wind tendencies
       & z_ddt_temp  (nproma,pt_patch%nlev,pt_patch%nblks_c)   !< Temperature tendency
 
     REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c)
@@ -192,7 +197,7 @@ CONTAINS
     REAL(wp) :: qtvar(nproma,pt_patch%nlev)
 
     ! communication ids, these do not need to be different variables,
-    ! since they are not treated individually
+    ! since they are not treated individualy
     INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, tracers_comm, tempv_comm, exner_pr_comm
 
     CHARACTER(len=*), PARAMETER :: routine = modname//'::les_phy_interface:'
@@ -201,12 +206,14 @@ CONTAINS
     ! Required for computing the water loading term 
     INTEGER, POINTER :: condensate_list(:)
 
-    REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
+    REAL(wp) :: p_sim_time      !< elapsed simulation time on this grid level
+
+    ! SCM Nudging
+    REAL(wp) :: nudgecoeff
 
     ! calculate elapsed simulation time in seconds (local time for
     ! this domain!)
     p_sim_time = getElapsedSimTimeInSeconds(mtime_current) 
-
 
     IF (ltimer) CALL timer_start(timer_physics)
 
@@ -521,7 +528,7 @@ CONTAINS
 
     ENDIF
 
-
+#ifdef __ICON_ART
     IF (lart) THEN
 
       CALL art_washout_interface(pt_prog, pt_diag ,             & !>in
@@ -531,7 +538,7 @@ CONTAINS
                  &          p_metrics,                          & !>in
                  &          pt_prog_rcf%tracer)                   !>inout
     ENDIF !lart
-
+#endif
 
 
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
@@ -652,6 +659,7 @@ CONTAINS
                           & pt_prog_rcf,                      & !>inout
                           & pt_diag,                          & !>inout
                           & prm_diag,                         & !>inout
+                          & prm_nwp_tend,                     & !ibd
                           & wtr_prog_new,                     & !>in
                           & lnd_prog_new,                     & !>inout
                           & lnd_diag                          ) !>inout
@@ -806,7 +814,9 @@ CONTAINS
            &              pt_diag,               & ! inout
            &              prm_diag,              & ! inout
            &              lnd_prog_new,          & ! in
-           &              wtr_prog_new           ) ! in
+           &              wtr_prog_new,          & ! in
+           &              p_metrics%z_mc,        & ! in
+           &              p_metrics%ddqz_z_full  ) ! in 
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)
 
     ENDIF
@@ -1010,12 +1020,12 @@ CONTAINS
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
-      ! Modified by Christopher Moseley: call to apply_ls_forcing
-      CALL apply_ls_forcing ( pt_patch,          &  !>in
-        &                     p_metrics,         &  !>in
-        &                     p_sim_time,        &  !>in
-        &                     pt_prog,           &  !>in
-        &                     pt_diag,           &  !>in
+      ! Call to apply_ls_forcing
+      CALL apply_ls_forcing ( pt_patch,                         & !>in
+        &                     p_metrics,                        & !>in
+        &                     p_sim_time,                       & !>in
+        &                     pt_prog,                          & !>in
+        &                     pt_diag,                          & !>in
         &                     pt_prog_rcf%tracer(:,:,:,iqv),    & !>in
         &                     rl_start,                         & !>in
         &                     rl_end,                           & !>in
@@ -1023,13 +1033,27 @@ CONTAINS
         &                     prm_nwp_tend%ddt_v_ls,            & !>out
         &                     prm_nwp_tend%ddt_temp_ls,         & !>out
         &                     prm_nwp_tend%ddt_tracer_ls(:,iqv),& !>out
-        &                     prm_nwp_tend%ddt_temp_subs_ls,    & !>output
+        &                     prm_nwp_tend%ddt_temp_subs_ls,    & !>output (Christopher Moseley)
         &                     prm_nwp_tend%ddt_qv_subs_ls,      & !>output
         &                     prm_nwp_tend%ddt_temp_adv_ls,     & !>output
         &                     prm_nwp_tend%ddt_qv_adv_ls,       & !>output
-        &                     prm_nwp_tend%ddt_temp_nud_ls,     & !>output
-        &                     prm_nwp_tend%ddt_qv_nud_ls,       & !>output
-        &                     prm_nwp_tend%wsub)                  !>output
+        &                     prm_nwp_tend%ddt_u_adv_ls,        & !>output
+        &                     prm_nwp_tend%ddt_v_adv_ls,        & !>output
+        &                     prm_nwp_tend%wsub,                & !>output
+        &                     prm_nwp_tend%fc_sfc_lat_flx,      & !>output
+        &                     prm_nwp_tend%fc_sfc_sens_flx,     & !>output
+        &                     prm_nwp_tend%fc_ts,               & !>output
+        &                     prm_nwp_tend%fc_tg,               & !>output
+        &                     prm_nwp_tend%fc_qvs,              & !>output
+        &                     prm_nwp_tend%fc_Ch,               & !>output
+        &                     prm_nwp_tend%fc_Cq,               & !>output
+        &                     prm_nwp_tend%fc_Cm,               & !>output
+        &                     prm_nwp_tend%fc_ustar,            & !>output
+        &                     prm_nwp_tend%temp_nudge,          & !>out
+        &                     prm_nwp_tend%u_nudge,             & !>out
+        &                     prm_nwp_tend%v_nudge,             & !>out
+        &                     prm_nwp_tend%q_nudge              ) !>out
+
 
       IF (timers_level > 3) CALL timer_stop(timer_ls_forcing)
 
@@ -1052,7 +1076,7 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx , z_qsum, z_ddt_qsum &
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx , z_qsum, z_ddt_qsum, nudgecoeff &
 !$OMP  ) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
@@ -1087,8 +1111,51 @@ CONTAINS
 
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
-              z_ddt_temp(jc,jk,jb) = z_ddt_temp(jc,jk,jb)               &
-                                +  prm_nwp_tend%ddt_temp_ls(jk)
+              ! add u/v/T forcing tendency
+              z_ddt_u_tot(jc,jk,jb)   = z_ddt_u_tot(jc,jk,jb)       &
+                &                     + prm_nwp_tend%ddt_u_ls(jk) 
+
+              z_ddt_v_tot(jc,jk,jb)   = z_ddt_v_tot(jc,jk,jb)       &
+                &                     + prm_nwp_tend%ddt_v_ls(jk)
+
+              z_ddt_temp(jc,jk,jb)    = z_ddt_temp(jc,jk,jb)        &
+                                      + prm_nwp_tend%ddt_temp_ls(jk)
+
+              ! simplified radiation scheme
+              IF(is_sim_rad) THEN
+                z_ddt_temp(jc,jk,jb)  = z_ddt_temp(jc,jk,jb)        &
+                                      + prm_nwp_tend%ddt_temp_sim_rad(jc,jk,jb)
+              ENDIF
+
+              ! linear nudging profile between "start" and "full" heights - prevent sfc layer instability
+              IF ( nudge_full_height == nudge_start_height ) THEN
+                nudgecoeff = 1.0_wp
+              ELSE
+                nudgecoeff = ( p_metrics%geopot_agl(jc,jk,jb)/grav - nudge_start_height ) / &
+                           & ( nudge_full_height                   - nudge_start_height )
+                nudgecoeff = MAX( MIN( nudgecoeff, 1.0_wp ), 0.0_wp )
+              END IF
+
+              ! add u/v/T nudging
+              IF ( is_nudging_uv ) THEN
+                ! analytic implicit: (u,n+1 - u,n) / dt = (u,nudge - u,n) / dt_relax * exp(-dt/dt_relax)
+                z_ddt_u_tot(jc,jk,jb) = z_ddt_u_tot(jc,jk,jb)       &
+                  &  - ( pt_diag%u(jc,jk,jb) - prm_nwp_tend%u_nudge(jk) ) / dt_relax * exp(-dt_loc/dt_relax) &
+                  &  * nudgecoeff
+ 
+                z_ddt_v_tot(jc,jk,jb) = z_ddt_v_tot(jc,jk,jb)       &
+                  &  - ( pt_diag%v(jc,jk,jb) - prm_nwp_tend%v_nudge(jk) ) / dt_relax * exp(-dt_loc/dt_relax) &
+                  &  * nudgecoeff
+
+              END IF
+
+              ! attention: T nudging results in dt-step oscillation/instability!
+              IF ( is_nudging_tq ) THEN
+                ! analytic implicit: (T,n+1 - T,n) / dt = (T,nudge - T,n) / dt_relax * exp(-dt/dt_relax)
+                z_ddt_temp(jc,jk,jb)  = z_ddt_temp(jc,jk,jb)         &
+                  &  - ( pt_diag%temp(jc,jk,jb) - prm_nwp_tend%temp_nudge(jk) ) / dt_relax &
+                  &  * exp(-dt_loc/dt_relax) * nudgecoeff
+              END IF
 
               ! Convert temperature tendency into Exner function tendency
               z_ddt_qsum =   prm_nwp_tend%ddt_tracer_ls(jk,iqc)          &

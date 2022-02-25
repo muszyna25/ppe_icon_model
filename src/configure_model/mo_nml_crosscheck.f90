@@ -17,6 +17,7 @@
 !!
 MODULE mo_nml_crosscheck
 
+
   USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
   USE mo_kind,                     ONLY: wp
   USE mo_exception,                ONLY: message, message_text, finish, em_info
@@ -63,7 +64,7 @@ MODULE mo_nml_crosscheck
   USE mo_nh_testcases_nml,         ONLY: nh_test_name, layer_thickness
   USE mo_meteogram_config,         ONLY: meteogram_output_config, check_meteogram_configuration
   USE mo_grid_config,              ONLY: lplane, n_dom, l_limited_area, start_time,        &
-    &                                    nroot, is_plane_torus, n_dom_start
+    &                                    nroot, is_plane_torus, n_dom_start, l_scm_mode
   USE mo_art_config,               ONLY: art_config, ctracer_art
   USE mo_time_management,          ONLY: compute_timestep_settings,                        &
     &                                    compute_restart_settings,                         &
@@ -79,9 +80,13 @@ MODULE mo_nml_crosscheck
   USE mo_upatmo_config,            ONLY: check_upatmo
   USE mo_name_list_output_config,  ONLY: is_variable_in_output_dom
   USE mo_nh_testcase_check,        ONLY: check_nh_testcase
-  USE mo_art_init_interface,       ONLY: art_calc_ntracer_and_names
 
+  USE mo_scm_nml,                  ONLY: i_scm_netcdf, scm_sfc_temp, scm_sfc_qv, scm_sfc_mom
+#ifndef __NO_ICON_LES__
+  USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
+#endif
 #ifdef __ICON_ART
+  USE mo_art_init_interface,       ONLY: art_calc_ntracer_and_names
   USE mo_grid_config,              ONLY: lredgrid_phys
 #endif
 
@@ -218,6 +223,32 @@ CONTAINS
 
 
     !--------------------------------------------------------------------
+    ! SCM single column model
+    !--------------------------------------------------------------------
+    IF (l_scm_mode) THEN
+      ! data read from 0: ASCII, 1: normal netcdf file, 2: DEPHY unified format
+      IF ( (i_scm_netcdf /= 1) .AND. (i_scm_netcdf /= 2) ) & 
+        CALL finish(routine, 'i_scm_netcdf not valid for SCM, only 1 or 2 allowed')
+      ltestcase      = .TRUE.
+      is_plane_torus = .TRUE.
+      CALL message( routine, 'l_scm_mode: ltestcase and is_plane_torus has been set to TRUE')
+
+      !if time dependent surface BD conditions then use ls_forcing
+      !routines for interpolation in time
+      IF ( (scm_sfc_temp .GE. 1) .OR. (scm_sfc_qv .GE. 1) .OR. (scm_sfc_mom .GE. 1) ) THEN
+#ifndef __NO_ICON_LES__
+        is_ls_forcing = .TRUE.
+        CALL message( routine, 'scm_sfc_... requires is_ls_forcing=TRUE. is_ls_forcing has been set to TRUE')
+#else
+        CALL finish( routine, 'scm_sfc_... requires is_ls_forcing=TRUE, but --disable-les has been set')
+#endif
+      END IF
+    ELSE
+      i_scm_netcdf   = 0
+    END IF
+
+
+    !--------------------------------------------------------------------
     ! Nonhydrostatic atm
     !--------------------------------------------------------------------
     IF (lhdiff_rcf .AND. (itype_comm == 3)) CALL finish(routine, &
@@ -234,6 +265,11 @@ CONTAINS
     IF ((iforcing==INWP).AND.(iequations/=INH_ATMOSPHERE)) &
     CALL finish( routine, 'NWP physics only implemented in the '//&
                'nonhydrostatic atm model')
+
+#ifdef __NO_ECHAM
+    IF ( iforcing==iecham ) &
+      CALL finish( routine, 'ECHAM physics desired, but compilation with --disable-echam' )
+#endif
 
     !--------------------------------------------------------------------
     ! NWP physics
@@ -277,7 +313,7 @@ CONTAINS
           SELECT CASE (irad_o3)
           CASE (0) ! ok
             CALL message(routine,'radiation is used without ozone')
-          CASE (2,4,6,7,8,9,79,97) ! ok
+          CASE (2,4,6,7,8,9,11,79,97) ! ok
             CALL message(routine,'radiation is used with ozone')
           CASE (10) ! ok
             CALL message(routine,'radiation is used with ozone calculated from ART')
@@ -285,7 +321,7 @@ CONTAINS
               CALL finish(routine,'irad_o3 currently is 10 but lart is false.')
             ENDIF
           CASE default
-            CALL finish(routine,'irad_o3 currently has to be 0, 2, 4, 6, 7, 8 or 9.')
+            CALL finish(routine,'irad_o3 currently has to be 0, 2, 4, 6, 7, 8, 9, 10, 11, 79 or 97.')
           END SELECT
 
           ! Tegen aerosol and itopo (Tegen aerosol data have to be read from external data file)
@@ -296,6 +332,11 @@ CONTAINS
           IF ( ( irad_aero /= 6 .AND. irad_aero /= 9 ) .AND.  &
             &  ( atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0 ) ) THEN
             CALL finish(routine,'aerosol-precipitation coupling requires irad_aero=6 or =9')
+          ENDIF
+         
+          ! Kinne, CMIP6 volcanic aerosol only work with ecRad
+          IF ( ANY( irad_aero == (/12,13,14,15/) ) .AND. atm_phy_nwp_config(jg)%inwp_radiation /= 4 ) THEN
+            CALL finish(routine,'irad_aero = 12, 13, 14 or 15 requires inwp_radiation=4')
           ENDIF
 
           ! ecRad specific checks
@@ -308,16 +349,16 @@ CONTAINS
               &  CALL finish(routine,'For inwp_radiation = 4, irad_ch4 has to be 0, 2, 3 or 4')
             IF (.NOT. ANY( irad_n2o     == (/0,2,3,4/)     ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, irad_n2o has to be 0, 2, 3 or 4')
-            IF (.NOT. ANY( irad_o3      == (/0,7,9,79,97/) ) ) &
-              &  CALL finish(routine,'For inwp_radiation = 4, irad_o3 has to be 0, 7, 9, 79 or 97')
+            IF (.NOT. ANY( irad_o3      == (/0,7,9,11,79,97/) ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_o3 has to be 0, 7, 9, 11, 79 or 97')
             IF (.NOT. ANY( irad_o2      == (/0,2/)         ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, irad_o2 has to be 0 or 2')
             IF (.NOT. ANY( irad_cfc11   == (/0,2,4/)       ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc11 has to be 0, 2 or 4')
             IF (.NOT. ANY( irad_cfc12   == (/0,2,4/)       ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc12 has to be 0, 2 or 4')
-            IF (.NOT. ANY( irad_aero    == (/0,2,5,6,9/)   ) ) &
-              &  CALL finish(routine,'For inwp_radiation = 4, irad_aero has to be 0, 2, 5, 6 or 9')
+            IF (.NOT. ANY( irad_aero    == (/0,2,6,9,12,13,14,15/)   ) ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_aero has to be 0, 2, 6, 9, 12, 13, 14 or 15')
             IF (.NOT. ANY( icld_overlap == (/1,2,5/)       ) ) &
               &  CALL finish(routine,'For inwp_radiation = 4, icld_overlap has to be 1, 2 or 5')
             IF (.NOT. ANY( iliquid_scat == (/0,1/)         ) ) &
@@ -346,8 +387,10 @@ CONTAINS
 
         !! Checks for simple prognostic aerosol scheme
         IF (iprog_aero > 0) THEN
+#ifndef __NO_ICON_LES__
           IF (atm_phy_nwp_config(jg)%is_les_phy) &
             & CALL finish(routine,'iprog_aero > 0 can not be combined with LES physics')
+#endif
           IF (irad_aero /= 6) &
             & CALL finish(routine,'iprog_aero > 0 currently only available for irad_aero=6')
         ENDIF
@@ -540,6 +583,9 @@ CONTAINS
 
 
       IF (atm_phy_nwp_config(1)%inwp_turb == iedmf) THEN ! EDMF turbulence
+#ifdef __NO_ICON_EDMF__
+        CALL finish( routine, 'EDMF turbulence desired, but compilation with --disable-edmf' )
+#endif
 
         iqtvar = iqt ; advection_config(:)%tracer_names(iqtvar) = 'qtvar' !! qt variance
         iqt    = iqt + 1   !! start index of other tracers than hydrometeors
@@ -602,9 +648,16 @@ CONTAINS
     END SELECT ! iforcing
 
     IF (lart) THEN
+#ifdef _OPENACC
+      CALL finish( TRIM(routine),'ART not supported on GPU -- run without ART')
+#endif
+#ifndef __ICON_ART
+      CALL finish( TRIM(routine),'model set to run with ART but compiled with --disable-art')
+#else
       ! determine number of ART-tracers (by reading given XML-Files)
       ! * art_config(1)%iart_ntracer
       CALL art_calc_ntracer_and_names()
+#endif
 
       IF(art_config(1)%iart_ntracer > 0) THEN
         advection_config(1)%tracer_names(ntracer+1:ntracer+art_config(1)%iart_ntracer) =       &
@@ -886,12 +939,10 @@ CONTAINS
 
 
     ! ********************************************************************************
-    ! [RADAROP]
-    ! ********************************************************************************
     !
-    ! Enter "cross checks" for namelist parameters here:
-    ! *  RadarOp may be switched on only if nonhydro and inwp enabled.
-    ! *  RadarOp may be switched on only if preprocessor flag enabled (see below).
+    ! Cross checks for EMVORADO-related namelist parameters:
+    ! *  EMVORADO may be switched on only if nonhydro and inwp enabled.
+    ! *  EMVORADO may be switched on only if preprocessor flag enabled (see below).
     ! 
     ! ********************************************************************************
 
@@ -974,7 +1025,7 @@ CONTAINS
 
     INTEGER  :: jg, ndoms_radaractive
     CHARACTER(len=255) :: errstring
-    
+
 #ifndef HAVE_RADARFWO
     IF ( ANY(luse_radarfwo) ) THEN
         CALL finish( routine,'run_nml: luse_radarfwo is set .TRUE. in some domains but ICON was compiled without -DHAVE_RADARFWO')

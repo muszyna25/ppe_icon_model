@@ -60,7 +60,7 @@ MODULE mo_nudging
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_prog, &
     &                                 t_nh_diag, t_nh_metrics
-  USE mo_initicon_types,        ONLY: t_init_state, t_pi_atm
+  USE mo_initicon_types,        ONLY: t_pi_atm
   USE mo_async_latbc_types,     ONLY: t_latbc_data
   USE mo_intp_data_strc,        ONLY: t_int_state
   USE mtime,                    ONLY: datetime, timedelta,             &
@@ -68,7 +68,6 @@ MODULE mo_nudging
     &                                 OPERATOR(>=), OPERATOR(*), OPERATOR(+)
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
   USE mo_async_latbc_utils,     ONLY: update_lin_interpolation
-  USE mo_sync_latbc,            ONLY: update_lin_interc
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_math_divrot,           ONLY: div
   USE mo_mpi,                   ONLY: my_process_is_stdio,          &
@@ -102,7 +101,6 @@ CONTAINS !..................................................................
   !!
   SUBROUTINE nudging_interface( p_patch,          & !in
     &                           p_nh_state,       & !inout
-    &                           p_latbc_data,     & !in
     &                           latbc,            & !in
     &                           p_int_state,      & !in
     &                           mtime_datetime,   & !in
@@ -111,15 +109,12 @@ CONTAINS !..................................................................
     &                           ndyn_substeps,    & !in
     &                           nnew,             & !in
     &                           nnew_rcf,         & !in
-    &                           last_latbc_tlev,  & !in
-    &                           read_latbc_tlev,  & !in
     &                           upatmo_config,    & !in
     &                           nudging_config    ) !inout
 
     ! In/out variables
     TYPE(t_patch),            TARGET,  INTENT(IN)    :: p_patch           !< Grid/patch info
     TYPE(t_nh_state),         TARGET,  INTENT(INOUT) :: p_nh_state        !< Prognostic and diagnostic variables etc.
-    TYPE(t_init_state),       TARGET,  INTENT(IN)    :: p_latbc_data(:)   !< Two time-level boundary data               
     TYPE(t_latbc_data),       TARGET,  INTENT(IN)    :: latbc             !< Data structure for async latbc prefetching
     TYPE(t_int_state),                 INTENT(IN)    :: p_int_state       !< For operations on the horizontal grid geometry
     TYPE(datetime),           POINTER, INTENT(IN)    :: mtime_datetime    !< Date/time information
@@ -127,8 +122,6 @@ CONTAINS !..................................................................
     TYPE(t_time_config),               INTENT(IN)    :: time_config       !< Important times of current simulation
     INTEGER,                           INTENT(IN)    :: ndyn_substeps     !< Number of dynamics' substeps
     INTEGER,                           INTENT(IN)    :: nnew, nnew_rcf    !< Time level indices
-    INTEGER,                           INTENT(IN)    :: last_latbc_tlev   !< Time level index for p_latbc_data
-    INTEGER,                           INTENT(IN)    :: read_latbc_tlev   !< Time level index for p_latbc_data
     TYPE(t_upatmo_config),             INTENT(IN)    :: upatmo_config     !< Upper-atmosphere switches
     TYPE(t_nudging_config),            INTENT(INOUT) :: nudging_config    !< Nudging switches
 
@@ -195,28 +188,20 @@ CONTAINS !..................................................................
       !                        Preparation
       !---------------------------------------------------------------
 
-      IF (nudging_config%lasync) THEN
-        !
-        ! Asynchronous read-in of driving data:
-        !
-        ! The following subroutine updates the weights: 
-        ! * latbc_config%lc1 
-        ! * latbc_config%lc2 
-        ! for interpolation of the driving data in time 
-        CALL update_lin_interpolation(latbc, mtime_datetime)
-        ! Set pointer to past and future state of driving data,
-        ! from which their current state is estimated by 
-        ! linear interpolation in time
-        p_latbc_old => latbc%latbc_data( latbc%prev_latbc_tlev() )%atm
-        p_latbc_new => latbc%latbc_data( latbc%new_latbc_tlev    )%atm
-      ELSE
-        !
-        ! Synchronous read-in of driving data:
-        !
-        CALL update_lin_interc(mtime_datetime)
-        p_latbc_old => p_latbc_data( last_latbc_tlev )%atm
-        p_latbc_new => p_latbc_data( read_latbc_tlev )%atm
-      ENDIF
+      !
+      ! Asynchronous read-in of driving data:
+      !
+      ! The following subroutine updates the weights: 
+      ! * latbc_config%lc1 
+      ! * latbc_config%lc2 
+      ! for interpolation of the driving data in time 
+      CALL update_lin_interpolation(latbc, mtime_datetime)
+
+      ! Set pointer to past and future state of driving data,
+      ! from which their current state is estimated by 
+      ! linear interpolation in time
+      p_latbc_old => latbc%latbc_data( latbc%prev_latbc_tlev() )%atm
+      p_latbc_new => latbc%latbc_data( latbc%new_latbc_tlev    )%atm
 
       ! Get weights for time interpolation of driving data
       wfac_old = latbc_config%lc1

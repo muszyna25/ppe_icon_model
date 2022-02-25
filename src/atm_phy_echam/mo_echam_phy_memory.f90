@@ -236,12 +236,7 @@ MODULE mo_echam_phy_memory
       & rlus        (:,  :)=>NULL(),  &!< [W/m2] surface upwelling   longwave radiation
       & rldscs      (:,  :)=>NULL(),  &!< [W/m2] surface downwelling clear-sky longwave radiation
       & rluscs      (:,  :)=>NULL(),  &!< [W/m2] surface downwelling clear-sky longwave radiation
-      !
-#ifdef __NO_RTE_RRTMGP__
-      & o3          (:,:,:)    !< temporary set ozone mass mixing ratio  
-#else
       & o3          (:,:,:)=>NULL()    !< [mol/mol] ozone volume mixing ratio 
-#endif
     ! aerosol optical properties
     REAL(wp),POINTER ::      &
       & aer_aod_533 (:,:,:)=>NULL(),  &!< aerosol optical depth at 533 nm
@@ -947,13 +942,8 @@ CONTAINS
     ! OZONE 
     ! &       field% o3        (nproma,nlev  ,nblks),          &
     grib2_desc = grib2_var(0,14,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-#ifdef __NO_RTE_RRTMGP__
-    cf_desc    = t_cf_var('ozone', 'kg/kg', 'ozone mixing ratio', datatype_flt)
-    CALL add_var( field_list, prefix//'tro3', field%o3,                         &
-#else
     cf_desc    = t_cf_var('ozone', 'mol/mol', 'ozone volume mixing ratio', datatype_flt)
     CALL add_var( field_list, prefix//'o3', field%o3,                           &
-#endif
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d, &
                 & lrestart = .FALSE.,                                           &
                 & vert_interp=create_vert_interp_metadata(                      &

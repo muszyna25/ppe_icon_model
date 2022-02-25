@@ -132,14 +132,13 @@ MODULE mo_nonhydro_types
     &  mflx_ic_int(:,:,:),      & ! Storage field for vertical nesting: mass flux at parent interface level
     &  mflx_ic_ubc(:,:,:),      & ! Storage field for vertical nesting: 
                                   ! average mass flux plus time tendency at child upper boundary
-    &  q_int(:,:,:),            & ! Storage field for vertical nesting: q at parent interface level
-    &  q_ubc(:,:,:),            & ! Storage field for vertical nesting: q at child upper boundary
 
     !
     ! c) variables derived from analysis increments
     &  t2m_bias (:,:),       & !! filtered T2M bias from surface analysis [K]
     &  rh_avginc(:,:),       & !! time-averaged/filtered RH increments from DA at lowest model level
     &  t_avginc(:,:),        & !! time-averaged/filtered T increments from DA at lowest model level
+    &  t_wgt_avginc(:,:),    & !! time-averaged/filtered T increments from DA at lowest model level, weighted with COS(local time)
     &  p_avginc(:,:),        & !! time-averaged/filtered P increments from DA at lowest model level
 
     !
@@ -310,8 +309,6 @@ MODULE mo_nonhydro_types
       &  hfl_trc_ptr    (:),   &  !< pointer array: one pointer for each tracer
       &  vfl_trc_ptr    (:),   &  !< pointer array: one pointer for each tracer
       &  ddt_trc_adv_ptr(:),   &  !< pointer array: one pointer for each tracer
-      &  q_int_ptr      (:),   &  
-      &  q_ubc_ptr      (:),   &
       &  tracer_vi_ptr  (:),   &  !< pointer array: one pointer for each tracer
       &  tracer_vi_avg_ptr(:), &  !< pointer array: one pointer for each tracer
       &  extra_2d_ptr   (:),   &

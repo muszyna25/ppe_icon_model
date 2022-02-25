@@ -54,7 +54,6 @@ MODULE mo_art_emission_interface
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_emissInt
 
-#ifdef __ICON_ART
   ! ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -91,7 +90,6 @@ MODULE mo_art_emission_interface
 
   USE mo_art_diagnostics,               ONLY: art_save_aerosol_emission
   USE mo_art_read_extdata,              ONLY: art_read_sdes_ambrosia
-#endif
 
   IMPLICIT NONE
 
@@ -139,7 +137,6 @@ CONTAINS
     &  emiss_rate(:,:),      & !< Emission rates [UNIT m-3 s-1], UNIT might be mug, kg or just a number
     &  saisl_stns(:)
   CHARACTER(LEN=3)  :: hhh    !< hours since model start, e.g., "002"
-#ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: &
     &  this_mode               !< pointer to current aerosol mode
   TYPE(t_art_atmo), POINTER :: &
@@ -557,7 +554,6 @@ CONTAINS
 
   ENDIF !lart
 
-#endif
 END SUBROUTINE art_emission_interface
 !!
 !!-------------------------------------------------------------------------

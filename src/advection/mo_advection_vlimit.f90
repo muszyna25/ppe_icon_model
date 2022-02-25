@@ -61,12 +61,7 @@ MODULE mo_advection_vlimit
   PUBLIC :: v_limit_face_mc_sm
 
 #if defined( _OPENACC )
-#if defined(__ADVECTION_LIMITER_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
 CONTAINS
@@ -141,7 +136,6 @@ CONTAINS
 
 !$ACC DATA CREATE( r_m ), PCOPYIN( p_cc, p_rhodz_now ), PCOPY( p_mflx_tracer_v ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_v ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     IF (p_test_run) THEN
 !$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
@@ -198,7 +192,6 @@ CONTAINS
 !$ACC END PARALLEL
 
 !$ACC WAIT
-!$ACC UPDATE HOST( p_mflx_tracer_v ), WAIT(1) IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
 !$ACC END DATA
 
   END SUBROUTINE vflx_limiter_pd
@@ -267,8 +260,6 @@ CONTAINS
 !$ACC DATA PCOPYIN( p_cc, p_face ), PCOPY( p_face_up, p_face_low ), &
 !$ACC      CREATE(z_delta, z_a6i, l_limit), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_face ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
 
     ! selective limitation yes or no
     IF (p_ivlimit_selective == 1) THEN
@@ -378,7 +369,6 @@ CONTAINS
     END DO LIMIT
 !$ACC END PARALLEL
 
-!$ACC UPDATE HOST( p_face_up, p_face_low ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE v_limit_parabola_mo 
@@ -444,7 +434,6 @@ CONTAINS
 !$ACC DATA PCOPYIN( p_cc, p_face ), PCOPYOUT( p_face_up, p_face_low ), &
 !$ACC      CREATE(l_limit), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_face ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! selective limitation yes or no
     IF (p_ivlimit_selective == 1) THEN
@@ -549,7 +538,6 @@ CONTAINS
     END DO LIMIT
 !$ACC END PARALLEL
 
-!$ACC UPDATE HOST( p_face_up, p_face_low ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE v_limit_parabola_sm

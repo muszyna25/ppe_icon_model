@@ -8,8 +8,8 @@
 #PBS -v NMPI_DAEMON_PATH=${NMPI_ROOT}/libexec/mpid
 #PBS -l elapstim_req=00:40:00
 #PBS --venode=${NE}
-#PBS --venum-lhost=2     # Number of VE per logical host
-#PBS -l cpunum_job=2
+#PBS --venum-lhost=3     # Number of VE per logical host
+#PBS -l cpunum_job=5
 #PBS -l coresz_prc=0
 #PBS -T necmpi
 #PBS --use-hca=2             # Number of HCA per logical host
@@ -510,8 +510,13 @@ cat > ${atmo_namelist} << EOF
  dace_coupling   = .true.
  dace_debug      = 1
  dace_time_ctrl  = 0,3600,1800 ! [s] time slices of DACE (start, stop, inc)
- fac_lhn_down    = 0.2
- fac_lhn_up      = 1.5
+ rttend =            0.0
+ lhn_logscale =     .true.
+ lhn_coef  =        2.0
+ fac_lhn_up  =      1.1
+ fac_lhn_down =     0.7
+ abs_lhn_lim  =     0.0035
+ rqrsgmax  =        0.01
  lhn_artif       = .true.
  lhn_artif_only  = .false.
  lhn_black       = .true.
@@ -519,10 +524,8 @@ cat > ${atmo_namelist} << EOF
    height_file     = 'radar_dx.nc'
    nradar          = 12       ! number of levele with radar heights within height_file
  lhn_bright      = .true.
- lhn_coef        = 1.0
  lhn_diag        = .true.
  lhn_hum_adj     = .true.
- lhn_logscale    = .false.
  lhn_qrs         = .true.
  lhn_relax       = .true.
  lhn_wweight     = .true.
@@ -533,7 +536,6 @@ cat > ${atmo_namelist} << EOF
  nlhnverif_start = 0
 !radardata_file  = 'radardata_DOM1.nc','radardata_DOM2.nc',
  radardata_file  = 'radardata_DOM1.nc'
- rqrsgmax        = 0.5
  start_fadeout   = 1.0
  std_artif_max   = 4.
  tt_artif_max    = 0.009
@@ -1164,8 +1166,8 @@ export NMPI_EXPORT="GFORTRAN_UNBUFFERED_PRECONNECTED"
 # process 0 on VH 0 and 5 I/O processes on VH 0 and 1
 /opt/nec/ve/bin/mpirun -v    -vh     -node 0        -np 1      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} : \
            -x -venode -node 0-${NE1} -np ${PPN} -env OMP_NUM_THREADS 1 ${MODEL} : \
-              -vh     -node 0        -np 3      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} : \
-              -vh     -node 1        -np 2      -env OMP_NUM_THREADS 1 ${MODEL_SCAL}
+              -vh     -node 0        -np 1      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} : \
+              -vh     -node 1        -np 4      -env OMP_NUM_THREADS 1 ${MODEL_SCAL}
 
 
 date

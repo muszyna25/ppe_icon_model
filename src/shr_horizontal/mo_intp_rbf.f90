@@ -159,12 +159,7 @@ PUBLIC :: rbf_vec_interpol_cell, rbf_interpol_c2grad,     &
         & rbf_vec_interpol_vertex, rbf_vec_interpol_edge
 
 #if defined( _OPENACC )
-#if defined(__INTP_RBF_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 INTERFACE rbf_vec_interpol_vertex
@@ -291,7 +286,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$ACC DATA PCOPYIN( p_vn_in ), PCOPY( p_u_out, p_v_out ), &
 !$ACC      PRESENT( iidx, iblk, ptr_coeff ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_vn_in, p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
@@ -336,7 +330,6 @@ DO jb = i_startblk, i_endblk
 
 ENDDO
 
-!$ACC UPDATE HOST(p_u_out,p_v_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 !$OMP END DO NOWAIT
@@ -448,7 +441,6 @@ ENDIF
 
 !$ACC DATA PCOPYIN( p_cell_in ), PCOPY( grad_x, grad_y ), &
 !$ACC      PRESENT( iidx, iblk, ptr_coeff ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cell_in, grad_x, grad_y ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
 
@@ -498,7 +490,6 @@ DO jb = i_startblk, i_endblk
 !$ACC END PARALLEL
 
 ENDDO
-!$ACC UPDATE HOST( grad_x, grad_y ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 !$OMP END DO NOWAIT
@@ -608,7 +599,6 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%verts%start_blk(rl_start,1)
 i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
-!$ACC UPDATE DEVICE( p_e_in, p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jv), ICON_OMP_RUNTIME_SCHEDULE
@@ -646,8 +636,6 @@ DO jb = i_startblk, i_endblk
     ENDDO
 
 ENDDO
-
-!$ACC UPDATE HOST( p_u_out, p_v_out ) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -746,8 +734,6 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%verts%start_blk(rl_start,1)
 i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
-!$ACC UPDATE DEVICE( p_e_in ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jv), ICON_OMP_RUNTIME_SCHEDULE
 DO jb = i_startblk, i_endblk
@@ -789,8 +775,6 @@ DO jb = i_startblk, i_endblk
 !$ACC END PARALLEL
 
 ENDDO
-
-!$ACC UPDATE HOST( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -898,8 +882,6 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%edges%start_blk(rl_start,1)
 i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$ACC UPDATE DEVICE( p_vn_in, p_vt_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -927,8 +909,6 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
     ENDDO
 !$ACC END PARALLEL
   ENDDO
-
-!$ACC UPDATE HOST( p_vt_out ) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL

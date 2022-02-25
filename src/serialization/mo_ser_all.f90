@@ -17,11 +17,14 @@ MODULE mo_ser_all
   USE mo_var_list_register,  ONLY: vlr_get
   USE mo_run_config,         ONLY: iforcing, ldass_lhn
   USE mo_impl_constants,     ONLY: inwp
-  USE mo_ser_nml,            ONLY: ser_initialization, ser_output_diag, ser_latbc_data, ser_dynamics, &
-                                   ser_diffusion, ser_step_advection, ser_turbtrans, ser_turbdiff, &
+  USE mo_ser_nml,            ONLY: ser_initialization, ser_output_diag, ser_output_diag_dyn, &
+                                   ser_latbc_data, ser_nesting_save_progvars, &
+                                   ser_dynamics, ser_diffusion, ser_nesting_compute_tendencies, &
+                                   ser_nesting_boundary_interpolation, ser_nesting_relax_feedback, &
+                                   ser_step_advection, ser_turbtrans, ser_turbdiff, &
                                    ser_physics, ser_lhn, ser_nudging, ser_all_debug, ser_surface, &
                                    ser_microphysics, ser_convection, ser_cover, ser_radiation, &
-                                   ser_radheat, ser_gwdrag
+                                   ser_radheat, ser_gwdrag, ser_time_loop_end
   USE mo_ser_manually,       ONLY: ser_manually
   USE mo_mpi,                ONLY: get_my_mpi_work_id
 #endif
@@ -213,16 +216,26 @@ MODULE mo_ser_all
         ! this is serialized just once
         IF(is_input) &
           CALL warning('mo_ser:all:serialize_all:initialization', 'initialization should not be used as input')
+      CASE("output_diag_dyn")
+        ser_setting => ser_output_diag_dyn
       CASE("output_diag")
         ser_setting => ser_output_diag
       CASE("latbc_data")
         ser_setting => ser_latbc_data
+      CASE("nesting_save_progvars")
+        ser_setting => ser_nesting_save_progvars
       CASE("dynamics")
         ser_setting => ser_dynamics
       CASE("diffusion")
         ser_setting => ser_diffusion
       CASE("step_advection")
         ser_setting => ser_step_advection
+      CASE("nesting_compute_tendencies")
+        ser_setting => ser_nesting_compute_tendencies
+      CASE("nesting_boundary_interpolation")
+        ser_setting => ser_nesting_boundary_interpolation
+      CASE("nesting_relax_feedback")
+        ser_setting => ser_nesting_relax_feedback
       CASE("physics")
         ser_setting => ser_physics
       CASE("lhn")
@@ -247,6 +260,8 @@ MODULE mo_ser_all
         ser_setting => ser_radheat
       CASE("gwdrag")
         ser_setting => ser_gwdrag
+      CASE("time_loop_end")
+        ser_setting => ser_time_loop_end
       CASE DEFAULT
         CALL warning('SER','Use default ser_all_debug settings for savepoint_base = '//savepoint_base)
         ser_setting => ser_all_debug
@@ -331,6 +346,7 @@ MODULE mo_ser_all
            CALL ser_var_list('lnd_diag_of_domain_', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg)
            CALL ser_var_list('wtr_prog_of_domain_', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg, substr='_and_timelev_', timelev=nnow(jg))
            CALL ser_var_list('wtr_prog_of_domain_', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg, substr='_and_timelev_', timelev=nnew(jg))
+           CALL ser_var_list('ext_data_atm_td_D', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg)
            CALL ser_var_list('ext_data_atm_D', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg)
        ENDIF
 
@@ -344,12 +360,16 @@ MODULE mo_ser_all
        CALL ser_var_list('nh_state_metrics_of_domain_', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg)
        CALL ser_var_list('nh_state_diag_of_domain_', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg)
        CALL ser_var_list('nh_state_prog_of_domain_', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg, substr='_and_timelev_', timelev=nnew(jg)) !p_prog
-       IF(nnow_rcf(jg) /= nnew(jg)) THEN
+       CALL ser_var_list('nh_state_prog_of_domain_', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg, substr='_and_timelev_', timelev=nnow(jg)) !p_prog
+       IF(nnow_rcf(jg) /= nnew(jg) .AND. nnow_rcf(jg) /= nnow(jg)) THEN
          CALL ser_var_list('nh_state_prog_of_domain_', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg)) !p_prog_now_rcf
        ENDIF
-       IF(nnew_rcf(jg) /= nnew(jg) .AND. nnew_rcf(jg) /= nnow_rcf(jg)) THEN
+       IF(nnew_rcf(jg) /= nnew(jg) .AND. nnew_rcf(jg) /= nnow_rcf(jg) .AND. nnew_rcf(jg) /= nnow(jg)) THEN
          CALL ser_var_list('nh_state_prog_of_domain_', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg)) !p_prog_rcf
        ENDIF
+
+       ! Serialize fields that prepare advection
+       CALL ser_var_list('prepadv_of_domain_', abs_threshold, rel_threshold, lupdate_cpu, ser_mode, domain=jg)
 
        ! Serialize selected scalars and arrays that are not part of any list
        CALL ser_manually(abs_threshold, rel_threshold, lupdate_cpu, ser_mode, jg)

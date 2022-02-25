@@ -5,7 +5,7 @@ set -eu
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='modules craype cdt-cuda/21.05 PrgEnv-nvidia nvidia-icon/21.3.0 gcc cray-mpich cray-netcdf cray-hdf5'
+MODULES='modules craype cdt-cuda PrgEnv-nvidia nvidia-icon/21.3.0 gcc/9.3.0 cray-mpich cray-netcdf cray-hdf5'
 
 # Requirements
 if [ -z "${XML2_ROOT+x}" ]; then
@@ -80,7 +80,7 @@ LIBS="-L/opt/pgi/20.1.1/linux86-64-llvm/20.1/lib/libomp -lomptarget -Wl,--as-nee
 #MPI_LAUNCH='/apps/daint/UES/xalt/production/bin/srun -p debug -C gpu'
 MPI_LAUNCH=false
 
-EXTRA_CONFIG_ARGS='--enable-rte-rrtmgp --enable-ecrad'
+EXTRA_CONFIG_ARGS='--disable-art --enable-rte-rrtmgp --enable-ecrad'
 
 # Speed up the configuration by disabling MPI checks:
 EXTRA_CONFIG_ARGS+=' --disable-mpi-checks'

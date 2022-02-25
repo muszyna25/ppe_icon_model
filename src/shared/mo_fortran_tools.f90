@@ -145,9 +145,12 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE assign_if_present_real_allocatable_1d
   END INTERFACE assign_if_present_allocatable
 
-  !> this is meant to make it easier for compilers to circumvent
+  !> `copy(b, a)` is meant to make it easier for compilers to circumvent
   !! temporaries as are too often created in a(:, :, :) = b(:, :, :)
-  !! uses omp orphaning
+  !!
+  !! `copy` uses openMP orphaning, i.e. it must be called inside an
+  !! OMP PARALLEL region. However, it must not be called inside another
+  !! OMP DO region. 
   INTERFACE copy
     MODULE PROCEDURE copy_2d_dp
     MODULE PROCEDURE copy_3d_dp
@@ -160,6 +163,7 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE copy_5d_i4
   END INTERFACE copy
 
+  !> `init` uses openMP orphaning (explanation see `copy`)
   INTERFACE init
     MODULE PROCEDURE init_zero_1d_dp
     MODULE PROCEDURE init_zero_1d_sp
@@ -171,6 +175,7 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE init_zero_4d_i4
     MODULE PROCEDURE init_zero_4d_dp
     MODULE PROCEDURE init_zero_4d_sp
+    MODULE PROCEDURE init_2d_dp
     MODULE PROCEDURE init_3d_dp
     MODULE PROCEDURE init_3d_spdp
     MODULE PROCEDURE init_5d_dp
@@ -216,12 +221,7 @@ MODULE mo_fortran_tools
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_fortran_tools"
 
 #if defined( _OPENACC )
-#if defined(__FORTRAN_TOOLS_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! Only activate for validation phase
 #endif
 
   INTERFACE insert_dimension
@@ -456,7 +456,6 @@ CONTAINS
     m2 = SIZE(dest, 2)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
@@ -473,7 +472,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -491,7 +489,6 @@ CONTAINS
     m3 = SIZE(dest, 3)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
@@ -510,7 +507,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -528,7 +524,6 @@ CONTAINS
     m4 = SIZE(dest, 4)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
@@ -549,7 +544,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -568,7 +562,6 @@ CONTAINS
     m5 = SIZE(dest, 5)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
@@ -591,7 +584,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -610,7 +602,6 @@ CONTAINS
     m5 = SIZE(dest, 5)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
@@ -633,7 +624,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -652,7 +642,6 @@ CONTAINS
     m5 = SIZE(dest, 5)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
@@ -675,7 +664,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -691,7 +679,6 @@ CONTAINS
     m2 = SIZE(dest, 2)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
@@ -708,7 +695,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -728,7 +714,6 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
@@ -751,7 +736,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -768,7 +752,6 @@ CONTAINS
     m3 = SIZE(dest, 3)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ) PCOPYOUT( dest ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( src ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
@@ -787,7 +770,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( dest ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -821,7 +803,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -858,7 +839,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -895,7 +875,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -929,7 +908,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -962,7 +940,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -996,7 +973,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1033,7 +1009,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1057,7 +1032,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1081,7 +1055,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1112,12 +1085,43 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
 #endif
   END SUBROUTINE init_zero_2d_dp
+
+  SUBROUTINE init_2d_dp(init_var, init_val)
+    REAL(dp), INTENT(out) :: init_var(:, :)
+    REAL(dp), INTENT(in) :: init_val
+
+    INTEGER :: i1, i2, m1, m2
+
+    m1 = SIZE(init_var, 1)
+    m2 = SIZE(init_var, 2)
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(2)
+#else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2)
+#else
+!$omp do collapse(2)
+#endif
+#endif
+      DO i2 = 1, m2
+        DO i1 = 1, m1
+          init_var(i1, i2) = init_val
+        END DO
+      END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!$ACC END DATA
+#else
+!$omp end do nowait
+#endif
+  END SUBROUTINE init_2d_dp
 
   SUBROUTINE init_3d_dp(init_var, init_val)
     REAL(dp), INTENT(out) :: init_var(:, :, :)
@@ -1148,7 +1152,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1184,7 +1187,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1226,7 +1228,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1268,7 +1269,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1288,7 +1288,6 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC DATA PCOPYOUT( var ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
@@ -1307,7 +1306,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1355,8 +1353,6 @@ CONTAINS
     m4 = SIZE(var, 4)
 
 #ifdef _OPENACC
-
-!$ACC UPDATE DEVICE( var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL DEFAULT(NONE) PRESENT( var ) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
@@ -1378,7 +1374,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( var ) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 #else
 !$omp end do nowait
 #endif
@@ -1413,7 +1408,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( var ) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 #else
 !$omp end do nowait
 #endif
@@ -1460,7 +1454,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 #else
 !$omp end do nowait
 #endif
@@ -1505,7 +1498,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1530,7 +1522,6 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait

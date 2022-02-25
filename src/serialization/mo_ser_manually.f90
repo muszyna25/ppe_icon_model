@@ -16,8 +16,8 @@ MODULE mo_ser_manually
 
   ! Global variables with scalars that are going to be serialized
   USE mo_nonhydro_state,     ONLY: p_nh_state
-  USE mo_prepadv_state,      ONLY: prep_adv
-
+  USE mo_nwp_phy_state,      ONLY: phy_params
+  
     IMPLICIT NONE
 
   PUBLIC :: ser_manually
@@ -65,25 +65,62 @@ MODULE mo_ser_manually
     CALL ser_component(o, "p_nh_state(jg)%metrics%bdy_halo_c_dim", p_nh_state(domain)%metrics%bdy_halo_c_dim)
     CALL ser_component(o, "p_nh_state(jg)%metrics%bdy_mflx_e_dim", p_nh_state(domain)%metrics%bdy_mflx_e_dim)
 
+    CALL ser_component(o, "phy_params(jg)%kcon1", phy_params(domain)%kcon1)
+    CALL ser_component(o, "phy_params(jg)%kcon2", phy_params(domain)%kcon2)
+    CALL ser_component(o, "phy_params(jg)%tau", phy_params(domain)%tau)
+    CALL ser_component(o, "phy_params(jg)%mfcfl", phy_params(domain)%mfcfl)
+    CALL ser_component(o, "phy_params(jg)%tau0", phy_params(domain)%tau0)
+    CALL ser_component(o, "phy_params(jg)%rhebc_land", phy_params(domain)%rhebc_land)
+    CALL ser_component(o, "phy_params(jg)%rhebc_ocean", phy_params(domain)%rhebc_ocean)
+    CALL ser_component(o, "phy_params(jg)%rhebc_land_trop", phy_params(domain)%rhebc_land_trop)
+    CALL ser_component(o, "phy_params(jg)%rhebc_ocean_trop", phy_params(domain)%rhebc_ocean_trop)
+    CALL ser_component(o, "phy_params(jg)%texc", phy_params(domain)%texc)
+    CALL ser_component(o, "phy_params(jg)%qexc", phy_params(domain)%qexc)
+    CALL ser_component(o, "phy_params(jg)%rcucov", phy_params(domain)%rcucov)
+    CALL ser_component(o, "phy_params(jg)%rcucov_trop", phy_params(domain)%rcucov_trop)
+    CALL ser_component(o, "phy_params(jg)%entrorg", phy_params(domain)%entrorg)
+    CALL ser_component(o, "phy_params(jg)%detrpen", phy_params(domain)%detrpen)
+    CALL ser_component(o, "phy_params(jg)%entrdd", phy_params(domain)%entrdd)
+    CALL ser_component(o, "phy_params(jg)%entstpc1", phy_params(domain)%entstpc1)
+    CALL ser_component(o, "phy_params(jg)%entstpc2", phy_params(domain)%entstpc2)
+    CALL ser_component(o, "phy_params(jg)%rprcon", phy_params(domain)%rprcon)
+    CALL ser_component(o, "phy_params(jg)%rdepths", phy_params(domain)%rdepths)
+    CALL ser_component(o, "phy_params(jg)%lmfscv", phy_params(domain)%lmfscv)
+    CALL ser_component(o, "phy_params(jg)%lmfmid", phy_params(domain)%lmfmid)
+    CALL ser_component(o, "phy_params(jg)%lmfpen", phy_params(domain)%lmfpen)
+    CALL ser_component(o, "phy_params(jg)%lmfdsnow", phy_params(domain)%lmfdsnow)
+    CALL ser_component(o, "phy_params(jg)%lgrayzone_deepconv", phy_params(domain)%lgrayzone_deepconv)
+    CALL ser_component(o, "phy_params(jg)%klaunch", phy_params(domain)%klaunch)
+    CALL ser_component(o, "phy_params(jg)%ngwdlim", phy_params(domain)%ngwdlim)
+    CALL ser_component(o, "phy_params(jg)%ngwdtop", phy_params(domain)%ngwdtop)
+    CALL ser_component(o, "phy_params(jg)%nktopg", phy_params(domain)%nktopg)
+    CALL ser_component(o, "phy_params(jg)%gkwake", phy_params(domain)%gkwake)
+    CALL ser_component(o, "phy_params(jg)%gkdrag", phy_params(domain)%gkdrag)
+    CALL ser_component(o, "phy_params(jg)%gfrcrit", phy_params(domain)%gfrcrit)
+    CALL ser_component(o, "phy_params(jg)%grcrit", phy_params(domain)%grcrit)
+    CALL ser_component(o, "phy_params(jg)%mean_charlen", phy_params(domain)%mean_charlen)
+    CALL ser_component(o, "phy_params(jg)%k060", phy_params(domain)%k060)
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! List all arrays that should be serialized here  !
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    IF(ALLOCATED(prep_adv)) THEN
-#ifdef _OPENACC
-      ! prep_adv can be tested only if variable is already present on device
-      IF( acc_is_present(prep_adv(domain:domain)) .AND. &
-        & acc_is_present(prep_adv(domain)%vn_traj) ) THEN
-#else
-      IF(.TRUE.) THEN
-#endif
-        CALL ser_component(o, "mass_flx_me", prep_adv(domain)%mass_flx_me)
-        CALL ser_component(o, "mass_flx_ic", prep_adv(domain)%mass_flx_ic)
-        CALL ser_component(o, "vn_traj",     prep_adv(domain)%vn_traj)
-        CALL ser_component(o, "topflx_tra",  prep_adv(domain)%topflx_tra)
-      ENDIF
-    ENDIF
+!!! outdated example as prep_adv now uses the variable list mechanism.
+!    IF(ALLOCATED(prep_adv)) THEN
+!#ifdef _OPENACC
+!      ! prep_adv can be tested only if variable is already present on device
+!      IF( acc_is_present(prep_adv(domain:domain)) .AND. &
+!        & acc_is_present(prep_adv(domain)%vn_traj) ) THEN
+!#else
+!      IF(.TRUE.) THEN
+!#endif
+!        CALL ser_component(o, "mass_flx_me", prep_adv(domain)%mass_flx_me)
+!        CALL ser_component(o, "mass_flx_ic", prep_adv(domain)%mass_flx_ic)
+!        CALL ser_component(o, "vn_traj",     prep_adv(domain)%vn_traj)
+!        CALL ser_component(o, "q_int",       prep_adv(domain)%q_int)
+!        CALL ser_component(o, "q_ubc",       prep_adv(domain)%q_ubc)
+!      ENDIF
+!    ENDIF
 
   END SUBROUTINE ser_manually
 

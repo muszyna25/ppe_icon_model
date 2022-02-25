@@ -137,8 +137,9 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 ! parallel_nml: MPI parallelization -------------------------------------------
 &parallel_nml
  nproma                      =                   ${nproma}        ! loop chunk length
+ nblocks_c                   =                   ${nblocks_c}     ! loop number of cell blocks
  p_test_run                  =                     .FALSE.        ! .TRUE. means verification run for MPI parallelization
- num_io_procs                =                          0         ! number of I/O processors
+ num_io_procs                =                          1         ! number of I/O processors
  num_restart_procs           =                          0         ! number of restart processors
  num_prefetch_proc           =                          1         ! number of processors for LBC prefetching
  iorder_sendrecv             =                          3         ! sequence of MPI send/receive calls
@@ -331,10 +332,10 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
  cldopt_filename             =             'rrtm_cldopt.nc'       ! RRTM cloud optical properties
  mu_rain                     =                         0.5        ! shap parameter in gamma distribution for rain
  rain_n0_factor              =                         0.1        ! tuning factor for intercept parameter of raindrop size distr.
- dt_rad                      =                         720.       ! time step for radiation in s
- dt_conv                     =                 120.,90.,90.       ! time step for convection in s (domain specific)
- dt_sso                      =               120.,360.,360.       ! time step for SSO parameterization
- dt_gwd                      =               120.,120.,120.       ! gdm : 360 in guenther
+ dt_rad                      =                          10        ! time step for radiation in s
+ dt_conv                     =                          10        ! time step for convection in s (domain specific)
+ dt_sso                      =                          10        ! time step for SSO parameterization
+ dt_gwd                      =                          10        ! gdm : 360 in guenther
 /
 
 ! nwp_tuning_nml: additional tuning parameters ----------------------------------
@@ -415,6 +416,7 @@ cat > ${basedir}/run/${atmo_namelist} << EOF
 
 ! radiation_nml: radiation scheme ---------------------------------------------
 &radiation_nml
+ nproma_rad                  =                         -3         ! 3 blocks
  irad_o3                     =                          79        ! gdm orig. 7 ozone climatology
  irad_aero                   =                          6         ! aerosols
  albedo_type                 =                          2         ! type of surface albedo

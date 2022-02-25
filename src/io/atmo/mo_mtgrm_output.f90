@@ -498,7 +498,9 @@ CONTAINS
       &               "TKE", "m^2/s^2", "turbulent kinetic energy", &
       &               var_info, prog%tke(:,:,:))
 
+#ifndef __NO_ICON_LES__
     IF ( .NOT. atm_phy_nwp_config%is_les_phy ) THEN
+#endif
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
         &               "ddt_tke_hsh", "m^2/s^3", &
         &               "TKE tendency horizonzal shear production", &
@@ -507,7 +509,9 @@ CONTAINS
         &               "ddt_tke_pconv", "m^2/s^3", &
         &               "TKE tendency due to subgrid-scale convection", &
         &               var_info, prm_nwp_tend%ddt_tke_pconv)
+#ifndef __NO_ICON_LES__
     END IF
+#endif
 
     ! For dry test cases: do not sample variables defined below this line:
     ! (but allow for TORUS moist runs; see call in mo_atmo_nonhydrostatic.F90)
@@ -642,6 +646,12 @@ CONTAINS
           &              "RESID_WSO", "kg/m2", &
           &              "residuum of the soil water budget", &
           &              sfc_var_info, lnd_diag%resid_wso(:,:))
+      ENDIF
+      IF (var_in_output(jg)%snow_melt) THEN
+        CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+          &              "SNOW_MELT", "kg m-2", &
+          &              "snow melt amount", &
+          &              sfc_var_info, lnd_diag%snow_melt(:,:))
       ENDIF
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "T_SNOW", "K", "temperature of the snow-surface", &
@@ -887,6 +897,12 @@ CONTAINS
           &            "RESID_WSO_T", "kg/m2", &
           &            "residuum of the soil water budget", &
           &            sfc_var_info, lnd_diag%resid_wso_t(:,:,:))
+      ENDIF
+      IF (var_in_output(jg)%snow_melt) THEN
+        CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+          &            "SNOW_MELT_FLUX_T", "kg m-2 s-1", &
+          &            "snow melt flux tile", &
+          &            sfc_var_info, lnd_diag%snow_melt_flux_t(:,:,:))
       ENDIF
     ENDIF
 

@@ -103,7 +103,7 @@ CONTAINS
         skip(iV) = .NOT.has_valid_time_level(vDat(iV)%p%info, ptc%id, nnow(ptc%id), nnow_rcf(ptc%id))
         IF (.NOT.skip(iV)) THEN
           skip(iV) = nf_inq_varid(fID, TRIM(vDat(iV)%p%info%name), dummy) .NE. NF_NOERR
-          IF (ocean_initFromRestart_OVERRIDE .AND. skip(iV)) THEN
+          IF ((ocean_initFromRestart_OVERRIDE .OR. vDat(iV)%p%info%lrestart_cont) .AND. skip(iV)) THEN
             CALL warning(routine, "variable not found: '"//TRIM(vDat(iV)%p%info%name))
           ELSE IF (skip(iV)) THEN
             CALL finish(routine, "variable not found: "//TRIM(vDat(iV)%p%info%name))

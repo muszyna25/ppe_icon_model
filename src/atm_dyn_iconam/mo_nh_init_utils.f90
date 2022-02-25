@@ -30,7 +30,7 @@ MODULE mo_nh_init_utils
   USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_ext_data_types,        ONLY: t_external_data
   USE mo_parallel_config,       ONLY: nproma
-  USE mo_run_config,            ONLY: ntracer
+  USE mo_run_config,            ONLY: ntracer, ldass_lhn
   USE mo_grid_config,           ONLY: l_limited_area, n_dom
   USE mo_dynamics_config,       ONLY: nnow, nnow_rcf
   USE mo_physical_constants,    ONLY: grav, cpd, rd, cvd_o_rd, p0ref
@@ -55,6 +55,7 @@ MODULE mo_nh_init_utils
                                       itype_snowevap
   USE mo_fortran_tools,         ONLY: init, copy
   USE mo_ifs_coord,             ONLY: geopot
+  USE mo_radar_data_types,      ONLY : t_lhn_diag
 
 
   IMPLICIT NONE
@@ -884,7 +885,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Guenther Zaengl, DWD, (2016-06-17)
   !!
-  SUBROUTINE restore_initial_state(p_patch, p_nh, prm_diag, prm_tend, p_lnd, ext_data)
+  SUBROUTINE restore_initial_state(p_patch, p_nh, prm_diag, prm_tend, p_lnd, ext_data, lhn_fields)
 
     TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
     TYPE(t_nh_state),          INTENT(INOUT) :: p_nh(:)
@@ -892,6 +893,7 @@ CONTAINS
     TYPE(t_nwp_phy_tend),      INTENT(INOUT) :: prm_tend(:)
     TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd(:)
     TYPE(t_external_data),     INTENT(INOUT) :: ext_data(:)
+    TYPE(t_lhn_diag),          INTENT(INOUT) :: lhn_fields(:)
 
     INTEGER :: jg, ic, je, jb
 
@@ -994,6 +996,7 @@ CONTAINS
         CALL init (lnd_diag%resid_wso_t)
         CALL init (lnd_diag%resid_wso_inst_t)
       ENDIF
+      IF (ldass_lhn) CALL init (lhn_fields(jg)%brightband(:,:), -1._wp)
 
 !$OMP END PARALLEL
 

@@ -100,6 +100,7 @@ MODULE mo_name_list_output
     &                                     print_timer
   USE mo_level_selection_types,     ONLY: t_level_selection
   USE mo_name_list_output_gridinfo, ONLY: write_grid_info_grb2, GRID_INFO_NONE
+  USE mo_util_file,                 ONLY: util_rename, get_filename, get_path
   ! config
   USE mo_master_config,             ONLY: getModelBaseDir
   USE mo_grid_config,               ONLY: n_dom, l_limited_area
@@ -807,11 +808,12 @@ CONTAINS
     TYPE(t_par_output_event), INTENT(IN) :: ev
     ! local variables
     CHARACTER(LEN=*), PARAMETER         :: routine = modname//"::write_ready_file"
-    CHARACTER(LEN=FILENAME_MAX)         :: rdy_filename
-    CHARACTER(LEN=8)         :: forecast_delta_str
-    TYPE(datetime)           :: mtime_begin, mtime_date, current_date
+    CHARACTER(LEN=*), PARAMETER         :: tmp_prefix = ".."
+    CHARACTER(LEN=FILENAME_MAX)         :: rdy_filename, tmp_filename
+    CHARACTER(LEN=8)                    :: forecast_delta_str
+    TYPE(datetime)                      :: mtime_begin, mtime_date, current_date
     TYPE(timedelta)                     :: forecast_delta
-    INTEGER                             :: iunit, tlen
+    INTEGER                             :: iunit, tlen, iret
     TYPE (t_keyword_list), POINTER      :: keywords
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string, current_date_string
 
@@ -844,11 +846,21 @@ CONTAINS
       WRITE (0,*) 'Write ready file "', rdy_filename(1:tlen), '"'
     END IF
 
-    ! actually create ready file:
+    ! Actually create ready file.
+    !
+    ! This procedure is carried out in two steps: First, a file with
+    ! the name "tmp_prefix+rdy_filename" is created. After the file
+    ! has been closed, it is then renamed into "rdy_filename" in a
+    ! second step.
+    ! This detour is necessary when another process polls the output
+    ! directory and relies on a "complete" ready file.
+    tmp_filename = TRIM(get_path(rdy_filename(1:tlen)))//tmp_prefix//TRIM(get_filename(rdy_filename(1:tlen)))
     iunit = find_next_free_unit(10,20)
-    OPEN (iunit, file=rdy_filename(1:tlen), form='formatted')
+    OPEN (iunit, file=TRIM(tmp_filename), form='formatted')
     WRITE(iunit, '(A)') 'ready'
     CLOSE(iunit)
+
+    iret = util_rename(TRIM(tmp_filename), rdy_filename(1:tlen))
   END SUBROUTINE write_ready_file
 
 
@@ -2595,14 +2607,18 @@ CONTAINS
       &                    lset_timers_for_idle_pe, is_io_root
     INTEGER             :: jg, jstep, action
     TYPE(t_par_output_event), POINTER :: ev
+    LOGICAL             :: is_ocean
 
     is_io_root = my_process_is_mpi_ioroot()
+    is_ocean   = iequations==ihs_ocean ! FIXME: is that really sensible?
 
     ! define initial time stamp used as reference for output statistics
     CALL set_reference_time()
 
+    ! FIXME? ocean the other way round?
     ! Initialize name list output, this is a collective call for all PEs
-    CALL init_name_list_output(sim_step_info)
+    IF (.NOT. is_ocean) &
+      & CALL init_name_list_output(sim_step_info)
 
 #ifdef YAC_coupling
     ! The initialisation of YAC needs to be called by all (!) MPI processes
@@ -2612,6 +2628,11 @@ CONTAINS
     ! processes
     IF ( is_coupled_run() ) CALL construct_io_coupler ( "dummy" )
 #endif
+
+    ! FIXME: Explain this braindead weirdnes.
+    IF (is_ocean) &
+      & CALL init_name_list_output(sim_step_info)
+
     ! setup of meteogram output
     DO jg =1,n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
@@ -2629,9 +2650,7 @@ CONTAINS
     ! "init_name_list_output", since some values (log_dom_id) are
     ! reuqired which are communicated there.
     CALL collect_requested_ipz_levels()
-    IF (iequations/=ihs_ocean) THEN ! atm
-      CALL create_mipz_level_selections(output_file)
-    END IF
+    CALL create_mipz_level_selections(output_file)
     CALL create_vertical_axes(output_file)
 
     ! Tell the compute PEs that we are ready to work

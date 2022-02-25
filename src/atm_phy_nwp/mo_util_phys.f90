@@ -24,7 +24,7 @@ MODULE mo_util_phys
   USE mo_physical_constants,    ONLY: o_m_rdv        , & !! 1 - r_d/r_v &
     &                                 rdv,             & !! r_d / r_v
     &                                 cpd, p0ref, rd,  &
-    &                                 vtmpc1, t3, rd_o_cpd
+    &                                 vtmpc1, t3, rd_o_cpd, grav
   USE mo_exception,             ONLY: finish, message
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
@@ -36,10 +36,13 @@ MODULE mo_util_phys
        &                              iqm_max, nqtendphy, lart, &
        &                              iqh, iqnc, iqnr, iqns, iqng, iqnh
   USE mo_nh_diagnose_pres_temp, ONLY: diag_pres, diag_temp
-  USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
+#ifndef __NO_ICON_LES__
+  USE mo_ls_forcing_nml,        ONLY: is_ls_forcing, is_nudging_tq, &
+       &                              nudge_start_height, nudge_full_height, dt_relax
+#endif
   USE mo_loopindices,           ONLY: get_indices_c
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
-  USE mo_nwp_tuning_config,     ONLY: tune_gust_factor
+  USE mo_nwp_tuning_config,     ONLY: tune_gust_factor, itune_gust_diag
   USE mo_advection_config,      ONLY: advection_config
   USE mo_art_config,            ONLY: art_config
   USE mo_initicon_config,       ONLY: iau_wgt_adv, qcana_mode, qiana_mode, qrsgana_mode
@@ -99,13 +102,14 @@ CONTAINS
 
     REAL(wp) :: vgust_dyn               ! dynamic gust at 10 m above ground [m/s]
 
-    REAL(wp) :: ff10m, ustar, uadd_sso, gust_add
+    REAL(wp) :: ff10m, ustar, uadd_sso, gust_add, offset
     !$acc routine seq
 
+    offset = MERGE(10._wp, 8._wp, itune_gust_diag == 1)
     ff10m = SQRT( u_10m**2 + v_10m**2)
     uadd_sso = MAX(0._wp, SQRT(u_env**2 + v_env**2) - SQRT(u1**2 + v1**2))
     ustar = calc_ustar(tcm, u1, v1)
-    gust_add = MAX(0._wp,MIN(2._wp,0.2_wp*(ff10m-10._wp)))*(1._wp+mtnmask)
+    gust_add = MAX(0._wp,MIN(2._wp,0.2_wp*(ff10m-offset)))*(1._wp+mtnmask)
     vgust_dyn = ff10m + mtnmask*uadd_sso + (tune_gust_factor+gust_add+2._wp*mtnmask)*ustar
 
   END FUNCTION nwp_dyn_gust
@@ -379,27 +383,12 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL     :: opt_slev, opt_elev
     ! start and end values of refin_ctrl flag:
     INTEGER, INTENT(in), OPTIONAL     :: opt_rlstart, opt_rlend
-   
+
     ! local variables
     REAL(wp) :: temp, qv, p_ex
     INTEGER  :: slev, elev, rl_start, rl_end, i_nchdom,     &
       &         i_startblk, i_endblk, i_startidx, i_endidx, &
       &         jc, jk, jb
-
-    LOGICAL out_var_is_present
-    REAL(wp), POINTER :: out_var_ptr(:,:,:)
-
-#ifdef _OPENACC
-    out_var_is_present = acc_is_present( out_var )
-    IF ( .NOT. out_var_is_present ) THEN
-      ALLOCATE ( out_var_ptr( SIZE(out_var,1), SIZE(out_var,2), SIZE(out_var,3) ) )
-!$ACC ENTER DATA CREATE( out_var_ptr )
-    ELSE
-      out_var_ptr => out_var
-    ENDIF
-#else
-    out_var_ptr => out_var
-#endif
 
     ! default values
     slev     = 1
@@ -416,14 +405,15 @@ CONTAINS
     i_startblk = ptr_patch%cells%start_blk(rl_start,1)
     i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP PARALLEL    
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,temp,qv,p_ex), ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
         i_startidx, i_endidx, rl_start, rl_end)
-      
-!$ACC PARALLEL IF ( i_am_accel_node )
-!$ACC LOOP GANG VECTOR COLLAPSE(2) 
+
+! MJ: it might be that out_var is not present on GPU, so we use COPY
+!$ACC PARALLEL DEFAULT(PRESENT) COPY(out_var) IF ( i_am_accel_node )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
@@ -438,7 +428,7 @@ CONTAINS
           qv   = p_prog%tracer_ptr(iqv)%p_3d(jc,jk,jb)
           p_ex = p_prog%exner(jc,jk,jb)
           !-- compute relative humidity as r = e/e_s:
-          out_var_ptr(jc,jk,jb) = rel_hum(temp, qv, p_ex)
+          out_var(jc,jk,jb) = rel_hum(temp, qv, p_ex)
 
         END DO
       END DO
@@ -447,14 +437,6 @@ CONTAINS
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-#ifdef _OPENACC
-    IF ( .NOT. out_var_is_present ) THEN
-!$ACC UPDATE HOST( out_var_ptr )
-      out_var = out_var_ptr 
-!$ACC EXIT DATA DELETE( out_var_ptr)
-    ENDIF
-#endif
 
   END SUBROUTINE compute_field_rel_hum_wmo
 
@@ -713,7 +695,7 @@ CONTAINS
   ! - applies large-scale-forcing tendencies, if ICON is run in single-column-mode.
   ! 
   SUBROUTINE tracer_add_phytend( p_rho_now, prm_nwp_tend, pdtime, prm_diag, &
-    &                            pt_prog_rcf, jg, jb, i_startidx, i_endidx, kend)
+    &                            pt_prog_rcf, p_metrics, dt_loc, jg, jb, i_startidx, i_endidx, kend)
 
     REAL(wp)             &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
@@ -721,13 +703,15 @@ CONTAINS
 #endif
                         ,INTENT(IN)   :: p_rho_now(:,:)  !< total air density
     TYPE(t_nwp_phy_tend),INTENT(IN)   :: prm_nwp_tend    !< atm tend vars
-    REAL(wp),            INTENT(IN)   :: pdtime          !< time step
+    REAL(wp)            ,INTENT(IN)   :: pdtime          !< time step
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag        !< the physics variables
-    TYPE(t_nh_prog),     INTENT(INOUT):: pt_prog_rcf     !< the tracer field at
+    TYPE(t_nh_prog)     ,INTENT(INOUT):: pt_prog_rcf     !< the tracer field at
                                                          !< reduced calling frequency
+    TYPE(t_nh_metrics)  ,INTENT(IN)   :: p_metrics       !< NH metrics variables
+    REAL(wp)            ,INTENT(IN)   :: dt_loc          !< (advective) time step applicable to local grid level
     INTEGER             ,INTENT(IN)   :: jg              !< domain ID
-    INTEGER,             INTENT(IN)   :: jb              !< block index
-    INTEGER,             INTENT(IN)   :: i_startidx, i_endidx
+    INTEGER             ,INTENT(IN)   :: jb              !< block index
+    INTEGER             ,INTENT(IN)   :: i_startidx, i_endidx
     INTEGER             ,INTENT(IN)   :: kend            !< vertical end index                             
 
     ! Local variables
@@ -738,6 +722,10 @@ CONTAINS
     INTEGER  :: iq_start
     REAL(wp) :: zrhox(nproma,kend,5)
     REAL(wp) :: zrhox_clip(nproma,kend)
+#ifndef __NO_ICON_LES__
+    REAL(wp) :: nudgecoeff  ! SCM Nudging
+    REAL(wp) :: z_ddt_q_nudge
+#endif
     !
     INTEGER, POINTER              :: ptr_conv_list(:)
     INTEGER, DIMENSION(3), TARGET :: conv_list_small
@@ -820,9 +808,6 @@ CONTAINS
 
 
     IF(lart .AND. art_config(jg)%lart_conv) THEN
-#ifdef _OPENACC
-      CALL finish("mo_util_phys", "ART-part not supported on GPU")
-#endif
       ! add convective tendency and fix to positive values
       DO jt=1,art_config(jg)%nconv_tracer  ! ASH
         DO jk = 1, kend
@@ -885,18 +870,42 @@ CONTAINS
       !$acc end parallel
     ENDIF
 
-
+#ifndef __NO_ICON_LES__
+    ! Add LS forcing to moisture variable including nudging
     IF(is_ls_forcing)THEN
       DO jt=1, nqtendphy  ! qv,qc,qi
         DO jk = kstart_moist(jg), kend
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            pt_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt)    &
-              &                       + pdtime*prm_nwp_tend%ddt_tracer_ls(jk,jt))
+
+            ! add q nudging (T, U, V nudging is in mo_nh_interface_nwp)
+            IF ( is_nudging_tq ) THEN
+
+              ! linear nudging profile between "start" and "full" heights - prevent sfc layer instability
+              IF ( nudge_full_height == nudge_start_height ) THEN
+                nudgecoeff = 1.0_wp
+              ELSE
+                nudgecoeff = ( p_metrics%geopot_agl(jc,jk,jb)/grav - nudge_start_height ) / &
+                           & ( nudge_full_height                   - nudge_start_height )
+                nudgecoeff = MAX( MIN( nudgecoeff, 1.0_wp ), 0.0_wp )
+              END IF
+              ! analytic implicit: (q,n+1 - q,n) / dt = (q,nudge - q,n) / dt_relax * exp(-dt/dt_relax)
+              z_ddt_q_nudge =                                                          &
+                &  - ( pt_prog_rcf%tracer(jc,jk,jb,jt) - prm_nwp_tend%q_nudge(jk,jt) ) &
+                &  / dt_relax * exp(-dt_loc/dt_relax) * nudgecoeff
+            ELSE
+              z_ddt_q_nudge = 0.0_wp
+            END IF
+
+            pt_prog_rcf%tracer(jc,jk,jb,jt) = MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt)   &
+              &                                 + pdtime*prm_nwp_tend%ddt_tracer_ls(jk,jt) &
+              &                                 + pdtime*z_ddt_q_nudge)
+
           ENDDO
         ENDDO
       END DO
     ENDIF  ! is_ls_forcing
+#endif
 
     !$acc end data !copyin
     !$acc end data !create

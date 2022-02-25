@@ -43,8 +43,7 @@ MODULE mo_rte_rrtmgp_radiation
 
   USE mo_physical_constants,  ONLY: rae, amd, amco2, amch4, amn2o, amo2, amc11, amc12
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, ico2, io3, &
-                                    ntracer, lart
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, ico2, io3, ntracer
   USE mo_echam_phy_config,    ONLY: echam_phy_tc
   USE mo_echam_rad_config,    ONLY: echam_rad_config
   USE mo_bc_ozone,            ONLY: ext_ozone

@@ -183,7 +183,7 @@ MODULE sfc_seaice
                        &  csmall       = 1.0E-05_wp      !< small number (security constant) [-]
  
   REAL (wp), PARAMETER ::                             &
-    &  taualbsi_min   = 3.0_wp*86400._wp            , &  !< minimum relaxation time scale for sea-ice albedo [s]
+    &  taualbsi_min   = 7.0_wp*86400._wp            , &  !< minimum relaxation time scale for sea-ice albedo [s]
     &  taualbsi_max   = 21.0_wp*86400._wp           , &  !< maximum relaxation time scale for sea-ice albedo [s]
     &  t_taualbsi_min = 268.15_wp                   , &  !< lower bound of the temperature range in the interpolation
                                                          !< formula for the sea-ice albedo relaxation time scale [K]

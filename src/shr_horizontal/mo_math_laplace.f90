@@ -129,13 +129,7 @@ INTERFACE nabla2_vec
 END INTERFACE
 
 #if defined( _OPENACC )
-#define ACC_DEBUG NOACC
-#if defined(__MATH_LAPLACE_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -271,7 +265,6 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
 !$ACC DATA CREATE( z_div_c, z_rot_v, z_rot_e ), PCOPYIN( vec_e ), PCOPY( nabla2_vec_e ), &
 !$ACC      PRESENT( ptr_patch, ptr_int ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( vec_e, nabla2_vec_e ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 ! Initialization of unused elements of nabla2_vec_e
 ! DO jb = 1, i_startblk
@@ -400,7 +393,6 @@ CASE (6) ! (cell_type == 6)
 
 END SELECT
 
-!$ACC UPDATE HOST( nabla2_vec_e ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE nabla2_vec_atmos
@@ -597,7 +589,6 @@ i_endblk   = ptr_patch%cells%end_block(rl_end)
 
 !$ACC DATA CREATE( z_grad_fd_norm_e ), PCOPYIN( psi_c ), PCOPY( nabla2_psi_c ),  &
 !$ACC      PRESENT( ptr_patch, ptr_int ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( psi_c, nabla2_psi_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 SELECT CASE (ptr_patch%geometry_info%cell_type)
 
@@ -654,7 +645,6 @@ CASE (6) ! (cell_type == 6) THEN ! Use unoptimized version for the time being
 END SELECT
 
 !$ACC END DATA
-!$ACC UPDATE HOST( nabla2_psi_c ), IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 END SUBROUTINE nabla2_scalar
 
@@ -740,7 +730,6 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 
 !$ACC DATA CREATE( aux_c ), PCOPYIN( avg_coeff, psi_c ), PCOPY( nabla2_psi_c ), &
 !$ACC      PRESENT( ptr_patch, ptr_int), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( avg_coeff, psi_c, nabla2_psi_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 SELECT CASE (ptr_patch%geometry_info%cell_type)
 

@@ -59,16 +59,15 @@ MODULE mo_read_namelists
   USE mo_nwp_tuning_nml      ,ONLY: read_nwp_tuning_namelist
   USE mo_ensemble_pert_nml   ,ONLY: read_ensemble_pert_namelist
   USE mo_radiation_nml       ,ONLY: read_radiation_namelist
-#ifdef __NO_RTE_RRTMGP__
-  USE mo_psrad_interface     ,ONLY: read_psrad_nml
-#endif
   USE mo_synsat_nml          ,ONLY: read_synsat_namelist
+  USE mo_synradar_nml        ,ONLY: read_synradar_namelist
   USE mo_turbdiff_nml        ,ONLY: read_turbdiff_namelist
   USE mo_lnd_nwp_nml         ,ONLY: read_nwp_lnd_namelist
   USE mo_art_nml             ,ONLY: read_art_namelist
 
   USE mo_initicon_nml        ,ONLY: read_initicon_namelist
   USE mo_nh_testcases_nml    ,ONLY: read_nh_testcase_namelist
+  USE mo_scm_nml             ,ONLY: read_scm_namelist
   USE mo_meteogram_nml       ,ONLY: read_meteogram_namelist
 
   USE mo_coupling_nml        ,ONLY: read_coupling_namelist
@@ -77,8 +76,10 @@ MODULE mo_read_namelists
   USE mo_sea_ice_nml         ,ONLY: read_sea_ice_namelist
 
   USE mo_name_list_output_init ,ONLY: read_name_list_output_namelists
+#ifndef __NO_ICON_LES__
   USE mo_les_nml             ,ONLY: read_les_namelist
   USE mo_ls_forcing_nml      ,ONLY: read_ls_forcing_namelist
+#endif
   USE mo_limarea_nml         ,ONLY: read_limarea_namelist
 
   USE mo_run_config          ,ONLY: iforcing
@@ -140,6 +141,7 @@ CONTAINS
     CALL read_name_list_output_namelists (atm_namelist_filename(1:tlen))
     CALL read_dbg_namelist            (atm_namelist_filename(1:tlen))
     CALL read_synsat_namelist         (atm_namelist_filename(1:tlen))
+    CALL read_synradar_namelist       (atm_namelist_filename(1:tlen))
 
     ! Grid
     !
@@ -186,8 +188,9 @@ CONTAINS
        !
        CALL read_sea_ice_namelist        (atm_namelist_filename(1:tlen))
        CALL read_art_namelist            (atm_namelist_filename(1:tlen))
-#ifdef __NO_RTE_RRTMGP__
-       CALL read_psrad_nml               (atm_namelist_filename(1:tlen))
+#ifndef __NO_ICON_LES__
+       CALL read_les_namelist            (atm_namelist_filename(1:tlen))
+       CALL read_ls_forcing_namelist     (atm_namelist_filename(1:tlen))
 #endif
        !
     CASE (INWP)
@@ -200,8 +203,6 @@ CONTAINS
        CALL read_turbdiff_namelist       (atm_namelist_filename(1:tlen))
        CALL read_nwp_lnd_namelist        (atm_namelist_filename(1:tlen))
        CALL read_art_namelist            (atm_namelist_filename(1:tlen))
-       CALL read_les_namelist            (atm_namelist_filename(1:tlen))
-       CALL read_ls_forcing_namelist     (atm_namelist_filename(1:tlen))
        !
     END SELECT
 
@@ -213,6 +214,7 @@ CONTAINS
     !
     CALL read_initicon_namelist       (atm_namelist_filename(1:tlen))
     CALL read_nh_testcase_namelist    (atm_namelist_filename(1:tlen))
+    CALL read_scm_namelist            (atm_namelist_filename(1:tlen))
 
     ! Boundary conditions
     !

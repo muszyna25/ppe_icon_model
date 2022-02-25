@@ -120,7 +120,7 @@ MODULE mo_nh_stepping
     &                                    max_dom, min_rlcell, min_rlvert
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
-  USE mo_update_dyn,               ONLY: add_slowphys
+  USE mo_update_dyn_scm,           ONLY: add_slowphys_scm
   USE mo_advection_stepping,       ONLY: step_advection
   USE mo_advection_aerosols,       ONLY: aerosol_2D_advection, setup_aerosol_advection
   USE mo_aerosol_util,             ONLY: aerosol_2D_diffusion
@@ -139,8 +139,10 @@ MODULE mo_nh_stepping
 
   USE mo_sync,                     ONLY: sync_patch_array_mult, sync_patch_array, SYNC_C, SYNC_E, global_max
   USE mo_nh_interface_nwp,         ONLY: nwp_nh_interface
+#ifndef __NO_ECHAM__
   USE mo_interface_iconam_echam,   ONLY: interface_iconam_echam
   USE mo_echam_phy_memory,         ONLY: prm_tend
+#endif
   USE mo_phys_nest_utilities,      ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf, copy_rrg_ubc
   USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
@@ -153,7 +155,7 @@ MODULE mo_nh_stepping
   USE mo_name_list_output_init,    ONLY: output_file
   USE mo_pp_scheduler,             ONLY: new_simulation_status, pp_scheduler_process
   USE mo_pp_tasks,                 ONLY: t_simulation_status
-
+#ifdef __ICON_ART
   USE mo_art_diagnostics_interface,ONLY: art_diagnostics_interface
   USE mo_art_emission_interface,   ONLY: art_emission_interface
   USE mo_art_sedi_interface,       ONLY: art_sedi_interface
@@ -161,7 +163,7 @@ MODULE mo_nh_stepping
   USE mo_art_init_interface,       ONLY: art_init_atmo_tracers_nwp,   &
                                      &   art_init_atmo_tracers_echam, &
                                      &   art_update_atmo_phy
-  
+#endif
 
   USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars, update_sst_and_seaice
   USE mo_reader_sst_sic,           ONLY: t_sst_sic_reader
@@ -176,21 +178,18 @@ MODULE mo_nh_stepping
   USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
   USE mo_synsat_config,            ONLY: lsynsat
   USE mo_rttov_interface,          ONLY: rttov_driver, copy_rttov_ubc
-  USE mo_sync_latbc,               ONLY: prepare_latbc_data,                    &
-    &                                    read_latbc_data_sync=>read_latbc_data, &
-    &                                    p_latbc_data,   &
-    &                                    read_latbc_tlev, last_latbc_tlev,      &
-    &                                    update_lin_interc
+#ifndef __NO_ICON_LES__
   USE mo_interface_les,            ONLY: les_phy_interface
+  USE mo_turbulent_diagnostic,     ONLY: calculate_turbulent_diagnostics, &
+                                         write_vertical_profiles, write_time_series, &
+                                         sampl_freq_step, les_cloud_diag  
+#endif
   USE mo_restart,                  ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
   USE mo_prepadv_types,            ONLY: t_prepare_adv
   USE mo_prepadv_state,            ONLY: prep_adv, jstep_adv
   USE mo_action,                   ONLY: reset_act
   USE mo_output_event_handler,     ONLY: get_current_jfile
   USE mo_nwp_diagnosis,            ONLY: nwp_diag_for_output, nwp_opt_diagnostics
-  USE mo_turbulent_diagnostic,     ONLY: calculate_turbulent_diagnostics, &
-                                         write_vertical_profiles, write_time_series, &
-                                         sampl_freq_step, les_cloud_diag
   USE mo_opt_diagnostics,          ONLY: update_opt_acc, reset_opt_acc, &
     &                                    calc_mean_opt_acc, p_nh_opt_diag
   USE mo_var_list_register_utils,  ONLY: vlr_print_vls
@@ -235,13 +234,12 @@ MODULE mo_nh_stepping
   USE mo_upatmo_config,            ONLY: upatmo_config
   USE mo_nh_deepatmo_solve,        ONLY: solve_nh_deepatmo
   USE mo_upatmo_impl_const,        ONLY: idamtr, iUpatmoPrcStat
+#ifndef __NO_ICON_UPPER__
   USE mo_upatmo_state,             ONLY: prm_upatmo
   USE mo_upatmo_flowevent_utils,   ONLY: t_upatmoRestartAttributes,      &
     &                                    upatmoRestartAttributesPrepare, &
     &                                    upatmoRestartAttributesGet,     &
     &                                    upatmoRestartAttributesDeallocate
-#ifdef __NO_RTE_RRTMGP__
-  USE mo_atmo_psrad_interface,     ONLY: finalize_atmo_radation
 #endif
   use mo_icon2dace,                ONLY: mec_Event, init_dace_op, run_dace_op, dace_op_init
   USE mo_extpar_config,            ONLY: generate_td_filename
@@ -414,6 +412,7 @@ MODULE mo_nh_stepping
     END IF
   END IF
 
+#ifdef __ICON_ART
   IF (iforcing == inwp .AND. lart) THEN
     DO jg=1, n_dom
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
@@ -429,7 +428,7 @@ MODULE mo_nh_stepping
            &  p_patch(jg)%nest_level)
     ENDDO
   END IF
-
+#endif
 
   ! Save initial state if IAU iteration mode is chosen
   IF (iterate_iau .AND. .NOT. isRestart()) THEN
@@ -460,8 +459,7 @@ MODULE mo_nh_stepping
            & p_lnd_state(jg)%prog_wtr(nnew_rcf(jg)),&
            & p_lnd_state(jg)%diag_lnd              ,&
            & ext_data(jg)                          ,&
-           & phy_params(jg), mtime_current         ,&
-           & prm_upatmo(jg)                         )
+           & phy_params(jg), mtime_current          )
 
       IF (.NOT.isRestart()) THEN
         CALL init_cloud_aero_cpl (mtime_current, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
@@ -489,11 +487,11 @@ MODULE mo_nh_stepping
       DO jg = 1, n_dom
 
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-
+#ifndef __NO_ICON_LES__
         IF(.NOT.atm_phy_nwp_config(jg)%is_les_phy) THEN
-
+#endif
           ! diagnostics which are only required for output
-          CALL nwp_diag_for_output(mtime_current, kstart_moist(jg),           & !in
+        CALL nwp_diag_for_output(mtime_current, kstart_moist(jg),             & !in
                &                      ih_clch(jg), ih_clcm(jg),               & !in
                &                      phy_params(jg),                         & !in
                &                      p_patch(jg),                            & !in
@@ -506,8 +504,7 @@ MODULE mo_nh_stepping
                &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
                &                      ext_data(jg),                           & !in
                &                      prm_diag(jg)                            ) !inout
-
-
+#ifndef __NO_ICON_LES__
         ELSE !is_les_phy
 
            !LES specific diagnostics only for output
@@ -522,6 +519,7 @@ MODULE mo_nh_stepping
              &                      prm_diag(jg)                            ) !inout
 
          END IF!is_les_phy
+#endif
       ENDDO!jg
 
       CALL fill_nestlatbc_phys
@@ -548,7 +546,7 @@ MODULE mo_nh_stepping
     IF (.NOT.isRestart()) THEN
       CALL init_slowphysics (mtime_current, 1, dtime)
     END IF
-
+#ifdef __ICON_ART
     IF (lart) THEN
       DO jg = 1, n_dom
         CALL art_init_atmo_tracers_echam(                      &
@@ -561,6 +559,7 @@ MODULE mo_nh_stepping
                &  p_patch(jg)%nest_level )
       ENDDO
     END IF
+#endif
   END SELECT ! iforcing
 
   !------------------------------------------------------------------
@@ -643,7 +642,7 @@ MODULE mo_nh_stepping
         CALL meteogram_sample_vars(jg, 0, time_config%tc_startdate)
       END IF
     END DO
-
+#ifndef __NO_ICON_LES__
     !AD: Also output special diagnostics for LES on torus
     IF (atm_phy_nwp_config(1)%is_les_phy &
       .AND. sampl_freq_step>0)THEN
@@ -662,7 +661,7 @@ MODULE mo_nh_stepping
       CALL write_vertical_profiles(prm_diag(1)%turb_diag_1dvar, mtime_current, 1)
       prm_diag(1)%turb_diag_1dvar = 0._wp
     END IF
-
+#endif
 
 #ifdef MESSY
     ! MESSy initial output
@@ -745,8 +744,9 @@ MODULE mo_nh_stepping
 
   REAL(wp), ALLOCATABLE :: elapsedTime(:)  ! time elapsed since last call of 
                                            ! NWP physics routines. For restart purposes.
+#ifndef __NO_ICON_UPPER__
   TYPE(t_upatmoRestartAttributes) :: upatmoRestartAttributes
-
+#endif
   TYPE(datetime)                      :: target_datetime  ! target date for for update of clim. 
                                                           ! lower boundary conditions in NWP mode
   TYPE(datetime)                      :: ref_datetime     ! reference datetime for computing 
@@ -892,14 +892,16 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv, advection_config, iforcing )
+  call h2d_icon( p_int_state, p_int_state_local_parent, p_patch, p_patch_local_parent, &
+    &            p_nh_state, prep_adv, advection_config, iforcing )
   IF (n_dom > 1 .OR. l_limited_area) THEN
      CALL devcpy_grf_state (p_grf_state, .TRUE.)
      CALL devcpy_grf_state (p_grf_state_local_parent, .TRUE.)
   ENDIF
   IF ( iforcing == inwp ) THEN
      DO jg=1, n_dom
-        CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg))
+        CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg), &
+          phy_params=phy_params(jg), atm_phy_nwp_config=atm_phy_nwp_config(jg))
      ENDDO
      CALL devcpy_nwp()
   ENDIF
@@ -940,15 +942,6 @@ MODULE mo_nh_stepping
 
     ! turn on calculation of averaged and accumulated quantities at the first regular time step
     IF (jstep-jstep0 == 1) atm_phy_nwp_config(:)%lcalc_acc_avg = .TRUE.
-
-
-    ! read boundary data if necessary
-    IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
-#ifdef _OPENACC
-          CALL finish (routine, 'read_latbc_data_sync: OpenACC version currently not implemented')
-#endif
-      CALL read_latbc_data_sync(p_patch(1), p_nh_state(1), ext_data(1), p_int_state(1), mtime_current)
-    ENDIF
 
     lprint_timestep = msg_level > 2 .OR. MOD(jstep,25) == 0
 
@@ -1134,7 +1127,7 @@ MODULE mo_nh_stepping
 
 #ifdef HAVE_RADARFWO    
     IF (.NOT.my_process_is_mpi_test() .AND. iforcing == inwp .AND. ANY(luse_radarfwo(1:n_dom)) .AND. &
-         ( jstep >= 0 .AND. (.NOT.iterate_iau .OR. iau_iter == 2) ) ) THEN
+         ( jstep >= 0 .AND. (.NOT.iterate_iau .OR. iau_iter == 2 .OR. isRestart() ) ) ) THEN
       CALL emvorado_radarfwo (mtime_current, nnow(1:n_dom), nnow_rcf(1:n_dom), n_dom, &
                               luse_radarfwo(1:n_dom), jstep, nsteps+jstep0)
     END IF
@@ -1146,27 +1139,30 @@ MODULE mo_nh_stepping
     !
 
     IF ((l_compute_diagnostic_quants .OR. iforcing==iecham .OR. iforcing==inoforcing)  .AND. (.NOT. bench_config%d_ndfo)) THEN
-    
+
+      !$ser verbatim DO jg = 1, n_dom
+      !$ser verbatim   CALL serialize_all(nproma, jg, "output_diag_dyn", .TRUE., opt_lupdate_cpu=.TRUE.)
+      !$ser verbatim ENDDO
       CALL diag_for_output_dyn ()
-      
+      !$ser verbatim DO jg = 1, n_dom
+      !$ser verbatim   CALL serialize_all(nproma, jg, "output_diag_dyn", .FALSE., opt_lupdate_cpu=.TRUE.)
+      !$ser verbatim ENDDO
+
       IF (iforcing == inwp) THEN
-#ifdef _OPENACC
-        CALL message('mo_nh_stepping', 'Device to host copy before nwp_diag_for_output. This needs to be removed once port is finished!')
-        DO jg = 1, n_dom
-           CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg))
-        ENDDO
-        i_am_accel_node = .FALSE.
-#endif
         !$ser verbatim DO jg = 1, n_dom
         !$ser verbatim   CALL serialize_all(nproma, jg, "output_diag", .TRUE., opt_lupdate_cpu=.TRUE.)
         !$ser verbatim ENDDO
-        CALL aggr_landvars
+        !$ACC WAIT
+        CALL aggr_landvars(use_acc=.TRUE.)
 
         DO jg = 1, n_dom
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
+#ifndef __NO_ICON_LES__
           IF(.NOT.atm_phy_nwp_config(jg)%is_les_phy) THEN
+#endif
             ! diagnostics which are only required for output
+            !$ACC WAIT
             CALL nwp_diag_for_output(mtime_current, kstart_moist(jg),           & !in
                  &                      ih_clch(jg), ih_clcm(jg),               & !in
                  &                      phy_params(jg),                         & !in
@@ -1174,16 +1170,23 @@ MODULE mo_nh_stepping
                  &                      p_nh_state(jg)%metrics,                 & !in
                  &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
                  &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
-                 &                      p_nh_state(jg)%diag,                    & !in
+                 &                      p_nh_state(jg)%diag,                    & !inout
                  &                      p_lnd_state(jg)%diag_lnd,               & !in
                  &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
                  &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
                  &                      ext_data(jg),                           & !in
-                 &                      prm_diag(jg)                            ) !inout
+                 &                      prm_diag(jg),                           & !inout
+                 &                      use_acc=.TRUE.                          ) !in
 
-
+#ifndef __NO_ICON_LES__
           ELSE !is_les_phy
 
+#ifdef _OPENACC
+            IF (i_am_accel_node) THEN
+              CALL finish ('perform_nh_timeloop', &
+                &  'atm_phy_nwp_config(jg)%is_les_phy: OpenACC version currently not implemented')
+            ENDIF
+#endif
             !LES specific diagnostics only for output
             CALL les_cloud_diag    ( kstart_moist(jg),                       & !in
               &                      ih_clch(jg), ih_clcm(jg),               & !in
@@ -1196,10 +1199,10 @@ MODULE mo_nh_stepping
               &                      prm_diag(jg)                            ) !inout
 
           END IF!is_les_phy
-
+#endif
         ENDDO!jg
 
-        CALL fill_nestlatbc_phys
+        CALL fill_nestlatbc_phys(use_acc=.TRUE.)
 
       ! Compute synthetic satellite images if requested
         DO jg = 1, n_dom
@@ -1209,24 +1212,18 @@ MODULE mo_nh_stepping
           DO jn = 1, p_patch(jg)%n_childdom
             jgc = p_patch(jg)%child_id(jn)
             IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
-            IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
+            IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc, use_acc=.TRUE.)
           ENDDO
-          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
+          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg), use_acc=.TRUE.)
 
         ENDDO!jg
-#ifdef _OPENACC
-        CALL message('mo_nh_stepping', 'Host to device copy after nwp_diag_for_output. This needs to be removed once port is finished!')
-        DO jg = 1, n_dom
-           CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg))
-        ENDDO
-        i_am_accel_node = my_process_is_work()
-#endif
         !$ser verbatim DO jg = 1, n_dom
         !$ser verbatim   CALL serialize_all(nproma, jg, "output_diag", .FALSE., opt_lupdate_cpu=.TRUE.)
         !$ser verbatim ENDDO
 
       END IF !iforcing=inwp
 
+#ifdef __ICON_ART
       IF (lart .AND. ntracer>0) THEN
          !
          ! Unit conversion for output from mass mixing ratios to densities
@@ -1248,7 +1245,7 @@ MODULE mo_nh_stepping
          END DO
          !
       END IF ! lart .AND. ntracer>0
-
+#endif
     ENDIF
 
     ! Calculate optional diagnostic output variables if requested in the namelist(s)
@@ -1422,13 +1419,6 @@ MODULE mo_nh_stepping
        END IF
     END IF
 
-#ifdef __NO_RTE_RRTMGP__
-    IF (mtime_current >= time_config%tc_stopdate) THEN
-      ! this needs to be done before writing the restart, but after anything esle that uses/outputs radation fluxes
-      CALL finalize_atmo_radation()
-    ENDIF
-#endif
-
     IF (lwrite_checkpoint) THEN
 
       CALL diag_for_output_dyn ()
@@ -1443,19 +1433,22 @@ MODULE mo_nh_stepping
             IF (iforcing == inwp) THEN
               CALL atm_phy_nwp_config(jg)%phyProcs%serialize (mtime_current, elapsedTime)
             ENDIF
+#ifndef __NO_ICON_UPPER__
             ! upper-atmosphere physics
             IF (upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled )) THEN
               CALL upatmoRestartAttributesPrepare(jg, upatmoRestartAttributes, prm_upatmo(jg), mtime_current)
             ENDIF
-
+#endif
             CALL restartDescriptor%updatePatch(p_patch(jg), &
               & opt_t_elapsed_phy          = elapsedTime,                &
               & opt_ndyn_substeps          = ndyn_substeps_var(jg),      &
               & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
               & opt_depth_lnd              = nlev_soil,                  &
               & opt_nlev_snow              = nlev_snow,                  &
-              & opt_ndom                   = n_dom,                      &
-              & opt_upatmo_restart_atts    = upatmoRestartAttributes)
+#ifndef __NO_ICON_UPPER__
+              & opt_upatmo_restart_atts    = upatmoRestartAttributes,    &
+#endif
+              & opt_ndom                   = n_dom )
 
         ENDDO
 
@@ -1474,9 +1467,11 @@ MODULE mo_nh_stepping
           DEALLOCATE(elapsedTime, STAT=ierr)
           IF (ierr /= SUCCESS)  CALL finish (routine, 'DEALLOCATE failed!')
         ENDIF
+#ifndef __NO_ICON_UPPER__
         IF (ANY(upatmo_config(:)%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled ))) THEN
           CALL upatmoRestartAttributesDeallocate(upatmoRestartAttributes)
         ENDIF
+#endif
     END IF  ! lwrite_checkpoint
 
 #ifdef MESSYTIMER
@@ -1529,10 +1524,14 @@ MODULE mo_nh_stepping
 
     sim_time = getElapsedSimTimeInSeconds(mtime_current) 
     
+    !$ser verbatim DO jg = 1, n_dom
+    !$ser verbatim   CALL serialize_all(nproma, jg, "time_loop_end", .FALSE., opt_lupdate_cpu=.FALSE.)
+    !$ser verbatim ENDDO    
   ENDDO TIME_LOOP
 
 #if defined( _OPENACC )
-  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv, advection_config, iforcing )
+  CALL d2h_icon( p_int_state, p_int_state_local_parent, p_patch, p_patch_local_parent, &
+    &            p_nh_state, prep_adv, advection_config, iforcing )
   IF ( iforcing == inwp ) THEN
     DO jg=1, n_dom
        CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg))
@@ -1664,7 +1663,7 @@ MODULE mo_nh_stepping
     ENDIF
 
     ! This executes one time step for the global domain and two steps for nested domains
-    DO jstep = 1, num_steps
+    JSTEP_LOOP: DO jstep = 1, num_steps
 
 #ifdef _OPENACC
       IF (msg_level >= 13) THEN
@@ -1708,9 +1707,7 @@ MODULE mo_nh_stepping
 
       IF ( p_patch(jg)%n_childdom > 0 .AND. ndyn_substeps_var(jg) > 1) THEN
 
-#ifdef _OPENACC
-          CALL finish (routine, 'NESTING: OpenACC version currently not implemented')
-#endif
+        !$ser verbatim CALL serialize_all(nproma, jg, "nesting_save_progvars", .TRUE., opt_lupdate_cpu=.TRUE., opt_id=jstep)
         lbdy_nudging = .FALSE.
         lnest_active = .FALSE.
         DO jn = 1, p_patch(jg)%n_childdom
@@ -1725,6 +1722,7 @@ MODULE mo_nh_stepping
         ! interpolation tendencies
         n_now  = nnow(jg)
         n_save = nsav1(jg)
+      
         IF (lbdy_nudging) THEN ! full copy needed
 #ifndef _OPENACC
 !$OMP PARALLEL
@@ -1739,6 +1737,7 @@ MODULE mo_nh_stepping
         ELSE IF (lnest_active) THEN ! optimized copy restricted to nest boundary points
           CALL save_progvars(jg,p_nh_state(jg)%prog(n_now),p_nh_state(jg)%prog(n_save))
         ENDIF
+        !$ser verbatim CALL serialize_all(nproma, jg, "nesting_save_progvars", .FALSE., opt_lupdate_cpu=.TRUE., opt_id=jstep)
 
       ENDIF
 
@@ -1748,6 +1747,9 @@ MODULE mo_nh_stepping
       n_new_rcf = nnew_rcf(jg)
 
 #ifdef MESSY
+#ifdef _OPENACC
+      CALL finish (routine, 'MESSY:  OpenACC version currently not implemented')
+#endif
       CALL messy_global_start(jg)
       CALL messy_local_start(jg)
       CALL messy_vdiff(jg)
@@ -1801,8 +1803,7 @@ MODULE mo_nh_stepping
           &         advection_config(jg)%lfull_comp,                      &! in
           &         p_nh_state(jg)%diag,                                  &! inout
           &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
-          &         prep_adv(jg)%mass_flx_ic,                             &! inout
-          &         prep_adv(jg)%topflx_tra                               )! out
+          &         prep_adv(jg)%mass_flx_ic                              )! inout
 
         ! airmass_now
         CALL compute_airmass(p_patch   = p_patch(jg),                       & !in
@@ -1833,8 +1834,8 @@ MODULE mo_nh_stepping
           &       p_mflx_tracer_h   = p_nh_state(jg)%diag%hfl_tracer,        & !out
           &       p_mflx_tracer_v   = p_nh_state(jg)%diag%vfl_tracer,        & !out
           &       rho_incr          = p_nh_state(jg)%diag%rho_incr,          & !in
-          &       opt_topflx_tra    = prep_adv(jg)%topflx_tra,               & !optin
-          &       opt_q_int         = p_nh_state(jg)%diag%q_int,             & !optout
+          &       q_ubc             = prep_adv(jg)%q_ubc,                    & !in
+          &       q_int             = prep_adv(jg)%q_int,                    & !out
           &       opt_ddt_tracer_adv= p_nh_state(jg)%diag%ddt_tracer_adv,    & !optout
           &       opt_deepatmo_t1mc = p_nh_state(jg)%metrics%deepatmo_t1mc,  & !optin
           &       opt_deepatmo_t2mc = p_nh_state(jg)%metrics%deepatmo_t2mc   ) !optin
@@ -1893,7 +1894,9 @@ MODULE mo_nh_stepping
             ENDIF
 
           ELSE IF (iforcing == inwp) THEN
-            CALL add_slowphys(p_nh_state(jg), p_patch(jg), nnow(jg), nnew(jg), dt_loc)
+            ! dynamics for ldynamics off, option of coriolis force, typically used for SCM and similar test cases
+            CALL add_slowphys_scm(p_nh_state(jg), p_patch(jg), p_int_state(jg), &
+              &                   nnow(jg), nnew(jg), dt_loc)
           ENDIF
         ELSE
           CALL finish (routine, 'itype_comm /= 1 currently not implemented')
@@ -1904,6 +1907,7 @@ MODULE mo_nh_stepping
         CALL main_tracer_beforeadv
 #endif
 
+#ifdef __ICON_ART
         IF (lart) THEN
           ! Update time dependent variables needed for ART
           IF (iforcing == inwp) THEN
@@ -1917,16 +1921,13 @@ MODULE mo_nh_stepping
                          &           p_nh_state(jg)%prog(nnew(jg)))
           END IF
         END IF
+#endif
 
         ! 5. tracer advection
         !-----------------------
         IF ( ltransport) THEN
-
+#ifdef __ICON_ART
           IF (lart) THEN
-#ifdef _OPENACC
-            CALL finish (routine, 'art_emission_interface: OpenACC version currently not implemented')
-#endif
-
             CALL art_emission_interface(                       &
               &      p_nh_state_lists(jg)%prog_list(n_new_rcf),&!inout
               &      ext_data(jg),                             &!in
@@ -1936,7 +1937,7 @@ MODULE mo_nh_stepping
               &      datetime_local(jg)%ptr,                   &!in
               &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
           ENDIF
-
+#endif
 
           IF (msg_level >= 12) THEN
             WRITE(message_text,'(a,i2)') 'call advection  DOM:',jg
@@ -1961,8 +1962,8 @@ MODULE mo_nh_stepping
             &       p_mflx_tracer_h   = p_nh_state(jg)%diag%hfl_tracer,       & !out
             &       p_mflx_tracer_v   = p_nh_state(jg)%diag%vfl_tracer,       & !out
             &       rho_incr          = p_nh_state(jg)%diag%rho_incr,         & !in
-            &       opt_topflx_tra    = prep_adv(jg)%topflx_tra,              & !in
-            &       opt_q_int         = p_nh_state(jg)%diag%q_int,            & !out
+            &       q_ubc             = prep_adv(jg)%q_ubc,                   & !in
+            &       q_int             = prep_adv(jg)%q_int,                   & !out
             &       opt_ddt_tracer_adv= p_nh_state(jg)%diag%ddt_tracer_adv,   & !out
             &       opt_deepatmo_t1mc = p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
             &       opt_deepatmo_t2mc = p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
@@ -1987,10 +1988,8 @@ MODULE mo_nh_stepping
         ! ART tracer sedimentation:
         !     Optional internal substepping with nart_substeps_sedi
         !-----------------------
+#ifdef __ICON_ART
           IF (lart) THEN
-#ifdef _OPENACC
-            CALL finish (routine, 'art_sedi_interface: OpenACC version currently not implemented')
-#endif
             CALL art_sedi_interface( p_patch(jg),             &!in
                &      dt_loc,                                 &!in
                &      p_nh_state(jg)%prog(n_new_rcf),         &!in
@@ -1999,7 +1998,7 @@ MODULE mo_nh_stepping
                &      p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
                &      .TRUE.)                                  !print CFL number
           ENDIF ! lart
-
+#endif
         ENDIF !ltransport
 
 #ifdef MESSY
@@ -2010,9 +2009,6 @@ MODULE mo_nh_stepping
         ! Apply boundary nudging in case of one-way nesting
         IF (jg > 1 ) THEN
 
-#ifdef _OPENACC
-          CALL finish (routine, 'NESTING: OpenACC version currently not implemented')
-#endif
           IF (lfeedback(jg) .AND. l_density_nudging .AND. grf_intmethod_e <= 4) THEN
             IF (ltimer)            CALL timer_start(timer_nesting)
             IF (timers_level >= 2) CALL timer_start(timer_nudging)
@@ -2040,6 +2036,7 @@ MODULE mo_nh_stepping
               &                     lcall_phy     = atm_phy_nwp_config(jg)%lcall_phy(:) ) !inout
           END IF
 
+#ifndef __NO_ICON_LES__
           IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
 
 #ifdef _OPENACC
@@ -2071,15 +2068,16 @@ MODULE mo_nh_stepping
               &                  p_lnd_state(jg)%prog_wtr(n_new_rcf) ) !inout
 
           ELSE ! is_les_phy
+#endif
+             
+          SELECT CASE (iforcing)
 
-            SELECT CASE (iforcing)
-
-            CASE (inwp) ! iforcing
+          CASE (inwp) ! iforcing
 
 
               ! nwp physics
               !$ser verbatim CALL serialize_all(nproma, jg, "physics", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
-              CALL nwp_nh_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
+            CALL nwp_nh_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
                 &                  .FALSE.,                            & !in
                 &                  lredgrid_phys(jg),                  & !in
                 &                  dt_loc,                             & !in
@@ -2101,17 +2099,19 @@ MODULE mo_nh_stepping
                 &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
                 &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
                 &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-                &                  p_nh_state_lists(jg)%prog_list(n_new_rcf),& !in
-                &                  prm_upatmo(jg)                      ) !inout
+                &                  p_nh_state_lists(jg)%prog_list(n_new_rcf) ) !in
   
               !$ser verbatim CALL serialize_all(nproma, jg, "physics", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
 
-            CASE (iecham) ! iforcing
+          CASE (iecham) ! iforcing
 
-              ! echam physics
-              IF (ltimer) CALL timer_start(timer_iconam_echam)
-              !
-              CALL interface_iconam_echam( dt_loc                                    & !in
+#ifdef __NO_ECHAM__   
+            CALL finish (routine, 'Error: remove --disable-echam and reconfigure')
+#else
+            ! echam physics
+            IF (ltimer) CALL timer_start(timer_iconam_echam)
+            !
+            CALL interface_iconam_echam( dt_loc                                    & !in
                 &                         ,datetime_local(jg)%ptr                    & !in
                 &                         ,p_patch(jg)                               & !in
                 &                         ,p_int_state(jg)                           & !in
@@ -2120,22 +2120,20 @@ MODULE mo_nh_stepping
                 &                         ,p_nh_state(jg)%prog(n_new_rcf)            & !inout
                 &                         ,p_nh_state(jg)%diag                       )
 
-              !
-              IF (ltimer) CALL timer_stop(timer_iconam_echam)
+            !
+            IF (ltimer) CALL timer_stop(timer_iconam_echam)
+#endif
+          END SELECT ! iforcing
 
-            END SELECT ! iforcing
-
+#ifndef __NO_ICON_LES__
           END IF ! is_les_phy
-
+#endif
           ! Boundary interpolation of land state variables entering into radiation computation
           ! if a reduced grid is used in the child domain(s)
           IF (ltimer)            CALL timer_start(timer_nesting)
           IF (timers_level >= 2) CALL timer_start(timer_bdy_interp)
           DO jn = 1, p_patch(jg)%n_childdom
 
-#ifdef _OPENACC
-            CALL finish (routine, 'CHILD DOMAINS: OpenACC version currently not implemented')
-#endif
             jgc = p_patch(jg)%child_id(jn)
             IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
@@ -2168,6 +2166,7 @@ MODULE mo_nh_stepping
             IF (lcall_rrg .AND. atm_phy_nwp_config(jgc)%latm_above_top) THEN
               CALL copy_rrg_ubc(jg, jgc)
             ENDIF
+
           ENDDO
           IF (timers_level >= 2) CALL timer_stop(timer_bdy_interp)
           IF (ltimer)            CALL timer_stop(timer_nesting)
@@ -2176,8 +2175,8 @@ MODULE mo_nh_stepping
 
         ! Terminator toy chemistry
         !
-        ! So far it can only be activated for testcases and not for real-cases, 
-        ! since the initialization is done in init_nh_testcase. However, 
+        ! So far it can only be activated for testcases and not for real-cases,
+        ! since the initialization is done in init_nh_testcase. However,
         ! nothing speaks against combining toy chemistry with real case runs.
         IF (ltestcase .AND. is_toy_chem) THEN
 #ifdef _OPENACC
@@ -2212,16 +2211,10 @@ MODULE mo_nh_stepping
 
       ENDIF  ! itime_scheme
 
-
       !
       ! lateral nudging and optional upper boundary nudging in limited area mode
       !
       IF ( (l_limited_area .AND. (.NOT. l_global_nudging)) .AND. (.NOT. bench_config%d_n) ) THEN
-#ifdef _OPENACC
-        CALL message('mo_nh_stepping', 'Device to host copy before nudging. This needs to be removed once port is finished!')
-        CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg))
-        i_am_accel_node = .FALSE.
-#endif
         !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .TRUE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
         
         tsrat = REAL(ndyn_substeps,wp) ! dynamics-physics time step ratio
@@ -2263,26 +2256,12 @@ MODULE mo_nh_stepping
                 &  p_latbc_new=ptr_latbc_data_atm_new )
             ENDIF
 
-          ELSE  ! Synchronous LatBC read-in:
-
-            ! Please note that upper boundary nudging for child domains is not implemented 
-            ! for the synchronous latbc read-in mode.
-            IF (jg==1) THEN
-              ! update the coefficients for the linear interpolation
-              CALL update_lin_interc(datetime_local(jg)%ptr)
-
-              ! this is a wrapper for limarea_nudging_latbdy + limarea_nudging_upbdy
-              CALL limarea_nudging_bdy(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-                &  p_nh_state(jg)%prog(n_new_rcf)%tracer,                             &
-                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
-                &  p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,                     &
-                &  p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
-            ENDIF
-
           ENDIF
 
         ELSE  ! constant lateral boundary data
-
+#ifdef _OPENACC
+          CALL finish(TRIM(routine), 'Constant lateral boundary data is not ported on GPU')
+#endif
           IF (jg==1) THEN
             ! Model state is nudged towards constant state along the lateral boundaries
             ! Currently only implemented for the base domain
@@ -2294,13 +2273,7 @@ MODULE mo_nh_stepping
           ENDIF
 
         ENDIF
-#ifdef _OPENACC
-        CALL message('mo_nh_stepping', 'Host to device copy after nudging. This needs to be removed once port is finished!')
-        CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg))
-        i_am_accel_node = my_process_is_work()
-#endif
         !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .FALSE., opt_lupdate_cpu=.TRUE., opt_dt=datetime_local(jg)%ptr)
-
 
       ELSE IF (l_global_nudging .AND. jg==1) THEN
         
@@ -2310,7 +2283,6 @@ MODULE mo_nh_stepping
         ! Apply global nudging
         CALL nudging_interface( p_patch          = p_patch(jg),            & !in
           &                     p_nh_state       = p_nh_state(jg),         & !inout
-          &                     p_latbc_data     = p_latbc_data,           & !in
           &                     latbc            = latbc,                  & !in
           &                     p_int_state      = p_int_state(jg),        & !in
           &                     mtime_datetime   = datetime_local(jg)%ptr, & !in
@@ -2319,8 +2291,6 @@ MODULE mo_nh_stepping
           &                     ndyn_substeps    = ndyn_substeps,          & !in
           &                     nnew             = nnew(jg),               & !in
           &                     nnew_rcf         = n_new_rcf,              & !in
-          &                     last_latbc_tlev  = last_latbc_tlev,        & !in
-          &                     read_latbc_tlev  = read_latbc_tlev,        & !in
           &                     upatmo_config    = upatmo_config(jg),      & !in
           &                     nudging_config   = nudging_config(jg)      ) !inout
 
@@ -2331,9 +2301,6 @@ MODULE mo_nh_stepping
       ! Check if at least one of the nested domains is active
       !
       IF (p_patch(jg)%n_childdom > 0) THEN
-#ifdef _OPENACC
-        CALL finish (routine, 'NESTING: OpenACC version currently not implemented')
-#endif
         lnest_active = .FALSE.
         DO jn = 1, p_patch(jg)%n_childdom
           jgc = p_patch(jg)%child_id(jn)
@@ -2343,10 +2310,6 @@ MODULE mo_nh_stepping
 
       ! If there are nested domains...
       IF (p_patch(jg)%n_childdom > 0 .AND. lnest_active ) THEN
-
-#ifdef _OPENACC
-        CALL finish (routine, 'NESTING: OpenACC version currently not implemented')
-#endif
 
         IF (ndyn_substeps_var(jg) == 1) THEN
           n_now_grf  = nnow(jg)
@@ -2364,8 +2327,10 @@ MODULE mo_nh_stepping
         IF (timers_level >= 2) CALL timer_start(timer_bdy_interp)
 
         ! Compute time tendencies for interpolation to refined mesh boundaries
+        !$ser verbatim CALL serialize_all(nproma, jg, "nesting_compute_tendencies", .TRUE., opt_lupdate_cpu=.TRUE., opt_id=jstep)
         CALL compute_tendencies (jg,nnew(jg),n_now_grf,n_new_rcf,n_now_rcf, &
           &                      rdt_loc,rdtmflx_loc)
+        !$ser verbatim CALL serialize_all(nproma, jg, "nesting_compute_tendencies", .FALSE., opt_lupdate_cpu=.TRUE., opt_id=jstep)
 
         ! Loop over nested domains
         DO jn = 1, p_patch(jg)%n_childdom
@@ -2374,9 +2339,13 @@ MODULE mo_nh_stepping
 
           ! Interpolate tendencies to lateral boundaries of refined mesh (jgc)
           IF (p_patch(jgc)%ldom_active) THEN
+            !$ser verbatim CALL serialize_all(nproma, jg, "nesting_boundary_interpolation", .TRUE., opt_lupdate_cpu=.TRUE., opt_id=jstep)
+            !$ser verbatim CALL serialize_all(nproma, jgc, "nesting_boundary_interpolation", .TRUE., opt_lupdate_cpu=.TRUE., opt_id=jstep + num_steps)
             CALL boundary_interpolation(jg, jgc,                   &
               &  n_now_grf,nnow(jgc),n_now_rcf,nnow_rcf(jgc),      &
-              &  prep_adv(jg)%mass_flx_me,prep_adv(jgc)%mass_flx_me)
+              &  p_patch(1:),p_nh_state(:),prep_adv(:),p_grf_state(1:))
+            !$ser verbatim CALL serialize_all(nproma, jg, "nesting_boundary_interpolation", .FALSE., opt_lupdate_cpu=.TRUE., opt_id=jstep)
+            !$ser verbatim CALL serialize_all(nproma, jgc, "nesting_boundary_interpolation", .FALSE., opt_lupdate_cpu=.TRUE., opt_id=jstep + num_steps)
           ENDIF
 
         ENDDO
@@ -2434,6 +2403,8 @@ MODULE mo_nh_stepping
               CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, &
                 &           jgc, jg)
             ELSE
+              !$ser verbatim CALL serialize_all(nproma, jg, "nesting_relax_feedback", .TRUE., opt_lupdate_cpu=.TRUE., opt_id=jstep)
+              !$ser verbatim CALL serialize_all(nproma, jgc, "nesting_relax_feedback", .TRUE., opt_lupdate_cpu=.TRUE., opt_id=jstep + num_steps)
               IF (iforcing==inwp) THEN
                 CALL relax_feedback(  p_patch(n_dom_start:n_dom),            &
                   & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),     &
@@ -2443,6 +2414,8 @@ MODULE mo_nh_stepping
                   & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),     &
                   & p_grf_state(n_dom_start:n_dom), jgc, jg, dt_loc)
               END IF
+              !$ser verbatim CALL serialize_all(nproma, jg, "nesting_relax_feedback", .FALSE., opt_lupdate_cpu=.TRUE., opt_id=jstep)
+              !$ser verbatim CALL serialize_all(nproma, jgc, "nesting_relax_feedback", .FALSE., opt_lupdate_cpu=.TRUE., opt_id=jstep + num_steps)
             ENDIF
             IF (ldass_lhn) THEN 
               IF (assimilation_config(jgc)%dass_lhn%isActive(datetime_local(jgc)%ptr)) THEN
@@ -2486,9 +2459,6 @@ MODULE mo_nh_stepping
       ! Check if nested domains have to be activated
       IF ( p_patch(jg)%n_childdom > 0 ) THEN
 
-#ifdef _OPENACC
-        CALL finish (routine, 'NESTING: OpenACC version currently not implemented')
-#endif
         ! Loop over nested domains
         DO jn = 1, p_patch(jg)%n_childdom
           jgc = p_patch(jg)%child_id(jn)
@@ -2498,6 +2468,14 @@ MODULE mo_nh_stepping
             &  (sim_time <  end_time(jgc))) THEN
             p_patch(jgc)%ldom_active = .TRUE.
 
+#ifdef _OPENACC
+            IF (msg_level >= 7) &
+              & CALL message (routine, 'NESTING online init: Switching to CPU for initialization')
+            
+            ! The online initialization of the nest runs on CPU only.
+            CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg))
+            i_am_accel_node = .FALSE. ! disable the execution of ACC kernels
+#endif
             jstep_adv(jgc)%marchuk_order = 0
             datetime_local(jgc)%ptr      = datetime_local(jg)%ptr
             linit_dyn(jgc)               = .TRUE.
@@ -2536,11 +2514,14 @@ MODULE mo_nh_stepping
                 & p_lnd_state(jgc)%diag_lnd               ,&
                 & ext_data(jgc)                           ,&
                 & phy_params(jgc), datetime_local(jgc)%ptr,&
-                & prm_upatmo(jgc)                         ,&
                 & lnest_start=.TRUE.                       )
 
-            IF (lart) THEN
-              CALL art_init_atmo_tracers_nwp(                            &
+#ifdef __ICON_ART
+              IF (lart) THEN
+#ifdef _OPENACC
+                CALL finish (routine, 'ART art_init_atmo_tracers_nwp: OpenACC version currently not implemeted.')
+#endif
+                CALL art_init_atmo_tracers_nwp(                          &
                      &  jgc,                                             &
                      &  datetime_local(jgc)%ptr,                         &
                      &  p_nh_state(jgc),                                 &
@@ -2550,8 +2531,8 @@ MODULE mo_nh_stepping
                      &  p_nh_state(jgc)%prog(nnow_rcf(jgc))%tracer,      &
                      &  p_nh_state_lists(jgc)%prog_list(nnow_rcf(jgc)),  &
                      &  p_patch(jgc)%nest_level)
-            END IF
-
+              END IF
+#endif
 
               CALL init_cloud_aero_cpl (datetime_local(jgc)%ptr, p_patch(jgc), p_nh_state(jgc)%metrics, &
                 &                       ext_data(jgc), prm_diag(jgc))
@@ -2577,6 +2558,18 @@ MODULE mo_nh_stepping
             WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jgc,' started at time ',sim_time
             CALL message('integrate_nh', message_text)
 
+#ifdef _OPENACC
+            CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg)) ! necessary as Halo-Data can be modified
+            CALL gpu_h2d_nh_nwp(p_patch(jgc), prm_diag(jgc), ext_data=ext_data(jgc), phy_params=phy_params(jgc), &
+                                atm_phy_nwp_config=atm_phy_nwp_config(jg))
+            i_am_accel_node = my_process_is_work()
+            IF (msg_level >= 7) &
+              & CALL message (routine, 'NESTING online init: Switching back to GPU')
+#endif
+            ! jg: use opt_id to account for multiple childs that can be initialized at once
+            !$ser verbatim   CALL serialize_all(nproma, jg, "initialization", .FALSE., opt_lupdate_cpu=.TRUE., opt_id=jstep + num_steps*jn)
+            ! jgc: opt_id not needed as jgc should be only initialized once
+            !$ser verbatim   CALL serialize_all(nproma, jgc, "initialization", .FALSE., opt_lupdate_cpu=.TRUE.)
           ENDIF
         ENDDO
       ENDIF
@@ -2586,7 +2579,7 @@ MODULE mo_nh_stepping
       CALL messy_global_end(jg)
 #endif
 
-    ENDDO
+    ENDDO JSTEP_LOOP
 
     IF (jg == 1 .AND. ltimer) CALL timer_stop(timer_integrate_nh)
 
@@ -2682,18 +2675,14 @@ MODULE mo_nh_stepping
       ndyn_substeps_tot = (jstep-1)*ndyn_substeps_var(jg) + nstep
 
       ! nullify prep_adv fields at first substep
-      lclean_mflx = MERGE(.TRUE.,.FALSE.,nstep==1)
+      lclean_mflx = (nstep==1)
       l_recompute = lclean_mflx
 
       ! logical checking for the last substep
-      llast = MERGE(.TRUE.,.FALSE.,nstep==ndyn_substeps_var(jg))
+      llast = (nstep==ndyn_substeps_var(jg))
 
       ! save massflux at first substep
-      IF (p_patch%n_childdom > 0 .AND. nstep == 1 ) THEN
-        lsave_mflx = .TRUE.
-      ELSE
-        lsave_mflx = .FALSE.
-      ENDIF
+      lsave_mflx = (p_patch%n_childdom > 0 .AND. nstep == 1 )
 
       IF ( ANY((/MODE_IAU,MODE_IAU_OLD/)==init_mode) ) THEN ! incremental analysis mode
 #ifdef _OPENACC
@@ -2739,7 +2728,7 @@ MODULE mo_nh_stepping
 
       ENDIF
 
-      IF (llast .OR. advection_config(jg)%lfull_comp) &
+      IF (advection_config(jg)%lfull_comp) &
 
         CALL prepare_tracer( p_patch, p_nh_state%prog(nnow(jg)),        &! in
           &                  p_nh_state%prog(nnew(jg)),                 &! in
@@ -2748,8 +2737,8 @@ MODULE mo_nh_stepping
           &                  advection_config(jg)%lfull_comp,           &! in
           &                  p_nh_state%diag,                           &! inout
           &                  prep_adv%vn_traj, prep_adv%mass_flx_me,    &! inout
-          &                  prep_adv%mass_flx_ic,                      &! inout
-          &                  prep_adv%topflx_tra                        )! out
+          &                  prep_adv%mass_flx_ic                       )! inout
+
 
       ! Finally, switch between time levels now and new for next iteration
       !
@@ -2819,7 +2808,8 @@ MODULE mo_nh_stepping
       WRITE(message_text,'(a,i2)') 'initial call of (slow) physics, domain ', jg
       CALL message(routine, message_text)
     ENDIF
-
+   
+#ifndef __NO_ICON_LES__
     IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
 
       nstep = 0
@@ -2848,13 +2838,14 @@ MODULE mo_nh_stepping
         &                  p_lnd_state(jg)%prog_wtr(n_now_rcf) ) !inout
 
     ELSE ! is_les_phy
+#endif
 
-      SELECT CASE (iforcing)
+    SELECT CASE (iforcing)
 
-      CASE (inwp) ! iforcing
-        !
-        ! nwp physics, slow physics forcing
-        CALL nwp_nh_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
+    CASE (inwp) ! iforcing
+      !
+      ! nwp physics, slow physics forcing
+      CALL nwp_nh_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
           &                  .TRUE.,                             & !in
           &                  lredgrid_phys(jg),                  & !in
           &                  dt_loc,                             & !in
@@ -2876,21 +2867,25 @@ MODULE mo_nh_stepping
           &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-          &                  p_nh_state_lists(jg)%prog_list(n_now_rcf),& !in
-          &                  prm_upatmo(jg)                      ) !inout
+          &                  p_nh_state_lists(jg)%prog_list(n_now_rcf) ) !in
 
 
-      CASE (iecham) ! iforcing
-        !
-        ! fast physics coupling only
-        ! assure that physics tendencies for dynamical core are zero
-        p_nh_state(jg)%diag%ddt_exner_phy(:,:,:)   = 0._wp
-        p_nh_state(jg)%diag%ddt_vn_phy(:,:,:)      = 0._wp
-        prm_tend  (jg)%qtrc(:,:,:,:)               = 0._wp
+    CASE (iecham) ! iforcing
+#ifdef __NO_ECHAM__   
+      CALL finish (routine, 'Error: remove --disable-echam and reconfigure')
+#else
+      !
+      ! fast physics coupling only
+      ! assure that physics tendencies for dynamical core are zero
+      p_nh_state(jg)%diag%ddt_exner_phy(:,:,:)   = 0._wp
+      p_nh_state(jg)%diag%ddt_vn_phy(:,:,:)      = 0._wp
+      prm_tend  (jg)%qtrc(:,:,:,:)               = 0._wp
+#endif
+    END SELECT ! iforcing
 
-      END SELECT ! iforcing
-
+#ifndef __NO_ICON_LES__
     END IF ! is_les_phy
+#endif
 
     ! Boundary interpolation of land state variables entering into radiation computation
     ! if a reduced grid is used in the child domain(s)
@@ -3158,14 +3153,13 @@ MODULE mo_nh_stepping
       CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 3, p_nh_state(jg)%diag%u,      &
         p_nh_state(jg)%diag%v, p_nh_state(jg)%diag%div, opt_varname="u, v and div")
 
-
       DO jn = 1, p_patch(jg)%n_childdom
         jgc = p_patch(jg)%child_id(jn)
         IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
         CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_grf_state(jg)%p_dom(jn), 3, &
              p_nh_state(jg)%diag%u, p_nh_state(jgc)%diag%u, p_nh_state(jg)%diag%v,       &
-             p_nh_state(jgc)%diag%v, p_nh_state(jg)%diag%div, p_nh_state(jgc)%diag%div   )
+             p_nh_state(jgc)%diag%v, p_nh_state(jg)%diag%div, p_nh_state(jgc)%diag%div)
 
       ENDDO
 
@@ -3185,7 +3179,9 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2014-07-21)
   !!
-  SUBROUTINE aggr_landvars
+  SUBROUTINE aggr_landvars(use_acc)
+
+    LOGICAL, OPTIONAL,   INTENT(IN)   :: use_acc
 
     ! Local variables
     INTEGER :: jg ! loop indices
@@ -3199,7 +3195,8 @@ MODULE mo_nh_stepping
 
       IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
         CALL aggregate_landvars( p_patch(jg), ext_data(jg),                 &
-             p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), p_lnd_state(jg)%diag_lnd)
+             p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), p_lnd_state(jg)%diag_lnd, &
+             use_acc=use_acc)
       ENDIF
 
     ENDDO ! jg-loop
@@ -3216,12 +3213,24 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2014-07-21)
   !!
-  SUBROUTINE fill_nestlatbc_phys
+  SUBROUTINE fill_nestlatbc_phys(use_acc)
+
+    LOGICAL, OPTIONAL,   INTENT(IN)   :: use_acc
 
     ! Local variables
     INTEGER :: jg, jgc, jn ! loop indices
+    LOGICAL :: lacc
 
     IF (ltimer) CALL timer_start(timer_nh_diagnostics)
+
+    IF (PRESENT(use_acc)) THEN
+      lacc = use_acc
+    ELSE
+      lacc = .FALSE.
+    ENDIF
+#ifdef _OPENACC
+    IF( lacc /= i_am_accel_node ) CALL finish ( 'fill_nestlatbc_phys', 'lacc /= i_am_accel_node' )
+#endif
 
     ! Fill boundaries of nested domains
     DO jg = n_dom, 1, -1
@@ -3235,7 +3244,8 @@ MODULE mo_nh_stepping
         jgc = p_patch(jg)%child_id(jn)
         IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
-        CALL interpol_phys_grf(ext_data, jg, jgc, jn)
+        !$ACC WAIT
+        CALL interpol_phys_grf(ext_data, jg, jgc, jn, use_acc=lacc)
 
         IF (lfeedback(jgc) .AND. ifeedback_type==1) CALL feedback_phys_diag(jgc, jg)
 
@@ -3338,7 +3348,7 @@ MODULE mo_nh_stepping
 
     atm_phy_nwp_config(:)%lcalc_acc_avg = .FALSE.
 
-    CALL restore_initial_state(p_patch(1:), p_nh_state, prm_diag, prm_nwp_tend, p_lnd_state, ext_data)
+    CALL restore_initial_state(p_patch(1:), p_nh_state, prm_diag, prm_nwp_tend, p_lnd_state, ext_data, lhn_fields)
 
     ! Reinitialize time-dependent ensemble perturbations if necessary
     IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
@@ -3382,7 +3392,6 @@ MODULE mo_nh_stepping
            & ext_data(jg)                          ,&
            & phy_params(jg)                        ,&
            & datetime_current                      ,&
-           & prm_upatmo(jg)                        ,&
            & lreset=.TRUE.                          )
 
     ENDDO
@@ -3556,16 +3565,14 @@ MODULE mo_nh_stepping
         ! NWP physics events.
         CALL atm_phy_nwp_config(jg)%phyProcs%deserialize (mtime_current)
       ENDIF
+#ifndef __NO_ICON_UPPER__
       ! upper-atmosphere physics
       IF (isRestart() .AND. upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled )) THEN
         CALL upatmoRestartAttributesGet(jg, prm_upatmo(jg), mtime_current)
       ENDIF
-
+#endif
     ENDDO
 
-    IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
-      CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
-    ENDIF
 
   END SUBROUTINE allocate_nh_stepping
   !-------------------------------------------------------------------------

@@ -19,22 +19,14 @@ Post-process ICON experiment data for a given period
 
 import argparse
 import errno
-import logging
 import os
 import re
 import shutil
 import subprocess
 import sys
 
-#%  if PREFIX:
-from distutils.sysconfig import get_python_lib
-lib_dir = sysconfig.get_python_lib(prefix='%{PREFIX}')
-#%  else:
-os.chdir('%{BUILD_DIR}/externals/mtime/src')
-lib_dir = ''
-#%  endif
-sys.path.insert(1, lib_dir)
-import mtime
+#% include 'standard_experiments/mtime.tmpl'
+#% include 'standard_experiments/logging.tmpl'
 
 # Process command line options
 
@@ -62,23 +54,7 @@ command_line.add_argument('-n', '--dry-run', action='store_true', help=
     'use dry run more for make')
 args = command_line.parse_args()
 
-# Set up diagnostic output
-
-logging.basicConfig(format='%(asctime)s: %(levelname)s%(message)s',
-                    level=logging.INFO)
-logging.addLevelName(logging.DEBUG, 'Debug: ')
-logging.addLevelName(logging.INFO, '')
-logging.addLevelName(logging.WARNING, 'Hey: ')
-logging.addLevelName(logging.ERROR, 'Oops: ')
-logging.addLevelName(logging.CRITICAL, 'Sorry: ')
-#%  if JOB.debug_level|d(0)|int > 0:
-logging.getLogger().setLevel(logging.DEBUG)
-#%  endif
-#%#
-
 # Do time computations using mtime
-
-mtime.setCalendar(mtime.CALENDAR_TYPE.%{calendar_mtime})
 
 initial_date = mtime.DateTime('%{INITIAL_DATE}')
 start_date = args.start_date
@@ -153,8 +129,12 @@ run_dir = os.path.join('%{WORK_DIR}',
 restart_dir = '%{RESTART_DIR}'
 data_dir = '%{DATA_DIR}'
 
-if not os.path.isdir(restart_dir): os.makedirs(restart_dir)
-if not os.path.isdir(data_dir): os.makedirs(data_dir)
+try: os.makedirs(restart_dir)
+except OSError as xcptn:
+    if xcptn.errno != errno.EEXIST: raise
+try: os.makedirs(data_dir)
+except OSError as xcptn:
+    if xcptn.errno != errno.EEXIST: raise
 
 # Add dirs as template variables
 template_dict['run_dir'] = run_dir
@@ -162,7 +142,7 @@ template_dict['restart_dir'] = restart_dir
 template_dict['data_dir'] = data_dir
 
 # Set-up working directory
-post_dir = os.path.join('%{WORK_DIR}',
+post_dir = os.path.join('%{JOB.work_dir}',
                         'post_{start_stamp}-{end_stamp}'.
                         format(**template_dict))
 logging.info('working directory is {0}'.format(post_dir))
@@ -173,8 +153,8 @@ except OSError as xcptn:
         raise
     if args.force:
         logging.info('forcing clean-up of existing working directory')
-        for entry in os.listdir(post_dir):
-            os.remove(os.path.join(post_dir, entry))
+        shutil.rmtree(post_dir)
+        os.mkdir(post_dir)
     else:
         logging.error('working directory exists. '
                       'Check for running jobs, then consider using --force')
@@ -238,12 +218,14 @@ clean:
 	$(RM) $(TARGETS)
 
 #%  for restart_filename in restart_filenames:
-$(RESTART_DIR)/%{restart_filename|replace('<rsttime>','{next_date}')}%: $(RUN_DIR)/%{restart_filename|replace('<rsttime>','{next_stamp}Z')}%
+#%      for suffix in ('', '/%'):
+$(RESTART_DIR)/%{restart_filename|replace('<rsttime>','{next_date}')}%{suffix}: $(RUN_DIR)/%{restart_filename|replace('<rsttime>','{next_stamp}Z')}%{suffix}
 	mkdir -p $(@D)
 	$(NC_COMPRESS) $< $@~
 	@if [ $$(stat -c %s $@~) -gt $$(stat -c %s $<) ]; then COMMAND="cp -p $< $@~"; echo $$COMMAND; $$COMMAND; fi
 	mv $@~ $@
 
+#%      endfor
 #%  endfor
 $(DATA_DIR)/$(EXP_ID)_atm_%_{start_date}.nc: $(RUN_DIR)/$(EXP_ID)_atm_%_{start_stamp}Z.nc
 	$(CDO) $(CDOFLAGS) {atmo_shift_spec} $< $@~
@@ -297,9 +279,7 @@ if make_result:
 os.chdir('%{SCRIPT_DIR}')
 
 #%  if JOB.debug_level|d(0)|int < 1:
-for entry in os.listdir(post_dir):
-    os.remove(os.path.join(post_dir, entry))
-os.removedirs(post_dir)
+shutil.rmtree(post_dir)
 #%    if jobs.run.subdir|d(''):
 if os.path.isdir(run_dir):
     logging.info("removing run dir '{run_dir}'".format(**template_dict))

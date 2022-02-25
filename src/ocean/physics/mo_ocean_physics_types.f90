@@ -60,7 +60,7 @@ MODULE mo_ocean_physics_types
     &  LeithBiharmonicViscosity_background, LeithBiharmonicViscosity_reference,&
     &  LeithBiharmonicViscosity_scaling,                       &
     &  LeithClosure_order,   LeithClosure_form, &
-    &  TracerDiffusion_LeithWeight
+    &  TracerDiffusion_LeithWeight,l_lc
 
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma
@@ -132,6 +132,10 @@ MODULE mo_ocean_physics_types
       & iwe_alpha_c(:,:,:)        ,& ! iwe dissip coef
       & iwe_c0(:,:,:)             ,& ! vertical group velocity
       & iwe_v0(:,:,:)             ,& ! horizontal group velocity
+      & tke_plc(:,:,:)            ,& ! langmuir turbulence
+      & u_stokes(:,:)             ,& ! Stokes drift (m/s)
+      & wlc(:,:,:)                ,& ! Langmuir turbulence velocity scale
+      & hlc(:,:)                  ,& ! depth of langmuir cell (m)
       ! end by_nils
       ! by_ogut 
       ! KPP - 2d
@@ -433,6 +437,38 @@ CONTAINS
        & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
        & in_group=groups("oce_cvmix_tke"))
+
+    IF (l_lc) THEN
+      CALL add_var(ocean_params_list, 'tke_plc', params_oce%cvmix_params%tke_plc, &
+         & grid_unstructured_cell, za_depth_below_sea_half, &
+         & t_cf_var('tke_plc', 'm2 s-3', 'TKE langmuir turbulence', datatype_flt),&
+         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
+         & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
+         & in_group=groups("oce_cvmix_tke"))
+
+      CALL add_var(ocean_params_list, 'wlc',params_oce%cvmix_params%wlc, &
+         & grid_unstructured_cell, za_depth_below_sea_half, &
+         & t_cf_var('wlc', 'm s-1', 'Langmuir turbulence velocity scale', datatype_flt),&
+         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
+         & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
+         & in_group=groups("oce_cvmix_tke"))
+
+      CALL add_var(ocean_params_list, 'hlc',params_oce%cvmix_params%hlc, &
+         & grid_unstructured_cell, za_surface, &
+         & t_cf_var('hlc', 'm', 'Depth of langmuir cell', datatype_flt),&
+         & grib2_var(255, 255, 255, datatype_pack16,GRID_UNSTRUCTURED,grid_cell),&
+         & ldims=(/nproma,alloc_cell_blocks/), &
+         & in_group=groups("oce_cvmix_tke"))
+
+      CALL add_var(ocean_params_list, 'u_stokes',params_oce%cvmix_params%u_stokes, &
+         & grid_unstructured_cell, za_surface, &
+         & t_cf_var('u_stokes', 'm s-1', 'Stokes drift', datatype_flt),&
+         & grib2_var(255, 255, 255, datatype_pack16,GRID_UNSTRUCTURED,grid_cell),&
+         & ldims=(/nproma,alloc_cell_blocks/), &
+         & in_group=groups("oce_cvmix_tke"))
+
+    ENDIF
+
     ENDIF
 
     ! --- IWE variables

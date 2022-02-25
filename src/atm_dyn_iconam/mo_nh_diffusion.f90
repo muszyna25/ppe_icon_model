@@ -70,12 +70,7 @@ MODULE mo_nh_diffusion
   PUBLIC :: diffusion
 
 #if defined( _OPENACC )
-#if defined(__NH_DIFFUSION_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
   ! On the vectorizing DWD-NEC the diagnostics for the tendencies of the normal wind
@@ -345,12 +340,9 @@ MODULE mo_nh_diffusion
     vn_tmp          => p_nh_prog%vn
     w_tmp           => p_nh_prog%w
     theta_v_tmp     => p_nh_prog%theta_v
-!$ACC UPDATE DEVICE( vn_tmp, w_tmp, theta_v_tmp ) IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
     exner_tmp       => p_nh_prog%exner
-!$ACC UPDATE DEVICE( exner_tmp ) IF ( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. ltemp_diffu )
     vt_tmp          => p_nh_diag%vt
     theta_v_ic_tmp  => p_nh_diag%theta_v_ic
-!$ACC UPDATE DEVICE( vt_tmp, theta_v_ic_tmp ) IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 #endif
 
     ! The diffusion is an intrinsic part of the NH solver, thus it is added to the timer
@@ -1668,19 +1660,11 @@ MODULE mo_nh_diffusion
     w_tmp          => p_nh_prog%w
     theta_v_tmp    => p_nh_prog%theta_v
     theta_v_ic_tmp => p_nh_diag%theta_v_ic
-!$ACC UPDATE HOST ( vn_tmp, w_tmp, theta_v_tmp, theta_v_ic_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
     exner_tmp      => p_nh_prog%exner
-!$ACC UPDATE HOST ( theta_v_tmp, exner_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. ltemp_diffu )
     div_ic_tmp     => p_nh_diag%div_ic
     hdef_ic_tmp    => p_nh_diag%hdef_ic
-!$ACC UPDATE HOST ( div_ic_tmp, hdef_ic_tmp ) &
-!$ACC   IF ( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. &
-!$ACC      (diffu_type == 3 .OR. diffu_type == 5) .AND. (turbdiff_config(jg)%itype_sher >= 1 .OR. turbdiff_config(jg)%ltkeshs) )
     dwdx_tmp       => p_nh_diag%dwdx
     dwdy_tmp       => p_nh_diag%dwdy
-!$ACC UPDATE HOST ( dwdx_tmp, dwdy_tmp ) &
-!$ACC   IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. &
-!$ACC       lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w .AND. (turbdiff_config(jg)%itype_sher >= 2) )
 #endif
 
   END SUBROUTINE diffusion

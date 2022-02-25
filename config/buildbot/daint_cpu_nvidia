@@ -3,19 +3,22 @@
 SPACK_BRANCH='master'
 GIT_REMOTE='https://github.com/C2SM/spack-c2sm.git'
 
-SPACK_SPEC="icon@dev-build%pgi@21.3.0 icon_target=cpu serialize_mode=create +eccodes +ocean"
+SPACK_SPEC="icon@dev-build%nvhpc@21.3 icon_target=cpu serialize_mode=create +eccodes +ocean"
 
 git clone -b ${SPACK_BRANCH} ${GIT_REMOTE}
 
-cd spack-c2sm
+pushd spack-c2sm
 # install spack temp instance with branch config files and mch spack packages
 ./config.py -m daint -i . -r ./spack/etc/spack -p $PWD/spack -s $PWD/spack -u ON -c ./spack-cache
 # source spack temp instance
 . spack/share/spack/setup-env.sh
-cd ..
+popd
 
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
 
 MAKE_PROCS=12
-spack dev-build -u build --ignore-dependencies -j ${MAKE_PROCS} ${SPACK_SPEC}
+spack dev-build -u build --ignore-dependencies -j ${MAKE_PROCS} ${SPACK_SPEC} || ( echo "CAREFUL: \
+if you encountered problems with the dependencies of this build (e.g. there are not present), \
+please either restart the MCH Jenkins plan \"icon-dependencies\" or write a ticket to \
+support@c2sm.ethz.ch" && exit 1 )

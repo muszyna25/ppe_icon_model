@@ -86,7 +86,7 @@ MODULE mo_interface_iconam_echam
     &                                 t_echam_phy_tend , prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
-#ifdef YAC_coupling
+#if defined(YAC_coupling) && !defined(__NO_ECHAM__)
   USE mo_echam_coupling        ,ONLY: interface_echam_ocean
 #endif
   
@@ -249,7 +249,7 @@ CONTAINS
     !$ACC               tend%ua_phy, tend%va_phy, tend%ta_phy, tend%qtrc, tend%qtrc_dyn,        &
     !$ACC               tend%qtrc_phy, tend%mtrc_phy, tend%mtrcvi_phy, p_metrics%deepatmo_t1mc )&
     !$ACC       CREATE( deepatmo_vol )                                                          &
-    !$ACC       COPYIN( echam_phy_config(jg) )
+    !$ACC       COPYIN( echam_phy_config(jg:jg) )
 
     jt_end = ntracer
 

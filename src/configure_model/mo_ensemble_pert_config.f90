@@ -441,7 +441,8 @@ MODULE mo_ensemble_pert_config
     CALL random_gen(rnd_gkwake, rnd_num)
     ! perturbations for gkwake and gfrcrit must be correlated in case of constant perturbations
     ! (for gfrcrit, a higher value means a thinner blocking layer)
-    tune_gkwake(1:max_dom)  = gkwake_sv(1:max_dom)  + 2._wp*(rnd_num-0.5_wp)*range_gkwake
+    rnd_fac = MAX(1._wp,range_gkwake)**(2._wp*(rnd_num-0.5_wp))
+    tune_gkwake(1:max_dom)  = gkwake_sv(1:max_dom)*rnd_fac
     IF (timedep_pert == 2) CALL random_gen(rnd_gfrcrit, rnd_num)
     tune_gfrcrit(1:max_dom) = gfrcrit_sv(1:max_dom) + 2._wp*(rnd_num-0.5_wp)*range_gfrcrit
 

@@ -15,7 +15,7 @@ ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
 MODULE_SETTINGS=". ${MODULESHOME}/init/sh; module purge"
 
 
-MODULES='sx/default nfort/3.1.0 nc++/3.1.0 mpi/2.14.0 netcdf4/4.7.3-sx hdf5/1.10.5-sx eccodes/2.20.0-sx aec/1.0.3-sx nlc/2.0.0 libxml2/2.9.10-sx szip/2.1.1-sx zlib/1.2.11-sx'
+MODULES='sx/default nfort/3.1.0 nc++/3.1.0 mpi/2.14.0 netcdf4/4.7.3-sx hdf5/1.10.5-sx eccodes/2.23.0-sx aec/1.0.3-sx nlc/2.0.0 libxml2/2.9.10-sx szip/2.1.1-sx zlib/1.2.11-sx'
 
 
 ### Libraries ###
@@ -90,7 +90,7 @@ LIBS="-Wl,--as-needed ${XML2_LIBS} ${RTTOV_LIBS} ${LAPACK_LIBS} ${ECCODES__LIBS}
 MPI_LAUNCH=''  # needed e.g. for yac configuration ?? 
 
 # full operational NWP configuration including ecRad and DACE+EMVORADO coupling
-EXTRA_CONFIG_ARGS='--host='${HOST}' --disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --disable-loop-exchange --enable-grib2 --enable-mpi --disable-openmp --enable-rttov --enable-ecrad --enable-dace --enable-emvorado --enable-art --disable-rte-rrtmgp --disable-concurrent-psrad --disable-jsbach --disable-ocean --disable-coupling'
+EXTRA_CONFIG_ARGS='--host='${HOST}' --disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --disable-loop-exchange --enable-grib2 --enable-mpi --disable-openmp --enable-rttov --enable-ecrad --enable-dace --enable-emvorado --enable-art --disable-echam --disable-jsbach --disable-ocean --disable-coupling'
 
 ################################################################################
 

@@ -63,6 +63,13 @@ initialiseOcean="fromRestart"
 # initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
 
+# set initialiseOcean automatically to false for second job via isRestart.sem
+if [ -d "$basedir/experiments/$EXPNAME" ] ; then
+  if [ -f "$basedir/experiments/$EXPNAME/isRestartRun.sem" ]; then
+    initialiseOcean="FALSE"
+  fi
+fi
+
 read_restart_namelists=".false."
 
 # restart=.true.    # deactivate semaphore mechanism
@@ -746,13 +753,13 @@ cat > ${atm_namelist} << EOF
 /
 &echam_cld_nml
  echam_cld_config(1)%csecfrl    = 0.4e-5     ! threshold for ice and water in clouds, default 5.e-6
- echam_cld_config(1)%ccraut     = 2.0       ! default: 2.0      (old default: 15.0)
- echam_cld_config(1)%ccsaut     = 2.0       ! default: 2.0      (old default: 95.0)
- echam_cld_config(1)%cauloc     = 1.0       ! default: 1.0      (old default: 10.0)
+ echam_cld_config(1)%ccraut     = 15.0       ! default: 2.0      (old default: 15.0)
+ echam_cld_config(1)%ccsaut     = 95.0       ! default: 2.0      (old default: 95.0)
+ echam_cld_config(1)%cauloc     = 10.0       ! default: 1.0      (old default: 10.0)
 /
 &echam_cov_nml
  echam_cov_config(1)%crs        = 0.968     ! Critical relative humidity at surface, default 0.968
- echam_cov_config(1)%crt        = 0.94      ! Critical relative humidity at toa, default 0.8
+ echam_cov_config(1)%crt        = 0.92      ! Critical relative humidity at toa, default 0.8
 /
 &ccycle_nml
  ccycle_config(1)%iccycle   = 1      ! 0: no ccycle
@@ -763,10 +770,10 @@ cat > ${atm_namelist} << EOF
 /
 &sea_ice_nml
  hci_layer    = 0.1
- albs         = 0.85         ! Albedo of snow (not melting)
- albsm        = 0.7         ! Albedo of snow (melting)
- albi         = 0.75         ! Albedo of ice (not melting)
- albim        = 0.7         ! Albedo of ice (melting)
+ albs         = 0.8         ! Albedo of snow (not melting)
+ albsm        = 0.65         ! Albedo of snow (melting)
+ albi         = 0.6         ! Albedo of ice (not melting)
+ albim        = 0.45         ! Albedo of ice (melting)
 /
 EOF
 
@@ -875,10 +882,6 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 datadir=${atmo_data_InputFolder}/initial_condition/r0002
 add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2icon.nc
 #
-# - land: source?, date+time?
-datadir=${atmo_land_data_InputFolder}/land/r0001
-add_link_file ${datadir}/ic_land_soil_1992.nc                           ./ic_land_soil.nc
-
 # boundary conditions
 #
 # - ozone
@@ -903,12 +906,12 @@ add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc          ./bc_sol
 #
 # - land parameters
 #
-datadir=${atmo_land_data_InputFolder}/land/r0001
-#
-add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1992.nc            ./bc_land_frac.nc
-add_link_file ${datadir}/bc_land_phys_1992.nc                           ./bc_land_phys.nc
-add_link_file ${datadir}/bc_land_soil_1992.nc                           ./bc_land_soil.nc
-add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_land_sso.nc
+datadir=/pool/data/ICON/grids/public/mpim/${atmos_gridID}-${ocean_gridID}/land/r0002
+add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1850.nc            ./bc_land_frac.nc
+add_link_file ${datadir}/bc_land_phys_1850.nc                           ./bc_land_phys.nc
+add_link_file ${datadir}/bc_land_soil_1850.nc                           ./bc_land_soil.nc
+add_link_file ${datadir}/bc_land_sso_1850.nc                            ./bc_land_sso.nc
+add_link_file ${datadir}/ic_land_soil_1850.nc                           ./ic_land_soil.nc
 #
 # - HD model input by Tom Riddick
 #
@@ -1436,7 +1439,7 @@ cat >> ${oce_namelist} << EOF
   mode             = 1
   output_grid      = .false.
   operation       = 'mean'
-  ml_varlist       =  'group:HAMOCC_MONI'
+  ml_varlist       =  'group:HAMOCC_MONI', 'HAMOCC_global_carbon_inventory'
 /
 EOF
 fi
@@ -1546,7 +1549,7 @@ cat >> ${oce_namelist} << EOF
   !str_mod_tst                = 'all'                            ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
- vert_cor_type = 1
+! vert_cor_type = 1
 ! 40 unevenly spaced levels used by MPIOM/GR30
  n_zlev         =   ${ocean_vertical_levels}
  dzlev_m(1:40)  =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
@@ -1700,7 +1703,7 @@ cat >> ${oce_namelist} << EOF
                                                            ! salt-change due to internal fluxes only
   limit_seaice                               = .TRUE.      ! default: TRUE
   seaice_limit                               = 0.8         ! hard limit set to 80% of upper layer for sea ice
-  surface_flux_type                          = 11
+!  surface_flux_type                          = 11
   limit_elevation                            = .FALSE.     ! true: adjust daily to zero, default=false: free surface
 ! lswr_jerlov                                = .FALSE.     ! SW-penetration (Jerlov-radiation, default=T)
 /

@@ -55,10 +55,6 @@ PROGRAM icon
   USE mo_atmo_model,          ONLY: atmo_model
 #endif
 
-#ifndef __NO_ICON_PS_RAD__
-  USE mo_ps_radiation_model, ONLY: ps_radiation_model
-#endif
-
 #ifndef __NO_JSBACH__
   USE mo_jsbach_model,        ONLY: jsbach_model
 #endif
@@ -229,11 +225,6 @@ PROGRAM icon
 #ifndef __NO_ICON_OCEAN__
   CASE (ocean_process)
     CALL ocean_model (my_namelist_filename, TRIM(master_namelist_filename))
-#endif
-
-#ifndef __NO_ICON_PS_RAD__
-  CASE (ps_radiation_process)
-    CALL ps_radiation_model  (my_namelist_filename, TRIM(master_namelist_filename))
 #endif
 
 #ifndef __NO_ICON_OCEAN__

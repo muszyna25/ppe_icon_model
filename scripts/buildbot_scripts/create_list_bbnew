@@ -60,8 +60,6 @@ machine=dwd_cray
 ./addexp "checksuite.icon-dev/check.atm_amip*"      --list $list
 #./addexp "checksuite.icon-dev/check.atm_heldsuarez" --list $list
 #./addexp "checksuite.icon-dev/check.atm_ape"        --list $list
-# add concurrent ps_rad test
-#./addexp "aes/exp.test_concurrent_psrad_model" --without-configureflags without-mpi --machines mistral  --list $list
 #-----------------------------------------------------------
 # in case reference data are not available uncomment this line
 #./rmexp checksuite.icon-dev/check.atm_amip_update  --list $listname

@@ -130,12 +130,7 @@ INTERFACE grad_fe_cell
 END INTERFACE
 
 #if defined( _OPENACC )
-#if defined(__MATH_GRADIENTS_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -247,7 +242,6 @@ IF (timers_level > 10) CALL timer_start(timer_grad)
 
 !$ACC DATA PCOPYIN( psi_c ) PCOPYOUT( grad_norm_psi_e )                    &
 !$ACC      PRESENT( ptr_patch%edges%inv_dual_edge_length, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( psi_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL
 
@@ -288,7 +282,6 @@ IF (timers_level > 10) CALL timer_start(timer_grad)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( grad_norm_psi_e ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 IF (timers_level > 10) CALL timer_stop(timer_grad)
@@ -393,7 +386,6 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 !$ACC      PRESENT( ptr_patch%edges%vertex_idx, ptr_patch%edges%vertex_blk, &
 !$ACC               ptr_patch%edges%tangent_orientation, ptr_patch%edges%primal_edge_length )   &
 !$ACC      CREATE( ilv1, ibv1, ilv2, ibv2 ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( psi_v ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !
 ! TODO: OpenMP
@@ -443,7 +435,6 @@ END DO
 ! TODO: OpenMP
 !
 
-!$ACC UPDATE HOST( grad_tang_psi_e ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE grad_fd_tang
@@ -542,8 +533,6 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 
 !$ACC DATA PCOPYIN( p_cc ) PCOPYOUT( p_grad )                                      &
 !$ACC      PRESENT( ptr_int%gradc_bmat, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-! Add $ser directives here
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
@@ -609,8 +598,6 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_grad ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-! Add $ser directives here
 !$ACC END DATA
 
 
@@ -834,7 +821,6 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 
 !$ACC DATA PCOPYIN( p_ccpr ) PCOPYOUT( p_grad )                                      &
 !$ACC      PRESENT( ptr_int%gradc_bmat, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_ccpr ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
@@ -900,7 +886,6 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_grad ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE grad_fe_cell_dycore
@@ -1011,7 +996,6 @@ ENDIF
 !
 !$ACC DATA PCOPYIN( p_cc ) PCOPYOUT( p_grad )                                  &
 !$ACC      PRESENT( ptr_int%geofac_grg, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
@@ -1072,7 +1056,6 @@ ENDIF
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_grad ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
   END SUBROUTINE grad_green_gauss_cell_adv
@@ -1151,7 +1134,6 @@ SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,     
 
 !$ACC DATA PCOPYIN( p_ccpr ) PCOPYOUT( p_grad )                                     &
 !$ACC      PRESENT( ptr_int, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_ccpr ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
@@ -1245,7 +1227,6 @@ SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,     
       !$ACC WAIT
     END IF
     
-!$ACC UPDATE HOST( p_grad ) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
   END SUBROUTINE grad_green_gauss_cell_dycore
 

@@ -987,6 +987,7 @@ CONTAINS
     DO i=1,n
       ps_arr(i) = this%a(i-1)%ps
       tmp(i) = this%a(i-1)
+      co_arr(i) = i
     END DO
 
     CALL radixsort(ps_arr,co_arr)

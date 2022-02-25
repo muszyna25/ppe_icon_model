@@ -63,6 +63,9 @@ MODULE mo_radiation_config
     INTEGER :: albedo_type ! 1: albedo based on surface-type specific set of constants
                            !    (see )
                            ! 2: Modis albedo
+                           ! 3: fixed albedo with value albedo_fixed
+
+    REAL(wp) :: albedo_fixed   ! value of fixed albedo for albedo_type=3
 
     INTEGER :: direct_albedo   ! 1: SZA dependence according to Ritter and Geleyn (1992)
                                ! 2: limitation to diffuse albedo according to Zaengl 
@@ -124,7 +127,8 @@ MODULE mo_radiation_config
     REAL(wp) :: vmr_cfc12, mmr_cfc12 !< CFC 12
     !
     ! --- Different specifications of the zenith angle
-    INTEGER  :: izenith     ! circular orbit, no seasonal cycle but with diurnal cycle 
+    INTEGER  :: izenith           ! circular orbit, no seasonal cycle but with diurnal cycle 
+    REAL(wp) :: cos_zenith_fixed  ! fixed cosine of zenith angle for izenith=6
   
     ! 2.0 Non NAMELIST global variables and parameters
     ! --------------------------------
@@ -167,6 +171,8 @@ MODULE mo_radiation_config
     INTEGER  :: nproma_rad              !< subblock size used for the ecrad interface.
                                         !< If set negativ, the absolute value is considered as the number of subblocks.
     !
+
+    !$ACC DECLARE COPYIN(vpp_ch4, vpp_n2o)
   
   !END TYPE t_radiation_config
   !>

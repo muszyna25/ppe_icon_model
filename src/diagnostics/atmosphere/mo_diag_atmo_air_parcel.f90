@@ -39,7 +39,7 @@ MODULE mo_diag_atmo_air_parcel
   USE mo_loopindices,            ONLY: get_indices_c
   USE mo_nh_diagnose_pres_temp,  ONLY: diag_temp, diag_pres
   USE mo_upatmo_config,          ONLY: upatmo_config
-  USE mo_les_utilities,          ONLY: intrpl_full2half_inblk
+  USE mo_nh_vert_interp_les,     ONLY: intrpl_full2half_inblk
   USE mo_util_phys,              ONLY: exner_from_pres, theta_from_temp_and_exner
   USE mo_fortran_tools,          ONLY: init
   USE mo_util_string,            ONLY: int2string

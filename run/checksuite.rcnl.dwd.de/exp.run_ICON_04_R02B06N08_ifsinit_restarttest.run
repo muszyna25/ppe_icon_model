@@ -8,8 +8,8 @@
 #PBS -v NMPI_DAEMON_PATH=${NMPI_ROOT}/libexec/mpid
 #PBS -l elapstim_req=00:40:00
 #PBS --venode=${NE}
-#PBS --venum-lhost=2     # Number of VE per logical host
-#PBS -l cpunum_job=2
+#PBS --venum-lhost=3     # Number of VE per logical host
+#PBS -l cpunum_job=3
 #PBS -l coresz_prc=0
 #PBS -T necmpi
 #PBS --use-hca=2             # Number of HCA per logical host
@@ -438,7 +438,7 @@ export NMPI_EXPORT="GFORTRAN_UNBUFFERED_PRECONNECTED"
 
 /opt/nec/ve/bin/mpirun -v    -vh     -node 0        -np 1      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} : \
            -x -venode -node 0-${NE1} -np ${PPN} -env OMP_NUM_THREADS 1 ${MODEL} : \
-              -vh     -node 0        -np 2      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} 
+              -vh     -node 1        -np 2      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} 
 
 
 # ----------------------------------------------------------------------------

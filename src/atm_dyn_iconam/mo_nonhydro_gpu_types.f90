@@ -60,12 +60,15 @@ MODULE mo_nonhydro_gpu_types
 
 CONTAINS
 
-  SUBROUTINE h2d_icon( p_int_states, p_patches, p_nh_states, prep_advs, advection_config, iforcing )
+  SUBROUTINE h2d_icon( p_int_state, p_int_state_local_parent, p_patch, p_patch_local_parent, &
+                       p_nh_state, prep_adv, advection_config, iforcing )
 
-    TYPE ( t_int_state ),       INTENT(INOUT) :: p_int_states(:)
-    TYPE ( t_patch ),           INTENT(INOUT) :: p_patches(:)
-    TYPE ( t_nh_state ),        INTENT(INOUT) :: p_nh_states(:)
-    TYPE ( t_prepare_adv),      INTENT(INOUT) :: prep_advs(:)
+    TYPE ( t_int_state ),       INTENT(INOUT) :: p_int_state(:)
+    TYPE ( t_int_state ),       INTENT(INOUT) :: p_int_state_local_parent(:)
+    TYPE ( t_patch ),           INTENT(INOUT) :: p_patch(:)
+    TYPE ( t_patch ),           INTENT(INOUT) :: p_patch_local_parent(:)
+    TYPE ( t_nh_state ),        INTENT(INOUT) :: p_nh_state(:)
+    TYPE ( t_prepare_adv),      INTENT(INOUT) :: prep_adv(:)
     TYPE ( t_advection_config), INTENT(INOUT) :: advection_config(:)
     INTEGER, INTENT(IN)                       :: iforcing 
     INTEGER :: jg
@@ -73,47 +76,56 @@ CONTAINS
 ! Copy all data need on GPU from host to device
 !
 
-!$ACC ENTER DATA COPYIN( p_int_states, p_patches, advection_config ), IF ( i_am_accel_node  )
+!$ACC ENTER DATA COPYIN( p_int_state, p_int_state_local_parent, p_patch, p_patch_local_parent, &
+!$ACC                    p_nh_state, prep_adv, advection_config ), IF ( i_am_accel_node  )
 
-    CALL transfer_int_state( p_int_states, .TRUE. )
+    CALL transfer_int_state( p_int_state, .TRUE. )
+    CALL transfer_int_state( p_int_state_local_parent, .TRUE. )
 
-    CALL transfer_patch( p_patches, .TRUE. )
+    CALL transfer_patch( p_patch, .TRUE. )
+    CALL transfer_patch_local_parent( p_patch_local_parent, .TRUE. )
 
-    CALL transfer_prep_adv( prep_advs, .TRUE. )
+    CALL transfer_prep_adv( prep_adv, .TRUE. )
 
-    CALL transfer_nh_state( p_nh_states, .TRUE. )
+    CALL transfer_nh_state( p_nh_state, .TRUE. )
 
     CALL transfer_advection_config( advection_config, .TRUE. )
 
     IF( iforcing == iecham ) THEN
-      CALL transfer_echam( p_patches, .TRUE. )
+      CALL transfer_echam( p_patch, .TRUE. )
     END IF
 
   END SUBROUTINE h2d_icon
 
-  SUBROUTINE d2h_icon( p_int_states, p_patches, p_nh_states, prep_advs, advection_config, iforcing )
+  SUBROUTINE d2h_icon( p_int_state, p_int_state_local_parent, p_patch, p_patch_local_parent, &
+                       p_nh_state, prep_adv, advection_config, iforcing )
 
-    TYPE ( t_int_state ),  INTENT(INOUT)      :: p_int_states(:)
-    TYPE ( t_patch ),      INTENT(INOUT)      :: p_patches(:)
-    TYPE ( t_nh_state ),   INTENT(INOUT)      :: p_nh_states(:)
-    TYPE ( t_prepare_adv), INTENT(INOUT)      :: prep_advs(:)
+    TYPE ( t_int_state ),  INTENT(INOUT)      :: p_int_state(:)
+    TYPE ( t_int_state ),  INTENT(INOUT)      :: p_int_state_local_parent(:)
+    TYPE ( t_patch ),      INTENT(INOUT)      :: p_patch(:)
+    TYPE ( t_patch ),      INTENT(INOUT)      :: p_patch_local_parent(:)
+    TYPE ( t_nh_state ),   INTENT(INOUT)      :: p_nh_state(:)
+    TYPE ( t_prepare_adv), INTENT(INOUT)      :: prep_adv(:)
     TYPE ( t_advection_config), INTENT(INOUT) :: advection_config(:)
     INTEGER, INTENT(IN)                       :: iforcing 
 
 !
 ! Delete all data on GPU
 !
-    CALL transfer_nh_state( p_nh_states, .FALSE. )
-    CALL transfer_prep_adv( prep_advs, .FALSE. )
-    CALL transfer_patch( p_patches, .FALSE. )
-    CALL transfer_int_state( p_int_states, .FALSE. )
+    CALL transfer_nh_state( p_nh_state, .FALSE. )
+    CALL transfer_prep_adv( prep_adv, .FALSE. )
+    CALL transfer_patch( p_patch, .FALSE. )
+    CALL transfer_patch_local_parent( p_patch_local_parent, .FALSE. )
+    CALL transfer_int_state( p_int_state, .FALSE. )
+    CALL transfer_int_state( p_int_state_local_parent, .FALSE. )
     CALL transfer_advection_config( advection_config, .FALSE. )
 
     IF( iforcing == iecham ) THEN
-      CALL transfer_echam( p_patches, .FALSE. )
+      CALL transfer_echam( p_patch, .FALSE. )
     END IF
 
-!$ACC EXIT DATA DELETE( advection_config, p_patches, p_int_states ), IF ( i_am_accel_node  )
+!$ACC EXIT DATA DELETE(  p_int_state, p_int_state_local_parent, p_patch, p_patch_local_parent, &
+!$ACC                    p_nh_state, prep_adv, advection_config ), IF ( i_am_accel_node  )
 
   END SUBROUTINE d2h_icon
 
@@ -124,7 +136,7 @@ CONTAINS
 
     INTEGER  :: j
 
-    DO j=1, SIZE(p_int)
+    DO j= LBOUND(p_int,1), UBOUND(p_int,1) ! some p_int start at 2.
 
       IF ( host_to_device ) THEN
 
@@ -143,12 +155,13 @@ CONTAINS
 !$ACC               p_int(j)%lsq_lin%lsq_moments, p_int(j)%lsq_lin%lsq_moments_hat,              &
 !$ACC               p_int(j)%lsq_lin%lsq_pseudoinv, p_int(j)%lsq_lin%lsq_qtmat_c,                &
 !$ACC               p_int(j)%lsq_lin%lsq_rmat_utri_c, p_int(j)%lsq_lin%lsq_weights_c,            &
-!$ACC               p_int(j)%nudgecoeff_e, p_int(j)%pos_on_tplane_e,                             &
+!$ACC               p_int(j)%nudgecoeff_c, p_int(j)%nudgecoeff_e, p_int(j)%pos_on_tplane_e,      &
 !$ACC               p_int(j)%rbf_c2grad_blk, p_int(j)%rbf_c2grad_idx, p_int(j)%rbf_c2grad_coeff, &
 !$ACC               p_int(j)%rbf_vec_blk_c, p_int(j)%rbf_vec_idx_c, p_int(j)%rbf_vec_coeff_c,    &
 !$ACC               p_int(j)%rbf_vec_blk_e, p_int(j)%rbf_vec_idx_e, p_int(j)%rbf_vec_coeff_e,    &
 !$ACC               p_int(j)%rbf_vec_blk_v, p_int(j)%rbf_vec_idx_v, p_int(j)%rbf_vec_coeff_v,    &
-!$ACC               p_int(j)%verts_aw_cells ),                                                   &
+!$ACC               p_int(j)%verts_aw_cells )                                                    &
+!$ACC       CREATE( p_int(j) )                                                                   &
 !$ACC       IF ( i_am_accel_node )        
 
       ELSE
@@ -167,13 +180,13 @@ CONTAINS
 !$ACC               p_int(j)%lsq_lin%lsq_moments, p_int(j)%lsq_lin%lsq_moments_hat,              &
 !$ACC               p_int(j)%lsq_lin%lsq_pseudoinv, p_int(j)%lsq_lin%lsq_qtmat_c,                &
 !$ACC               p_int(j)%lsq_lin%lsq_rmat_utri_c, p_int(j)%lsq_lin%lsq_weights_c,            &
-!$ACC               p_int(j)%nudgecoeff_e, p_int(j)%pos_on_tplane_e,                             &
+!$ACC               p_int(j)%nudgecoeff_c, p_int(j)%nudgecoeff_e, p_int(j)%pos_on_tplane_e,      &
 !$ACC               p_int(j)%rbf_c2grad_blk, p_int(j)%rbf_c2grad_idx, p_int(j)%rbf_c2grad_coeff, &
 !$ACC               p_int(j)%rbf_vec_blk_c, p_int(j)%rbf_vec_idx_c, p_int(j)%rbf_vec_coeff_c,    &
 !$ACC               p_int(j)%rbf_vec_blk_e, p_int(j)%rbf_vec_idx_e, p_int(j)%rbf_vec_coeff_e,    &
 !$ACC               p_int(j)%rbf_vec_blk_v, p_int(j)%rbf_vec_idx_v, p_int(j)%rbf_vec_coeff_v,    &
-!$ACC               p_int(j)%verts_aw_cells, p_int(j)%lsq_high, p_int(j)%lsq_lin )               &
-!$ACC       IF ( i_am_accel_node )        
+!$ACC               p_int(j)%verts_aw_cells, p_int(j)%lsq_high, p_int(j)%lsq_lin, p_int(j) )     &
+!$ACC               IF ( i_am_accel_node )        
 
       ENDIF
 
@@ -193,7 +206,6 @@ CONTAINS
 ! Copy the static data structures in p_patch to the device -- this is a small subset of all the components
 ! The communication patterns are copied over in mo_communication_orig.
 !
-
       DO j=1,SIZE(p_patch)
 
         IF ( host_to_device ) THEN
@@ -204,15 +216,19 @@ CONTAINS
 !$ACC              p_patch(j)%cells%neighbor_idx, p_patch(j)%cells%neighbor_blk,                            &
 !$ACC              p_patch(j)%cells%center, p_patch(j)%cells%refin_ctrl, p_patch(j)%cells%f_c,              &
 !$ACC              p_patch(j)%cells%vertex_blk, p_patch(j)%cells%vertex_idx,                                &
+!$ACC              p_patch(j)%cells%start_index, p_patch(j)%cells%end_index,                                &
 !$ACC              p_patch(j)%edges, p_patch(j)%edges%area_edge, p_patch(j)%edges%cell_idx,                 &
 !$ACC              p_patch(j)%edges%cell_blk, p_patch(j)%edges%edge_cell_length, p_patch(j)%edges%f_e,      &
 !$ACC              p_patch(j)%edges%quad_idx, p_patch(j)%edges%quad_blk, p_patch(j)%edges%vertex_idx,       &
 !$ACC              p_patch(j)%edges%vertex_blk, p_patch(j)%edges%primal_normal_cell,                        &
+!$ACC              p_patch(j)%edges%start_index, p_patch(j)%edges%end_index,                                &
 !$ACC              p_patch(j)%edges%dual_normal_cell, p_patch(j)%edges%primal_normal_vert,                  &
 !$ACC              p_patch(j)%edges%dual_normal_vert, p_patch(j)%edges%inv_vert_vert_length,                &
 !$ACC              p_patch(j)%edges%inv_dual_edge_length, p_patch(j)%edges%inv_primal_edge_length,          &
 !$ACC              p_patch(j)%edges%tangent_orientation, p_patch(j)%edges%refin_ctrl,                       &
 !$ACC              p_patch(j)%verts, p_patch(j)%verts%cell_idx, p_patch(j)%verts%cell_blk,                  &
+!$ACC              p_patch(j)%verts%start_index, p_patch(j)%verts%end_index, p_patch(j)%edges%pc_idx,       &
+!$ACC              p_patch(j)%edges%parent_loc_idx, p_patch(j)%edges%parent_loc_blk,                        &
 !$ACC              p_patch(j)%verts%edge_idx, p_patch(j)%verts%edge_blk, p_patch(j)%verts%refin_ctrl ),     &
 !$ACC      IF ( i_am_accel_node  )
      
@@ -223,15 +239,19 @@ CONTAINS
 !$ACC              p_patch(j)%cells%area, p_patch(j)%cells%edge_idx, p_patch(j)%cells%edge_blk,             &
 !$ACC              p_patch(j)%cells%neighbor_idx, p_patch(j)%cells%neighbor_blk,                            &
 !$ACC              p_patch(j)%cells%center, p_patch(j)%cells%refin_ctrl, p_patch(j)%cells%f_c,              &
+!$ACC              p_patch(j)%cells%start_index, p_patch(j)%cells%end_index,              &
 !$ACC              p_patch(j)%cells%vertex_blk, p_patch(j)%cells%vertex_idx, p_patch(j)%cells,              &
 !$ACC              p_patch(j)%edges%area_edge, p_patch(j)%edges%cell_idx,                                   &
 !$ACC              p_patch(j)%edges%cell_blk, p_patch(j)%edges%edge_cell_length, p_patch(j)%edges%f_e,      &
 !$ACC              p_patch(j)%edges%quad_idx, p_patch(j)%edges%quad_blk, p_patch(j)%edges%vertex_idx,       &
 !$ACC              p_patch(j)%edges%vertex_blk, p_patch(j)%edges%primal_normal_cell,                        &
+!$ACC              p_patch(j)%edges%start_index, p_patch(j)%edges%end_index,                                &
 !$ACC              p_patch(j)%edges%dual_normal_cell, p_patch(j)%edges%primal_normal_vert,                  &
 !$ACC              p_patch(j)%edges%dual_normal_vert, p_patch(j)%edges%inv_vert_vert_length,                &
 !$ACC              p_patch(j)%edges%inv_dual_edge_length, p_patch(j)%edges%inv_primal_edge_length,          &
 !$ACC              p_patch(j)%edges%tangent_orientation, p_patch(j)%edges%refin_ctrl, p_patch(j)%edges,     &
+!$ACC              p_patch(j)%verts%start_index, p_patch(j)%verts%end_index, p_patch(j)%edges%pc_idx,       &
+!$ACC              p_patch(j)%edges%parent_loc_idx, p_patch(j)%edges%parent_loc_blk,                        &
 !$ACC              p_patch(j)%verts%edge_idx, p_patch(j)%verts%edge_blk, p_patch(j)%verts%refin_ctrl,       &
 !$ACC              p_patch(j)%verts  ), &
 !$ACC      IF ( i_am_accel_node  )
@@ -241,6 +261,50 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE transfer_patch
+
+  !USE mo_model_domain,         ONLY: p_patch_local_parent
+  ! transfer p_patch_local_parent. This is a partially filled t_patch
+  SUBROUTINE transfer_patch_local_parent( p_patch_local_parent, host_to_device )
+
+    LOGICAL, INTENT(IN)                        :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
+    TYPE ( t_patch ), TARGET, INTENT(INOUT)    :: p_patch_local_parent(:)
+    
+    TYPE ( t_patch ), POINTER                  :: p_pp(:)
+
+    INTEGER :: j
+
+    p_pp => p_patch_local_parent
+!
+! Copy the static data structures in p_patch_local_parent to the device -- this is a small subset of all the components
+!
+
+      DO j=1,SIZE(p_pp)
+
+        IF ( host_to_device ) THEN
+
+!$ACC ENTER DATA &
+!$ACC      COPYIN( p_pp(j)%cells, p_pp(j)%cells%child_idx, p_pp(j)%cells%child_blk, &
+!$ACC              p_pp(j)%edges%vertex_idx, p_pp(j)%edges%vertex_blk,              &
+!$ACC              p_pp(j)%edges%primal_normal_vert, p_pp(j)%edges%refin_ctrl,      &
+!$ACC              p_pp(j)%cells%area, p_pp(j)%cells%ddqz_z_full,                   &
+!$ACC              p_pp(j)%edges, p_pp(j)%edges%child_idx, p_pp(j)%edges%child_blk) &
+!$ACC      IF ( i_am_accel_node  )
+     
+        ELSE
+
+!$ACC EXIT DATA &
+!$ACC      DELETE( p_pp(j)%cells%child_idx, p_pp(j)%cells%child_blk,                &
+!$ACC              p_pp(j)%edges%vertex_idx, p_pp(j)%edges%vertex_blk,              &
+!$ACC              p_pp(j)%edges%primal_normal_vert, p_pp(j)%edges%refin_ctrl,      &
+!$ACC              p_pp(j)%cells%area, p_pp(j)%cells%ddqz_z_full, p_pp(j)%cells,    &
+!$ACC              p_pp(j)%edges%child_idx, p_pp(j)%edges%child_blk, p_pp(j)%edges) &
+!$ACC      IF ( i_am_accel_node  )
+
+      ENDIF   
+
+    ENDDO
+
+  END SUBROUTINE transfer_patch_local_parent
 
 
 
@@ -265,23 +329,22 @@ CONTAINS
 
     INTEGER :: j
 
+!$ACC ENTER DATA COPYIN( advection_config ) IF ( i_am_accel_node .AND. host_to_device  )
     DO j=1, SIZE(advection_config)
 
       IF ( host_to_device ) THEN
-
 !$ACC ENTER DATA &
-!$ACC       COPYIN( advection_config(j)%trHydroMass%list, advection_config(j)%iadv_slev, advection_config(j)%trAdvect%list ) &
-!$ACC       IF ( i_am_accel_node  )
-
+!$ACC       COPYIN( advection_config(j)%trHydroMass%list, advection_config(j)%trAdvect%list ) &
+!$ACC       IF ( i_am_accel_node )
       ELSE
 
 !$ACC EXIT DATA &
-!$ACC      DELETE( advection_config(j)%trHydroMass%list, advection_config(j)%iadv_slev, advection_config(j)%trAdvect%list )  &
-!$ACC      IF ( i_am_accel_node  )
-
+!$ACC      DELETE( advection_config(j)%trHydroMass%list, advection_config(j)%trAdvect%list )  &
+!$ACC      IF ( i_am_accel_node )
       ENDIF
 
     ENDDO
+!$ACC EXIT DATA DELETE(advection_config) IF ( i_am_accel_node .AND. .NOT. host_to_device )
 
   END SUBROUTINE transfer_advection_config
 
@@ -309,12 +372,12 @@ CONTAINS
     ENDDO
   END SUBROUTINE transfer_nh_state
 
-  SUBROUTINE transfer_echam( p_patches, host_to_device )
-    TYPE ( t_patch ),      INTENT(INOUT) :: p_patches(:)
+  SUBROUTINE transfer_echam( p_patch, host_to_device )
+    TYPE ( t_patch ),      INTENT(INOUT) :: p_patch(:)
     LOGICAL, INTENT(IN)                  :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
     INTEGER :: jg
 
-    DO jg = 1, SIZE(p_patches)
+    DO jg = 1, SIZE(p_patch)
       CALL gpu_update_var_list('prm_field_D', host_to_device, domain=jg)
       CALL gpu_update_var_list('prm_tend_D', host_to_device, domain=jg)
     END DO
@@ -384,6 +447,8 @@ CONTAINS
 !$ACC       p_grf(j)%blklist_rbfintp_v, p_grf(j)%edge_vert_idx, p_grf(j)%coeff_bdyintp_c, p_grf(j)%coeff_ubcintp_c,         &
 !$ACC       p_grf(j)%dist_pc2cc_bdy, p_grf(j)%dist_pc2cc_ubc, p_grf(j)%prim_norm, p_grf(j)%coeff_bdyintp_e12,               &
 !$ACC       p_grf(j)%coeff_bdyintp_e34, p_grf(j)%dist_pe2ce, p_grf(j)%coeff_ubcintp_e12, p_grf(j)%coeff_ubcintp_e34,        &
+!$ACC       p_grf(j)%grf_vec_ind_2a, p_grf(j)%grf_vec_blk_2a, p_grf(j)%grf_vec_ind_2b, p_grf(j)%grf_vec_blk_2b,             &
+!$ACC       p_grf(j)%grf_vec_coeff_2a, p_grf(j)%grf_vec_coeff_2b,                                                           &
 !$ACC       p_grf(j)%coeff_rbf_v ),    IF ( i_am_accel_node )        
 
         ELSE
@@ -395,6 +460,8 @@ CONTAINS
 !$ACC       p_grf(j)%blklist_rbfintp_v, p_grf(j)%edge_vert_idx, p_grf(j)%coeff_bdyintp_c, p_grf(j)%coeff_ubcintp_c,         &
 !$ACC       p_grf(j)%dist_pc2cc_bdy, p_grf(j)%dist_pc2cc_ubc, p_grf(j)%prim_norm, p_grf(j)%coeff_bdyintp_e12,               &
 !$ACC       p_grf(j)%coeff_bdyintp_e34, p_grf(j)%dist_pe2ce, p_grf(j)%coeff_ubcintp_e12, p_grf(j)%coeff_ubcintp_e34,        &
+!$ACC       p_grf(j)%grf_vec_ind_2a, p_grf(j)%grf_vec_blk_2a, p_grf(j)%grf_vec_ind_2b, p_grf(j)%grf_vec_blk_2b,             &
+!$ACC       p_grf(j)%grf_vec_coeff_2a, p_grf(j)%grf_vec_coeff_2b,                                                           &
 !$ACC       p_grf(j)%coeff_rbf_v )                                        &
 !$ACC       IF ( i_am_accel_node )        
 

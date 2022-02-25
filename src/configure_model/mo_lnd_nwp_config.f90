@@ -32,7 +32,7 @@ MODULE mo_lnd_nwp_config
   USE mo_impl_constants,     ONLY: GLOBCOVER2009, GLC2000, vname_len
   USE mo_io_units,           ONLY: filename_max
   USE mo_nwp_sfc_tiles,      ONLY: t_tile_list, setup_tile_list
-  USE mo_exception,          ONLY: finish
+  USE mo_exception,          ONLY: message, message_text, finish
 
 
   IMPLICIT NONE
@@ -57,6 +57,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
   PUBLIC :: tile_list
   PUBLIC :: groups_smi
+  PUBLIC :: czbot_w_so
 
 
   !--------------------------------------------------------------------------
@@ -79,6 +80,7 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  itype_root         !< type of root density distribution
   INTEGER ::  itype_heatcond     !< type of soil heat conductivity
   INTEGER ::  itype_interception !< type of plant interception
+  !$ACC DECLARE CREATE(itype_interception)
   REAL(wp)::  cwimax_ml          !< scaling parameter for maximum interception storage
   REAL(wp)::  c_soil             !< surface area density of the (evaporative) soil surface
   REAL(wp)::  c_soil_urb         !< surface area density of the (evaporative) soil surface, urban areas
@@ -105,6 +107,8 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  sstice_mode      !< set if SST and sea ice cover are read from the analysis
                                !< and kept constant or read from external data files 
                                !< and updated regularly in run time
+  REAL(wp)::  czbot_w_so       !< thickness of the hydraulical active soil layer [m]
+
   CHARACTER(LEN=filename_max) :: sst_td_filename, ci_td_filename
 
   ! derived variables
@@ -170,13 +174,17 @@ CONTAINS
       ! layer thickness betw. half levels
       dzsoil(js)   = depth_hl(js) - depth_hl(js-1)
     ENDDO
+    !$ACC ENTER DATA COPYIN(dzsoil)
 
     ! Determine ibot_w_so
     DO js=1,nlev_soil
-      IF (depth_hl(js) <= 2.5_wp) ibot_w_so=js
+      IF (depth_hl(js) <= czbot_w_so) ibot_w_so=js
     ENDDO
-    ! make sure that ibot_w_so>=2
-    ibot_w_so = MAX(2, ibot_w_so)
+    ! make sure that 2 <= ibot_w_so <= nlev_soil-1
+    ibot_w_so = MAX(2, MIN(ibot_w_so,nlev_soil-1))
+    !
+    WRITE(message_text,'(a,I2)') 'Number of hydrological active soil layers ibot_w_so is set to: ',ibot_w_so
+    CALL message(TRIM(routine),message_text)
 
     !
     ! settings dealing with surface tiles

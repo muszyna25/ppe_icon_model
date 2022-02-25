@@ -46,7 +46,7 @@ async def run_checks_glb(test_data, reference):
         check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "ALHFL_S"),  \
         check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "ASHFL_S"),  \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "W_SO"),     \
-        check_rel_avg(test_data, reference, 0.003, grb_metadata(test_data.grb, "shortName") == "RAIN_GSP"), \
+        check_rel_avg(test_data, reference, 0.002, grb_metadata(test_data.grb, "shortName") == "RAIN_GSP"), \
         check_rel_avg(test_data, reference, 0.003, grb_metadata(test_data.grb, "shortName") == "RAIN_CON"), \
         check_rel_avg(test_data, reference, 0.003, grb_metadata(test_data.grb, "shortName") == "SNOW_GSP"), \
         check_rel_avg(test_data, reference, 0.005, grb_metadata(test_data.grb, "shortName") == "SNOW_CON"), \

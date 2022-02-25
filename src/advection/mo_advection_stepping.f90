@@ -68,13 +68,13 @@ MODULE mo_advection_stepping
   USE mo_model_domain,        ONLY: t_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ntracer, ltimer, timers_level, iforcing, iqv, iqtke
+  USE mo_run_config,          ONLY: ntracer, lvert_nest, ltimer, timers_level, iforcing, iqv, iqtke
   USE mo_advection_hflux,     ONLY: hor_upwind_flux
   USE mo_advection_vflux,     ONLY: vert_upwind_flux
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_impl_constants,      ONLY: min_rlcell_int, min_rlcell, inwp
   USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
+  USE mo_sync,                ONLY: SYNC_C, sync_patch_array, sync_patch_array_mult
   USE mo_advection_config,    ONLY: advection_config, t_trList
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_initicon_config,     ONLY: is_iau_active, iau_wgt_adv
@@ -148,8 +148,9 @@ CONTAINS
     &                        p_cellhgt_mc_now, p_rhodz_new, p_rhodz_now,          &
     &                        p_grf_tend_tracer, p_tracer_new,                     &
     &                        p_mflx_tracer_h, p_mflx_tracer_v, rho_incr,          &
-    &                        opt_topflx_tra,  opt_q_int, opt_ddt_tracer_adv,      &
-    &                        opt_deepatmo_t1mc, opt_deepatmo_t2mc                 )
+    &                        q_ubc, q_int,                                        &
+    &                        opt_ddt_tracer_adv, opt_deepatmo_t1mc,               &
+    &                        opt_deepatmo_t2mc                 )
   !
     TYPE(t_patch), TARGET, INTENT(INOUT) ::  &  !< patch on which computation
       &  p_patch                             !< is performed
@@ -227,13 +228,13 @@ CONTAINS
                                         ! model configuration. Can be removed once the hydrostatic 
                                         ! model configuration is gone.
 
-    REAL(wp), INTENT(IN), OPTIONAL:: &  !< vertical tracer flux at upper boundary 
-      &  opt_topflx_tra(:,:,:)          !< NH: [kg/m**2/s]
-                                        !< dim: (nproma,nblks_c,ntracer)
+    REAL(wp), INTENT(INOUT) :: &        !< tracer mass fraction at (nest) upper boundary 
+      &  q_ubc(:,:,:)                   !< NH: [kg/kg]
+                                        !< dim: (nproma,ntracer,nblks_c)
 
-    REAL(wp), INTENT(OUT), OPTIONAL :: & !< tracer value at upper boundary of child nest 
-      &  opt_q_int(:,:,:)               !< NH: [kg/kg]
-                                        !< dim: (nproma,nblks_c,ntracer)
+    REAL(wp), INTENT(OUT)   :: &        !< tracer mass fraction at child nest interface level 
+      &  q_int(:,:,:)                   !< NH: [kg/kg]
+                                        !< dim: (nproma,ntracer,nblks_c)
 
     REAL(wp), INTENT(INOUT), OPTIONAL :: & !< advective tendency    [kg/kg/s]
       &  opt_ddt_tracer_adv(:,:,:,:)     !< dim: (nproma,nlev,nblks_c,ntracer)
@@ -323,13 +324,29 @@ CONTAINS
 !$ACC                deepatmo_divzl),    &
 !$ACC       PCOPYOUT( p_tracer_new, p_mflx_tracer_h, p_mflx_tracer_v ), &
 !$ACC       CREATE( rhodz_aux, rhodz_ast2 ),                            &
-!$ACC       PRESENT( p_int_state, p_grf_tend_tracer),                   &
+!$ACC       PRESENT( p_int_state, p_grf_tend_tracer, q_ubc),            &
 !$ACC       IF( i_am_accel_node .AND. acc_on )
 
 !$ACC DATA  PCOPYIN( rho_incr ),                                        &
 !$ACC       IF( i_am_accel_node .AND. acc_on .AND. is_present_rho_incr )
 !$ACC DATA  PRESENT( opt_ddt_tracer_adv ),                              &
 !$ACC       IF( i_am_accel_node .AND. acc_on .AND. PRESENT(opt_ddt_tracer_adv) )
+
+
+    ! This vertical mass flux synchronization is necessary, as vertical transport 
+    ! includes all halo points (see below)
+    IF (lvert_nest .AND. p_patch%nshift > 0) THEN ! vertical nesting
+
+      CALL sync_patch_array_mult(SYNC_C, p_patch, 2, p_mflx_contra_v, q_ubc, &
+                                 opt_varname = 'step_advecvtion: p_mflx_contra_v,q_ubc')
+    ELSE
+      ! note that in cases without vertical nesting q_ubc=0._wp is ensured, as 
+      ! * q_int = 0._wp
+      ! * parent to child interpolation of q_int is constancy preserving
+      !
+      CALL sync_patch_array(SYNC_C, p_patch, p_mflx_contra_v, opt_varname='step_advection: p_mflx_contra_v')
+    ENDIF
+
 
     ! In order to achieve consistency with continuity we follow the method of 
     ! Easter (1993) and (re-)integrate the air mass continuity equation in the 
@@ -431,8 +448,8 @@ CONTAINS
         &           deepatmo_divzu   = deepatmo_divzu(:),       & !in
         &           i_rlstart        = i_rlstart,               & !in
         &           i_rlend          = i_rlend,                 & !in
-        &           opt_topflx_tra   = opt_topflx_tra(:,:,:),   & !optin
-        &           opt_q_int        = opt_q_int(:,:,:)         ) !optout
+        &           q_ubc            = q_ubc(:,:,:),            & !in
+        &           q_int            = q_int(:,:,:)             ) !out
 
 
       ! horizontal transport
@@ -530,8 +547,8 @@ CONTAINS
         &           deepatmo_divzu   = deepatmo_divzu(:),       & !in
         &           i_rlstart        = i_rlstart,               & !in
         &           i_rlend          = i_rlend,                 & !in
-        &           opt_topflx_tra   = opt_topflx_tra(:,:,:),   & !optin
-        &           opt_q_int        = opt_q_int(:,:,:)         ) !optout
+        &           q_ubc            = q_ubc(:,:,:),            & !in
+        &           q_int            = q_int(:,:,:)             ) !out
 
     ENDIF  ! lstep_even
  
@@ -754,8 +771,8 @@ CONTAINS
   SUBROUTINE vert_adv (p_patch, p_dtime, k_step, p_mflx_contra_v,          &
     &                  p_cellhgt_mc_now, rhodz_now, rhodz_new, tracer_now, &
     &                  tracer_new, p_mflx_tracer_v, deepatmo_divzl,        &
-    &                  deepatmo_divzu, i_rlstart, i_rlend, opt_topflx_tra, &
-    &                  opt_q_int)
+    &                  deepatmo_divzu, i_rlstart, i_rlend, q_ubc,          &
+    &                  q_int)
 
     TYPE(t_patch), INTENT(IN   )   ::  & !< compute patch
       &  p_patch
@@ -794,11 +811,11 @@ CONTAINS
     INTEGER,       INTENT(IN   )   ::  &
       &  i_rlstart, i_rlend
 
-    REAL(wp), INTENT(IN), OPTIONAL ::  & !< vertical tracer flux at upper boundary 
-      &  opt_topflx_tra(:,:,:)           !< [kg/m**2/s]
+    REAL(wp), INTENT(IN)           ::  & !< tracer mass fraction at (nest) upper boundary 
+      &  q_ubc(:,:,:)                    !< NH: [kg/kg]
 
-    REAL(wp), INTENT(OUT), OPTIONAL::  & !< tracer mass fraction at upper boundary of child nest 
-      &  opt_q_int(:,:,:)                !< NH: [kg/kg]
+    REAL(wp), INTENT(OUT)          ::  & !< tracer mass fraction at child nest interface level 
+      &  q_int(:,:,:)                    !< NH: [kg/kg]
 
     ! local variables
     !
@@ -833,8 +850,8 @@ CONTAINS
       &              p_cellmass_now      = rhodz_now(:,:,:),                       & !in
       &              lprint_cfl          = lprint_cfl,                             & !in
       &              p_upflux            = p_mflx_tracer_v(:,:,:,:),               & !out
-      &              opt_topflx_tra      = opt_topflx_tra(:,:,:),                  & !in
-      &              opt_q_int           = opt_q_int(:,:,:),                       & !optout
+      &              q_ubc               = q_ubc(:,:,:),                           & !in
+      &              q_int               = q_int(:,:,:),                           & !out
       &              opt_rlstart         = i_rlstart,                              & !in
       &              opt_rlend           = i_rlend                                 ) !in
 

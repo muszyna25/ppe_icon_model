@@ -51,6 +51,7 @@ MODULE mo_radiation
   USE mo_nonhydro_state,       ONLY: p_nh_state
 
   USE mo_math_constants,       ONLY: pi, rpi
+  USE mo_math_types,           ONLY: t_geographical_coordinates
   USE mo_physical_constants,   ONLY: grav,  rd,    avo,   amd,  amw,  &
     &                                amco2, amch4, amn2o, amo3, amo2, &
     &                                stbo
@@ -63,7 +64,7 @@ MODULE mo_radiation
     &                                irad_cfc11, vmr_cfc11,           &
     &                                irad_cfc12, vmr_cfc12,           &
     &                                irad_aero,                       &
-    &                                izenith, islope_rad
+    &                                izenith, cos_zenith_fixed, islope_rad
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_newcld_optics,        ONLY: newcld_optics
@@ -77,7 +78,9 @@ MODULE mo_radiation
     &                                timer_radiation, timer_rrtm_prep,       &
     &                                timer_lrtm, timer_srtm, timer_rrtm_post
   USE mo_nh_testcases_nml,     ONLY: zenithang
+#ifdef __ICON_ART
   USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
+#endif
   USE mtime,                   ONLY: datetime, newDatetime, timedelta, newTimedelta, &
        &                             getPTStringFromMS, OPERATOR(+),                 &
        &                             NO_OF_MS_IN_A_MINUTE, NO_OF_MS_IN_A_HOUR,       &
@@ -85,6 +88,9 @@ MODULE mo_radiation
        &                             deallocateTimedelta, deallocateDatetime,        &
        &                             NO_OF_MS_IN_A_SECOND
   
+  USE mo_grid_config,          ONLY: l_scm_mode
+  USE mo_scm_nml,              ONLY: lon_scm, lat_scm 
+
   IMPLICIT NONE
 
   PRIVATE
@@ -109,14 +115,14 @@ CONTAINS
 
     REAL(wp), INTENT(IN)   :: &
       & cosmu0_dark, &
-      & p_inc_rad, & !radiation time step in seconds
+      & p_inc_rad, &                                                   !radiation time step in seconds
       & p_inc_radheat, &
       & p_sim_time
 
-    TYPE(t_patch),      INTENT(IN)    :: pt_patch    ! Patch
+    TYPE(t_patch), INTENT(IN), TARGET :: pt_patch                      ! patch
 
-    REAL(wp), INTENT(OUT), OPTIONAL   :: zsct                  ! solar constant (at time of year)
-    REAL(wp), INTENT(OUT)             :: zsmu0(kbdim,pt_patch%nblks_c)   ! Cosine of zenith angle
+    REAL(wp), INTENT(OUT), OPTIONAL   :: zsct                          ! solar constant (at time of year)
+    REAL(wp), INTENT(OUT)             :: zsmu0(kbdim,pt_patch%nblks_c) ! cosine of zenith angle
     LOGICAL                           :: lacc ! accelerator flag
 
     REAL(wp) ::                    &
@@ -150,9 +156,27 @@ CONTAINS
     TYPE(timedelta), POINTER :: td => NULL()
     CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: td_string 
         
+    TYPE(t_geographical_coordinates), TARGET, ALLOCATABLE :: scm_center(:,:)
+    TYPE(t_geographical_coordinates), POINTER             :: ptr_center(:,:)
+
+
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: zsinphi,zcosphi,zeitrad,z_cosmu0,n_cosmu0pos
 #endif
+
+    ! SCM: read lat/lon for horizontally uniform zenith angle
+    IF ( l_scm_mode ) THEN
+      ALLOCATE(scm_center(SIZE(pt_patch%cells%center,1),SIZE(pt_patch%cells%center,2)))
+      DO jb = 1,pt_patch%nblks_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
+        scm_center(1:ie,jb)%lat = lat_scm * pi/180.
+        scm_center(1:ie,jb)%lon = lon_scm * pi/180.
+      ENDDO
+      ptr_center => scm_center
+    ELSE
+      ptr_center => pt_patch%cells%center
+    ENDIF
+
     IF (izenith == 0) THEN
     ! local insolation = constant = global mean insolation (ca. 340 W/m2)
     ! zenith angle = 0,
@@ -175,7 +199,7 @@ CONTAINS
 #endif
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
-        zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
+        zsmu0(1:ie,jb) = COS( ptr_center(1:ie,jb)%lat )
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt * rpi ! because sun is always in local noon, the TSI needs to be
       ! scaled by 1/pi to get the correct global mean insolation
@@ -190,7 +214,7 @@ CONTAINS
 #endif
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
-        zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat ) * rpi
+        zsmu0(1:ie,jb) = COS( ptr_center(1:ie,jb)%lat ) * rpi
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt
     ELSEIF (izenith == 3) THEN  !Second: case izenith==3 (time (but no date) needed)
@@ -225,8 +249,8 @@ CONTAINS
         DO jb = 1, pt_patch%nblks_c
           ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
-          z_cosmu0(1:ie,jb) = -COS( pt_patch%cells%center(1:ie,jb)%lat ) &
-            & *COS( pt_patch%cells%center(1:ie,jb)%lon                &
+          z_cosmu0(1:ie,jb) = -COS( ptr_center(1:ie,jb)%lat ) &
+            & *COS( ptr_center(1:ie,jb)%lon                &
             &      +zstunde/24._wp* 2._wp*pi )
 
           DO jc = 1,ie
@@ -316,9 +340,9 @@ CONTAINS
         DO jb = 1, pt_patch%nblks_c
           ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
-          zsinphi(1:ie,jb)      = SIN (pt_patch%cells%center(1:ie,jb)%lat)
+          zsinphi(1:ie,jb)      = SIN (ptr_center(1:ie,jb)%lat)
           zcosphi(1:ie,jb)      = SQRT(1.0_wp - zsinphi(1:ie,jb)**2)
-          zeitrad(1:ie,jb)      = zeit0 + pt_patch%cells%center(1:ie,jb)%lon
+          zeitrad(1:ie,jb)      = zeit0 + ptr_center(1:ie,jb)%lon
           z_cosmu0(1:ie,jb)     = zdeksin * zsinphi(1:ie,jb) + zdekcos * zcosphi(1:ie,jb) * &
             COS(zeitrad(1:ie,jb))
 
@@ -378,8 +402,23 @@ CONTAINS
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale tsi was adjstd in atm_phy_nwp w ssi_rce
 
+    ELSEIF (izenith == 6) THEN
+     ! Prescribed cos(solar zenith angle), for single column model (SCM)
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Only ported on gpu for izenith == 4')
+#endif
+      DO jb = 1, pt_patch%nblks_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
+        zsmu0(1:ie,jb) = cos_zenith_fixed
+      ENDDO
+      IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale tsi was adjstd in atm_phy_nwp w ssi_rce
+
     ENDIF
 
+
+    IF (l_scm_mode) THEN
+      DEALLOCATE(scm_center)
+    ENDIF
 
   END SUBROUTINE pre_radiation_nwp_steps
 
@@ -392,7 +431,7 @@ CONTAINS
       & p_inc_rad, & !radiation time step in seconds
       & p_sim_time
 
-    TYPE(t_patch),      INTENT(IN)    :: pt_patch    ! Patch
+    TYPE(t_patch), INTENT(IN), TARGET :: pt_patch    ! Patch
 
     REAL(wp), INTENT(OUT), OPTIONAL   :: zsct                  ! solar constant (at time of year)
     REAL(wp), INTENT(OUT)             :: zsmu0(kbdim,pt_patch%nblks_c)   ! Cosine of zenith angle
@@ -422,12 +461,30 @@ CONTAINS
     TYPE(datetime), POINTER :: current => NULL()
     TYPE(timedelta), POINTER :: td => NULL()
     CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: td_string
+
+    TYPE(t_geographical_coordinates), TARGET, ALLOCATABLE :: scm_center(:,:)
+    TYPE(t_geographical_coordinates), POINTER             :: ptr_center(:,:)
+
+
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: zsinphi,zcosphi,zeitrad,czra,szra,csang,ssang,csazi,ssazi
 #endif
 
     IF (islope_rad > 0 .AND. .NOT. (PRESENT(slope_ang) .AND. PRESENT(slope_azi) .AND. PRESENT(cosmu0_slp)) ) THEN
       CALL finish('pre_radiation_nwp','I/O fields for slope-dependent radiation are missing')
+    ENDIF
+
+    ! SCM: read lat/lon for horizontally uniform zenith angle
+    IF (l_scm_mode) THEN
+      ALLOCATE(scm_center(SIZE(pt_patch%cells%center,1),SIZE(pt_patch%cells%center,2)))
+      DO jb = 1,pt_patch%nblks_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
+        scm_center(1:ie,jb)%lat = lat_scm * pi/180.
+        scm_center(1:ie,jb)%lon = lon_scm * pi/180.
+      ENDDO
+      ptr_center => scm_center
+    ELSE
+      ptr_center => pt_patch%cells%center
     ENDIF
 
     IF(PRESENT(lacc)) THEN
@@ -438,7 +495,7 @@ CONTAINS
 
     !$ACC DATA CREATE(zsinphi, zcosphi, zeitrad, czra, szra, csang, ssang, csazi, ssazi) IF(lzacc)
 
-    !First: cases izenith==0 to izenith==2 (no date and time needed)
+    !First case: izenith==0 to izenith==2 and izenith=6 (no date and time needed)
     IF (izenith == 0) THEN
      ! for testing: provisional setting of cos(zenith angle) and TSI
      ! The global mean insolation is TSI/4 (ca. 340 W/m2)
@@ -460,7 +517,7 @@ CONTAINS
         !$ACC PARALLEL DEFAULT(PRESENT) IF(lzacc)
         !$ACC LOOP GANG VECTOR
         DO jc= 1, ie
-          zsmu0(jc,jb) = COS( pt_patch%cells%center(jc,jb) %lat )
+          zsmu0(jc,jb) = COS( ptr_center(jc,jb) %lat )
         ENDDO
         !$ACC END PARALLEL
       ENDDO
@@ -474,11 +531,24 @@ CONTAINS
         !$ACC PARALLEL DEFAULT(PRESENT) IF(lzacc)
         !$ACC LOOP GANG VECTOR
         DO jc= 1, ie
-          zsmu0(jc,jb) = COS( pt_patch%cells%center(jc,jb)%lat ) * rpi
+          zsmu0(jc,jb) = COS( ptr_center(jc,jb)%lat ) * rpi
         ENDDO
         !$ACC END PARALLEL
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt
+
+    ELSEIF (izenith == 6) THEN
+      ! Prescribed cos(solar zenith angle), for single column model
+#ifdef _OPENACC
+      IF (lacc) CALL finish('pre_radiation_nwp','Not ported on gpu for izenith == 6')
+#endif
+      DO jb = 1, pt_patch%nblks_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
+        DO jc= 1, ie
+          zsmu0(jc,jb) = cos_zenith_fixed
+        ENDDO
+      ENDDO
+      IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale
 
     ELSE
 
@@ -497,7 +567,7 @@ CONTAINS
       CALL deallocateDatetime(current)
       CALL deallocateTimedelta(td)
 
-      !Second case izenith==3 (time (but no date) needed)
+      !Second case: izenith==3 (time (but no date) needed)
       IF (izenith == 3) THEN
 
         DO jb = 1, pt_patch%nblks_c
@@ -505,15 +575,15 @@ CONTAINS
           !$ACC PARALLEL DEFAULT(PRESENT) IF(lzacc)
           !$ACC LOOP GANG VECTOR
           DO jc= 1, ie
-            zsmu0(jc,jb) = -COS( pt_patch%cells%center(jc,jb)%lat ) &
-              & *COS( pt_patch%cells%center(jc,jb)%lon                &
+            zsmu0(jc,jb) = -COS( ptr_center(jc,jb)%lat ) &
+              & *COS( ptr_center(jc,jb)%lon                &
               &      +zstunde * (1._wp/24._wp) * 2._wp * pi )
           ENDDO
           !$ACC END PARALLEL
         ENDDO
         IF (PRESENT(zsct)) zsct = tsi_radt
 
-      !Third: case izenith=4 (time and date needed)
+      !Third case: izenith=4 (time and date needed)
       ELSEIF (izenith == 4) THEN
 
         ztwo    = 0.681_wp + 0.2422_wp*REAL(jj-1949,wp)-REAL((jj-1949)/4,wp)
@@ -543,9 +613,9 @@ CONTAINS
           !$ACC PARALLEL DEFAULT(PRESENT) IF(lzacc)
           !$ACC LOOP GANG VECTOR
           DO jc = 1, ie
-            zsinphi(jc)      = SIN (pt_patch%cells%center(jc,jb)%lat)
+            zsinphi(jc)      = SIN (ptr_center(jc,jb)%lat)
             zcosphi(jc)      = SQRT(1.0_wp - zsinphi(jc)**2)
-            zeitrad(jc)      = zeit0 + pt_patch%cells%center(jc,jb)%lon
+            zeitrad(jc)      = zeit0 + ptr_center(jc,jb)%lon
             czra   (jc)      = COS(zeitrad(jc))
             zsmu0  (jc,jb)   = zdeksin * zsinphi(jc) + zdekcos * zcosphi(jc) * czra(jc)
           ENDDO
@@ -590,7 +660,11 @@ CONTAINS
         IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale tsi was adjstd in atm_phy_nwp w ssi_rce
 
       ENDIF
+  
+    ENDIF
 
+    IF (l_scm_mode) THEN
+      DEALLOCATE(scm_center)
     ENDIF
     !$ACC END DATA ! CREATE(zsinphi, zcosphi, zeitrad, czra, szra, csang, ssang, csazi, ssazi)
 
@@ -1367,6 +1441,7 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
+#ifdef __ICON_ART
     CASE (9)
       CALL art_rad_aero_interface(zaeq1,zaeq2,zaeq3,zaeq4,zaeq5, &
         &                         zaea_rrtm,zaes_rrtm,zaeg_rrtm, &
@@ -1375,6 +1450,7 @@ CONTAINS
         &                         aer_tau_sw_vr,                 &
         &                         aer_piz_sw_vr,                 &
         &                         aer_cg_sw_vr)
+#endif
     CASE (12,13)
        ! this is for rrtm radiation in the NWP part, we do not introduce
        ! the simple plumes here

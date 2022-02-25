@@ -147,6 +147,9 @@ MODULE mo_nwp_phy_types
                                  !! = average of evaporation rate at surface
       &  alhfl_bs(:,:),        & !! average or accumulated since model start of lhfl_bs [W/m2]
       &  alhfl_pl(:,:,:),      & !! average or accumulated since model start of lhfl_pl [W/m2]
+      &  tetfl_turb(:,:,:),    & !! vertical turbulent theta flux [K/m^2s]
+      &  vapfl_turb(:,:,:),    & !! vertical turbulent water vapour flux [kg/m^2s]
+      &  liqfl_turb(:,:,:),    & !! vertical turbulent liquid water flux [kg/m^2s]
       &  clc(:,:,:),           & !! cloud cover  
       &  clct(:,:),            & !! total cloud cover  
       &  clch(:,:),            & !! cloud cover of high-level clouds
@@ -173,6 +176,9 @@ MODULE mo_nwp_phy_types
       &  albvisdif_t(:,:,:),   & !! tile-based UV visible albedo for diffuse radiation (0.3-0.7um)
       &  albnirdif_t(:,:,:),   & !! tile-based near IR albedo for diffuse radiation (0.3-0.7um)
       &  lw_emiss(:,:),        & !! Longwave emissivity with corrections for deserts and snow cover
+      &  snowalb_fac(:,:),     & !! Factor for adaptive snow albedo tuning (coupled to DA increments for T)
+      &  heatcond_fac(:,:),    & !! Factor for adaptive soil heat conductivity tuning (coupled to DA increments for T)
+      &  heatcap_fac(:,:),     & !! Factor for adaptive soil heat capacity tuning (coupled to DA increments for T)
       &  vio3(:,:),            & !! vertically integrated ozone amount (Pa O3)
       &  hmo3(:,:),            & !! height of O3 maximum (Pa)
       &  flxdwswtoa(:,:),      & !! downward shortwave flux at TOA [W/m2]
@@ -216,6 +222,8 @@ MODULE mo_nwp_phy_types
       &  swflxclrsfc_a(:,:),   & !! Clear-sky surface net solar radiation [W/m2], accumulated or mean since model start
       &  lwflxtoa_a(:,:),      & !! TOA net thermal radiation [W/m2], accumulated or mean since model start
       &  swflxtoa_a(:,:),      & !! shortwave net flux at toa [W/m2], accumulated or mean since model start
+      &  dursun_m(:,:),        & !! maximum duration of sunshine [s]
+      &  dursun_r(:,:),        & !! relative duration of sunshine [s]
       &  dursun(:,:),          & !! duration of sunshine [s]
       &  asod_t    (:,:),      & !! Top down solar radiation  [W/m2], accumulated or mean since model start
       &  asou_t    (:,:),      & !! Top up solar radiation  [W/m2], accumulated or mean since model start
@@ -539,18 +547,44 @@ MODULE mo_nwp_phy_types
 
     !Anurag Dipankar, MPIM (2013-May-31)
     !Large-scale tendencies for idealized testcases (nlev)
-    REAL(wp), ALLOCATABLE ::   &
-      ddt_u_ls       (:), &     !! LS tendency for u 
-      ddt_v_ls       (:), &     !! LS tendency for v 
-      ddt_temp_ls    (:), &     !! LS tendency for temp 
-      ddt_tracer_ls  (:,:),&     !! LS tendency for tracer
-      ddt_temp_subs_ls(:),  &     !! Christopher Moseley: 7 LS tendencies for profile output
-      ddt_qv_subs_ls  (:),  & 
-      ddt_temp_adv_ls (:),  & 
-      ddt_qv_adv_ls   (:),  & 
-      ddt_temp_nud_ls (:),  & 
-      ddt_qv_nud_ls   (:),  &
-      wsub            (:)
+    REAL(wp), ALLOCATABLE ::  &
+      ddt_u_ls        (:),    &   !! LS tendency for u 
+      ddt_v_ls        (:),    &   !! LS tendency for v 
+      ddt_temp_ls     (:),    &   !! LS tendency for temp 
+      ddt_tracer_ls   (:,:),  &   !! LS tendency for tracer
+      ddt_temp_subs_ls(:),    &   !! Christopher Moseley: 7 LS tendencies for profile output
+      ddt_qv_subs_ls  (:),    &   !! LS tendency for water vapor from subsidence
+      ddt_temp_adv_ls (:),    &   !! LS tendency for temperature from advection
+      ddt_qv_adv_ls   (:),    &   !! LS tendency for water vapor from advection
+      ddt_u_adv_ls    (:),    &   !! LS tendency for u-wind from advection
+      ddt_v_adv_ls    (:),    &   !! LS tendency for v-wind from advection
+      ddt_temp_nud_ls (:),    &   !! LS tendency for temperature from nudging
+      ddt_qv_nud_ls   (:),    &   !! LS tendency for water vapor from nudging
+      wsub            (:),    &   !! subsidence [m/s]
+      temp_nudge      (:),    &   !! T nudging profile [K]
+      q_nudge         (:,:),  &   !! qv/qc/qi nudging profile [kg/kg]
+      u_nudge         (:),    &   !! u nudging profile [m/s]
+      v_nudge         (:)         !! v nudging profile [m/s]
+
+    !variables for surface boundary conditions for SCM cases
+    !defined in mo_ls_forcing/apply_ls_forcing, used in mo_nh_torus_exp/set_scm_bnd
+    REAL(wp)              ::  &
+      fc_sfc_lat_flx,         &   !! latent heat flux
+      fc_sfc_sens_flx,        &   !! sensible heat flux
+      fc_ts,                  &   !! surface temperature
+      fc_tg,                  &   !! ground temperature
+      fc_qvs,                 &   !! surface water vapor mixing ratio
+      fc_Ch,                  &   !! surface exchange coefficient for heat
+      fc_Cq,                  &   !!   ... for water vapor
+      fc_Cm,                  &   !!   ... for momentum
+      fc_ustar,               &   !! friction velocity
+      fc_umfl_s,              &   !! u momentum flux
+      fc_vmfl_s                   !! v momentum flux
+
+    !tendencies from simplified radiation for DYCOMS stratocumulus case
+    REAL(wp),ALLOCATABLE  ::  &
+      ddt_temp_sim_rad(:,:,:)     !! temperature tendency from simplified radiation
+
 
     TYPE(t_ptr_2d3d),ALLOCATABLE ::  &
       &  tracer_turb_ptr(:)    ,& !< pointer array: one pointer for each component

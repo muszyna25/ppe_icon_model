@@ -113,7 +113,7 @@ USE mo_grid_config,         ONLY: l_limited_area
 USE mo_parallel_config,     ONLY: nproma
 USE mo_exception,           ONLY: finish
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-USE mo_fortran_tools,       ONLY: init, copy
+USE mo_fortran_tools,       ONLY: init
 #ifdef _OPENACC
 USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
@@ -125,7 +125,7 @@ IMPLICIT NONE
 PRIVATE
 
 
-PUBLIC :: recon_lsq_cell_l, recon_lsq_cell_l_svd, recon_lsq_cell_l_consv_svd
+PUBLIC :: recon_lsq_cell_l, recon_lsq_cell_l_svd
 PUBLIC :: recon_lsq_cell_q, recon_lsq_cell_q_svd
 PUBLIC :: recon_lsq_cell_c, recon_lsq_cell_c_svd
 PUBLIC :: div, div_avg
@@ -149,12 +149,7 @@ INTERFACE div
 END INTERFACE
 
 #if defined( _OPENACC )
-#if defined(__MATH_DIVROT_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -232,7 +227,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   INTEGER :: slev, elev               !< vertical start and end level
   INTEGER :: jc, jk, jb               !< index of cell, vertical level and block
   INTEGER :: rl_start, rl_end
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
   LOGICAL :: l_consv
 
   !-----------------------------------------------------------------------
@@ -266,9 +261,8 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 
   ! values for the blocking
-  i_nchdom   = MAX(1,ptr_patch%n_childdom)
-  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-  i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+  i_startblk = ptr_patch%cells%start_block(rl_start)
+  i_endblk   = ptr_patch%cells%end_block(rl_end)
 
   ! pointers to line and block indices of stencil
   iidx => ptr_patch%cells%neighbor_idx
@@ -280,7 +274,6 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   ! 1. reconstruction of cell based gradient (geographical components)
   !
 !$ACC DATA PRESENT( p_coeff, p_cc, iidx, iblk, ptr_int_lsq )
-!$ACC UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -414,7 +407,6 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   ELSE
     !$ACC WAIT
   END IF
-!$ACC UPDATE HOST(p_coeff) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE recon_lsq_cell_l
@@ -449,7 +441,7 @@ END SUBROUTINE recon_lsq_cell_l
 !!
 SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
   &                              opt_slev, opt_elev, opt_rlstart, opt_rlend, &
-  &                              opt_acc_async )
+  &                              opt_lconsv, opt_acc_async )
 
   TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
     &  ptr_patch                          !< is performed
@@ -469,7 +461,10 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
   INTEGER, INTENT(IN), OPTIONAL ::  &   !< start and end values of refin_ctrl flag
     &  opt_rlstart, opt_rlend
 
-  REAL(vp), INTENT(INOUT) ::  &  !< cell based coefficients (geographical components)
+  LOGICAL, INTENT(IN), OPTIONAL ::  &   !< if true, conservative reconstruction is used
+    &  opt_lconsv
+
+  REAL(wp), INTENT(INOUT) ::  &  !< cell based coefficients (geographical components)
     &  p_coeff(:,:,:,:)          !< (constant and gradients in latitudinal and
                                  !< longitudinal direction)
 
@@ -486,7 +481,8 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
   INTEGER :: slev, elev              !< vertical start and end level
   INTEGER :: jc, jk, jb              !< index of cell, vertical level and block
   INTEGER :: rl_start, rl_end
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+  LOGICAL :: l_consv
 
   !-----------------------------------------------------------------------
 
@@ -511,19 +507,22 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
   ELSE
     rl_end = min_rlcell
   END IF
+  IF ( PRESENT(opt_lconsv) ) THEN
+    l_consv = opt_lconsv
+  ELSE
+    l_consv = .FALSE.
+  END IF
 
 
   ! values for the blocking
-  i_nchdom   = MAX(1,ptr_patch%n_childdom)
-  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-  i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+  i_startblk = ptr_patch%cells%start_block(rl_start)
+  i_endblk   = ptr_patch%cells%end_block(rl_end)
 
   ! pointers to line and block indices of stencil
   iidx => ptr_patch%cells%neighbor_idx
   iblk => ptr_patch%cells%neighbor_blk
 
 
-!$ACC UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -560,220 +559,6 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
       DO jc = i_startidx, i_endidx
 
         ! meridional
-        p_coeff(2,jc,jk,jb) = ptr_int_lsq%lsq_pseudoinv(jc,2,1,jb) * z_b(1,jc,jk)  &
-          &                 + ptr_int_lsq%lsq_pseudoinv(jc,2,2,jb) * z_b(2,jc,jk)  &
-          &                 + ptr_int_lsq%lsq_pseudoinv(jc,2,3,jb) * z_b(3,jc,jk)
-
-        ! zonal
-        p_coeff(1,jc,jk,jb) = ptr_int_lsq%lsq_pseudoinv(jc,1,1,jb) * z_b(1,jc,jk)  &
-          &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,2,jb) * z_b(2,jc,jk)  &
-          &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,3,jb) * z_b(3,jc,jk)
-
-      END DO ! end loop over cells
-    END DO ! end loop over vertical levels
-    !$ACC END PARALLEL
-    !$ACC WAIT
-    !$ACC END DATA
-
-#else
-!$ACC PARALLEL DEFAULT (PRESENT) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(z_b)
-!$NEC outerloop_unroll(4)
-    DO jk = slev, elev
-      DO jc = i_startidx, i_endidx
-
-        ! note that the multiplication with lsq_weights_c(jc,js,jb) at
-        ! runtime is now avoided. Instead, the weights have been shifted 
-        ! into the pseudoinverse.
-        z_b(1) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
-        z_b(2) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
-        z_b(3) = p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3)) - p_cc(jc,jk,jb)
-
-        ! meridional
-        p_coeff(2,jc,jk,jb) = ptr_int_lsq%lsq_pseudoinv(jc,2,1,jb) * z_b(1)  &
-          &                 + ptr_int_lsq%lsq_pseudoinv(jc,2,2,jb) * z_b(2)  &
-          &                 + ptr_int_lsq%lsq_pseudoinv(jc,2,3,jb) * z_b(3)
-
-        ! zonal
-        p_coeff(1,jc,jk,jb) = ptr_int_lsq%lsq_pseudoinv(jc,1,1,jb) * z_b(1)  &
-          &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,2,jb) * z_b(2)  &
-          &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,3,jb) * z_b(3)
-
-      END DO ! end loop over cells
-    END DO ! end loop over vertical levels
-    !$ACC END PARALLEL
-#endif
-
-  END DO ! end loop over blocks
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-!$ACC UPDATE HOST(p_coeff) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-
-  IF ( PRESENT(opt_acc_async) ) THEN
-    IF ( .NOT. opt_acc_async ) THEN
-      !$ACC WAIT
-    END IF
-  ELSE
-    !$ACC WAIT
-  END IF
-
-END SUBROUTINE recon_lsq_cell_l_svd
-
-
-!-------------------------------------------------------------------------
-!
-!
-!>
-!! Computes coefficients (i.e. derivatives) for cell centered linear
-!! reconstruction.
-!!
-!! DESCRIPTION:
-!! recon: reconstruction of subgrid distribution
-!! lsq  : least-squares method
-!! cell : solution coefficients defined at cell center
-!! l    : linear reconstruction
-!!
-!! The least squares approach is used. Solves Ax = b via Singular 
-!! Value Decomposition (SVD)
-!! x = PINV(A) * b
-!!
-!! Matrices have the following size and shape:
-!! PINV(A): Pseudo or Moore-Penrose inverse of A (via SVD) (2 x 3)
-!! b: input vector (3 x 1)
-!! x: solution vector (2 x 1)
-!! only works on triangular grid yet
-!!
-!! @par Revision History
-!! Developed and tested by Daniel Reinert, DWD (2011-05-26)
-!!
-SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
-  &                                    opt_slev, opt_elev, opt_rlstart,      &
-  &                                    opt_rlend, opt_lconsv )
-
-  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
-    &  ptr_patch                          !< is performed
-
-  TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
-    &  ptr_int_lsq
-
-  REAL(wp), INTENT(IN)          ::  &   !<  cell centered variable
-    &  p_cc(:,:,:)
-
-  INTEGER, INTENT(IN), OPTIONAL ::  &   !< optional vertical start level
-    &  opt_slev
-
-  INTEGER, INTENT(IN), OPTIONAL ::  &   !< optional vertical end level
-    &  opt_elev
-
-  INTEGER, INTENT(IN), OPTIONAL ::  &   !< start and end values of refin_ctrl flag
-    &  opt_rlstart, opt_rlend
-
-  LOGICAL, INTENT(IN), OPTIONAL ::  &   !< if true, conservative reconstruction is used
-    &  opt_lconsv
-
-  REAL(wp), INTENT(INOUT) ::  &  !< cell based coefficients (geographical components)
-    &  p_coeff(:,:,:,:)          !< (constant and gradients in latitudinal and
-                                 !< longitudinal direction)  
-
-
-  REAL(wp)  ::   &               !< weights * difference of scalars i j
-    &  z_b(3,nproma,ptr_patch%nlev)
-
-  INTEGER, POINTER ::   &            !< Pointer to line and block indices of
-    &  iidx(:,:,:), iblk(:,:,:)      !< required stencil
-  INTEGER :: slev, elev              !< vertical start and end level
-  INTEGER :: jc, jk, jb              !< index of cell, vertical level and block
-  INTEGER :: rl_start, rl_end
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-  LOGICAL :: l_consv
-
-  !-----------------------------------------------------------------------
-
-  ! check optional arguments
-  IF ( PRESENT(opt_slev) ) THEN
-    slev = opt_slev
-  ELSE
-    slev = 1
-  END IF
-  IF ( PRESENT(opt_elev) ) THEN
-    elev = opt_elev
-  ELSE
-    elev = UBOUND(p_cc,2)
-  END IF
-  IF ( PRESENT(opt_rlstart) ) THEN
-    rl_start = opt_rlstart
-  ELSE
-    rl_start = 2
-  END IF
-  IF ( PRESENT(opt_rlend) ) THEN
-    rl_end = opt_rlend
-  ELSE
-    rl_end = min_rlcell
-  END IF
-  IF ( PRESENT(opt_lconsv) ) THEN
-    l_consv = opt_lconsv
-  ELSE
-    l_consv = .FALSE.
-  END IF
-
-
-  ! values for the blocking
-  i_nchdom   = MAX(1,ptr_patch%n_childdom)
-  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-  i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-
-  ! pointers to line and block indices of stencil
-  iidx => ptr_patch%cells%neighbor_idx
-  iblk => ptr_patch%cells%neighbor_blk
-
-
-
-  !
-  ! 1. reconstruction of cell based gradient (geographical components)
-  !
-!$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ),  &
-!$ACC      PRESENT( ptr_int_lsq, iidx, iblk), &
-!$ACC      CREATE( z_b ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
-  DO jb = i_startblk, i_endblk
-
-    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, rl_start, rl_end)
-
-!$ACC PARALLEL DEFAULT (NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
-#ifdef __LOOP_EXCHANGE
-    DO jc = i_startidx, i_endidx
-      DO jk = slev, elev
-#else
-    DO jk = slev, elev
-      DO jc = i_startidx, i_endidx
-#endif
-
-        ! note that the multiplication with lsq_weights_c(jc,js,jb) at
-        ! runtime is now avoided. Instead, the weights have been shifted 
-        ! into the pseudoinverse.
-        z_b(1,jc,jk) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
-        z_b(2,jc,jk) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
-        z_b(3,jc,jk) = p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3)) - p_cc(jc,jk,jb)
-
-      END DO ! end loop over cells
-    END DO ! end loop over vertical levels
-!$ACC END PARALLEL
-
-    !
-    ! 2. compute cell based coefficients for linear reconstruction
-    !    calculate matrix vector product PINV(A) * b
-    ! 
-!$ACC PARALLEL DEFAULT (NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
-    DO jk = slev, elev
-!$NEC ivdep
-      DO jc = i_startidx, i_endidx
-
-        ! meridional
         p_coeff(3,jc,jk,jb) = ptr_int_lsq%lsq_pseudoinv(jc,2,1,jb) * z_b(1,jc,jk)  &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,2,2,jb) * z_b(2,jc,jk)  &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,2,3,jb) * z_b(3,jc,jk)
@@ -788,11 +573,46 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
       END DO ! end loop over cells
     END DO ! end loop over vertical levels
-!$ACC END PARALLEL
+    !$ACC END PARALLEL
+    !$ACC WAIT
+    !$ACC END DATA
+
+#else
+!$ACC PARALLEL DEFAULT (PRESENT) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(z_b)
+!$NEC outerloop_unroll(2)
+    DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+
+        ! note that the multiplication with lsq_weights_c(jc,js,jb) at
+        ! runtime is now avoided. Instead, the weights have been shifted 
+        ! into the pseudoinverse.
+        z_b(1) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
+        z_b(2) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
+        z_b(3) = p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3)) - p_cc(jc,jk,jb)
+
+
+        ! meridional
+        p_coeff(3,jc,jk,jb) = ptr_int_lsq%lsq_pseudoinv(jc,2,1,jb) * z_b(1)  &
+          &                 + ptr_int_lsq%lsq_pseudoinv(jc,2,2,jb) * z_b(2)  &
+          &                 + ptr_int_lsq%lsq_pseudoinv(jc,2,3,jb) * z_b(3)
+
+        ! zonal
+        p_coeff(2,jc,jk,jb) = ptr_int_lsq%lsq_pseudoinv(jc,1,1,jb) * z_b(1)  &
+          &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,2,jb) * z_b(2)  &
+          &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,3,jb) * z_b(3)
+
+        ! constant
+        p_coeff(1,jc,jk,jb) = p_cc(jc,jk,jb)
+
+      END DO ! end loop over cells
+    END DO ! end loop over vertical levels
+    !$ACC END PARALLEL
+#endif
 
     IF (l_consv) THEN
 
-!$ACC PARALLEL DEFAULT (NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT (PRESENT) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
@@ -813,12 +633,16 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   END DO ! end loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC WAIT
-!$ACC UPDATE HOST(p_coeff) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC END DATA
 
-END SUBROUTINE recon_lsq_cell_l_consv_svd
+  IF ( PRESENT(opt_acc_async) ) THEN
+    IF ( .NOT. opt_acc_async ) THEN
+      !$ACC WAIT
+    END IF
+  ELSE
+    !$ACC WAIT
+  END IF
 
+END SUBROUTINE recon_lsq_cell_l_svd
 
 
 !-------------------------------------------------------------------------
@@ -907,7 +731,7 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
   INTEGER :: rl_start, rl_end
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
 
   !-----------------------------------------------------------------------
 
@@ -935,9 +759,8 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 
   ! values for the blocking
-  i_nchdom   = MAX(1,ptr_patch%n_childdom)
-  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-  i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+  i_startblk = ptr_patch%cells%start_block(rl_start)
+  i_endblk   = ptr_patch%cells%end_block(rl_end)
 
   ! pointers to line and block indices of required stencil
   iidx => ptr_int_lsq%lsq_idx_c
@@ -953,8 +776,6 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ), &
 !$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_qtmat_c, iidx, iblk ),  &
 !$ACC      CREATE(  z_d ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( p_cc, ptr_rrdiag, ptr_rutri, p_coeff ), &
-!$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
@@ -1055,7 +876,6 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   END DO ! end loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(p_coeff), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 
@@ -1140,7 +960,7 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
   INTEGER :: rl_start, rl_end
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
 
   !-----------------------------------------------------------------------
 
@@ -1168,9 +988,8 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 
   ! values for the blocking
-  i_nchdom   = MAX(1,ptr_patch%n_childdom)
-  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-  i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+  i_startblk = ptr_patch%cells%start_block(rl_start)
+  i_endblk   = ptr_patch%cells%end_block(rl_end)
 
   ! pointers to line and block indices of required stencil
   iidx => ptr_int_lsq%lsq_idx_c
@@ -1181,7 +1000,6 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ),    &
 !$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_pseudoinv, iidx, iblk ), &
 !$ACC      CREATE( z_b ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate ) 
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
@@ -1267,7 +1085,6 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   END DO ! end loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(p_coeff) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE recon_lsq_cell_q_svd
@@ -1363,7 +1180,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
   INTEGER :: rl_start, rl_end
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
 
   !-----------------------------------------------------------------------
 
@@ -1391,9 +1208,8 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 
   ! values for the blocking
-  i_nchdom   = MAX(1,ptr_patch%n_childdom)
-  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-  i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+  i_startblk = ptr_patch%cells%start_block(rl_start)
+  i_endblk   = ptr_patch%cells%end_block(rl_end)
 
   ! pointers to line and block indices of required stencil
   iidx => ptr_int_lsq%lsq_idx_c
@@ -1409,7 +1225,6 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ),                                       &
 !$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_qtmat_c, iidx, iblk ), &
 !$ACC      CREATE( z_d ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
@@ -1551,7 +1366,6 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   END DO ! end loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(p_coeff) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 
@@ -1648,7 +1462,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
   INTEGER :: rl_start, rl_end
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
 
   !-----------------------------------------------------------------------
 
@@ -1676,9 +1490,8 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 
   ! values for the blocking
-  i_nchdom   = MAX(1,ptr_patch%n_childdom)
-  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-  i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+  i_startblk = ptr_patch%cells%start_block(rl_start)
+  i_endblk   = ptr_patch%cells%end_block(rl_end)
 
   ! pointers to line and block indices of required stencil
   iidx => ptr_int_lsq%lsq_idx_c
@@ -1687,7 +1500,6 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ),                                          &
 !$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_pseudoinv, iidx, iblk ),  &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
@@ -1832,7 +1644,6 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 !$ACC WAIT
-!$ACC UPDATE HOST(p_coeff) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE recon_lsq_cell_c_svd
@@ -1949,7 +1760,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$ACC DATA PCOPYIN( vec_e ), PCOPY( div_vec_c ), PRESENT( ptr_int%geofac_div, iidx, iblk ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( vec_e, div_vec_c ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -1997,7 +1807,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
   END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(div_vec_c) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 !IF(ltimer) CALL timer_stop(timer_div)
@@ -2095,7 +1904,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !$ACC DATA PCOPYIN( vec_e, in2 ), PCOPY( div_vec_c, out2 ), PRESENT( ptr_int%geofac_div, iidx, iblk ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC UPDATE DEVICE ( vec_e, in2, div_vec_c, out2 ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -2149,7 +1957,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
   END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(div_vec_c, out2) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 !IF(ltimer) CALL timer_stop(timer_div)
@@ -2249,7 +2056,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$ACC DATA PCOPYIN( f4din ), PCOPY( f4dout ), PRESENT( ptr_int%geofac_div, iidx, iblk ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( f4din, f4dout ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,ji) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -2286,7 +2092,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
   ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(f4dout) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 !IF(ltimer) CALL timer_stop(timer_div)
@@ -2415,8 +2220,6 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 !$ACC DATA PCOPYIN( vec_e, avg_coeff ), PCOPY( div_vec_c ), CREATE( aux_c ), &
 !$ACC      PRESENT( ptr_int, ieidx, ieblk, inidx, inblk ),  IF( i_am_accel_node .AND. acc_on )
 !$ACC DATA PCOPYIN( opt_in2 ), PCOPY( opt_out2 ), CREATE( aux_c2 ), IF( i_am_accel_node .AND. acc_on .AND. l2fields )
-!$ACC UPDATE DEVICE ( vec_e, div_vec_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC UPDATE DEVICE ( opt_in2, opt_out2 ), IF( i_am_accel_node .AND. acc_on .AND. l2fields .AND. acc_validate )
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
@@ -2496,13 +2299,42 @@ IF (l_limited_area .OR. ptr_patch%id > 1) THEN
 
   i_startblk = ptr_patch%cells%start_blk(rl_start,1)
   i_endblk   = ptr_patch%cells%end_blk(rl_start_l2,1)
-!
-  CALL copy(aux_c (:,:,i_startblk:i_endblk), &
-       div_vec_c(:,:,i_startblk:i_endblk))
-  IF (l2fields) &
-       CALL copy(aux_c2(:,:,i_startblk:i_endblk), &
-       &         opt_out2 (:,:,i_startblk:i_endblk))
-!$OMP BARRIER
+
+  !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
+  DO jb = i_startblk, i_endblk ! like copy(aux_c, div_vec_c)
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, rl_start, rl_start_l2)
+
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
+    DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+        div_vec_c(jc,jk,jb) = aux_c(jc,jk,jb)
+      END DO
+    END DO
+    !$ACC END PARALLEL
+  END DO
+  !$OMP END DO
+
+  IF (l2fields) THEN
+    !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk ! like copy(aux_c2, opt_out2)
+
+      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_start_l2)
+
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+          opt_out2(jc,jk,jb) = aux_c2(jc,jk,jb)
+        END DO
+      END DO
+    !$ACC END PARALLEL
+    END DO
+  !$OMP END DO
+  ENDIF
 ENDIF
 
 !
@@ -2594,8 +2426,6 @@ ENDIF
 
 !$OMP END PARALLEL
 !$ACC WAIT
-!$ACC UPDATE HOST(div_vec_c) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC UPDATE HOST(opt_out2) IF( i_am_accel_node .AND. acc_on .AND. l2fields .AND. acc_validate )
 !$ACC END DATA
 !$ACC END DATA
 
@@ -2700,7 +2530,6 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 ! loop through all patch edges (and blocks)
 !
 !$ACC DATA PCOPYIN( vec_e ), PCOPY( div_vec_e ), PRESENT( ptr_int%geofac_qdiv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( vec_e, div_vec_e ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_RUNTIME_SCHEDULE
 DO jb = i_startblk, i_endblk
@@ -2733,7 +2562,6 @@ DO jb = i_startblk, i_endblk
 END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(div_vec_e) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE div_quad_twoadjcells
@@ -2843,7 +2671,6 @@ END IF
 
 !$ACC DATA PCOPYIN( vec_e ), PCOPY( rot_vec ), PRESENT( ptr_int%geofac_rot, iidx, iblk ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( vec_e, rot_vec ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -2899,7 +2726,6 @@ END IF
   ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(rot_vec) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE rot_vertex_atmos
@@ -2985,7 +2811,6 @@ END IF
 
 !$ACC DATA PCOPYIN( vec_e ), PCOPY( rot_vec ), &
 !$ACC      PRESENT( ptr_int%geofac_rot, iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( vec_e, rot_vec ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -3023,7 +2848,6 @@ END IF
   ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(rot_vec), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE rot_vertex_ri

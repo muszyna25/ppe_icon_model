@@ -223,8 +223,6 @@ MODULE mo_math_utilities
 
 #if defined( _OPENACC )
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-
-  LOGICAL, PARAMETER ::  acc_validate = .TRUE.    ! Only .TRUE. during unit testing
 #endif
 CONTAINS
 
