@@ -6,7 +6,7 @@ unset CDPATH
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='modules craype PrgEnv-cray cdt/21.05 cce-icon/12.0.2 cray-mpich cray-netcdf cray-libsci'
+MODULES='modules craype PrgEnv-cray cdt cce-icon/12.0.3 cray-mpich cray-netcdf cray-libsci'
 
 # Requirements
 if [ -z "${XML2_ROOT+x}" ]; then
@@ -32,7 +32,7 @@ LIBS="-Wl,--as-needed ${XML2_LIBS}"
 
 MPI_LAUNCH='/apps/daint/UES/xalt/production/bin/srun -p debug -C gpu'
 
-EXTRA_CONFIG_ARGS='--disable-openmp --disable-art --enable-rte-rrtmgp'
+EXTRA_CONFIG_ARGS='--disable-openmp --enable-rte-rrtmgp'
 
 # Speed up the configuration by disabling MPI checks:
 EXTRA_CONFIG_ARGS+=' --disable-mpi-checks'

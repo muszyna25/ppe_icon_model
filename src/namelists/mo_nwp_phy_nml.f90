@@ -379,9 +379,9 @@ CONTAINS
       END IF
 
 #ifndef __ICON_ART
-    IF (inwp_gscp(jg) == 6) THEN
-      CALL finish( TRIM(routine),'inwp_gscp == 6, but ICON was compiled without -D__ICON_ART')
-    ENDIF
+      IF (inwp_gscp(jg) == 6) THEN
+        CALL finish( TRIM(routine),'inwp_gscp == 6, but ICON was compiled with --disable-art')
+      ENDIF
 #endif
       
       IF (inwp_surface(jg) == 0 .AND. itype_z0 > 1) THEN

@@ -68,7 +68,9 @@ MODULE mo_nwp_phy_init
   ! microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
   USE mo_2mom_mcrph_driver,   ONLY: two_moment_mcrph_init
+#ifdef __ICON_ART
   USE mo_art_clouds_interface,ONLY: art_clouds_interface_2mom_init
+#endif
   USE mo_cpl_aerosol_microphys, ONLY: lookupcreate_segalkhain, specccn_segalkhain_simple, &
                                       ncn_from_tau_aerosol_speccnconst
 
@@ -77,8 +79,10 @@ MODULE mo_nwp_phy_init
     &                               su_yoethf,         &
     &                               sucldp, suphli,    &
     &                               suvdf , suvdfs
+#ifndef __NO_ICON_EDMF__
   ! EDMF DUAL turbulence
   USE mo_edmf_param,          ONLY: suct0, su0phy, susekf, susveg, sussoil
+#endif
   ! turbulence
   USE mo_turbdiff_config,     ONLY: turbdiff_config
   USE turb_data,              ONLY: get_turbdiff_param, lsflcnd, &
@@ -116,9 +120,24 @@ MODULE mo_nwp_phy_init
   USE mo_bc_greenhouse_gases, ONLY: read_bc_greenhouse_gases
   USE mo_nwp_reff_interface,  ONLY: init_reff
   USE mo_upatmo_config,       ONLY: upatmo_config
-  USE mo_upatmo_types,        ONLY: t_upatmo
   USE mo_upatmo_impl_const,   ONLY: iUpatmoPrcStat, iUpatmoStat
+#ifndef __NO_ICON_UPPER__
   USE mo_upatmo_phy_setup,    ONLY: init_upatmo_phy_nwp
+#endif
+
+  USE mo_ape_params,          ONLY: ape_sst
+  USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case, th_cbl, sol_const
+  USE mo_grid_config,         ONLY: l_scm_mode
+  USE mo_scm_nml,             ONLY: i_scm_netcdf, lscm_read_tke, lscm_read_z0, &
+                                    scm_sfc_temp, scm_sfc_qv
+  USE mo_nh_torus_exp,        ONLY: read_soil_profile_nc,read_soil_profile_nc_uf
+
+  USE mo_ape_params,          ONLY: ape_sst
+  USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case, th_cbl, sol_const
+  USE mo_grid_config,         ONLY: l_scm_mode
+  USE mo_scm_nml,             ONLY: i_scm_netcdf, lscm_read_tke, lscm_read_z0, &
+                                    scm_sfc_temp, scm_sfc_qv
+  USE mo_nh_torus_exp,        ONLY: read_soil_profile_nc,read_soil_profile_nc_uf
 
   USE mo_ape_params,          ONLY: ape_sst
   USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case, th_cbl, sol_const
@@ -151,7 +170,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
                        &  p_prog_wtr_now, p_prog_wtr_new, &
                        &  p_diag_lnd,                     &
                        &  ext_data, phy_params, ini_date, &
-                       &  prm_upatmo,                     &
                        &  lnest_start, lreset             )
 
   TYPE(t_patch),        TARGET,INTENT(in)    :: p_patch
@@ -166,7 +184,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   TYPE(t_lnd_diag),            INTENT(inout) :: p_diag_lnd
   TYPE(t_phy_params),          INTENT(inout) :: phy_params
   TYPE(datetime),              POINTER       :: ini_date     ! current datetime (mtime)
-  TYPE(t_upatmo),       TARGET,INTENT(inout) :: prm_upatmo
   LOGICAL, INTENT(IN), OPTIONAL              :: lnest_start, lreset
 
   INTEGER             :: jk, jk1
@@ -867,6 +884,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
     END IF
+#ifdef __ICON_ART
   CASE (6) ! two-moment scheme with prognostic cloud droplet number
            ! and chemical composition taken from the ART extension
     IF (msg_level >= 12)  CALL message(modname, 'init microphysics: ART two-moment')
@@ -874,7 +892,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     IF (jg == 1) CALL art_clouds_interface_2mom_init(msg_level)
 
     ! Init of number concentrations moved to mo_initicon_io.f90 !!!
-
+#endif
   END SELECT
 
   ! Fill parameters for cover_koe
@@ -1711,6 +1729,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
  
   IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf .AND. linit_mode ) THEN  !EDMF DUALM
 
+#ifndef __NO_ICON_EDMF__
     CALL suct0
     CALL su0phy
     CALL susekf
@@ -1721,6 +1740,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     ! paranoia: Make sure that rcld is initialized  (needed by cloud cover scheme)
     CALL init(prm_diag%rcld(:,:,:))
 !$OMP END PARALLEL
+#else
+    CALL finish(routine, 'EDMF turbulence desired, but --disable-edmf configured')
+#endif
 
   ENDIF
 
@@ -1748,6 +1770,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       
   ENDIF
 
+#ifndef __NO_ICON_UPPER__
   ! Upper-atmosphere physics
   !
   IF (lupatmo_phy) THEN
@@ -1759,10 +1782,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       &                       p_diag            = p_diag,            & !in
       &                       prm_nwp_diag      = prm_diag,          & !in
       &                       prm_nwp_tend      = prm_nwp_tend,      & !in
-      &                       prm_upatmo        = prm_upatmo,        & !inout
       &                       nproma            = nproma             ) !in
     IF (upatmo_config(jg)%l_status( iUpatmoStat%timer )) CALL timer_stop(timer_upatmo)
   ENDIF
+#endif
 
   IF (timers_level > 3) CALL timer_stop(timer_init_nwp_phy)
 

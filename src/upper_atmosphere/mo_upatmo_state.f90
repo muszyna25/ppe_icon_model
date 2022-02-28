@@ -28,7 +28,7 @@ MODULE mo_upatmo_state
   USE mo_upatmo_impl_const,    ONLY: iUpatmoStat, iUpatmoPrcStat, iUpatmoGasStat, &
     &                                iUpatmoTendId, iUpatmoGrpId, iUpatmoGasId,   &
     &                                iUpatmoTracerId, iUpatmoPrcId,               &
-    &                                iUpatmoExtdatStat
+    &                                iUpatmoExtdatStat, itmr_thr
   USE mo_model_domain,         ONLY: t_patch
   USE mo_upatmo_types,         ONLY: t_upatmo_diag, t_upatmo_tend, t_upatmo
   USE mo_upatmo_config,        ONLY: t_upatmo_config
@@ -47,6 +47,10 @@ MODULE mo_upatmo_state
   USE mo_var_groups,           ONLY: groups
   USE mo_upatmo_extdat_state,  ONLY: construct_upatmo_extdat_nwp, &
     &                                destruct_upatmo_extdat_nwp
+  USE mo_timer,                ONLY: timers_level, timer_start, timer_stop,   &
+    &                                timer_upatmo_constr, timer_upatmo_destr, &
+    &                                timer_upatmo
+
 
   IMPLICIT NONE
   
@@ -91,12 +95,18 @@ CONTAINS
 
     ! Local variables 
     INTEGER  :: jg, istat, nblks_c, nblks_e, nlev
-    LOGICAL  :: lmessage
+    LOGICAL  :: lmessage, ltimer
     CHARACTER(LEN=80) :: listname
     CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':construct_upatmo_state'
 
     !---------------------------------------------------------
+
+    ltimer   = timers_level > itmr_thr%med
+    IF (ltimer) THEN
+      CALL timer_start(timer_upatmo)
+      CALL timer_start(timer_upatmo_constr)
+    ENDIF
 
     IF (.NOT. ANY(upatmo_config( : )%l_status( iUpatmoStat%configured ))) THEN
       CALL finish (routine, 'Information required is not yet available')
@@ -195,6 +205,11 @@ CONTAINS
 
     IF (lmessage) CALL message (routine, 'Upatmo state construction completed')
 
+    IF (ltimer) THEN
+      CALL timer_stop(timer_upatmo_constr)
+      CALL timer_stop(timer_upatmo)
+    ENDIF
+
   END SUBROUTINE construct_upatmo_state
 
   !==================================================================================== 
@@ -212,11 +227,17 @@ CONTAINS
     ! Local variables 
     INTEGER  :: jg, jst, istat
     INTEGER  :: nstate
-    LOGICAL  :: lmessage
+    LOGICAL  :: lmessage, ltimer
     CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':destruct_upatmo_state'
 
     !---------------------------------------------------------
+
+    ltimer   = timers_level > itmr_thr%med
+    IF (ltimer) THEN
+      CALL timer_start(timer_upatmo)
+      CALL timer_start(timer_upatmo_destr)
+    ENDIF
 
     lmessage = ANY(upatmo_config( : )%l_status( iUpatmoStat%message ))
 
@@ -366,6 +387,11 @@ CONTAINS
     IF(istat/=SUCCESS) CALL finish (routine, 'Deallocation prm_upatmo failed')
 
     IF (lmessage) CALL message (routine, 'Upatmo state destruction completed')
+
+    IF (ltimer) THEN
+      CALL timer_stop(timer_upatmo_destr)
+      CALL timer_stop(timer_upatmo)
+    ENDIF
 
   END SUBROUTINE destruct_upatmo_state
 

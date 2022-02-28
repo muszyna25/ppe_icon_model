@@ -3,7 +3,7 @@
 SPACK_BRANCH='master'
 GIT_REMOTE='https://github.com/C2SM/spack-c2sm.git'
 
-SPACK_SPEC="icon@dev-build%nvhpc icon_target=gpu +claw +eccodes +ocean"
+SPACK_SPEC="icon@dev-build%nvhpc@21.3 icon_target=gpu +claw +eccodes +ocean"
 
 git clone -b ${SPACK_BRANCH} ${GIT_REMOTE}
 

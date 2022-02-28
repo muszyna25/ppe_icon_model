@@ -73,12 +73,7 @@ MODULE mo_advection_traj
   PUBLIC :: btraj_compute_o2
 
 #if defined( _OPENACC )
-#if defined(__ADVECTION_TRAJ_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
 
@@ -280,8 +275,6 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ), &
 !$ACC      PRESENT( ptr_p, ptr_int ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( p_vn, p_vt, p_cell_idx, p_cell_blk, p_distv_bary ) &
-!$ACC        WAIT IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_ntdistv_bary_1,z_ntdistv_bary_2,lvn_pos) ICON_OMP_DEFAULT_SCHEDULE
@@ -353,8 +346,6 @@ CONTAINS
 
     END DO    ! loop over blocks
 
-!$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) WAIT &
-!$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -541,8 +532,6 @@ CONTAINS
 !$ACC               ptr_p%edges%dual_normal_cell, ptr_p%edges%tangent_orientation, &
 !$ACC               ptr_p%edges%edge_cell_length, ptr_int%pos_on_tplane_e ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,ie,i_startidx,i_endidx,traj_length,e2c_length, &
@@ -753,7 +742,6 @@ CONTAINS
 !$ACC END PARALLEL
     END DO    ! loop over blocks
 
-!$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_coords_dreg_v ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
 !$OMP END DO NOWAIT
@@ -909,8 +897,6 @@ CONTAINS
 !$ACC      CREATE( z_vt_plane, z_vn_plane ),                                        &
 !$ACC      PRESENT( iidx, iblk, ptr_p, ptr_int, ptr_em ), IF( i_am_accel_node .AND. acc_on )
     
-!$ACC UPDATE DEVICE ( p_vn, p_vt ) WAIT IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -1102,8 +1088,6 @@ CONTAINS
 !$ACC END PARALLEL
         ENDDO    ! loop over blocks
 
-!$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) &
-!$ACC        WAIT IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
 !$OMP END DO NOWAIT

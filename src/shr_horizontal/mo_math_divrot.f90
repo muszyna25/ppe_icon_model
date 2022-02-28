@@ -149,12 +149,7 @@ INTERFACE div
 END INTERFACE
 
 #if defined( _OPENACC )
-#if defined(__MATH_DIVROT_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -279,7 +274,6 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   ! 1. reconstruction of cell based gradient (geographical components)
   !
 !$ACC DATA PRESENT( p_coeff, p_cc, iidx, iblk, ptr_int_lsq )
-!$ACC UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -413,7 +407,6 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   ELSE
     !$ACC WAIT
   END IF
-!$ACC UPDATE HOST(p_coeff) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE recon_lsq_cell_l
@@ -530,7 +523,6 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
   iblk => ptr_patch%cells%neighbor_blk
 
 
-!$ACC UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -641,7 +633,6 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
   END DO ! end loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(p_coeff) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
   IF ( PRESENT(opt_acc_async) ) THEN
     IF ( .NOT. opt_acc_async ) THEN
@@ -785,8 +776,6 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ), &
 !$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_qtmat_c, iidx, iblk ),  &
 !$ACC      CREATE(  z_d ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( p_cc, ptr_rrdiag, ptr_rutri, p_coeff ), &
-!$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
@@ -887,7 +876,6 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   END DO ! end loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(p_coeff), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 
@@ -1012,7 +1000,6 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ),    &
 !$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_pseudoinv, iidx, iblk ), &
 !$ACC      CREATE( z_b ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate ) 
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
@@ -1098,7 +1085,6 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   END DO ! end loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(p_coeff) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE recon_lsq_cell_q_svd
@@ -1239,7 +1225,6 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ),                                       &
 !$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_qtmat_c, iidx, iblk ), &
 !$ACC      CREATE( z_d ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
@@ -1381,7 +1366,6 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   END DO ! end loop over blocks
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(p_coeff) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 
@@ -1516,7 +1500,6 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ),                                          &
 !$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_pseudoinv, iidx, iblk ),  &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
@@ -1661,7 +1644,6 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 !$ACC WAIT
-!$ACC UPDATE HOST(p_coeff) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE recon_lsq_cell_c_svd
@@ -1778,7 +1760,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$ACC DATA PCOPYIN( vec_e ), PCOPY( div_vec_c ), PRESENT( ptr_int%geofac_div, iidx, iblk ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( vec_e, div_vec_c ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -1826,7 +1807,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
   END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(div_vec_c) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 !IF(ltimer) CALL timer_stop(timer_div)
@@ -1924,7 +1904,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !$ACC DATA PCOPYIN( vec_e, in2 ), PCOPY( div_vec_c, out2 ), PRESENT( ptr_int%geofac_div, iidx, iblk ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC UPDATE DEVICE ( vec_e, in2, div_vec_c, out2 ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -1978,7 +1957,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
   END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(div_vec_c, out2) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 !IF(ltimer) CALL timer_stop(timer_div)
@@ -2078,7 +2056,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$ACC DATA PCOPYIN( f4din ), PCOPY( f4dout ), PRESENT( ptr_int%geofac_div, iidx, iblk ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( f4din, f4dout ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,ji) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -2115,7 +2092,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
   ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(f4dout) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 !IF(ltimer) CALL timer_stop(timer_div)
@@ -2244,8 +2220,6 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 !$ACC DATA PCOPYIN( vec_e, avg_coeff ), PCOPY( div_vec_c ), CREATE( aux_c ), &
 !$ACC      PRESENT( ptr_int, ieidx, ieblk, inidx, inblk ),  IF( i_am_accel_node .AND. acc_on )
 !$ACC DATA PCOPYIN( opt_in2 ), PCOPY( opt_out2 ), CREATE( aux_c2 ), IF( i_am_accel_node .AND. acc_on .AND. l2fields )
-!$ACC UPDATE DEVICE ( vec_e, div_vec_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC UPDATE DEVICE ( opt_in2, opt_out2 ), IF( i_am_accel_node .AND. acc_on .AND. l2fields .AND. acc_validate )
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
@@ -2452,8 +2426,6 @@ ENDIF
 
 !$OMP END PARALLEL
 !$ACC WAIT
-!$ACC UPDATE HOST(div_vec_c) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC UPDATE HOST(opt_out2) IF( i_am_accel_node .AND. acc_on .AND. l2fields .AND. acc_validate )
 !$ACC END DATA
 !$ACC END DATA
 
@@ -2558,7 +2530,6 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 ! loop through all patch edges (and blocks)
 !
 !$ACC DATA PCOPYIN( vec_e ), PCOPY( div_vec_e ), PRESENT( ptr_int%geofac_qdiv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( vec_e, div_vec_e ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_RUNTIME_SCHEDULE
 DO jb = i_startblk, i_endblk
@@ -2591,7 +2562,6 @@ DO jb = i_startblk, i_endblk
 END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(div_vec_e) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE div_quad_twoadjcells
@@ -2701,7 +2671,6 @@ END IF
 
 !$ACC DATA PCOPYIN( vec_e ), PCOPY( rot_vec ), PRESENT( ptr_int%geofac_rot, iidx, iblk ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( vec_e, rot_vec ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -2757,7 +2726,6 @@ END IF
   ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(rot_vec) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE rot_vertex_atmos
@@ -2843,7 +2811,6 @@ END IF
 
 !$ACC DATA PCOPYIN( vec_e ), PCOPY( rot_vec ), &
 !$ACC      PRESENT( ptr_int%geofac_rot, iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( vec_e, rot_vec ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -2881,7 +2848,6 @@ END IF
   ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-!$ACC UPDATE HOST(rot_vec), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE rot_vertex_ri

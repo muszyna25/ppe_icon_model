@@ -54,7 +54,7 @@ MODULE mo_sgs_turbmetric
                                     idx_sgs_qv_flx, idx_sgs_qc_flx,   &
                                     idx_sgs_u_flx, idx_sgs_v_flx
   USE mo_statistics,          ONLY: levels_horizontal_mean
-  USE mo_les_utilities,       ONLY: brunt_vaisala_freq, vert_intp_full2half_cell_3d
+  USE mo_nh_vert_interp_les,  ONLY: brunt_vaisala_freq, vert_intp_full2half_cell_3d
   USE mo_fortran_tools,       ONLY: copy, init
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config 
 

@@ -26,10 +26,8 @@ MODULE mo_art_radiation_interface
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_radInt
   ! ART Routines
-#ifdef __ICON_ART
   USE mo_art_radiation_aero,            ONLY: art_radiation_aero
   USE mo_art_config,                    ONLY: art_config
-#endif
 
   IMPLICIT NONE
 
@@ -70,7 +68,6 @@ SUBROUTINE art_rad_aero_interface(zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
                                !  vertically reverse
     &  aer_cg_sw_vr(:,:,:)     !< shortwave aerosol asymmetry factor [layer-1], vertically reverse
   
-#ifdef __ICON_ART
   if (lart) then
     IF (timers_level > 3) CALL timer_start(timer_art)
     IF (timers_level > 3) CALL timer_start(timer_art_radInt)
@@ -88,7 +85,6 @@ SUBROUTINE art_rad_aero_interface(zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
     IF (timers_level > 3) CALL timer_stop(timer_art_radInt)
     IF (timers_level > 3) CALL timer_stop(timer_art)
   end if
-#endif
 
 END SUBROUTINE art_rad_aero_interface
 !!

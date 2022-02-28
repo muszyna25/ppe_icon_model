@@ -36,17 +36,10 @@ MODULE mo_echam_phy_bcs
   USE mo_echam_phy_config           ,ONLY: echam_phy_config, echam_phy_tc, dt_zero
   USE mo_echam_rad_config           ,ONLY: echam_rad_config
   USE mo_ccycle_config              ,ONLY: ccycle_config
-#ifdef __NO_RTE_RRTMGP__
-  USE mo_psrad_solar_data           ,ONLY: ssi_radt, tsi_radt, tsi
-  USE mo_psrad_radiation            ,ONLY: pre_psrad_radiation
-  USE mo_atmo_psrad_interface       ,ONLY: dtrad_shift
-  USE mo_psrad_general              ,ONLY: nbndlw, nbndsw
-#else
   USE mo_radiation_solar_data       ,ONLY: ssi_radt, tsi_radt, tsi
   USE mo_rte_rrtmgp_radiation       ,ONLY: pre_rte_rrtmgp_radiation
-  USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
   USE mo_radiation_general          ,ONLY: nbndlw, nbndsw
-#endif
+  USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
 
   USE mo_echam_sfc_indices          ,ONLY: nsfc_type, iwtr, iice
 
@@ -297,11 +290,7 @@ CONTAINS
           & CALL deallocateDatetime(radtime_domains(jg)%radiation_time) 
         radtime_domains(jg)%radiation_time => newDatetime(mtime_old)
         dtrad_loc = getTotalSecondsTimeDelta(echam_phy_tc(jg)%dt_rad,mtime_old) ! [s] local time step of radiation
-#ifdef __NO_RTE_RRTMGP__
-        dsec = 0.5_wp*(dtrad_loc - dtadv_loc) + dtrad_shift       ! [s] time increment for zenith angle
-#else
         dsec = 0.5_wp*(dtrad_loc - dtadv_loc)                     ! [s] time increment for zenith angle
-#endif
         CALL getPTStringFromSeconds(dsec, dstring)
         td_radiation_offset => newTimedelta(dstring)
         radtime_domains(jg)%radiation_time = radtime_domains(jg)%radiation_time + td_radiation_offset
@@ -318,13 +307,8 @@ CONTAINS
         !
         ! ozone concentration
         IF   (      echam_rad_config(jg)% irad_o3 ==  4 &       ! constant in time
-#ifdef __NO_RTE_RRTMGP__
-             & .OR. echam_rad_config(jg)% irad_o3 ==  2 &       ! climatological annual cycle defined by monthly data
-             & .OR. echam_rad_config(jg)% irad_o3 ==  8 &       ! transient monthly means
-#else
              & .OR. echam_rad_config(jg)% irad_o3 ==  6 &       ! climatological annual cycle defined by monthly data
              & .OR. echam_rad_config(jg)% irad_o3 ==  5 &       ! transient monthly means
-#endif
              & .OR. echam_rad_config(jg)% irad_o3 == 10 ) THEN  ! coupled to ART
           CALL read_bc_ozone(mtime_old%date%year, patch)
         END IF
@@ -343,22 +327,15 @@ CONTAINS
         !
         ! stratospheric aerosol optical properties
         IF (echam_rad_config(jg)% irad_aero == 14) THEN
-#ifdef __NO_RTE_RRTMGP__
-          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id, nbndlw, nbndsw)
-#else
           CALL read_bc_aeropt_stenchikov(mtime_old, patch)
-#endif
         END IF
         !
         ! tropospheric aerosols after S. Kinne and stratospheric aerosol optical properties
         IF (echam_rad_config(jg)% irad_aero == 15) THEN
           l_filename_year = .TRUE.
           CALL read_bc_aeropt_kinne     (mtime_old, patch, l_filename_year, nbndlw, nbndsw)
-#ifdef __NO_RTE_RRTMGP__
           CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id, nbndlw, nbndsw)
-#else
           CALL read_bc_aeropt_stenchikov(mtime_old, patch)
-#endif
         END IF
         !
         ! tropospheric background aerosols (Kinne) and stratospheric
@@ -367,11 +344,7 @@ CONTAINS
         IF (echam_rad_config(jg)% irad_aero == 18) THEN
           l_filename_year = .FALSE.
           CALL read_bc_aeropt_kinne     (mtime_old, patch, l_filename_year, nbndlw, nbndsw)
-#ifdef __NO_RTE_RRTMGP__
-          CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id, nbndlw, nbndsw)
-#else
           CALL read_bc_aeropt_stenchikov(mtime_old, patch)
-#endif
         END IF
         ! tropospheric background aerosols (Kinne), no stratospheric
         ! aerosols + simple plumes (analytical, nothing to be read
@@ -383,13 +356,6 @@ CONTAINS
         !
         ! greenhouse gas concentrations, assumed constant in horizontal dimensions
         ghg_time_interpol_already_done = .FALSE.
-#ifdef __NO_RTE_RRTMGP__
-        IF  ( echam_rad_config(jg)%irad_co2   == 4 .OR. &
-            & echam_rad_config(jg)%irad_ch4   == 4 .OR. &
-            & echam_rad_config(jg)%irad_n2o   == 4 .OR. &
-            & echam_rad_config(jg)%irad_cfc11 == 4 .OR. &
-            & echam_rad_config(jg)%irad_cfc12 == 4      ) THEN
-#else
         IF  ( echam_rad_config(jg)%irad_co2   == 3 .OR. &
             & echam_rad_config(jg)%irad_ch4   == 3 .OR. &
             & echam_rad_config(jg)%irad_ch4   ==13 .OR. &
@@ -397,7 +363,6 @@ CONTAINS
             & echam_rad_config(jg)%irad_n2o   ==13 .OR. &
             & echam_rad_config(jg)%irad_cfc11 == 3 .OR. &
             & echam_rad_config(jg)%irad_cfc12 == 3      ) THEN
-#endif
           CALL bc_greenhouse_gases_time_interpolation(mtime_old)
           ghg_time_interpol_already_done = .TRUE.
         END IF
@@ -410,26 +375,20 @@ CONTAINS
         CALL bc_greenhouse_gases_time_interpolation(mtime_old)
       END IF
 
+#ifndef __NO_RTE_RRTMGP__
 #ifdef _OPENACC
       i_am_accel_node = save_i_am_accel_node    ! Reactivate GPUs if appropriate
 #endif
       IF ( luse_rad ) THEN
-#ifdef __NO_RTE_RRTMGP__
-        CALL pre_psrad_radiation(                                             &
-             & patch,                     radtime_domains(jg)%radiation_time, &
-             & mtime_old,                 ltrig_rad,                          &
-             & prm_field(jg)%cosmu0,      prm_field(jg)%daylght_frc,          &
-             & prm_field(jg)%cosmu0_rt,   prm_field(jg)%daylght_frc_rt )
-#else
         CALL pre_rte_rrtmgp_radiation( &
              & patch,                     radtime_domains(jg)%radiation_time, &
              & mtime_old,                 ltrig_rad,                          &
              & prm_field(jg)%cosmu0,      prm_field(jg)%daylght_frc,          &
              & prm_field(jg)%cosmu0_rt,   prm_field(jg)%daylght_frc_rt        )
-#endif
 !$ACC UPDATE DEVICE( prm_field(jg)%cosmu0, prm_field(jg)%cosmu0_rt,         &
 !$ACC                prm_field(jg)%daylght_frc, prm_field(jg)%daylght_frc_rt )
       END IF
+#endif
 
     END IF ! luse_rad
 

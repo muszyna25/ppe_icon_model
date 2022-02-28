@@ -55,7 +55,6 @@ MODULE mo_art_emission_interface
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_emissInt
 
-#ifdef __ICON_ART
   ! ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -101,7 +100,6 @@ MODULE mo_art_emission_interface
   USE mo_art_oem_emission,              ONLY: art_oem_compute_emissions
   USE mo_art_oem_types,                 ONLY: p_art_oem_data,  &
                                           &   t_art_oem_config
-#endif
 
   IMPLICIT NONE
 
@@ -137,7 +135,6 @@ CONTAINS
   REAL(wp), INTENT(inout) :: &
     &  tracer(:,:,:,:)         !< Tracer mixing ratios [kg kg-1]
   ! Local variables
-#ifdef __ICON_ART
   TYPE(t_art_emiss2tracer),POINTER:: &
     &  this                    !< Current emiss2tracer dictionary item
   INTEGER                 :: &
@@ -679,7 +676,6 @@ CONTAINS
 
   ENDIF !lart
 
-#endif
 END SUBROUTINE art_emission_interface
 !!
 !!-------------------------------------------------------------------------

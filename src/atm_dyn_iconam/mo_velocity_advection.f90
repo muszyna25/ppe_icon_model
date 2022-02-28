@@ -59,12 +59,7 @@ MODULE mo_velocity_advection
 #endif
 
 #if defined( _OPENACC )
-#if defined(__VELOCITY_ADVECTION_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
   CONTAINS
@@ -195,12 +190,6 @@ MODULE mo_velocity_advection
 !$ACC PRESENT( p_diag, p_prog, p_int, p_metrics, p_patch ), &
 !$ACC PRESENT( iqidx, iqblk, ividx, icblk, icidx, ieidx, ieblk, incblk, ivblk, incidx ) &
 !$ACC IF ( i_am_accel_node .AND. acc_on )
-
-#ifdef _OPENACC
-! In validation mode, update all the needed fields on the device
-    IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) &
-      CALL h2d_velocity_tendencies( ntnd, p_prog, p_diag, z_w_concorr_me, z_kin_hor_e, z_vt_ie )
-#endif
 
     ! Limit on vertical CFL number for applying extra diffusion
     IF (lextra_diffu) THEN
@@ -768,12 +757,6 @@ MODULE mo_velocity_advection
 !$OMP END PARALLEL
 
 !$ACC WAIT
-
-#ifdef _OPENACC
-! In validation mode, update all the output fields on the host
-    IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) &
-      CALL d2h_velocity_tendencies( istep, ntnd, p_diag, z_w_concorr_me, z_kin_hor_e, z_vt_ie )
-#endif
 
     ! Save maximum vertical CFL number for substep number adaptation
     i_startblk = p_patch%cells%start_block(grf_bdywidth_c)

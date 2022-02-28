@@ -40,7 +40,6 @@ MODULE mo_art_washout_interface
   USE mo_nonhydro_state,                ONLY: p_nh_state_lists
   USE mo_nonhydrostatic_config,         ONLY: kstart_tracer, kstart_moist
 
-#ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
@@ -57,7 +56,6 @@ MODULE mo_art_washout_interface
   USE omp_lib
 #endif
   USE mo_art_diagnostics,               ONLY: art_save_aerosol_wet_deposition
-#endif
 
   IMPLICIT NONE
 
@@ -111,7 +109,6 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
     &  rain_con_rate_wo(:,:)   !< convective rain rate for 2mom aerosol washout (eg dust)
   INTEGER                 :: &
     &  kstart_wo               !< start level for washout routine
-#ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode
   !-----------------------------------------------------------------------
 
@@ -338,7 +335,6 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
     IF (timers_level > 3) CALL timer_stop(timer_art_washoutInt)
     IF (timers_level > 3) CALL timer_stop(timer_art)
   ENDIF !lart
-#endif
 
 END SUBROUTINE art_washout_interface
 !!

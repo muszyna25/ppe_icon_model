@@ -78,7 +78,9 @@ MODULE mo_radiation
     &                                timer_radiation, timer_rrtm_prep,       &
     &                                timer_lrtm, timer_srtm, timer_rrtm_post
   USE mo_nh_testcases_nml,     ONLY: zenithang
+#ifdef __ICON_ART
   USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
+#endif
   USE mtime,                   ONLY: datetime, newDatetime, timedelta, newTimedelta, &
        &                             getPTStringFromMS, OPERATOR(+),                 &
        &                             NO_OF_MS_IN_A_MINUTE, NO_OF_MS_IN_A_HOUR,       &
@@ -1439,6 +1441,7 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
+#ifdef __ICON_ART
     CASE (9)
       CALL art_rad_aero_interface(zaeq1,zaeq2,zaeq3,zaeq4,zaeq5, &
         &                         zaea_rrtm,zaes_rrtm,zaeg_rrtm, &
@@ -1447,6 +1450,7 @@ CONTAINS
         &                         aer_tau_sw_vr,                 &
         &                         aer_piz_sw_vr,                 &
         &                         aer_cg_sw_vr)
+#endif
     CASE (12,13)
        ! this is for rrtm radiation in the NWP part, we do not introduce
        ! the simple plumes here

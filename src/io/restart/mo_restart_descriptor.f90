@@ -27,7 +27,9 @@ MODULE mo_restart_descriptor
     & getRestartFilename, restartBcastRoot, t_rfids
   USE mo_restart_var_data,          ONLY: has_valid_time_level
   USE mo_var_list_register_utils,   ONLY: vlr_replicate
+#ifndef __NO_ICON_UPPER__
   USE mo_upatmo_flowevent_utils,    ONLY: t_upatmoRestartAttributes, upatmoRestartAttributesSet
+#endif
   USE mo_cdi,                       ONLY: FILETYPE_NC2, FILETYPE_NC4
   USE mo_restart_patch_data, ONLY: t_restartPatchData
 #ifndef NOMPI
@@ -129,16 +131,21 @@ CONTAINS
   ! writeRestart().
   SUBROUTINE restartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, &
                                         &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
-                                        &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
-                                        &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces, &
-                                        &opt_upatmo_restart_atts)
+                                        &opt_nlev_snow, opt_nice_class, opt_ndom,  &
+#ifndef __NO_ICON_UPPER__
+                                        &opt_upatmo_restart_atts, &
+#endif
+                                        &opt_ocean_zlevels, &
+                                        &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces )
     CLASS(t_RestartDescriptor), INTENT(INOUT) :: me
     TYPE(t_patch), INTENT(IN) :: patch
     INTEGER, INTENT(IN), OPTIONAL :: opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
                                    & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
     REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
          & opt_ocean_zheight_cellInterfaces(:)
+#ifndef __NO_ICON_UPPER__
     TYPE(t_upatmoRestartAttributes), INTENT(IN), OPTIONAL :: opt_upatmo_restart_atts
+#endif
     INTEGER :: jg
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartDescriptor_updatePatch"
 
@@ -148,9 +155,11 @@ CONTAINS
       IF (patch%id == me%patchData(jg)%description%id) THEN
         CALL me%patchData(jg)%description%update(patch, opt_pvct, opt_t_elapsed_phy,                &
           &      opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd,                     &
-          &      opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels,                        &
-          &      opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces,                    &
-          &      opt_upatmo_restart_atts)
+          &      opt_nlev_snow, opt_nice_class, opt_ndom,                                           &
+#ifndef __NO_ICON_UPPER__
+          &      opt_upatmo_restart_atts,                                                           &
+#endif
+          &      opt_ocean_zlevels, opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
       END IF
     END DO
   END SUBROUTINE restartDescriptor_updatePatch
@@ -214,7 +223,9 @@ CONTAINS
       & CALL rAttribs%put('ndyn_substeps_DOM'//domStr, desc%opt_ndyn_substeps%v)
     IF (desc%opt_jstep_adv_marchuk_order%present) &
       & CALL rAttribs%put('jstep_adv_marchuk_order_DOM'//domStr, desc%opt_jstep_adv_marchuk_order%v)
+#ifndef __NO_ICON_UPPER__
     CALL upatmoRestartAttributesSet(desc%id, desc%opt_upatmo_restart_atts, rAttribs)
+#endif
   END SUBROUTINE put_dom_rstrt_attr
 
   SUBROUTINE restartDescriptor_writeFiles(me, rArgs, isSync, opt_debug)

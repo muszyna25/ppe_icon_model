@@ -134,8 +134,8 @@ atmo_dyn_grid=${atm_grid_name}.nc
 # -------------------------------------
 #  buildbot run ca. 10 min, 1x 4h
 #   - atmosphre reads SST/SIC of years 1979-2014 for initialization only
-start_date=${start_date:="2000-01-01T00:00:00Z"}
-    end_date=${end_date:="2000-01-01T06:00:00Z"}
+start_date=${start_date:="1979-01-01T00:00:00Z"}
+    end_date=${end_date:="1979-01-01T06:00:00Z"}
 
 # restart/checkpoint/output intervals
 # -----------------
@@ -200,7 +200,7 @@ output_lnd_amip=no      #  land output for atm_amip experiment
 output_phy_3d=no        #  atmosphere physics, note: "yes" increases the output volume significantly!
 
 # output of ocean geometry (${EXPNAME}_oce_fx) at one timestep only
-fx_date="2000-01-01T12:00:00Z"
+fx_date="1979-01-01T12:00:00Z"
 
 
 #--------------------------------------------------------------------------------------------------
@@ -684,14 +684,14 @@ cat > ${atm_namelist} << EOF
 !
  echam_rad_config(1)%isolrad    =  6
  echam_rad_config(1)%irad_h2o   =  1
- echam_rad_config(1)%irad_co2   =  2
- echam_rad_config(1)%irad_ch4   =  2
- echam_rad_config(1)%irad_n2o   =  2
- echam_rad_config(1)%irad_o3    =  2          ! constant annual cycle climatology
+ echam_rad_config(1)%irad_co2   =  3
+ echam_rad_config(1)%irad_ch4   = 13
+ echam_rad_config(1)%irad_n2o   = 13 
+ echam_rad_config(1)%irad_o3    =  6          ! constant annual cycle climatology
  echam_rad_config(1)%irad_o2    =  2
- echam_rad_config(1)%irad_cfc11 =  0
- echam_rad_config(1)%irad_cfc12 =  0
- echam_rad_config(1)%irad_aero  = 12
+ echam_rad_config(1)%irad_cfc11 =  3
+ echam_rad_config(1)%irad_cfc12 =  3
+ echam_rad_config(1)%irad_aero  =  0
  echam_rad_config(1)%vmr_co2    = 284.317e-6  ! constant volume mixing ration
  echam_rad_config(1)%vmr_ch4    = 808.249e-9  ! constant volume mixing ration
  echam_rad_config(1)%vmr_n2o    = 273.021e-9  ! constant volume mixing ration
@@ -816,8 +816,10 @@ EOF
 
 # model files
 #
-add_link_file ${basedir}/data/lsdata.nc                                 ./
-add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
+add_link_file ${basedir}/externals/rte-rrtmgp/rrtmgp/data/rrtmgp-data-lw-g128-210809.nc         ./coefficients_lw.nc
+add_link_file ${basedir}/externals/rte-rrtmgp/rrtmgp/data/rrtmgp-data-sw-g112-210809.nc         ./coefficients_sw.nc
+add_link_file ${basedir}/data/ECHAM6_CldOptProps_rrtmgp_lw.nc           ./rrtmgp-cloud-optics-coeffs-lw.nc
+add_link_file ${basedir}/data/ECHAM6_CldOptProps_rrtmgp_sw.nc           ./rrtmgp-cloud-optics-coeffs-sw.nc
 
 # namelist files
 # --------------
@@ -845,8 +847,8 @@ add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2ic
 #
 # - well mixed greenhouse gases: 1% per year increase of co2 starting 1850
 #
-#datadir=${icon_data_poolFolder}/independent/greenhouse_gases
-#add_link_file $datadir/greenhouse_1pctCO2.nc                            ./bc_greenhouse_gases.nc
+datadir=${icon_data_poolFolder}/independent/greenhouse_gases
+add_link_file $datadir/greenhouse_1pctCO2.nc                            ./bc_greenhouse_gases.nc
 #
 # - ozone
 # -- for irad_o3=2: ozone climatology (annual cycle, filename without year) of MPI

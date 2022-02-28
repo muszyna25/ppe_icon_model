@@ -100,12 +100,7 @@ MODULE mo_advection_vflux
   PUBLIC :: implicit_sedim_tracer
 
 #if defined( _OPENACC )
-#if defined(__ADVECTION_VFLUX_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
   CHARACTER(len=*), PARAMETER :: modname = 'mo_advection_vflux'
@@ -398,8 +393,6 @@ CONTAINS
 !$ACC DATA CREATE( zq_ubc ), PCOPYIN( p_cc, p_mflx_contra_v ), PCOPYOUT( p_upflux ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC UPDATE DEVICE( p_cc, p_mflx_contra_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -478,7 +471,6 @@ CONTAINS
 
     ENDDO ! end loop over blocks
 
-!$ACC UPDATE HOST( p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
 !$OMP END DO NOWAIT
@@ -1429,10 +1421,6 @@ CONTAINS
     ! inverse of time step for computational efficiency
     rdtime = 1._wp/p_dtime
 
-!$ACC UPDATE DEVICE( p_cc, p_cellhgt_mc_now, p_cellmass_now, p_mflx_contra_v, p_upflux ), &
-!$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
-
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev  = opt_slev
@@ -1932,8 +1920,6 @@ CONTAINS
         CALL finish(routine, 'deallocation for z_cfl failed' )
       ENDIF
     END IF
-
-!$ACC UPDATE HOST( p_mflx_contra_v, p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
   END SUBROUTINE upwind_vflux_ppm4gpu
 

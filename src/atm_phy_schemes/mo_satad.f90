@@ -537,15 +537,17 @@ SUBROUTINE satad_v_3D_gpu (maxiter, tol, te, qve, qce,    & ! IN, INOUT
       ! ---------------------------------------------------
       !$ACC LOOP SEQ
       DO count = 1, maxiter
-        IF (ABS(twork-tworkold) > tol .AND. iter_mask) THEN
-          ! Here we still have to iterate ...
-          tworkold = twork
-          qwd  = qsat_rho(twork, rhotot(i,k))
-          dqwd = dqsatdT_rho(qwd, twork, rhotot(i,k) )
-          ! Newton:
-          fT = twork - te(i,k) + lwdocvd*(qwd - qve(i,k))
-          dfT = 1.0_ireals + lwdocvd*dqwd
-          twork = twork - fT / dfT;
+        IF (iter_mask) THEN
+          IF (ABS(twork-tworkold) > tol) THEN
+            ! Here we still have to iterate ...
+            tworkold = twork
+            qwd  = qsat_rho(twork, rhotot(i,k))
+            dqwd = dqsatdT_rho(qwd, twork, rhotot(i,k) )
+            ! Newton:
+            fT = twork - te(i,k) + lwdocvd*(qwd - qve(i,k))
+            dfT = 1.0_ireals + lwdocvd*dqwd
+            twork = twork - fT / dfT;
+          END IF
         END IF
       END DO !while
 

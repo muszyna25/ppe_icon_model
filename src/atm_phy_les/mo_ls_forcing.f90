@@ -34,7 +34,7 @@ MODULE mo_ls_forcing
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_les_utilities,       ONLY: vert_intp_linear_1d, global_hor_mean, &
+  USE mo_nh_vert_interp_les,  ONLY: vert_intp_linear_1d, global_hor_mean, &
     &                               vertical_derivative
   USE mo_ls_forcing_nml,      ONLY: is_subsidence_moment, is_subsidence_heat, is_ls_forcing, &
     &                               is_advection, is_advection_uv,is_advection_tq,           &

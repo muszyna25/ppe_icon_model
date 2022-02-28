@@ -562,6 +562,7 @@ CONTAINS
 
     CALL ecrad_set_gas_units(ecrad_conf, ecrad_gas, use_acc=lacc)
     ! Possible further gases to be added: CO, HCFC22, CCl4, NO2
+    !$ACC UPDATE DEVICE(ecrad_gas%mixing_ratio) IF(lacc)
 
 #ifndef __ECRAD_ACC
     !$ACC UPDATE DEVICE(ecrad_gas%mixing_ratio) IF(lacc)

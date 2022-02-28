@@ -39,6 +39,7 @@ MODULE mo_nwp_upatmo_interface
   USE mo_nonhydro_types,         ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,          ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_upatmo_types,           ONLY: t_upatmo, t_upatmo_tend
+  USE mo_upatmo_state,           ONLY: prm_upatmo_vec => prm_upatmo   ! WS 2022-02-07, no longer passed as arg
   USE mo_upatmo_config,          ONLY: upatmo_config, upatmo_phy_config
   USE mo_upatmo_phy_config,      ONLY: t_upatmo_nwp_phy
   USE mo_parallel_config,        ONLY: nproma
@@ -115,8 +116,7 @@ CONTAINS
     &                              p_diag,         &  !in
     &                              prm_nwp_diag,   &  !in
     &                              prm_nwp_tend,   &  !in
-    &                              kstart_moist,   &  !in
-    &                              prm_upatmo      )  !inout
+    &                              kstart_moist    )  !in
 
     ! In/out variables
     REAL(wp),                      INTENT(IN)    :: dt_loc          ! Advective time step
@@ -132,9 +132,10 @@ CONTAINS
     TYPE(t_nwp_phy_tend),          INTENT(IN)    :: prm_nwp_tend    ! NWP tendencies from slow physics
     INTEGER,                       INTENT(IN)    :: kstart_moist    ! Index of grid layer above which 
                                                                     ! no condensed water phases exist in the model
-    TYPE(t_upatmo),       TARGET,  INTENT(INOUT) :: prm_upatmo      ! Upper-atmosphere variables
 
     ! Local variables
+    TYPE(t_upatmo), POINTER :: prm_upatmo           ! WS: Convenience pointer to keep previous code structure
+
     REAL(wp), POINTER :: ddt_temp_tot(:,:,:), &     ! (nproma,nlev,nblks_c) Pointer to accumulative temperature tendency
       &                  ddt_vn_tot(:,:,:),   &     ! (nproma,nlev,nblks_e) Pointer to accumulative vn-wind tendency
       &                  ddt_qx_tot(:,:,:),   &     ! (nproma,nlev,nblks_c) Pointer to accumulative tracer tendency
@@ -189,6 +190,7 @@ CONTAINS
 
     ! Domain index
     jg = p_patch%id
+    prm_upatmo => prm_upatmo_vec(jg)   ! WS: set convenience pointer
 
     ltimer = upatmo_config(jg)%l_status( iUpatmoStat%timer )
 
@@ -1473,7 +1475,6 @@ CONTAINS
     &                           dt_loc,          &  !in
     &                           p_patch,         &  !inout
     &                           p_prog_rcf,      &  !inout
-    &                           prm_upatmo_tend, &  !inout
     &                           p_diag           )  !inout
 
     ! In/out variables
@@ -1483,10 +1484,10 @@ CONTAINS
     REAL(wp),                    INTENT(IN)    :: dt_loc           ! Advective time step (fast-physics time step)
     TYPE(t_patch),       TARGET, INTENT(INOUT) :: p_patch          ! Grid/patch info
     TYPE(t_nh_prog),             INTENT(INOUT) :: p_prog_rcf       ! Prog vars (with red. calling frequency for tracers)
-    TYPE(t_upatmo_tend), TARGET, INTENT(INOUT) :: prm_upatmo_tend  ! Upper-atmosphere physics tendencies
     TYPE(t_nh_diag),             INTENT(INOUT) :: p_diag           ! Diagnostic variables
 
     ! Local variables
+    TYPE(t_upatmo_tend), POINTER               :: prm_upatmo_tend  ! Upper-atmosphere physics tendencies
     REAL(wp) :: mv( nproma, p_patch%nlev), dmv( nproma, p_patch%nlev)
     REAL(wp) :: sum_dmv( nproma ), mv_tot( nproma )
 
@@ -1547,6 +1548,7 @@ CONTAINS
 
     ! Domain index
     jg = p_patch%id
+    prm_upatmo_tend => prm_upatmo_vec(jg)%tend
 
     ltimer = upatmo_config(jg)%l_status( iUpatmoStat%timer )
 

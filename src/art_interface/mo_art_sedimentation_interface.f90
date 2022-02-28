@@ -36,7 +36,6 @@ MODULE mo_art_sedi_interface
                                           &   timer_art, timer_art_sedInt
 
 
-#ifdef __ICON_ART
   !ART
 ! infrastructure routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -54,7 +53,6 @@ MODULE mo_art_sedi_interface
   USE mo_art_drydepo_radioact,          ONLY: art_drydepo_radioact
   USE mo_art_diag_types,                ONLY: art_diag_tracer_index
   USE mo_art_impl_constants,            ONLY: IART_ACC_SEDIM
-#endif
 
   IMPLICIT NONE
 
@@ -127,7 +125,6 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
     &  idx_diag,                  & !< Index of tracer in diagnostics container
     &  nart_substeps                !< Number of substeps for sedimentation
 
-#ifdef __ICON_ART
   TYPE(t_mode), POINTER     :: this_mode
   TYPE(t_art_atmo), POINTER ::   &
     &  art_atmo                     !< pointer to ART atmo fields (translation between
@@ -633,8 +630,6 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
     IF (timers_level > 3) CALL timer_stop(timer_art_sedInt)
     IF (timers_level > 3) CALL timer_stop(timer_art)
   ENDIF !lart
-
-#endif
 
 END SUBROUTINE art_sedi_interface
 !!

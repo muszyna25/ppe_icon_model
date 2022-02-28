@@ -33,7 +33,6 @@ MODULE mo_art_diagnostics_interface
   USE mo_impl_constants,                ONLY: inwp
 
 ! ART
-#ifdef __ICON_ART
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_atmo_data,                 ONLY: t_art_atmo
   USE mo_art_wrapper_routines,          ONLY: art_get_indices_c
@@ -44,8 +43,6 @@ MODULE mo_art_diagnostics_interface
   USE mo_art_clipping,                  ONLY: art_clip_lt
   USE mo_art_modes_linked_list,         ONLY: p_mode_state, t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom
-
-#endif
 
   IMPLICIT NONE
   
@@ -66,7 +63,6 @@ SUBROUTINE art_diagnostics_interface_init(jg, this_list, p_prog_list)
   TYPE(t_var_list_ptr),INTENT(IN)            :: &
     &   p_prog_list                   !< current prognostic state list (needed in diag-case when this_list=p_diag_list)
  
-#ifdef __ICON_ART
   IF (lart) THEN
     IF (timers_level > 3) CALL timer_start(timer_art)
     IF (timers_level > 3) CALL timer_start(timer_art_diagInt)
@@ -76,7 +72,6 @@ SUBROUTINE art_diagnostics_interface_init(jg, this_list, p_prog_list)
     IF (timers_level > 3) CALL timer_stop(timer_art_diagInt)
     IF (timers_level > 3) CALL timer_stop(timer_art)
   ENDIF ! lart
-#endif
 
 END SUBROUTINE art_diagnostics_interface_init
 !!
@@ -99,7 +94,6 @@ SUBROUTINE art_diagnostics_interface(rho, pres, p_trac, dz, hml, jg, &
   REAL(wp), INTENT(IN), OPTIONAL   :: &
     &  p_sim_time
 
-#ifdef __ICON_ART
   REAL(wp), POINTER ::       &
         & cmd(:,:)             !< Pointer to current median diameter
   REAL(wp) ::                &
@@ -219,8 +213,6 @@ SUBROUTINE art_diagnostics_interface(rho, pres, p_trac, dz, hml, jg, &
     IF (timers_level > 3) CALL timer_stop(timer_art_diagInt)
     IF (timers_level > 3) CALL timer_stop(timer_art)
   END IF !lart
-
-#endif
 
 END SUBROUTINE art_diagnostics_interface
 !!
