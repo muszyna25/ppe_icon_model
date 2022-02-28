@@ -75,7 +75,7 @@ MODULE mo_nonhydrostatic_config
     REAL(wp):: hbot_qvsubstep           ! Bottom height (in m) down to which water vapor is 
                                         ! advected with internal substepping (to circumvent CFL 
                                         ! instability in the stratopause region).
-    REAL(wp):: htop_tracer_proc         ! Top height (in m) of the model domain where (ART) tracers
+    REAL(wp):: htop_aero_proc           ! Top height (in m) of the model domain where (ART) tracers
                                         ! are being transported/diffused/modified
     INTEGER :: ih_clch(max_dom)         ! end index for levels contributing to high-level clouds, clch
     INTEGER :: ih_clcm(max_dom)         ! end index for levels contributing to mid-level clouds, clcm
@@ -174,23 +174,9 @@ CONTAINS
     ENDDO
 
 
-    ! Determine start level for processes related to (ART) tracers
-    ! (specified by htop_tracer_proc)
+    ! Initialize kstart_tracer; will be overwritten for ART aerosol tracers
+    ! (specified by htop_aero_proc)
     kstart_tracer(jg,:) = 1
-    DO jk = 1, nlev
-      jk1 = jk + nshift_total
-      IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < htop_tracer_proc) THEN
-        kstart_tracer(jg,:) = jk
-        EXIT
-      ENDIF
-    ENDDO
-
-    IF ( kstart_tracer(jg,1) >= 1 ) THEN
-      WRITE(message_text,'(a,i4,a,i4,a)') 'Domain', jg, &
-        '; computations related to (ART) tracers start in layer ', kstart_tracer(jg,1), &
-        ' (might be overwritten by ART-xml settings)'
-      CALL message(routine, message_text)
-    ENDIF
 
 
     ! height indices for cloud classification

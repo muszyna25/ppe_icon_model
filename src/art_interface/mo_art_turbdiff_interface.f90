@@ -111,10 +111,12 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
   INTEGER                   :: &
     &  jg, idx_trac, jk, jc,   & !< loop indices
     &  nlev,                   & !<
-    &  idx_tot                   !< counter for total number of fields (add. cloud vars + tracer vars) to be diffused
+    &  idx_tot                   !< counter for total number of fields 
+                                 !< (add. cloud vars + tracer vars) to be diffused
 
 #ifdef _OPENACC
-  CALL warning('GPU:mo_art_turbdiff_interface:art_turbdiff_interface', 'ART is not supported on GPUs yet!')
+  CALL warning('GPU:mo_art_turbdiff_interface:art_turbdiff_interface', &
+    &          'ART is not supported on GPUs yet!')
 #endif
   
   jg  = p_patch%id
@@ -156,10 +158,11 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
           ptr(idx_tot)%fc = .FALSE.
         END IF
 
-        IF ((art_config(jg)%lart_emiss_turbdiff) &
-         & .AND. (p_art_data(jg)%emiss%exists(p_prog_rcf%turb_tracer(jb,idx_trac)%idx_tracer))) THEN
+        IF (art_config(jg)%lart_emiss_turbdiff) THEN
+          IF (p_art_data(jg)%emiss%exists(p_prog_rcf%turb_tracer(jb,idx_trac)%idx_tracer)) THEN
 
-          ptr(idx_tot)%fc = .TRUE.
+            ptr(idx_tot)%fc = .TRUE.
+          END IF
         END IF
 
         ! save the index of the current turbulent tracer in the prognostic list

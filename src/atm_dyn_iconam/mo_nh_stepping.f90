@@ -158,9 +158,11 @@ MODULE mo_nh_stepping
   USE mo_art_emission_interface,   ONLY: art_emission_interface
   USE mo_art_sedi_interface,       ONLY: art_sedi_interface
   USE mo_art_tools_interface,      ONLY: art_tools_interface
-  USE mo_art_init_interface,       ONLY: art_init_atmo_tracers_nwp,   &
-                                     &   art_init_atmo_tracers_echam, &
+  USE mo_art_init_interface,       ONLY: art_init_atmo_tracers_nwp,     &
+                                     &   art_init_atmo_tracers_echam,   &
+                                     &   art_init_radiation_properties, &
                                      &   art_update_atmo_phy
+  USE mo_art_config,               ONLY: art_config
   
 
   USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars, update_sst_and_seaice
@@ -558,6 +560,12 @@ MODULE mo_nh_stepping
     END IF
   END SELECT ! iforcing
 
+  IF (lart) THEN
+    DO jg=1, n_dom
+      CALL art_init_radiation_properties(iforcing, jg)
+    ENDDO
+  ENDIF
+
   !------------------------------------------------------------------
   !  get and write out some of the initial values
   !------------------------------------------------------------------
@@ -924,6 +932,27 @@ MODULE mo_nh_stepping
     IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
       CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, phy_params, mtime_current, .TRUE.)
     ENDIF
+
+    ! Write DEBUG Restartfile : debug/check whether model state is identical between
+    ! restart and non-restart run. (first draft, pretty hardcoded)
+    IF(art_config(jg)%lart_debugRestart) THEN
+      IF( getElapsedSimTimeInSeconds(time_config%tc_stopdate) -  &
+        & getElapsedSimTimeInSeconds(mtime_current) == 21600) THEN
+        CALL message('RESTART-DEBUG','Writing debug restart file')
+        DO jg = 1, n_dom
+          CALL restartDescriptor%updatePatch(p_patch(jg),                                          &
+            &                           opt_t_elapsed_phy = elapsedTime,                           &
+            &                           opt_ndyn_substeps = ndyn_substeps_var(jg),                 &
+            &                           opt_jstep_adv_marchuk_order = jstep_adv(jg)%marchuk_order, &
+            &                           opt_depth_lnd = nlev_soil,                                 &
+            &                           opt_nlev_snow = nlev_snow,                                 &
+            &                           opt_ndom = n_dom,                                          &
+            &                           opt_upatmo_restart_atts = upatmoRestartAttributes)
+        ENDDO
+        CALL restartDescriptor%writeRestart(mtime_current, jstep, opt_output_jfile = output_jfile, &
+          &                                 opt_debug=.TRUE.)
+      END IF
+    END IF
 
     ! update model date and time mtime based
     mtime_current = mtime_current + model_time_step

@@ -36,7 +36,7 @@ MODULE mo_art_init_interface
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
 
   USE mo_art_config,                    ONLY: art_config, ctracer_art
-  USE mo_impl_constants,                ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,                ONLY: MAX_CHAR_LENGTH, SUCCESS
 
   USE mtime,                            ONLY: datetime, timedelta,           &
                                           &   MAX_TIMEDELTA_STR_LEN,         &
@@ -45,11 +45,12 @@ MODULE mo_art_init_interface
                                           &   getPTStringFromMS,             &
                                           &   deallocateTimedelta
 #ifdef __ICON_ART
-  USE mo_art_collect_atmo_state,        ONLY: art_collect_atmo_state_nwp,   &
-                                          &   art_update_atmo_state_nwp,    &
-                                          &   art_collect_atmo_state_echam, &
-                                          &   art_update_atmo_state_echam,  &
-                                          &   art_init_tracer_values_nwp,   &
+  USE mo_art_collect_atmo_state,        ONLY: art_collect_atmo_state_nwp,       &
+                                          &   art_update_atmo_state_nwp,        &
+                                          &   art_collect_atmo_state_echam,     &
+                                          &   art_update_atmo_state_echam,      &
+                                          &   art_collect_radiation_properties, &
+                                          &   art_init_tracer_values_nwp,       &
                                           &   art_init_tracer_values_echam
 
   USE mo_art_init_all_dom,              ONLY: art_init_all_dom
@@ -70,6 +71,7 @@ MODULE mo_art_init_interface
 
   PUBLIC :: art_init_interface, art_calc_ntracer_and_names
   PUBLIC :: art_init_atmo_tracers_nwp, art_init_atmo_tracers_echam
+  PUBLIC :: art_init_radiation_properties
   PUBLIC :: art_update_atmo_phy
 
 CONTAINS
@@ -121,13 +123,15 @@ SUBROUTINE art_calc_number_of_art_tracers_xml(xml_filename,auto_ntracer,   &
   ! Local variables
   INTEGER ::          &
      &   idx_tracer,  &                  !< index of the tracer in XML
-     &   ntags                           !< number of tags for the current tracer
+     &   ntags,       &                  !< number of tags for the current tracer
+     &   modeidx,     &                  !< index of individual mode in modestring
+     &   ierror                          !< error code
   CHARACTER(LEN = 5) :: &
      &   idx_tracer_str                  !< string of the index
   TYPE(t_key_value_store) :: &
      &   storage                         !< temporally created storage for the tracer
   CHARACTER(:), ALLOCATABLE :: &
-     &   tracer_name
+     &   modes, tracer_name
 
 #ifdef __ICON_ART
   TYPE(t_xml_file) :: tixi_file          !< tracer XML file
@@ -162,6 +166,18 @@ SUBROUTINE art_calc_number_of_art_tracers_xml(xml_filename,auto_ntracer,   &
         ! tracer so add only the tagged tracer with number greater than 1
         ! (tag002 to tag999)
         auto_ntracer = auto_ntracer + ntags - 1
+      END IF
+      
+      ! When aerosol-tracer you need to know the number of modes it can be assigned to
+      CALL storage%get('mode',modes, ierror)
+      IF (ierror == SUCCESS) THEN
+        auto_ntracer = auto_ntracer - 1
+        modeidx=1
+        DO WHILE(modeidx > 0)
+          auto_ntracer = auto_ntracer + 1
+          modes=modes(modeidx+1:LEN_TRIM(modes))
+          modeidx=INDEX(modes,",")
+        END DO
       END IF
 
       ! Set metadata storage free again
@@ -349,7 +365,7 @@ SUBROUTINE art_calc_ntracer_and_names()
     ! including the ART tracers in mo_art_tracer: first aerosols, then chemical
     ! tracers
     IF (auto_ntracer_aerosol > 0) THEN
-      tracer_names(1:auto_ntracer_aerosol) = tracer_names_aerosol
+      tracer_names(1:auto_ntracer_aerosol) = '' ! -> aerosol tracer names are later determined
     END IF
   
     IF (auto_ntracer_chemtracer > 0) THEN
@@ -513,5 +529,13 @@ SUBROUTINE art_update_atmo_phy(jg, mtime_current, p_prog, prm_diag)
   END IF
 #endif
 END SUBROUTINE art_update_atmo_phy
+
+SUBROUTINE art_init_radiation_properties(iforcing, jg)
+  INTEGER, INTENT(in) :: iforcing
+  INTEGER, INTENT(in) :: jg
+#ifdef __ICON_ART
+  CALL art_collect_radiation_properties(iforcing, jg)
+#endif
+END SUBROUTINE art_init_radiation_properties
 
 END MODULE mo_art_init_interface

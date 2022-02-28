@@ -1,5 +1,5 @@
 !>
-!! Provides interface to the ART-routine for initializing ART-tracer compounds to the tracer field. 
+!! Provides interface to the ART-routine for initializing ART-tracer compounds to the tracer field.
 !!
 !! This module provides an interface to the ART-routine art_ini_tracer.
 !! The interface is written in such a way, that ICON will compile and run 

@@ -60,6 +60,9 @@ MODULE mo_art_config
     INTEGER :: iart_ntracer              !< number of transported ART tracers
     INTEGER :: iart_init_aero            !< Initialization of aerosol species
     INTEGER :: iart_init_gas             !< Initialization of gaseous species
+    INTEGER :: iart_fplume               !< run FPlume model (Volcanic plumes)
+    CHARACTER(LEN=IART_PATH_LEN)  ::   &
+      &  cart_fplume_inp                 !< Path to FPlume input files (insert without extension)
     LOGICAL :: lart_diag_out             !< Enable output of diagnostic fields
     LOGICAL :: lart_pntSrc               !< Enables point sources
     LOGICAL :: lart_emiss_turbdiff       !< Switch if emission should be included as surface flux condition
@@ -93,12 +96,16 @@ MODULE mo_art_config
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_pntSrc_xml              !< Path to XML file for point sources
     CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_coag_xml                !< Path to XML file for coagulation(-matrix)
+    CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_diagnostics_xml         !< Path to XML file for aerosol diagnostics (GRIB2 meta data)
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_emiss_xml_file          !< Path and file name of the xml file containing meta information of the emissions.
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_ext_data_xml            !< Path to XML file with metadata of
                                       !  datasets which can prescribe tracers
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_aero_emiss_xml          !< Path to XML file for aerosol emission routines
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.4 ICON-ART User Guide)
     LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
@@ -108,12 +115,14 @@ MODULE mo_art_config
     INTEGER :: iart_fire               !< Treatment of wildfire aerosol
     INTEGER :: iart_volcano            !< Treatment of volcanic ash aerosol
     INTEGER :: iart_nonsph             !< Treatment of nonspherical particles
+    INTEGER :: iart_isorropia          !< Treatment of gas aerosol partioning
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_volcano_file             !< Absolute path + filename of input file for volcanoes
     INTEGER :: iart_radioact           !< Treatment of radioactive particles
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_radioact_file            !< Absolute path + filename of input file for radioactive emissions
     INTEGER :: iart_pollen             !< Treatment of pollen
+    INTEGER :: iart_modeshift          !< Doing mode shift (only temporary switch for debug)
     
     ! Feedback processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
     INTEGER :: iart_aci_warm           !< Nucleation of aerosol to cloud droplets
@@ -133,6 +142,9 @@ MODULE mo_art_config
     INTEGER :: nconv_tracer            !< number of tracers in convection 
     LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
     INTEGER :: nturb_tracer            !< number of tracers in turbulence
+
+    ! Write DEBUG-Restartfile
+    LOGICAL :: lart_debugRestart
     
   END TYPE t_art_config
 

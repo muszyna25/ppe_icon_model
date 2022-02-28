@@ -472,7 +472,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     grib2_desc = grib2_var(0, 1, 76, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'rain_con_rate_3d', diag%rain_con_rate_3d,       &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
-                & lrestart = .FALSE., & ! .TRUE. may be necessary for ART (to be evaluated)
+                & lrestart = lart,                                            & ! .TRUE. for ART 
                 & ldims=shape3dkp1,                                           &
                 & isteptype=TSTEP_INSTANT, lopenacc=.TRUE.)
     __acc_attach(diag%rain_con_rate_3d)
@@ -1023,7 +1023,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     grib2_desc   = grib2_var(0, 6, 22, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'clc', diag%clc,                                 &
       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,               &
-      & ldims=shape3d, lrestart=.FALSE.,                                      &
+      & ldims=shape3d, lrestart=lart,                                         &
       & in_group=groups("cloud_diag"),                                        &
       & vert_interp=create_vert_interp_metadata(                              &
       &             vert_intp_type=vintp_types("P","Z","I"),                  &
@@ -2913,7 +2913,7 @@ __acc_attach(diag%clct_avg)
     grib2_desc = grib2_var(0, 2, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'u_10m', diag%u_10m,                         &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,       &
-      & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars","dwd_fg_atm_vars"), &
+      & ldims=shape2d, lrestart=lart, in_group=groups("pbl_vars","dwd_fg_atm_vars"), &
       & lopenacc=.TRUE. )
     __acc_attach(diag%u_10m)
 
@@ -2922,7 +2922,7 @@ __acc_attach(diag%clct_avg)
     grib2_desc = grib2_var(0, 2, 3, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'v_10m', diag%v_10m,                         &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,       &
-      & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars","dwd_fg_atm_vars"), &
+      & ldims=shape2d, lrestart=lart, in_group=groups("pbl_vars","dwd_fg_atm_vars"), &
       & lopenacc=.TRUE. )
     __acc_attach(diag%v_10m)
 
