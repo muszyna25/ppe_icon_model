@@ -19,7 +19,7 @@
 !!
 MODULE mo_art_nml
  
-  USE mo_exception,           ONLY: finish
+  USE mo_exception,           ONLY: message, finish, message_text
   USE mo_run_config,          ONLY: lart
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_impl_constants,      ONLY: max_dom
@@ -46,6 +46,9 @@ MODULE mo_art_nml
     &  cart_input_folder             !< Absolute Path to ART source code
   INTEGER :: iart_init_aero(1:max_dom)          !< Initialization of aerosol species
   INTEGER :: iart_init_gas(1:max_dom)           !< Initialization of gaseous species
+  INTEGER :: iart_fplume             !< run FPlume model (Volcanic Plumes)
+  CHARACTER(LEN=IART_PATH_LEN)  :: cart_fplume_inp          
+                                     !< path to FPlume input files (use without file extension)
   LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
   LOGICAL :: lart_pntSrc             !< Enables point sources
   LOGICAL :: lart_emiss_turbdiff     !< Switch if emissions should be included as surface flux condition
@@ -79,12 +82,17 @@ MODULE mo_art_nml
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_pntSrc_xml               !< Path to XML file for point sources
   CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_coag_xml                 !< Path to XML file for coagulation(-matrix)
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_diagnostics_xml          !< Path to XML file for aerosol diagnostics (GRIB2 meta data)
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_emiss_xml_file           !< path and file name of the xml files for emission metadata
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_ext_data_xml             !< Path to XML file for metadata of datasets 
                                      !  that can prescribe tracers
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_aero_emiss_xml           !< Path to XML file for aerosol emission routines
+
   ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
   LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
   INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
@@ -93,13 +101,15 @@ MODULE mo_art_nml
   INTEGER :: iart_fire               !< Treatment of wildfire aerosol
   INTEGER :: iart_volcano            !< Treatment of volcanic ash aerosol
   INTEGER :: iart_nonsph             !< Treatment of nonspherical particles
+  INTEGER :: iart_isorropia          !< Treatment of aerosol gas partioning
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_volcano_file             !< Absolute path + filename of input file for volcanoes
   INTEGER :: iart_radioact           !< Treatment of radioactive particles
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_radioact_file            !< Absolute path + filename of input file for radioactive emissions
   INTEGER :: iart_pollen             !< Treatment of pollen
-
+  INTEGER :: iart_modeshift          !< Doing mode shift (only temporary switch for debug)
+    
   ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
   INTEGER :: iart_aci_warm           !< Nucleation of aerosol to cloud droplets
   INTEGER :: iart_aci_cold           !< Nucleation of aerosol to cloud ice
@@ -116,23 +126,27 @@ MODULE mo_art_nml
   LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
   LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
 
+  ! Restart-DEBUG: Write DEBUG-Restartfile
+  LOGICAL :: lart_debugRestart
+
 
 
 
   NAMELIST/art_nml/ cart_input_folder, lart_chem, lart_chemtracer, lart_mecca,         &
-   &                cart_io_suffix, lart_pntSrc,                                       &
-   &                lart_aerosol, iart_seasalt, iart_dust, iart_anthro, iart_fire,     &
-   &                iart_volcano, cart_volcano_file, iart_radioact,                    &
-   &                cart_radioact_file, iart_pollen, iart_nonsph,                      &
-   &                iart_aci_warm, iart_aci_cold, iart_ari, iart_aero_washout,         & 
-   &                lart_conv, lart_turb, iart_init_aero, iart_init_gas,               &
-   &                lart_diag_out, cart_emiss_xml_file, cart_ext_data_xml,             &
-   &                cart_vortex_init_date , cart_cheminit_file, cart_cheminit_coord,   &
-   &                cart_cheminit_type,                                                &
+   &                cart_io_suffix, lart_pntSrc, lart_aerosol, iart_seasalt, iart_dust,&
+   &                iart_anthro, iart_fire, iart_volcano, cart_volcano_file,           &
+   &                iart_fplume, cart_fplume_inp, iart_radioact,                       &
+   &                cart_radioact_file, iart_pollen, iart_nonsph, iart_isorropia,      &
+   &                iart_modeshift, iart_aci_warm, iart_aci_cold, iart_ari,            &
+   &                iart_aero_washout, lart_conv, lart_turb, iart_init_aero,           &
+   &                iart_init_gas, lart_diag_out, cart_emiss_xml_file,                 &
+   &                cart_ext_data_xml, cart_vortex_init_date , cart_cheminit_file,     &
+   &                cart_cheminit_coord, cart_cheminit_type,                           &
    &                lart_emiss_turbdiff, nart_substeps_sedi,                           &
    &                cart_chemtracer_xml, cart_mecca_xml, cart_aerosol_xml,             &
    &                cart_modes_xml, cart_pntSrc_xml, cart_diagnostics_xml,             &
-   &                lart_psc, cart_type_sedim
+   &                lart_psc, cart_coag_xml, cart_aero_emiss_xml, cart_type_sedim,     &
+   &                lart_debugRestart       
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -175,7 +189,9 @@ CONTAINS
     lart_pntSrc                = .FALSE.
     lart_emiss_turbdiff        = .FALSE.
     cart_io_suffix(1:max_dom)  = 'grid-number'
-
+    iart_fplume                = 0
+    cart_fplume_inp            = ''
+ 
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
     lart_chem             = .FALSE.
     lart_chemtracer       = .FALSE.
@@ -192,9 +208,11 @@ CONTAINS
     cart_aerosol_xml      = ''
     cart_modes_xml        = ''
     cart_pntSrc_xml       = ''
+    cart_coag_xml         = ''
     cart_diagnostics_xml  = ''
     cart_emiss_xml_file   = ''
     cart_ext_data_xml     = ''
+    cart_aero_emiss_xml   = ''
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
     lart_aerosol        = .FALSE.
@@ -207,7 +225,9 @@ CONTAINS
     iart_radioact       = 0
     cart_radioact_file  = ''
     iart_pollen         = 0
+    iart_modeshift      = 0
     iart_nonsph         = 0
+    iart_isorropia      = 0
 
     ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
     iart_aci_warm       = 0
@@ -225,6 +245,9 @@ CONTAINS
     ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
     lart_conv           = .TRUE.
     lart_turb           = .TRUE.
+
+    ! Write DEBUG-Restartfile
+    lart_debugRestart   = .FALSE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -314,6 +337,24 @@ CONTAINS
         END IF
       END IF
 
+      ! FPLUME input path
+      IF (iart_fplume>=1) THEN
+        IF(TRIM(cart_fplume_inp) == '') THEN
+          CALL finish('mo_art_nml:read_art_namelist','namelist parameter cart_fplume_inp' &       
+                    //' has to be given for iart_fplume>=1')
+        ELSE
+          INQUIRE(file = TRIM(cart_fplume_inp)//'.inp', EXIST = l_exist)
+          IF (.NOT. l_exist) THEN 
+            CALL finish('mo_art_nml:read_art_namelist', TRIM(cart_fplume_inp)//  &
+                      & '.inp could not be found.')                        
+          END IF
+          INQUIRE(file = TRIM(cart_fplume_inp)//'.tgsd', EXIST = l_exist)
+          IF (.NOT. l_exist) THEN
+            CALL finish('mo_art_nml:read_art_namelist', TRIM(cart_fplume_inp)//  &
+                      & '.tgsd could not be found.')
+          ENDIF
+        END IF
+      END IF
 
     END IF  ! lart
 
@@ -331,7 +372,9 @@ CONTAINS
       art_config(jg)%lart_pntSrc         = lart_pntSrc
       art_config(jg)%lart_emiss_turbdiff = lart_emiss_turbdiff
       art_config(jg)%cart_io_suffix      = TRIM(cart_io_suffix(jg))
-
+      art_config(jg)%iart_fplume         = iart_fplume
+      art_config(jg)%cart_fplume_inp     = TRIM(cart_fplume_inp)
+      
       ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
       art_config(jg)%lart_chem             = lart_chem
       art_config(jg)%lart_chemtracer       = lart_chemtracer
@@ -348,10 +391,11 @@ CONTAINS
       art_config(jg)%cart_aerosol_xml      = TRIM(cart_aerosol_xml)
       art_config(jg)%cart_modes_xml        = TRIM(cart_modes_xml)
       art_config(jg)%cart_pntSrc_xml       = TRIM(cart_pntSrc_xml)
+      art_config(jg)%cart_coag_xml         = TRIM(cart_coag_xml)
       art_config(jg)%cart_diagnostics_xml  = TRIM(cart_diagnostics_xml)
       art_config(jg)%cart_emiss_xml_file   = TRIM(cart_emiss_xml_file)
       art_config(jg)%cart_ext_data_xml     = TRIM(cart_ext_data_xml)
-
+      art_config(jg)%cart_aero_emiss_xml   = TRIM(cart_aero_emiss_xml)
 
       ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
       art_config(jg)%lart_aerosol        = lart_aerosol
@@ -361,11 +405,13 @@ CONTAINS
       art_config(jg)%iart_fire           = iart_fire
       art_config(jg)%iart_volcano        = iart_volcano
       art_config(jg)%iart_nonsph         = iart_nonsph
+      art_config(jg)%iart_isorropia      = iart_isorropia
       art_config(jg)%cart_volcano_file   = TRIM(cart_volcano_file)
       art_config(jg)%iart_radioact       = iart_radioact
       art_config(jg)%cart_radioact_file  = TRIM(cart_radioact_file)
       art_config(jg)%iart_pollen         = iart_pollen
-
+      art_config(jg)%iart_modeshift      = iart_modeshift
+      
      ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
       art_config(jg)%iart_aci_warm       = iart_aci_warm
       art_config(jg)%iart_aci_cold       = iart_aci_cold
@@ -382,6 +428,9 @@ CONTAINS
       ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
       art_config(jg)%lart_conv           = lart_conv
       art_config(jg)%lart_turb           = lart_turb
+
+      ! Write DEBUG-Restartfile
+      art_config(jg)%lart_debugRestart   = lart_debugRestart
     ENDDO !jg
 
     !-----------------------------------------------------

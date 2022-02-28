@@ -59,8 +59,11 @@ MODULE mo_tracer_metadata_types
     INTEGER  :: moment            ! moment of distribution (e.g. 0=number, 3=proportional to mass)
     CHARACTER(LEN=VARNAME_LEN) :: &
       &         mode              ! name of mode the tracer is contained in
+    CHARACTER(LEN=VARNAME_LEN) :: &
+      &         substance         ! to which substance this tracer belongs
     REAL(wp) :: rho               ! Density [kg m-3]
     REAL(wp) :: mol_weight        ! Molar mass [g mol-1]
+    LOGICAL  :: linsol            ! TRUE for insoluble tracers
 
     INTEGER :: ised_tracer        ! Sedimentation
                                   !   0 = No sedimentation

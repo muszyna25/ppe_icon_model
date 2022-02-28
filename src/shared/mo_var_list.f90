@@ -21,7 +21,7 @@ MODULE mo_var_list
   USE mo_var_groups,       ONLY: var_groups_dyn, groups
   USE mo_var_metadata_types,ONLY: t_var_metadata, t_vert_interp_meta, &
     & t_union_vals, CLASS_TILE, t_hor_interp_meta, t_post_op_meta,    &
-    & CLASS_TILE_LAND
+    & CLASS_TILE_LAND, t_var_metadata_dynamic
   USE mo_var_metadata,     ONLY: create_vert_interp_metadata,       &
     & create_hor_interp_metadata, get_var_timelevel, get_var_name,  &
     & set_var_metadata, set_var_metadata_dyn
@@ -41,6 +41,7 @@ MODULE mo_var_list
 
   PUBLIC :: add_var, add_ref, find_list_element
   PUBLIC :: t_var_list_ptr
+  PUBLIC :: get_tracer_info_dyn_by_idx
 
   TYPE :: t_var_list
     CHARACTER(len=256) :: filename = ''
@@ -130,6 +131,51 @@ CONTAINS
       END IF
     END IF
   END SUBROUTINE delete_list
+
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Get a copy of the dynamic metadata concerning a var_list element by index of the element
+  !
+  SUBROUTINE get_tracer_info_dyn_by_idx (this_list, ncontained, info_dyn)
+    !
+    TYPE(t_var_list_ptr),         INTENT(in)  :: this_list    ! list
+    INTEGER,                      INTENT(in)  :: ncontained   ! index of variable in container
+    TYPE(t_var_metadata_dynamic), INTENT(out) :: info_dyn     ! dynamic variable meta data
+    !
+    TYPE(t_var), POINTER :: element
+    !
+    element => find_tracer_by_index (this_list, ncontained)
+    IF (ASSOCIATED (element)) THEN
+      info_dyn = element%info_dyn
+    ENDIF
+    !
+  END SUBROUTINE get_tracer_info_dyn_by_idx
+
+
+  !-----------------------------------------------------------------------------
+  !
+  ! Overloaded to search for a tracer by its index (ncontained)
+  !
+  FUNCTION find_tracer_by_index (this_list, ncontained) RESULT(ret_list_elem)
+    !
+    TYPE(t_var_list_ptr), INTENT(in) :: this_list
+    INTEGER,              INTENT(in) :: ncontained
+    !
+    INTEGER :: iv,key,hgrid
+    TYPE(t_var),POINTER :: ret_list_elem
+    !
+    DO iv=1, this_list%p%nvars
+      ret_list_elem => this_list%p%vl(iv)%p
+      IF (ret_list_elem%info_dyn%tracer%lis_tracer) THEN
+        IF(ncontained == ret_list_elem%info%ncontained) THEN
+          RETURN
+        ENDIF
+      ENDIF
+    ENDDO
+    !
+    NULLIFY (ret_list_elem)
+    !
+  END FUNCTION find_tracer_by_index
 
   !-----------------------------------------------------------------------------
   ! add a list element to the linked list

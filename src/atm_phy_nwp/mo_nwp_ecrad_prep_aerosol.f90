@@ -341,7 +341,9 @@ CONTAINS
       &  jc, jk, jband, jkb          !< Loop indices
   
     CALL art_rad_aero_interface(zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,   & !< Tegen aerosol
-      &                         zaea_rrtm,zaes_rrtm,zaeg_rrtm,   & !< Tegen coefficients 
+      &                         tegen_scal_factors%absorption,   & !
+      &                         tegen_scal_factors%scattering,   & !< Tegen coefficients
+      &                         tegen_scal_factors%asymmetry,    & !
       &                         jg, jb, slev, nlev,              & !< Indices domain, block, level
       &                         i_startidx, i_endidx,            & !< Indices nproma loop
       &                         ecrad_conf%n_bands_lw,           & !< Number of SW bands

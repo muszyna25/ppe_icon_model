@@ -276,11 +276,12 @@ CONTAINS
   END SUBROUTINE multifileRestartDescriptor_construct
 
   !The entry point to restart writing for the work processes.
-  SUBROUTINE multifileRestartDescriptor_writeRestart(me, this_datetime, jstep, opt_output_jfile)
+  SUBROUTINE multifileRestartDescriptor_writeRestart(me, this_datetime, jstep, opt_output_jfile, opt_debug)
     CLASS(t_MultifileRestartDescriptor), INTENT(INOUT), TARGET :: me
     TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
     INTEGER, INTENT(IN) :: jstep
     INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_debug
     TYPE(t_restart_args) :: rArgs
 
     IF(timers_level >= 5) CALL timer_start(timer_write_restart)

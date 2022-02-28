@@ -11,9 +11,9 @@
 !! headers of the routines.
 
 MODULE mo_restart_util
-  USE mo_exception,          ONLY: get_filename_noext, finish
+  USE mo_exception,          ONLY: get_filename_noext, message, finish
   USE mo_fortran_tools,      ONLY: assign_if_present_allocatable
-  USE mo_impl_constants,     ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
+  USE mo_impl_constants,     ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T, MAX_CHAR_LENGTH
   USE mo_io_config,          ONLY: restartWritingParameters, kMultifileRestartModule
   USE mo_kind,               ONLY: i8
   USE mo_packed_message,     ONLY: t_PackedMessage, kPackOp
@@ -74,16 +74,18 @@ CONTAINS
 #endif
   END FUNCTION restartBcastRoot
 
-  SUBROUTINE getRestartFilename(baseName, jg, restartArgs, resultVar, date_int)
+  SUBROUTINE getRestartFilename(baseName, jg, restartArgs, resultVar, date_int, opt_debug)
     CHARACTER(*), INTENT(IN) :: baseName
     INTEGER, INTENT(IN) :: jg
     TYPE(t_restart_args), INTENT(IN) :: restartArgs
     CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: resultVar
     INTEGER, INTENT(OUT) :: date_int
+    LOGICAL,INTENT(IN),OPTIONAL :: opt_debug
     CHARACTER(LEN=32) :: datetimeString
     INTEGER :: restartModule
     TYPE(t_keyword_list), POINTER :: keywords
     TYPE(datetime), POINTER :: dt
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: restart_fname 
 
     dt => restartArgs%restart_datetime
     WRITE (datetimeString,'(i4.4,2(i2.2),a,3(i2.2),a)')    &
@@ -103,7 +105,12 @@ CONTAINS
       CALL associate_keyword("<extension>", "nc", keywords)
     END IF
     ! replace keywords in file name
-    resultVar = TRIM(with_keywords(keywords, TRIM(restart_filename)))
+    restart_fname = TRIM(restart_filename)
+    IF(PRESENT(opt_debug)) THEN
+      restart_fname = "DEBUG_"//TRIM(restart_fname)
+      CALL message("RESTART-DEBUG","Setting restart_fname to "//TRIM(restart_fname))
+    END IF
+    resultVar = TRIM(with_keywords(keywords, TRIM(restart_fname)))
   END SUBROUTINE getRestartFilename
 
   SUBROUTINE restartSymlinkName(modelType, jg, resultVar, opt_ndom)
