@@ -71,7 +71,9 @@ MODULE mo_interface_les
   USE mo_nwp_diagnosis,         ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
   USE mo_icon_comm_lib,         ONLY: new_icon_comm_variable, &
     &                                 icon_comm_sync_all, is_ready, until_sync
+#ifdef __ICON_ART
   USE mo_art_washout_interface, ONLY: art_washout_interface
+#endif
   USE mo_ls_forcing_nml,        ONLY: is_ls_forcing, is_nudging_uv, is_nudging_tq, is_sim_rad,   &
     &                                 nudge_start_height, nudge_full_height, dt_relax
   USE mo_ls_forcing,            ONLY: apply_ls_forcing
@@ -81,7 +83,7 @@ MODULE mo_interface_les
                                       write_vertical_profiles, write_time_series, &
                                       avg_interval_step, sampl_freq_step,  &
                                       is_sampling_time, is_writing_time, les_cloud_diag
-  USE mo_les_utilities,         ONLY: init_vertical_grid_for_les
+  USE mo_nh_vert_interp_les,    ONLY: init_vertical_grid_for_les
   USE mo_fortran_tools,         ONLY: copy
   USE mo_nh_supervise,          ONLY: compute_dpsdt
 
@@ -526,7 +528,7 @@ CONTAINS
 
     ENDIF
 
-
+#ifdef __ICON_ART
     IF (lart) THEN
 
       CALL art_washout_interface(pt_prog, pt_diag ,             & !>in
@@ -536,7 +538,7 @@ CONTAINS
                  &          p_metrics,                          & !>in
                  &          pt_prog_rcf%tracer)                   !>inout
     ENDIF !lart
-
+#endif
 
 
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN

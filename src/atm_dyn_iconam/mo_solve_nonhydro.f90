@@ -92,12 +92,7 @@ MODULE mo_solve_nonhydro
 #endif
 
 #if defined( _OPENACC )
-#if defined(__SOLVE_NONHYDRO_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.    ! Only .TRUE. during unit testing
 #endif
 
   ! On the vectorizing DWD-NEC the diagnostics for the tendencies of the normal wind
@@ -334,13 +329,6 @@ MODULE mo_solve_nonhydro
     ENDIF
     dthalf  = 0.5_wp*dtime
 
-#ifdef _OPENACC
-! In validation mode, update all the needed fields on the device
-    IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) THEN
-      CALL h2d_solve_nonhydro( nnow, jstep, jg, idiv_method, grf_intmethod_e, lprep_adv, l_vert_nested, &
-     &                        is_iau_active, p_nh, prep_adv )
-    ENDIF
-#endif
     IF (ltimer) CALL timer_start(timer_solve_nh)
 
     ! Inverse value of ndyn_substeps for tracer advection precomputations
@@ -3174,17 +3162,6 @@ MODULE mo_solve_nonhydro
 
     IF (ltimer) CALL timer_stop(timer_solve_nh)
 
-
-#ifdef _OPENACC
-! In validation mode, update all the output fields on the host
-    IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) THEN
-      !$ACC WAIT
-      CALL d2h_solve_nonhydro( nnew, jstep, jg, idyn_timestep, grf_intmethod_e, idiv_method, lsave_mflx, &
-           &                   l_child_vertnest, lprep_adv, p_nh, prep_adv )
-    ENDIF
-#endif
-
-
 !$ACC WAIT
 !$ACC END DATA
 
@@ -3228,12 +3205,6 @@ MODULE mo_solve_nonhydro
        REAL(vp), DIMENSION(:,:,:),   POINTER  :: ddt_vn_dyn_tmp, ddt_vn_dmp_tmp, ddt_vn_adv_tmp, ddt_vn_cor_tmp ! p_diag  VP
        REAL(vp), DIMENSION(:,:,:),   POINTER  :: ddt_vn_pgr_tmp, ddt_vn_phd_tmp, ddt_vn_iau_tmp, ddt_vn_ray_tmp ! p_diag  VP
        REAL(vp), DIMENSION(:,:,:),   POINTER  :: ddt_vn_grf_tmp                                                 ! p_diag  VP
-
-!
-! OpenACC Implementation:  For testing in ACC_VALIDATE=.TRUE. mode, we would ultimately like to be able to run 
-!                          this routine entirely on the accelerator with input on the host, and moving
-!                          output back to the host.    The STATIC data are NOT updated here, but are checked in 
-!                          the present clause in the main routine
 
 ! p_patch:
 !            p_patch%cells:   edge_idx/blk

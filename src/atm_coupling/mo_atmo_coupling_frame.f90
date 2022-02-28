@@ -20,7 +20,9 @@ MODULE mo_atmo_coupling_frame
   USE mo_model_domain        ,ONLY: t_patch
   USE mo_nonhydro_types      ,ONLY: t_nh_diag
   USE mo_ext_data_state      ,ONLY: ext_data
+#ifndef __NO_ECHAM__
   USE mo_echam_phy_memory    ,ONLY: prm_field
+#endif
   USE mo_lnd_nwp_config      ,ONLY: isub_water
 
   USE mo_parallel_config     ,ONLY: nproma
@@ -292,7 +294,10 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
        CASE ( iecham )
-
+#ifdef __NO_ECHAM__
+          CALL finish ('mo_atmo_coupling_frame:construct_atmo_coupling' &
+            & //'coupled model needs echam; remove --disable-echam and reconfigure')
+#else
 !ICON_OMP_PARALLEL_DO PRIVATE(jb,jc) ICON_OMP_RUNTIME_SCHEDULE
           DO jb = 1, patch_horz%nblks_c
              DO jc = 1, nproma
@@ -301,7 +306,7 @@ CONTAINS
              ENDDO
           ENDDO
 !ICON_OMP_END_PARALLEL_DO
-
+#endif
        CASE DEFAULT
 
           CALL finish ('Please mask handling for new forcing in ' &

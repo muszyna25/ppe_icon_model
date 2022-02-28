@@ -28,12 +28,10 @@ MODULE mo_art_clouds_interface
   USE mo_run_config,                    ONLY: lart
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_cldInt
-#ifdef __ICON_ART
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_2mom_driver,               ONLY: art_2mom_mcrph,               &
                                           &   art_2mom_mcrph_init
   USE mo_art_prepare_aerosol,           ONLY: art_prepare_dust_KL06
-#endif
 
   IMPLICIT NONE
 
@@ -84,8 +82,6 @@ SUBROUTINE art_clouds_interface_2mom(isize, ke, jg, jb, is, ie, ks, dt, &
   LOGICAL, INTENT (in)            :: &
     &  l_cv                            !< Use c_v (true) or c_p (false)
     
-#ifdef __ICON_ART
-  
   IF (lart) THEN
     IF (timers_level > 3) CALL timer_start(timer_art)
     IF (timers_level > 3) CALL timer_start(timer_art_cldInt)
@@ -108,7 +104,7 @@ SUBROUTINE art_clouds_interface_2mom(isize, ke, jg, jb, is, ie, ks, dt, &
     call finish('mo_art_clouds_interface:art_clouds_interface_2mom', &
          &      'Two moment micophysics with ART aerosol chosen (inwp_gscp=6), but lart=.FALSE.')
   ENDIF !lart
-#endif
+
 END SUBROUTINE art_clouds_interface_2mom
 !!
 !!-------------------------------------------------------------------------
@@ -121,14 +117,12 @@ SUBROUTINE art_clouds_interface_2mom_init(msg_level)
     &  msg_level           !< message level
 
   
-#ifdef __ICON_ART
   IF (lart) THEN
     CALL art_2mom_mcrph_init(msg_level)
   ELSE
     call finish('mo_art_clouds_interface:art_clouds_interface_2mom_init', &
          &      'Two moment micophysics with ART aerosol chosen (inwp_gscp=6), but lart=.FALSE.')
   ENDIF !lart
-#endif
 
 END SUBROUTINE art_clouds_interface_2mom_init
 !!

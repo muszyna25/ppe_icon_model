@@ -160,6 +160,7 @@ CONTAINS
           CALL finish (TRIM(routine), 'reading vct_a and vct_b failed')
        ENDIF
     END DO
+    !$ACC UPDATE DEVICE(vct_a)
 
     CLOSE(iunit)
 

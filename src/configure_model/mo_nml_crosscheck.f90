@@ -80,11 +80,13 @@ MODULE mo_nml_crosscheck
   USE mo_upatmo_config,            ONLY: check_upatmo
   USE mo_name_list_output_config,  ONLY: is_variable_in_output_dom
   USE mo_nh_testcase_check,        ONLY: check_nh_testcase
-  USE mo_art_init_interface,       ONLY: art_calc_ntracer_and_names
-  USE mo_scm_nml,                  ONLY: i_scm_netcdf, scm_sfc_temp, scm_sfc_qv, scm_sfc_mom
-  USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
 
+  USE mo_scm_nml,                  ONLY: i_scm_netcdf, scm_sfc_temp, scm_sfc_qv, scm_sfc_mom
+#ifndef __NO_ICON_LES__
+  USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
+#endif
 #ifdef __ICON_ART
+  USE mo_art_init_interface,       ONLY: art_calc_ntracer_and_names
   USE mo_grid_config,              ONLY: lredgrid_phys
 #endif
 
@@ -234,8 +236,12 @@ CONTAINS
       !if time dependent surface BD conditions then use ls_forcing
       !routines for interpolation in time
       IF ( (scm_sfc_temp .GE. 1) .OR. (scm_sfc_qv .GE. 1) .OR. (scm_sfc_mom .GE. 1) ) THEN
+#ifndef __NO_ICON_LES__
         is_ls_forcing = .TRUE.
         CALL message( routine, 'scm_sfc_... requires is_ls_forcing=TRUE. is_ls_forcing has been set to TRUE')
+#else
+        CALL finish( routine, 'scm_sfc_... requires is_ls_forcing=TRUE, but --disable-les has been set')
+#endif
       END IF
     ELSE
       i_scm_netcdf   = 0
@@ -259,6 +265,11 @@ CONTAINS
     IF ((iforcing==INWP).AND.(iequations/=INH_ATMOSPHERE)) &
     CALL finish( routine, 'NWP physics only implemented in the '//&
                'nonhydrostatic atm model')
+
+#ifdef __NO_ECHAM
+    IF ( iforcing==iecham ) &
+      CALL finish( routine, 'ECHAM physics desired, but compilation with --disable-echam' )
+#endif
 
     !--------------------------------------------------------------------
     ! NWP physics
@@ -376,8 +387,10 @@ CONTAINS
 
         !! Checks for simple prognostic aerosol scheme
         IF (iprog_aero > 0) THEN
+#ifndef __NO_ICON_LES__
           IF (atm_phy_nwp_config(jg)%is_les_phy) &
             & CALL finish(routine,'iprog_aero > 0 can not be combined with LES physics')
+#endif
           IF (irad_aero /= 6) &
             & CALL finish(routine,'iprog_aero > 0 currently only available for irad_aero=6')
         ENDIF
@@ -570,6 +583,9 @@ CONTAINS
 
 
       IF (atm_phy_nwp_config(1)%inwp_turb == iedmf) THEN ! EDMF turbulence
+#ifdef __NO_ICON_EDMF__
+        CALL finish( routine, 'EDMF turbulence desired, but compilation with --disable-edmf' )
+#endif
 
         iqtvar = iqt ; advection_config(:)%tracer_names(iqtvar) = 'qtvar' !! qt variance
         iqt    = iqt + 1   !! start index of other tracers than hydrometeors
@@ -632,9 +648,16 @@ CONTAINS
     END SELECT ! iforcing
 
     IF (lart) THEN
+#ifdef _OPENACC
+      CALL finish( TRIM(routine),'ART not supported on GPU -- run without ART')
+#endif
+#ifndef __ICON_ART
+      CALL finish( TRIM(routine),'model set to run with ART but compiled with --disable-art')
+#else
       ! determine number of ART-tracers (by reading given XML-Files)
       ! * art_config(1)%iart_ntracer
       CALL art_calc_ntracer_and_names()
+#endif
 
       IF(art_config(1)%iart_ntracer > 0) THEN
         advection_config(1)%tracer_names(ntracer+1:ntracer+art_config(1)%iart_ntracer) =       &

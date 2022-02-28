@@ -312,12 +312,13 @@ MODULE mo_vertical_grid
 
       CALL sync_patch_array_mult(SYNC_E,p_patch(jg),2,z_ddxt_z_half_e, &
         z_ddxn_z_half_e)
-
+#ifndef __NO_ICON_LES__
       IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
         ! remark: ddxt_z_half_e, ddxn_z_half_e in p_nh(jg)%metrics are optionally single precision
         p_nh(jg)%metrics%ddxt_z_half_e(:,:,:) = z_ddxt_z_half_e(:,:,:)
         p_nh(jg)%metrics%ddxn_z_half_e(:,:,:) = z_ddxn_z_half_e(:,:,:)
       ENDIF
+#endif
       IF (echam_vdf_config(jg)%turb == 2) THEN
         ! remark: ddxt_z_half_e, ddxn_z_half_e in p_nh(jg)%metrics are optionally single precision
         p_nh(jg)%metrics%ddxt_z_half_e(:,:,:) = z_ddxt_z_half_e(:,:,:)
@@ -1715,7 +1716,11 @@ MODULE mo_vertical_grid
       ! deep-atmosphere modifications
       IF (ldeepatmo) THEN 
         CALL set_deepatmo_metrics( p_patch(jg), p_nh(jg)%metrics, p_int(jg),         &
+#ifndef __NO_ICON_LES__
           &                        igradp_method, atm_phy_nwp_config(jg)%is_les_phy, &
+#else
+          &                        igradp_method, .FALSE.,                           &
+#endif
           &                        h_scal_bg, t0sl_bg, del_t_bg                      )
       ENDIF
 
@@ -1729,7 +1734,11 @@ MODULE mo_vertical_grid
 
     !PREPARE LES, Anurag Dipankar MPIM (2013-04)
     DO jg = 1 , n_dom
+#ifndef __NO_ICON_LES__
       IF(atm_phy_nwp_config(jg)%is_les_phy .OR. echam_vdf_config(1)%turb == 2) THEN
+#else
+      IF(echam_vdf_config(1)%turb == 2) THEN
+#endif
         CALL prepare_les_model(p_patch(jg), p_nh(jg), p_int(jg), jg)
       END IF
     END DO

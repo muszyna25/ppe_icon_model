@@ -1,6 +1,6 @@
-!! mo_les_utilities
+!! mo_nh_vert_interp_les
 !!
-!! This module has usefull routines for LES runs
+!! This module has useful routines for LES runs
 !!
 !! @author Anurag Dipankar, MPI-M
 !!
@@ -20,7 +20,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 
-MODULE mo_les_utilities
+MODULE mo_nh_vert_interp_les
 
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_types,      ONLY: t_nh_metrics
@@ -428,11 +428,10 @@ MODULE mo_les_utilities
     ENDIF
 
   END SUBROUTINE intrpl_full2half_inblk
-
-
    
 !-------------------------------------------------------------------------------
 
-END MODULE mo_les_utilities
+END MODULE mo_nh_vert_interp_les
+
 
 

@@ -28,8 +28,8 @@ MODULE mo_upatmo_config
     &                                    inh_atmosphere, ivexpol
   USE mo_model_domain,             ONLY: t_patch
   USE mo_upatmo_impl_const,        ONLY: iUpatmoStat, imsg_thr, itmr_thr, &
-    &                                    iUpatmoGrpId, iUpatmoPrcStat,    &
-    &                                    iUpatmoExtdatStat
+    &                                    iUpatmoPrcStat, iUpatmoGasStat,  &
+    &                                    iUpatmoGrpId,  iUpatmoExtdatStat
   USE mo_upatmo_phy_config,        ONLY: t_upatmo_echam_phy,       &
     &                                    t_upatmo_nwp_phy,         &
     &                                    t_upatmo_phy_config,      &
@@ -39,6 +39,10 @@ MODULE mo_upatmo_config
   USE mo_name_list_output_types,   ONLY: t_output_name_list
   USE mo_name_list_output_config,  ONLY: is_variable_in_output
   USE mtime,                       ONLY: datetime
+  USE mo_timer,                    ONLY: timers_level, timer_start, timer_stop,   &
+    &                                    timer_upatmo_constr, timer_upatmo_destr, &
+    &                                    timer_upatmo
+
 
   IMPLICIT NONE
 
@@ -168,7 +172,6 @@ CONTAINS !......................................................................
   !! - Deep-atmosphere dynamics
   !! - Upper-atmosphere extrapolation
   !!
-  !! (Called in 'src/upper_atmosphere/mo_upatmo_setup: upatmo_initialize')
   !!
   SUBROUTINE configure_upatmo( n_dom_start,            & !in
     &                          n_dom,                  & !in
@@ -194,7 +197,6 @@ CONTAINS !......................................................................
     &                          yr_perp,                & !in
     &                          model_base_dir,         & !in
     &                          msg_level,              & !in
-    &                          timers_level,           & !in
     &                          vct_a                   ) !(opt)in
 
     ! In/out variables
@@ -222,18 +224,23 @@ CONTAINS !......................................................................
     INTEGER,            INTENT(IN) :: yr_perp(:)             ! (max_dom) Year, for which Earth orbit is perpetuated
     CHARACTER(LEN=*),   INTENT(IN) :: model_base_dir         ! Path for input files
     INTEGER,            INTENT(IN) :: msg_level              ! Message level
-    INTEGER,            INTENT(IN) :: timers_level           ! Control parameter for timer
     REAL(wp), OPTIONAL, INTENT(IN) :: vct_a(:)               ! (nlev+1) Nominal heights of grid layer interfaces
 
     ! Local variables
     REAL(wp) :: dt_grp_prevdom(iUpatmoGrpId%nitem)
     INTEGER  :: jg, jg_ordered, jg_ref, jg_aux
     INTEGER  :: nlev, nlevp1, nshift_total, n_dom_shift
-    LOGICAL  :: l_upatmo_phy
+    LOGICAL  :: l_upatmo_phy, ltimer
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':configure_upatmo'
 
     !---------------------------------------------------------
+
+    ltimer   = timers_level > itmr_thr%med
+    IF (ltimer) THEN
+      CALL timer_start(timer_upatmo)
+      CALL timer_start(timer_upatmo_constr)
+    ENDIF
 
     !-----------------------------------------------------
     !             Domain-independent checks
@@ -460,6 +467,11 @@ CONTAINS !......................................................................
       ENDIF
       
     ENDDO  !jg_ordered
+
+    IF (ltimer) THEN
+      CALL timer_stop(timer_upatmo_constr)
+      CALL timer_stop(timer_upatmo)
+    ENDIF
     
   END SUBROUTINE configure_upatmo
 
@@ -808,10 +820,17 @@ CONTAINS !......................................................................
     ! Local variables
     INTEGER :: jg
     INTEGER :: istat
+    LOGICAL :: ltimer
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':destruct_upatmo'
 
     !---------------------------------------------------------
+
+    ltimer   = timers_level > itmr_thr%med
+    IF (ltimer) THEN
+      CALL timer_start(timer_upatmo)
+      CALL timer_start(timer_upatmo_destr)
+    ENDIF
 
     ! Deallocate upatmo_config
     ! (Allocated in 'src/namelists/mo_upatmo_nml: check_upatmo')
@@ -829,7 +848,13 @@ CONTAINS !......................................................................
       IF (istat /= SUCCESS) CALL finish(routine, "Deallocation of upatmo_config failed.")
     ENDIF
 
+    IF (ltimer) THEN
+      CALL timer_stop(timer_upatmo_destr)
+      CALL timer_stop(timer_upatmo)
+    ENDIF
+
   END SUBROUTINE destruct_upatmo
+
 
   !====================================================================================
 

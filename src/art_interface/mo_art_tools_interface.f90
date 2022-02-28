@@ -26,9 +26,7 @@ MODULE mo_art_tools_interface
   USE mo_var_list,                      ONLY: t_var_list_ptr
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_toolInt
-#ifdef __ICON_ART
   USE mo_art_unit_conversion,           ONLY: art_massmix2density
-#endif
 
   IMPLICIT NONE
   
@@ -57,7 +55,6 @@ SUBROUTINE art_tools_interface(defcase, prog_list, tracer_now, tracer_new, rho)
   REAL(wp),INTENT(inout)             :: &
     &  tracer_new(:,:,:,:)                !< tracer concentrations at timelevel nnew
   
-#ifdef __ICON_ART
   IF (lart) THEN
     IF (timers_level > 3) CALL timer_start(timer_art)
     IF (timers_level > 3) CALL timer_start(timer_art_toolInt)
@@ -69,7 +66,6 @@ SUBROUTINE art_tools_interface(defcase, prog_list, tracer_now, tracer_new, rho)
     IF (timers_level > 3) CALL timer_stop(timer_art_toolInt)
     IF (timers_level > 3) CALL timer_stop(timer_art)
   ENDIF
-#endif
     
 END SUBROUTINE art_tools_interface
 !!

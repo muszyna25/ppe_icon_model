@@ -55,15 +55,13 @@
 MODULE mo_upatmo_phy_vdfmol
 
   USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: SUCCESS
+  USE mo_impl_constants,       ONLY: SUCCESS, cvdifts
   USE mo_physical_constants,   ONLY: argas, tmelt
   USE mo_math_constants,       ONLY: dbl_eps
-  USE mo_echam_vdiff_params,   ONLY: cvdifts
 
   IMPLICIT NONE
 
   PUBLIC :: vdf_mol
-
   ! for error handling
   INTEGER, PARAMETER :: IERR_NO     = SUCCESS      ! = 0
   INTEGER, PARAMETER :: IERR_SOLVER = SUCCESS + 1

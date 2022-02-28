@@ -55,12 +55,7 @@ MODULE mo_nh_dtp_interface
 
 
 #if defined( _OPENACC )
-#if defined(__NH_DTP_DIFFUSSION_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -147,8 +142,6 @@ CONTAINS
 !$ACC DATA PRESENT( p_vn_traj, p_mass_flx_me, p_mass_flx_ic, iqidx, iqblk )                         &
 !$ACC      CREATE( z_mass_flx_me )                                                                  &
 !$ACC      IF ( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_vn_traj, p_mass_flx_me, p_mass_flx_ic )                                      &
-!$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !!$    ! The full set of setup computations is NOT executed in prepare_tracer 
 !!$    ! when the tracer advection is running together with the dynmical core 
@@ -410,16 +403,11 @@ CONTAINS
 
 !$OMP END PARALLEL
 
-
-!$ACC UPDATE HOST( p_vn_traj, p_mass_flx_me, p_mass_flx_ic ) &
-!$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-
 !$ACC END DATA
 
     IF (timers_level > 5) CALL timer_stop(timer_prep_tracer)
 
   END SUBROUTINE prepare_tracer
-
 
 
   !>
@@ -457,9 +445,6 @@ CONTAINS
 
 !$ACC DATA PRESENT( rho, airmass, p_metrics%ddqz_z_full ), IF( i_am_accel_node .AND. acc_on )
 
-!$ACC UPDATE DEVICE( rho, p_metrics%ddqz_z_full ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-
-
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -480,8 +465,6 @@ CONTAINS
     ENDDO ! jb
 !$OMP ENDDO NOWAIT
 !$OMP END PARALLEL
-
-!$ACC UPDATE HOST( airmass ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$ACC END DATA
 

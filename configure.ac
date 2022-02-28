@@ -92,6 +92,24 @@ AC_ARG_ENABLE([atmo],
   [AS_IF([test x"$enableval" != xno], [enable_atmo=yes])],
   [enable_atmo=yes])
   
+AC_ARG_ENABLE([edmf],
+  [AS_HELP_STRING([--enable-edmf],
+     [enable the edmf atmosphere component of ICON @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_edmf=yes])],
+  [enable_edmf=yes])
+
+AC_ARG_ENABLE([les],
+  [AS_HELP_STRING([--enable-les],
+     [enable the les atmosphere component of ICON @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_les=yes])],
+  [enable_les=yes])
+
+AC_ARG_ENABLE([upper],
+  [AS_HELP_STRING([--enable-upper],
+     [enable the upper atmosphere component of ICON @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_upper=yes])],
+  [enable_upper=yes])
+
 AC_ARG_ENABLE([ocean],
   [AS_HELP_STRING([--enable-ocean],
      [enable the ocean component of ICON @<:@default=yes@:>@])],
@@ -110,12 +128,11 @@ AC_ARG_ENABLE([coupling],
   [AS_IF([test x"$enableval" != xno], [enable_coupling=yes])],
   [enable_coupling=yes])
 
-AC_ARG_ENABLE([concurrent-psrad],
-  [AS_HELP_STRING([--enable-concurrent-psrad],
-     [enable the concurrent mode of the radiation component PSRAD
-@<:@default=yes@:>@])],
-  [AS_IF([test x"$enableval" != xno], [enable_concurrent_psrad=yes])],
-  [enable_concurrent_psrad=yes])
+AC_ARG_ENABLE([echam],
+  [AS_HELP_STRING([--enable-echam],
+     [enable the ECHAM physics @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_echam=yes])],
+  [enable_echam=yes])
 
 AC_ARG_ENABLE([ecrad],
   [AS_HELP_STRING([--enable-ecrad],
@@ -548,6 +565,15 @@ AS_VAR_APPEND([FCFLAGS],
 AS_VAR_IF([enable_atmo], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_ATMO__"])])
 
+AS_VAR_IF([enable_edmf], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_EDMF__"])])
+
+AS_VAR_IF([enable_les], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_LES__"])])
+
+AS_VAR_IF([enable_upper], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_UPPER__"])])
+
 AS_VAR_IF([enable_ocean], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_OCEAN__"])])
 
@@ -557,8 +583,8 @@ AS_VAR_IF([enable_jsbach], [no],
 AS_VAR_IF([enable_coupling], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])])
 
-AS_VAR_IF([enable_concurrent_psrad], [no],
-  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])])
+AS_VAR_IF([enable_echam], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ECHAM__"])])
 
 AS_VAR_IF([enable_ecrad], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__ECRAD"])])

@@ -721,10 +721,13 @@ enable_option_checking
 enable_rpaths
 enable_silent_rules
 enable_atmo
+enable_edmf
+enable_les
+enable_upper
 enable_ocean
 enable_jsbach
 enable_coupling
-enable_concurrent_psrad
+enable_echam
 enable_ecrad
 enable_rte_rrtmgp
 enable_rttov
@@ -1430,16 +1433,20 @@ Optional Features:
 Model Features:
   --enable-atmo           enable the atmosphere component of ICON
                           [default=yes]
+  --enable-edmf           enable the EDMF turbulence component of ICON
+                          [default=yes]
+  --enable-les            enable the Large-Eddy Simulation of ICON
+                          [default=yes]
+  --enable-upper          enable the upper atmosphere component of ICON
+                          [default=yes]
   --enable-ocean          enable the ocean component of ICON [default=yes]
   --enable-jsbach         enable the land component JSBACH [default=yes]
   --enable-coupling       enable the coupling [default=yes]
-  --enable-concurrent-psrad
-                          enable the concurrent mode of the radiation
-                          component PSRAD [default=yes]
+  --enable-echam          enable the ECHAM physics package [default=yes]
   --enable-ecrad          enable usage of the ECMWF radiation scheme (ECRAD)
                           [default=no]
   --enable-rte-rrtmgp     enable usage of the RTE+RRTMGP toolbox for radiation
-                          calculations [default=no]
+                          calculations [default=yes]
   --enable-rttov          enable usage of the radiative transfer model for
                           TOVS [default=no]
   --enable-dace           enable the DACE modules for data assimilation
@@ -2396,6 +2403,34 @@ else
 fi
 
 
+# Check whether --enable-edmf was given.
+if test "${enable_edmf+set}" = set; then :
+  enableval=$enable_edmf; if test x"$enableval" != xno; then :
+  enable_edmf=yes
+fi
+else
+  enable_edmf=yes
+fi
+
+# Check whether --enable-les was given.
+if test "${enable_les+set}" = set; then :
+  enableval=$enable_les; if test x"$enableval" != xno; then :
+  enable_les=yes
+fi
+else
+  enable_les=yes
+fi
+
+# Check whether --enable-upper was given.
+if test "${enable_upper+set}" = set; then :
+  enableval=$enable_upper; if test x"$enableval" != xno; then :
+  enable_upper=yes
+fi
+else
+  enable_upper=yes
+fi
+
+
 # Check whether --enable-ocean was given.
 if test "${enable_ocean+set}" = set; then :
   enableval=$enable_ocean; if test x"$enableval" != xno; then :
@@ -2426,13 +2461,13 @@ else
 fi
 
 
-# Check whether --enable-concurrent-psrad was given.
-if test "${enable_concurrent_psrad+set}" = set; then :
-  enableval=$enable_concurrent_psrad; if test x"$enableval" != xno; then :
-  enable_concurrent_psrad=yes
+# Check whether --enable-echam was given.
+if test "${enable_echam+set}" = set; then :
+  enableval=$enable_echam; if test x"$enableval" != xno; then :
+  enable_echam=yes
 fi
 else
-  enable_concurrent_psrad=yes
+  enable_echam=yes
 fi
 
 
@@ -2452,7 +2487,7 @@ if test "${enable_rte_rrtmgp+set}" = set; then :
   enable_rte_rrtmgp=yes
 fi
 else
-  enable_rte_rrtmgp=no
+  enable_rte_rrtmgp=yes
 fi
 
 
@@ -4384,6 +4419,18 @@ if test "x$enable_atmo" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_ATMO__"
 fi
 
+if test "x$enable_edmf" = xno; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_EDMF__"
+fi
+
+if test "x$enable_les" = xno; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_LES__"
+fi
+
+if test "x$enable_upper" = xno; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_UPPER__"
+fi
+
 if test "x$enable_ocean" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_OCEAN__"
 fi
@@ -4396,8 +4443,8 @@ if test "x$enable_coupling" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}YAC_coupling"
 fi
 
-if test "x$enable_concurrent_psrad" = xno; then :
-  as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_PS_RAD__"
+if test "x$enable_echam" = xno; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ECHAM__"
 fi
 
 if test "x$enable_ecrad" = xyes; then :

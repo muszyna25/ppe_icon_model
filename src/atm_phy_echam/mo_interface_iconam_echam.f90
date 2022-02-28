@@ -86,7 +86,7 @@ MODULE mo_interface_iconam_echam
     &                                 t_echam_phy_tend , prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
-#ifdef YAC_coupling
+#if defined(YAC_coupling) && !defined(__NO_ECHAM__)
   USE mo_echam_coupling        ,ONLY: interface_echam_ocean
 #endif
   

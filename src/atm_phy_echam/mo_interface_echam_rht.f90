@@ -31,11 +31,7 @@ MODULE mo_interface_echam_rht
   USE mo_timer                  ,ONLY: ltimer, timer_start, timer_stop, timer_rht
 
   USE mo_radheating             ,ONLY: radheating
-#ifdef __NO_RTE_RRTMGP__
-  USE mo_psrad_solar_parameters ,ONLY: psctm
-#else
   USE mo_radiation_solar_parameters ,ONLY: psctm
-#endif
 
   IMPLICIT NONE
   PRIVATE

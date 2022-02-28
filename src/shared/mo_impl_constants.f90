@@ -642,6 +642,11 @@ MODULE mo_impl_constants
   ! (hard-coded in the torus grid generator)
   REAL(wp), PARAMETER :: TORUS_MAX_LAT = 4._wp / 18._wp * ATAN(1._wp)
 
+  ! Parameters related to time step weighting in *rhs* of *vdiff* and *scv*
+  ! used in atm_phy_echam, upper_atmospher, jsbach
+  REAL(wp),PARAMETER :: cvdifts = 1.5_wp
+
+
   !------------------------------------------------!
   !  VERTICAL EXTRAPOLATION OF INITIAL DATA        !
   !------------------------------------------------!

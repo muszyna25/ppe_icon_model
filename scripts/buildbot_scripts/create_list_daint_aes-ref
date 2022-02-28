@@ -3,7 +3,7 @@
 addexp="./addexp"
 #############################################################################
 ##
-## create daint_aes-ref list:  atm_rte_rrtmgp_amip_update
+## create daint_aes-ref list:  atm_amip_update
 ##
 #############################################################################
 list=daint_aes-ref
@@ -19,16 +19,16 @@ machine=daint
 ./addbuilder DAINT_CPU_nvidia     --machine $machine --build_script="./config/buildbot/daint_cpu_nvidia"  --builderflags="Active"      --list $list
 ./addbuilder DAINT_GPU_nvidia     --machine $machine --build_script="./config/buildbot/daint_gpu_nvidia" --configureflags="--enable-gpu --enable-claw=std" --builderflags="Active"  --list $list
 # add amip binary-identical test on DAINT
-$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_update --builders DAINT_CPU_cce --list $list
-$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_update --builders DAINT_CPU_pgi --list $list
-$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_update --builders DAINT_GPU_pgi --list $list
-$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_update --builders DAINT_CPU_nvidia --list $list
-$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_update --builders DAINT_GPU_nvidia --list $list
+$addexp checksuite.icon-dev/check.atm_amip_update --builders DAINT_CPU_cce --list $list
+$addexp checksuite.icon-dev/check.atm_amip_update --builders DAINT_CPU_pgi --list $list
+$addexp checksuite.icon-dev/check.atm_amip_update --builders DAINT_GPU_pgi --list $list
+$addexp checksuite.icon-dev/check.atm_amip_update --builders DAINT_CPU_nvidia --list $list
+$addexp checksuite.icon-dev/check.atm_amip_update --builders DAINT_GPU_nvidia --list $list
 
 #-----------------------------------------------------------
 # AES
 # add amip binary-identical test on mistral
-$addexp checksuite.icon-dev/check.atm_rte_rrtmgp_amip_update \
+$addexp checksuite.icon-dev/check.atm_amip_update \
  --machines mistral --machines mistral --runflags "queue=compute" --list $list
 
 #-----------------------------------------------------------

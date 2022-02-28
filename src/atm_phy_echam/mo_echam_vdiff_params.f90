@@ -20,6 +20,7 @@ MODULE mo_echam_vdiff_params
 
   USE mo_kind,              ONLY: wp
   USE mo_physical_constants,ONLY: grav
+  USE mo_impl_constants,    ONLY: cvdifts
 
   IMPLICIT NONE
   PRIVATE
@@ -28,7 +29,7 @@ MODULE mo_echam_vdiff_params
   PUBLIC :: eps_shear, eps_corio, totte_min             !< parameters
   PUBLIC :: chneu, shn, smn, da1                        !< parameters
   PUBLIC :: cons5                                       !< parameters
-  PUBLIC :: cvdifts, tpfac1, tpfac2, tpfac3, tpfac4     !< parameters
+  PUBLIC :: tpfac1, tpfac2, tpfac3, tpfac4     !< parameters
   PUBLIC :: itop                                        !< parameters
   
   !-------------------
@@ -51,7 +52,6 @@ MODULE mo_echam_vdiff_params
 
   ! Parameters related to time step weighting in *rhs* of *vdiff* and *scv*
 
-  REAL(wp),PARAMETER :: cvdifts = 1.5_wp
   REAL(wp),PARAMETER :: tpfac1  = cvdifts
   REAL(wp),PARAMETER :: tpfac2  = 1._wp / tpfac1
   REAL(wp),PARAMETER :: tpfac3  = 1._wp - tpfac2

@@ -35,7 +35,6 @@ MODULE mo_art_reaction_interface
                                           &   timer_art, timer_art_reacInt,            &
                                           &   timer_art_losschem, timer_art_photo
   USE mo_radiation_config,              ONLY: irad_o3
-#ifdef __ICON_ART
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_atmo_data,                 ONLY: t_art_atmo
   USE mo_art_chem_data,                 ONLY: t_art_chem_param,       &
@@ -55,7 +54,6 @@ MODULE mo_art_reaction_interface
   USE mo_art_chem_utils,                ONLY: art_calc_vmr2Nconc,            &
                                           &   art_convert_tracers_mmr_Nconc, &
                                           &   art_convert_tracers_Nconc_mmr
-#endif
 
   IMPLICIT NONE
 
@@ -94,7 +92,6 @@ SUBROUTINE art_reaction_interface(jg,current_date,p_dtime,p_prog_list,tracer)
   INTEGER                           :: &
     &  jb,                             & !< loop index
     &  istart, iend                      !< Start and end of nproma loop
-#ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode
   TYPE(t_art_chem_indices), POINTER :: &
     &  art_indices
@@ -232,8 +229,6 @@ SUBROUTINE art_reaction_interface(jg,current_date,p_dtime,p_prog_list,tracer)
     IF (timers_level > 3) CALL timer_stop(timer_art_reacInt)
     IF (timers_level > 3) CALL timer_stop(timer_art)
   ENDIF ! lart
-#endif
-
 
 END SUBROUTINE art_reaction_interface
 !!

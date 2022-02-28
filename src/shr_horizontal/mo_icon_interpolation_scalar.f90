@@ -161,12 +161,7 @@ MODULE mo_icon_interpolation_scalar
   PUBLIC :: edges2edges_scalar
 
 #if defined( _OPENACC )
-#if defined(__ICON_INTERPOLATION_SCALAR_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
   INTERFACE edges2cells_scalar
@@ -271,7 +266,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 ! loop over edges and blocks
 !$ACC DATA PCOPYIN( p_vertex_in, c_int ), PCOPY( p_edge_out ), &
 !$ACC      PRESENT( iidx, iblk), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( c_int, p_vertex_in, p_edge_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -308,7 +302,6 @@ END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST(p_edge_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 IF (timers_level > 10) CALL timer_stop(timer_intp)
@@ -418,7 +411,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 
 !$ACC DATA PCOPYIN( c_int, p_cell_in ), PCOPY( p_edge_out ), &
 !$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( c_int, p_cell_in, p_edge_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
@@ -503,7 +495,6 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST(p_edge_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 IF (timers_level > 10) CALL timer_stop(timer_intp)
@@ -594,7 +585,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 
 !$ACC DATA PCOPYIN( v_int, p_edge_in ), PCOPY( p_vert_out ), &
 !$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( v_int, p_edge_in, p_vert_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !loop over blocks and verts
 
@@ -634,7 +624,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_vert_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 IF (timers_level > 10) CALL timer_stop(timer_intp)
@@ -724,7 +713,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 
 !$ACC DATA PCOPYIN( c_int, p_edge_in ), PCOPY( p_cell_out ), &
 !$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( c_int, p_edge_in, p_cell_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !loop over blocks and cells
 
@@ -761,7 +749,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_cell_out ), IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 IF (timers_level > 10) CALL timer_stop(timer_intp)
@@ -850,7 +837,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 
 !$ACC DATA PCOPYIN( c_int, p_edge_in ), PCOPY( p_cell_out ), &
 !$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( c_int, p_edge_in, p_cell_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !loop over blocks and cells
 
@@ -887,7 +873,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_cell_out ), IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 IF (timers_level > 10) CALL timer_stop(timer_intp)
@@ -970,8 +955,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 
 !$ACC DATA PCOPYIN( p_cell_in, c_int ), PCOPY( p_vert_out ), &
 !$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cell_in, c_int, p_vert_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -1010,8 +993,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-
-!$ACC UPDATE HOST(p_vert_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 IF (timers_level > 10) CALL timer_stop(timer_intp)
@@ -1095,7 +1076,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 
 !$ACC DATA PCOPYIN( p_cell_in, c_int ), PCOPY( p_vert_out ), &
 !$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cell_in, c_int, p_vert_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 
 !$OMP PARALLEL
@@ -1135,8 +1115,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-
-!$ACC UPDATE HOST(p_vert_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 IF (timers_level > 10) CALL timer_stop(timer_intp)
@@ -1220,8 +1198,6 @@ END SUBROUTINE cells2verts_scalar_sp
 
 !$ACC DATA PCOPYIN( p_cell_in, c_int ), PCOPY( p_vert_out ), &
 !$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cell_in, c_int, p_vert_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -1260,8 +1236,6 @@ END SUBROUTINE cells2verts_scalar_sp
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-
-!$ACC UPDATE HOST(p_vert_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
     IF (timers_level > 10) CALL timer_stop(timer_intp)
@@ -1341,7 +1315,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 
 !$ACC DATA PCOPYIN( p_cell_in, c_int ), PCOPY( p_vert_out ), &
 !$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cell_in, c_int, p_vert_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -1379,7 +1352,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST(p_vert_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 IF (timers_level > 10) CALL timer_stop(timer_intp)
@@ -1447,8 +1419,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 
 !$ACC DATA PCOPYIN( p_vert_in, c_int ), PCOPY( p_cell_out ), &
 !$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_vert_in, c_int, p_cell_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -1486,8 +1456,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-
-!$ACC UPDATE HOST( p_cell_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 IF (timers_level > 10) CALL timer_stop(timer_intp)
@@ -1560,7 +1528,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 
 !$ACC DATA PCOPYIN( p_edge_in, c_int ), PCOPY( p_edge_out), &
 !$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_edge_in, c_int, p_edge_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,je,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -1597,7 +1564,6 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST(p_edge_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 IF (timers_level > 10) CALL timer_stop(timer_intp)
@@ -1710,7 +1676,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 IF (timers_level > 10) CALL timer_start(timer_intp)
 
 !$ACC DATA PRESENT( psi_c, avg_coeff, avg_psi_c, iidx, iblk ) IF( i_am_accel_node .AND. acc_on ) 
-!$ACC UPDATE DEVICE( psi_c, avg_coeff, avg_psi_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -1755,11 +1720,9 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
     !$ACC WAIT
   END IF
 
-!$ACC UPDATE HOST( avg_psi_c ) WAIT, IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 IF (timers_level > 10) CALL timer_stop(timer_intp)
-
 
 
 END SUBROUTINE cell_avg

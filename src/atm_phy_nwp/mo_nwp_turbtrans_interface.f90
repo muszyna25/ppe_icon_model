@@ -57,8 +57,10 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_run_config,           ONLY: ltestcase
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_lnd, ntiles_water, llake,  &
     &                                isub_lake, lseaice
+#ifndef __NO_ICON_EDMF__
   USE mo_vupdz0_tile,          ONLY: vupdz0_tile
   USE mo_vexcs,                ONLY: vexcs
+#endif
   USE mo_nh_testcases_nml,     ONLY: nh_test_name
   USE mo_grid_config,          ONLY: l_scm_mode
   USE mo_scm_nml,              ONLY: scm_sfc_mom, scm_sfc_temp ,scm_sfc_qv
@@ -934,7 +936,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         ENDDO
       ENDDO
 
-
+#ifndef __NO_ICON_EDMF__
     CASE(iedmf)
 
 #ifdef _OPENACC
@@ -1071,7 +1073,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
         ENDDO
       ENDDO
-
+#endif
 
     END SELECT !inwp_turb
 

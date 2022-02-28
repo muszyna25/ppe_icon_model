@@ -31,6 +31,7 @@ MODULE mo_upatmo_phy_setup
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_upatmo_types,         ONLY: t_upatmo
   USE mo_loopindices,          ONLY: get_indices_c
+  USE mo_upatmo_state,         ONLY: prm_upatmo_vec => prm_upatmo
   USE mo_upatmo_phy_diag,      ONLY: update_diagnostic_variables
   USE mo_upatmo_phy_chemheat,  ONLY: zeroz, onez, effrswmin
   USE mo_upatmo_phy_nlte,      ONLY: nlte_std_co2, nlte_set_co2_pre
@@ -60,7 +61,6 @@ CONTAINS
     &                             p_diag,         &  !in
     &                             prm_nwp_diag,   &  !in
     &                             prm_nwp_tend,   &  !in
-    &                             prm_upatmo,     &  !inout
     &                             nproma          )  !in
 
     ! In/out-variables
@@ -71,10 +71,10 @@ CONTAINS
     TYPE(t_nh_diag),              INTENT(IN)    :: p_diag
     TYPE(t_nwp_phy_diag),         INTENT(IN)    :: prm_nwp_diag
     TYPE(t_nwp_phy_tend),         INTENT(IN)    :: prm_nwp_tend
-    TYPE(t_upatmo),       TARGET, INTENT(INOUT) :: prm_upatmo 
     INTEGER,                      INTENT(IN)    :: nproma
 
     ! Local variables
+    TYPE(t_upatmo),       POINTER               :: prm_upatmo  ! WS: convenience pointer
     REAL(wp) :: scale4effrsw, fac4effrsw
     INTEGER  :: jg, jb, jk, jc, jgrp
     INTEGER  :: nlev
@@ -90,6 +90,7 @@ CONTAINS
 
     ! Domain index
     jg  = p_patch%id
+    prm_upatmo => prm_upatmo_vec(jg)
 
     ltimer = upatmo_config(jg)%l_status( iUpatmoStat%timer )
 

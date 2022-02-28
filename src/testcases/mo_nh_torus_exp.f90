@@ -56,7 +56,7 @@ MODULE mo_nh_torus_exp
   USE mo_satad,               ONLY: spec_humi, sat_pres_water
   USE mo_les_config,          ONLY: les_config
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_les_utilities,       ONLY: vert_intp_linear_1d
+  USE mo_nh_vert_interp_les,  ONLY: vert_intp_linear_1d
   USE mo_grid_config,         ONLY: l_scm_mode
   USE mo_scm_nml,             ONLY: i_scm_netcdf, scm_sfc_temp, scm_sfc_qv, scm_sfc_mom, lscm_icon_ini, &
      &                              lscm_ls_forcing_ini, lat_scm, lon_scm
@@ -65,7 +65,6 @@ MODULE mo_nh_torus_exp
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_read_interface,      ONLY: nf
   USE mo_mpi,                 ONLY: get_my_global_mpi_id
-
 
   IMPLICIT NONE
 

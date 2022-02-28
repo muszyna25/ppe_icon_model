@@ -44,7 +44,6 @@ MODULE mo_art_init_interface
                                           &   getTotalMilliSecondsTimeDelta, &
                                           &   getPTStringFromMS,             &
                                           &   deallocateTimedelta
-#ifdef __ICON_ART
   USE mo_art_collect_atmo_state,        ONLY: art_collect_atmo_state_nwp,   &
                                           &   art_update_atmo_state_nwp,    &
                                           &   art_collect_atmo_state_echam, &
@@ -61,7 +60,6 @@ MODULE mo_art_init_interface
                                           &   art_open_xml_file,              &
                                           &   art_close_xml_file,             &
                                           &   t_xml_file
-#endif
   
   IMPLICIT NONE
 
@@ -82,7 +80,6 @@ SUBROUTINE art_init_interface(n_dom,defcase)
   CHARACTER(LEN=*),intent(in) :: &
     &  defcase                      !< construction or destruction?
     
-#ifdef __ICON_ART
   IF (lart) THEN
     IF (timers_level > 3) CALL timer_start(timer_art_initInt)
 
@@ -98,7 +95,6 @@ SUBROUTINE art_init_interface(n_dom,defcase)
     IF (timers_level > 3) CALL timer_stop(timer_art_initInt)
 
    END IF 
-#endif
 
 END SUBROUTINE art_init_interface
 !!
@@ -128,14 +124,10 @@ SUBROUTINE art_calc_number_of_art_tracers_xml(xml_filename,auto_ntracer,   &
   CHARACTER(:), ALLOCATABLE :: &
      &   tracer_name
 
-#ifdef __ICON_ART
   TYPE(t_xml_file) :: tixi_file          !< tracer XML file
-  
-#endif
 
   auto_ntracer = 0
 
-#ifdef __ICON_ART
   CALL art_open_xml_file(TRIM(xml_filename),tixi_file)
 
   CALL art_check_tracer_children_xml(tixi_file,"/tracers",TRIM(tracer_element), auto_ntracer)
@@ -170,14 +162,12 @@ SUBROUTINE art_calc_number_of_art_tracers_xml(xml_filename,auto_ntracer,   &
   END IF
 
   CALL art_close_xml_file(tixi_file)
-#endif
 
 END SUBROUTINE art_calc_number_of_art_tracers_xml
 !!
 !!-------------------------------------------------------------------------
 !!
 SUBROUTINE art_write_vcs_info
-#ifdef __ICON_ART
 
 !<
 ! SUBROUTINE art_write_vcs_info                   
@@ -218,7 +208,6 @@ SUBROUTINE art_write_vcs_info
       CALL message('',message_text)
 
   END IF
-#endif
   
 END SUBROUTINE art_write_vcs_info
 !!
@@ -390,7 +379,6 @@ SUBROUTINE art_init_one_dom(jg, p_prog_list, tracer, nest_level)
   INTEGER, INTENT(in) :: &
     &  nest_level           !< beginning with zero in global domain
   ! local variables
-#ifdef __ICON_ART
   INTEGER(i8) ::   &
     &   dtime_ms
   REAL(wp) ::  &
@@ -412,7 +400,7 @@ SUBROUTINE art_init_one_dom(jg, p_prog_list, tracer, nest_level)
            &    p_prog_list, tracer)
 
   CALL deallocateTimedelta(dt_model)
-#endif
+
 END SUBROUTINE art_init_one_dom
 
 SUBROUTINE art_init_atmo_tracers_nwp(jg, mtime_current, p_nh_state, ext_data, &
@@ -438,7 +426,6 @@ SUBROUTINE art_init_atmo_tracers_nwp(jg, mtime_current, p_nh_state, ext_data, &
   INTEGER, INTENT(in) :: &
     &  nest_level           !< beginning with zero in global domain
 
-#ifdef __ICON_ART
   IF (lart) THEN
     CALL art_collect_atmo_state_nwp(jg, mtime_current, p_nh_state,  &
                    &                ext_data, prm_diag, p_prog)
@@ -448,7 +435,6 @@ SUBROUTINE art_init_atmo_tracers_nwp(jg, mtime_current, p_nh_state, ext_data, &
       CALL art_init_tracer_values_nwp(jg, tracer, mtime_current, p_prog_list)
     END IF
   END IF
-#endif
 
 END SUBROUTINE art_init_atmo_tracers_nwp
 !
@@ -473,7 +459,6 @@ SUBROUTINE art_init_atmo_tracers_echam(jg, mtime_current, p_nh_state, &
   INTEGER, INTENT(in) :: &
     &  nest_level           !< beginning with zero in global domain
 
-#ifdef __ICON_ART
   IF (lart) THEN
     CALL art_collect_atmo_state_echam(jg, mtime_current, p_nh_state, p_prog)
 
@@ -483,7 +468,6 @@ SUBROUTINE art_init_atmo_tracers_echam(jg, mtime_current, p_nh_state, &
       CALL art_init_tracer_values_echam(jg, tracer, mtime_current, p_prog_list)
     END IF
   END IF
-#endif
 
 END SUBROUTINE art_init_atmo_tracers_echam
 !
@@ -501,7 +485,6 @@ SUBROUTINE art_update_atmo_phy(jg, mtime_current, p_prog, prm_diag)
     &  prm_diag             !< phyics fields for NWP physics
 
 
-#ifdef __ICON_ART
   IF (lart) THEN
     IF (PRESENT(prm_diag)) THEN
       CALL art_update_atmo_state_nwp(jg,mtime_current, p_prog, prm_diag)
@@ -509,7 +492,7 @@ SUBROUTINE art_update_atmo_phy(jg, mtime_current, p_prog, prm_diag)
       CALL art_update_atmo_state_echam(jg,mtime_current, p_prog)
     END IF
   END IF
-#endif
+
 END SUBROUTINE art_update_atmo_phy
 
 END MODULE mo_art_init_interface

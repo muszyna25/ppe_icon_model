@@ -90,8 +90,10 @@ MODULE mo_nonhydro_state
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
   USE mo_gribout_config,       ONLY: gribout_config
+#ifdef __ICON_ART
   USE mo_art_tracer_interface, ONLY: art_tracer_interface
   USE mo_art_diagnostics_interface, ONLY: art_diagnostics_interface_init
+#endif
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_zaxis_type,           ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, &
     &                                ZA_REFERENCE_HALF_HHL, ZA_SURFACE, ZA_MEANSEA
@@ -282,12 +284,14 @@ MODULE mo_nonhydro_state
       CALL new_nh_state_diag_list(p_patch(jg), p_nh_state(jg)%diag, &
         &  p_nh_state_lists(jg)%diag_list, listname, var_in_output(jg))
 
+#ifdef __ICON_ART
       ! art: add ART diagnostics to diag list
       IF (lart) THEN
         CALL art_diagnostics_interface_init(jg, p_nh_state_lists(jg)%diag_list, &
           & p_prog_list=p_nh_state_lists(jg)%prog_list(1))
       ENDIF
-    
+#endif
+
       !
       ! Build metrics state list
       ! includes memory allocation
@@ -1414,14 +1418,14 @@ MODULE mo_nonhydro_state
           __acc_attach(p_prog%tracer_ptr(iqtke)%p_3d)
         ENDIF
 
-
+#ifdef __ICON_ART
         ! art
         IF (lart) THEN
           CALL art_tracer_interface('prog',p_patch%id,p_patch%nblks_c,p_prog_list,vname_prefix,&
             &                       ptr_arr=p_prog%tracer_ptr,advconf=advconf,p_prog=p_prog,   &
             &                       timelev=timelev,ldims=shape3d_c)
         ENDIF
-
+#endif
 
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)
         ! for output take field from nnow_rcf slice
@@ -4240,7 +4244,11 @@ MODULE mo_nonhydro_state
                 & lopenacc = .TRUE. )
     __acc_attach(p_metrics%ddxt_z_full)
 
+#ifndef __NO_ICON_LES__
     IF (atm_phy_nwp_config(jg)%is_les_phy .OR. echam_vdf_config(jg)%turb==2) THEN
+#else
+    IF (echam_vdf_config(jg)%turb==2) THEN
+#endif
       ! slope of the terrain in normal direction (half level)
       ! ddxn_z_half_e  p_metrics%ddxn_z_full(nproma,nlevp1,nblks_e)
       !
@@ -4367,7 +4375,6 @@ MODULE mo_nonhydro_state
       __acc_attach(p_metrics%ddxt_z_full_v)
 
     ENDIF  !is_les_phy
-
 
     ! functional determinant of the metrics [sqrt(gamma)]
     ! ddqz_z_full_e  p_metrics%ddqz_z_full_e(nproma,nlev,nblks_e)
@@ -4984,8 +4991,11 @@ MODULE mo_nonhydro_state
       __acc_attach(p_metrics%slope_azimuth)
 
     !Add LES related variables : Anurag Dipankar MPIM (2013-04)
+#ifndef __NO_ICON_LES__
     IF(atm_phy_nwp_config(jg)%is_les_phy .OR. echam_vdf_config(jg)%turb==2)THEN
-
+#else
+    IF(echam_vdf_config(jg)%turb==2)THEN
+#endif
       ! inv_ddqz_z_half_e  p_metrics%inv_ddqz_z_half_e(nproma,nlevp1,nblks_e)
       !
       cf_desc    = t_cf_var('metrics_functional_determinant', '-',                    &

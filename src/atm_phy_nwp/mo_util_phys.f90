@@ -36,8 +36,10 @@ MODULE mo_util_phys
        &                              iqm_max, nqtendphy, lart, &
        &                              iqh, iqnc, iqnr, iqns, iqng, iqnh
   USE mo_nh_diagnose_pres_temp, ONLY: diag_pres, diag_temp
+#ifndef __NO_ICON_LES__
   USE mo_ls_forcing_nml,        ONLY: is_ls_forcing, is_nudging_tq, &
        &                              nudge_start_height, nudge_full_height, dt_relax
+#endif
   USE mo_loopindices,           ONLY: get_indices_c
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_nwp_tuning_config,     ONLY: tune_gust_factor, itune_gust_diag
@@ -720,8 +722,10 @@ CONTAINS
     INTEGER  :: iq_start
     REAL(wp) :: zrhox(nproma,kend,5)
     REAL(wp) :: zrhox_clip(nproma,kend)
+#ifndef __NO_ICON_LES__
     REAL(wp) :: nudgecoeff  ! SCM Nudging
     REAL(wp) :: z_ddt_q_nudge
+#endif
     !
     INTEGER, POINTER              :: ptr_conv_list(:)
     INTEGER, DIMENSION(3), TARGET :: conv_list_small
@@ -804,9 +808,6 @@ CONTAINS
 
 
     IF(lart .AND. art_config(jg)%lart_conv) THEN
-#ifdef _OPENACC
-      CALL finish("mo_util_phys", "ART-part not supported on GPU")
-#endif
       ! add convective tendency and fix to positive values
       DO jt=1,art_config(jg)%nconv_tracer  ! ASH
         DO jk = 1, kend
@@ -869,6 +870,7 @@ CONTAINS
       !$acc end parallel
     ENDIF
 
+#ifndef __NO_ICON_LES__
     ! Add LS forcing to moisture variable including nudging
     IF(is_ls_forcing)THEN
       DO jt=1, nqtendphy  ! qv,qc,qi
@@ -887,13 +889,12 @@ CONTAINS
                            & ( nudge_full_height                   - nudge_start_height )
                 nudgecoeff = MAX( MIN( nudgecoeff, 1.0_wp ), 0.0_wp )
               END IF
-  
               ! analytic implicit: (q,n+1 - q,n) / dt = (q,nudge - q,n) / dt_relax * exp(-dt/dt_relax)
               z_ddt_q_nudge =                                                          &
                 &  - ( pt_prog_rcf%tracer(jc,jk,jb,jt) - prm_nwp_tend%q_nudge(jk,jt) ) &
                 &  / dt_relax * exp(-dt_loc/dt_relax) * nudgecoeff
             ELSE
-              z_ddt_q_nudge = 0.0_wp 
+              z_ddt_q_nudge = 0.0_wp
             END IF
 
             pt_prog_rcf%tracer(jc,jk,jb,jt) = MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt)   &
@@ -904,6 +905,7 @@ CONTAINS
         ENDDO
       END DO
     ENDIF  ! is_ls_forcing
+#endif
 
     !$acc end data !copyin
     !$acc end data !create
