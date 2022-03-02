@@ -40,7 +40,6 @@ MODULE mo_art_aerodyn_interface
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_aeroInt
   USE mo_echam_phy_memory,              ONLY: t_echam_phy_tend
-#ifdef __ICON_ART
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_radio, t_fields_2mom
@@ -49,7 +48,6 @@ MODULE mo_art_aerodyn_interface
   USE mo_art_nucl_aero,                 ONLY: art_nucl_kw
   USE mo_art_cond_aero,                 ONLY: art_prepare_cond_so4, art_finalize_cond_so4
   USE mo_art_aerosol_utilities,         ONLY: art_calc_number_from_mass
-#endif
 
   IMPLICIT NONE
 
@@ -120,13 +118,10 @@ SUBROUTINE art_aerodyn_interface( p_patch,p_dtime,p_prog_list,p_prog, &
   REAL(wp), PARAMETER     :: &
     &  mwh2so4  = 0.09807354_wp      !< Molecular weight of H2SO4 (kg mol-1)
 
-#ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode
-#endif
 
   !-----------------------------------------------------------------------
 
-#ifdef __ICON_ART
   IF(lart) THEN
 
     IF (timers_level > 3) CALL timer_start(timer_art)
@@ -339,7 +334,6 @@ SUBROUTINE art_aerodyn_interface( p_patch,p_dtime,p_prog_list,p_prog, &
     IF (timers_level > 3) CALL timer_stop(timer_art)
   ENDIF !lart
 
-#endif
 
 END SUBROUTINE art_aerodyn_interface
 !!

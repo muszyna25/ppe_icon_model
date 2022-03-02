@@ -74,13 +74,12 @@ CONTAINS
 #endif
   END FUNCTION restartBcastRoot
 
-  SUBROUTINE getRestartFilename(baseName, jg, restartArgs, resultVar, date_int, opt_debug)
+  SUBROUTINE getRestartFilename(baseName, jg, restartArgs, resultVar, date_int)
     CHARACTER(*), INTENT(IN) :: baseName
     INTEGER, INTENT(IN) :: jg
     TYPE(t_restart_args), INTENT(IN) :: restartArgs
     CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: resultVar
     INTEGER, INTENT(OUT) :: date_int
-    LOGICAL,INTENT(IN),OPTIONAL :: opt_debug
     CHARACTER(LEN=32) :: datetimeString
     INTEGER :: restartModule
     TYPE(t_keyword_list), POINTER :: keywords
@@ -105,12 +104,7 @@ CONTAINS
       CALL associate_keyword("<extension>", "nc", keywords)
     END IF
     ! replace keywords in file name
-    restart_fname = TRIM(restart_filename)
-    IF(PRESENT(opt_debug)) THEN
-      restart_fname = "DEBUG_"//TRIM(restart_fname)
-      CALL message("RESTART-DEBUG","Setting restart_fname to "//TRIM(restart_fname))
-    END IF
-    resultVar = TRIM(with_keywords(keywords, TRIM(restart_fname)))
+    resultVar = TRIM(with_keywords(keywords, TRIM(restart_filename)))
   END SUBROUTINE getRestartFilename
 
   SUBROUTINE restartSymlinkName(modelType, jg, resultVar, opt_ndom)

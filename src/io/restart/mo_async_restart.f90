@@ -86,12 +86,11 @@ CONTAINS
   END SUBROUTINE asyncRestartDescriptor_construct
 
   !> Writes all restart data into one or more files (one file per patch, collective across work processes).
-  SUBROUTINE asyncRestartDescriptor_writeRestart(me, this_datetime, jstep, opt_output_jfile, opt_debug)
+  SUBROUTINE asyncRestartDescriptor_writeRestart(me, this_datetime, jstep, opt_output_jfile)
     CLASS(t_AsyncRestartDescriptor), INTENT(INOUT), TARGET :: me
     TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
     INTEGER, INTENT(IN) :: jstep
     INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
-    LOGICAL, INTENT(IN), OPTIONAL :: opt_debug
     INTEGER :: idx
     TYPE(t_restart_args) :: restart_args
     TYPE(t_PackedMessage) :: packedMessage

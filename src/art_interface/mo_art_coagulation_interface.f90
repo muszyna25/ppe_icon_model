@@ -36,7 +36,6 @@ MODULE mo_art_coagulation_interface
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                               timer_art, timer_art_coagInt
 
-#ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
@@ -50,7 +49,6 @@ MODULE mo_art_coagulation_interface
   USE mo_art_coagulation,               ONLY: art_calc_coag_coefficients
   
   USE omp_lib
-#endif
 
   IMPLICIT NONE
 
@@ -101,7 +99,6 @@ SUBROUTINE art_coagulation_interface(pt_prog,pt_diag, dtime, p_patch, &
                                !  (prepare, calc_coeff, finalize)
   REAL(wp),POINTER        :: &
     &  rho(:,:,:)              !< Pointer to air density [kg m-3]
-#ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode
   CLASS(t_mode_fields), POINTER :: fields
   !-----------------------------------------------------------------------
@@ -206,7 +203,6 @@ SUBROUTINE art_coagulation_interface(pt_prog,pt_diag, dtime, p_patch, &
     IF (timers_level > 3) CALL timer_stop(timer_art_coagInt)
     IF (timers_level > 3) CALL timer_stop(timer_art)
   ENDIF !lart
-#endif
 
 END SUBROUTINE art_coagulation_interface
 !!

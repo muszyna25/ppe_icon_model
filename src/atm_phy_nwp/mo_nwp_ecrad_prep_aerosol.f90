@@ -31,7 +31,9 @@ MODULE mo_nwp_ecrad_prep_aerosol
 
   USE mo_aerosol_util,           ONLY: tegen_scal_factors
 
+#ifdef __ICON_ART
   USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
+#endif
 
   IMPLICIT NONE
 
@@ -340,6 +342,7 @@ CONTAINS
     INTEGER                  :: &
       &  jc, jk, jband, jkb          !< Loop indices
   
+#ifdef __ICON_ART
     CALL art_rad_aero_interface(zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,   & !< Tegen aerosol
       &                         tegen_scal_factors%absorption,   & !
       &                         tegen_scal_factors%scattering,   & !< Tegen coefficients
@@ -380,6 +383,7 @@ CONTAINS
     ecrad_aerosol%ssa_lw(:,:,:) = 0._wp
     ecrad_aerosol%g_lw  (:,:,:) = 0._wp
    
+#endif
   END SUBROUTINE nwp_ecrad_prep_aerosol_art
 #endif
 END MODULE mo_nwp_ecrad_prep_aerosol

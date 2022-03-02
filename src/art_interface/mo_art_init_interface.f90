@@ -515,9 +515,9 @@ END SUBROUTINE art_update_atmo_phy
 SUBROUTINE art_init_radiation_properties(iforcing, jg)
   INTEGER, INTENT(in) :: iforcing
   INTEGER, INTENT(in) :: jg
-#ifdef __ICON_ART
+
   CALL art_collect_radiation_properties(iforcing, jg)
-#endif
+
 END SUBROUTINE art_init_radiation_properties
 
 END MODULE mo_art_init_interface

@@ -106,12 +106,11 @@ CONTAINS
     IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
   END SUBROUTINE syncRestartDescriptor_construct
 
-  SUBROUTINE syncRestartDescriptor_writeRestart(me, this_datetime, jstep, opt_output_jfile, opt_debug)
+  SUBROUTINE syncRestartDescriptor_writeRestart(me, this_datetime, jstep, opt_output_jfile)
     CLASS(t_SyncRestartDescriptor), INTENT(INOUT), TARGET :: me
     TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
     INTEGER, INTENT(IN) :: jstep
     INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
-    LOGICAL, INTENT(IN), OPTIONAL :: opt_debug
     INTEGER :: jg
     TYPE(t_restart_args) :: restartArgs
 
@@ -120,7 +119,7 @@ CONTAINS
       CALL me%sPatchData(jg)%description%setTimeLevels() !update the time levels
     END DO
     CALL restartArgs%construct(this_datetime, jstep, me%modelType, opt_output_jfile)
-    CALL me%writeFiles(restartArgs, isSync=.true., opt_debug=opt_debug)
+    CALL me%writeFiles(restartArgs, isSync=.true.)
     CALL restartArgs%destruct()
     IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
   END SUBROUTINE syncRestartDescriptor_writeRestart

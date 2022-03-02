@@ -85,13 +85,12 @@ MODULE mo_restart_descriptor
       CHARACTER(LEN = *), INTENT(IN) :: modelType
     END SUBROUTINE i_construct
 
-    SUBROUTINE i_writeRestart(me, this_datetime, jstep, opt_output_jfile, opt_debug)
+    SUBROUTINE i_writeRestart(me, this_datetime, jstep, opt_output_jfile)
       IMPORT t_RestartDescriptor, datetime
       CLASS(t_RestartDescriptor), INTENT(INOUT), TARGET :: me
       TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
       INTEGER, INTENT(IN) :: jstep
       INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
-      LOGICAL, INTENT(IN), OPTIONAL :: opt_debug
     END SUBROUTINE i_writeRestart
 
     SUBROUTINE i_destruct(me)
@@ -228,11 +227,10 @@ CONTAINS
 #endif
   END SUBROUTINE put_dom_rstrt_attr
 
-  SUBROUTINE restartDescriptor_writeFiles(me, rArgs, isSync, opt_debug)
+  SUBROUTINE restartDescriptor_writeFiles(me, rArgs, isSync)
     CLASS(t_restartDescriptor), INTENT(INOUT), TARGET :: me
     TYPE(t_restart_args), INTENT(IN) :: rArgs
     LOGICAL, INTENT(in) :: isSync
-    LOGICAL, INTENT(in), OPTIONAL :: opt_debug
     CHARACTER(*), PARAMETER :: routine = modname//":restartDescriptor_writeFiles"
     CHARACTER(:), ALLOCATABLE :: fname
     TYPE(t_rfids) :: rfids
