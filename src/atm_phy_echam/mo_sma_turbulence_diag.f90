@@ -414,7 +414,8 @@ CONTAINS
         ENDIF
       ENDDO
 
-      CALL compute_qsat( kbdim, is(jsfc), loidx(:,jb,jsfc), ppsfc(:,jb), ptsfc(:,jb,jsfc), pqsat_tile(:,jb,jsfc) )
+      CALL compute_qsat( kbdim, is(jsfc), loidx(:,jb,jsfc), ppsfc(:,jb), ptsfc(:,jb,jsfc), pqsat_tile(:,jb,jsfc), &
+        &                klev, jb, kbdim )
 
      ! loop over mask only
      !

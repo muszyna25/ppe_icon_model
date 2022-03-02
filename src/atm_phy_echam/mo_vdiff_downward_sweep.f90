@@ -388,7 +388,7 @@ CASE ( itte ) ! TTE scheme
     !-----------------------------------------------------------------------
 
     ! DA: this routine is async, no need to wait
-    CALL sfc_exchange_coeff( jg,                                            &! in
+    CALL sfc_exchange_coeff( jb, jg,                                        &! in
                            & jcs, jce, kbdim, ksfc_type,                    &! in
                            & idx_wtr, idx_ice, idx_lnd,                     &! in
                            & pz0m_tile(:,jb,:),  ptsfc_tile(:,jb,:),        &! in

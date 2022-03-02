@@ -373,7 +373,8 @@ CONTAINS
   !! Compute diagnostics: 10m wind, u and v in 10m,
   !!                      temperature in 2m, dew point temperature in 2m
   !!
-  SUBROUTINE nsurf_diag( jcs, kproma, kbdim, ksfc_type,   &! in
+  SUBROUTINE nsurf_diag( jb,                              &! in
+                       & jcs, kproma, kbdim, ksfc_type,   &! in
                        & idx_lnd,                         &! in
                        & pfrc,                            &! in
                        & pqm1,                            &! in humidity
@@ -404,7 +405,7 @@ CONTAINS
                        & puas_tile,                       &! out zonal wind in 10m
                        & pvas_tile                        )! out meridional wind in 10m
 
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, ksfc_type
+    INTEGER, INTENT(IN) :: jb, jcs, kproma, kbdim, ksfc_type
     INTEGER, INTENT(IN) :: idx_lnd
 
     REAL(wp),INTENT(IN), DIMENSION(:,:) :: &                !< DIMENSION(kbdim,ksfc_type)
@@ -498,7 +499,8 @@ CONTAINS
     DO jsfc = 1,ksfc_type
 
       !$ACC WAIT
-      CALL lookup_ua_list_spline('nsurf_diag(1)', jcs, kproma, is(jsfc), loidx(:,jsfc), ptm1, ua)
+      CALL lookup_ua_list_spline('nsurf_diag(1)', jcs, kproma, is(jsfc), loidx(:,jsfc), ptm1, ua, &
+        &                        klev=0, kblock=jb, kblock_size=kbdim )
 
       IF ( jsfc == idx_lnd ) THEN
         ! land only
@@ -531,7 +533,8 @@ CONTAINS
       !$ACC END PARALLEL
 
       !$ACC WAIT
-      CALL lookup_ua_list_spline('nsurf_diag(2)', jcs, kbdim, is(jsfc), loidx(:,jsfc), ptas_tile(:,jsfc), ua)
+      CALL lookup_ua_list_spline('nsurf_diag(2)', jcs, kbdim, is(jsfc), loidx(:,jsfc), ptas_tile(:,jsfc), ua, &
+        &                        klev=0, kblock=jb, kblock_size=kbdim )
 
       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR PRIVATE( jl, zqs2, zq2m, zcvm3, zcvm4 )

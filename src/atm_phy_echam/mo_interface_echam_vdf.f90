@@ -1385,7 +1385,7 @@ CONTAINS
         ! - Further diagnostics.
         !----------------------------------------------------------------------------------------
         ! TODO: async
-        CALL nsurf_diag(jcs, jce, nproma, nsfc_type,     &! in
+        CALL nsurf_diag(jb, jcs, jce, nproma, nsfc_type,&! in
             &          ilnd,                            &! in
             &          field%frac_tile(:,jb,:),         &! in
             &          field%  qtrc(:,nlev,jb,iqv),     &! in humidity qm1

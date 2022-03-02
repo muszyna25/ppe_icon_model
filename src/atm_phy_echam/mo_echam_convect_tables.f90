@@ -440,6 +440,9 @@ CONTAINS
       !$ACC PARALLEL DEFAULT(PRESENT)
       !$ACC LOOP GANG VECTOR PRIVATE( x, dx, ddx, a, b, c, d, bxa )
       DO jl = jcs,size
+        IF ( idx(jl) < lucupmin-2 .OR. idx(jl) > lucupmax+1 ) THEN
+          WRITE ( 0 , * ) "WARNING: fetch_ua_spline dimension problem at ", jl, idx(jl), zalpha(jl)
+        ENDIF
         x = zalpha(jl)
         ! derivative and second derivative approximations (2 flops)
         dx   = table(1,idx(jl)+1) - table(1,idx(jl))
@@ -1202,6 +1205,11 @@ SUBROUTINE prepare_ua_index_spline(jg, name, jcs, size, temp, idx, zalpha, &
       ENDIF
       CALL lookuperror(name, 'lookup_ua_list_spline')
     ENDIF
+    DO nl = 1, size
+      IF ( idx(nl) < -483647 ) THEN
+       write ( 0 , * ) "Lookup table problem with idx ", idx(nl), nl, rsdeltat, temp(nl)
+      ENDIF
+    ENDDO
 #endif
     CALL fetch_ua_spline(jcs, kidx, idx, zalpha, tlucu, ua, dua)
 

@@ -540,7 +540,7 @@ CONTAINS
   !-------------
   !>
   !!
-  SUBROUTINE sfc_exchange_coeff( jg,                                     &! in
+  SUBROUTINE sfc_exchange_coeff( jb, jg,                                 &! in
                                & jcs, kproma, kbdim, ksfc_type,          &! in
                                & idx_wtr, idx_ice, idx_lnd,              &! in
                                & pz0m, ptsfc,                            &! in
@@ -572,7 +572,7 @@ CONTAINS
                                & pcsat, pcair                            &! in, optional
                                & )
 
-    INTEGER, INTENT(IN) :: jg
+    INTEGER, INTENT(IN) :: jb, jg
     INTEGER, INTENT(IN) :: jcs, kproma, kbdim
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
 
@@ -786,7 +786,9 @@ CONTAINS
 
     DO jsfc = 1,ksfc_type
 
-      CALL compute_qsat( kproma, is(jsfc), loidx(:,jsfc), ppsfc, ptsfc(:,jsfc), pqsat_tile(:,jsfc) )
+      CALL compute_qsat( kproma, is(jsfc), loidx(:,jsfc), ppsfc, ptsfc(:,jsfc), pqsat_tile(:,jsfc), &
+         &               0, jb, kbdim )
+
      ! loop over mask only
      !
       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)

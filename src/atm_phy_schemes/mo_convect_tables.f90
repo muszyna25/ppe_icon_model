@@ -1000,7 +1000,8 @@ CONTAINS
   END SUBROUTINE prepare_ua_index
 
 
-  SUBROUTINE lookup_ua_list_spline(name,size,list,temp,ua,dua)
+  SUBROUTINE lookup_ua_list_spline(name,size,list,temp,ua,dua, &
+    &                              klev,kblock,kblock_size)
 
     CHARACTER(len=*),   INTENT(in) :: name
     INTEGER,            INTENT(in) :: size
@@ -1009,6 +1010,10 @@ CONTAINS
     REAL(wp),           INTENT(in) :: temp(size)
 
     REAL(wp), OPTIONAL, INTENT(out) :: ua(size), dua(size)
+
+    INTEGER,  OPTIONAL, INTENT(in)  :: klev
+    INTEGER,  OPTIONAL, INTENT(in)  :: kblock
+    INTEGER,  OPTIONAL, INTENT(in)  :: kblock_size
 
     INTEGER  :: idx(size)
     REAL(wp) :: zalpha(size)
@@ -1039,18 +1044,50 @@ CONTAINS
 
     ! if one index was out of bounds -> print error and exit
 
-    IF (zinbounds == 0._wp) CALL lookuperror(name)
+    IF (zinbounds == 0._wp) THEN
+
+      !$ACC UPDATE HOST( temp )
+      IF ( PRESENT(kblock) .AND. PRESENT(kblock_size) .AND. PRESENT(klev) ) THEN
+
+        ! tied to patch(1), does not yet work for nested grids
+
+        DO jl = 1, size
+          ztt = 20._wp*temp(jl)
+          IF ( ztt <= ztmin .OR. ztt >= ztmax ) THEN
+
+            WRITE ( 0 , '(a,a,a,a,i5,a,i8,a,f8.2,a,f8.2,a,f8.2)' )                                 &
+                 & ' Lookup table problem in ', TRIM(name), ' at ',                                &
+                 & ' level   =',klev,                                                              &
+                 & ' cell ID =',p_patch(1)%cells%decomp_info%glb_index((kblock-1)*kblock_size+jl), &
+                 & ' lon(deg)=',p_patch(1)%cells%center(jl,kblock)%lon*rad2deg,                    &
+                 & ' lat(deg)=',p_patch(1)%cells%center(jl,kblock)%lat*rad2deg,                    &
+                 & ' value   =',temp(jl)
+
+          ENDIF
+        ENDDO
+
+      ENDIF
+
+      CALL lookuperror(name)
+
+    ENDIF
 
     CALL fetch_ua_spline(1,size,idx,zalpha,tlucu,ua,dua)
 
   END SUBROUTINE lookup_ua_list_spline
 
-  SUBROUTINE lookup_ua_list_spline_2(name, size, kidx, list, temp, ua, dua)
+  SUBROUTINE lookup_ua_list_spline_2(name, size, kidx, list, temp, ua, dua, &
+    &                                klev,kblock,kblock_size)
+
     CHARACTER(len=*),   INTENT(in)  :: name
     INTEGER,            INTENT(in)  :: size, kidx
     INTEGER,            INTENT(in)  :: list(kidx)
     REAL(wp),           INTENT(in)  :: temp(size)
     REAL(wp), OPTIONAL, INTENT(out) :: ua(size), dua(size)
+
+    INTEGER,  OPTIONAL, INTENT(in)  :: klev
+    INTEGER,  OPTIONAL, INTENT(in)  :: kblock
+    INTEGER,  OPTIONAL, INTENT(in)  :: kblock_size
 
     INTEGER :: idx(size)
     REAL(wp) :: zalpha(size)
@@ -1085,7 +1122,35 @@ CONTAINS
     !$ACC END PARALLEL
 
     ! if one index was out of bounds -> print error and exit
-    IF (zinbounds == 0.0_wp) CALL lookuperror(name)
+
+    IF (zinbounds == 0.0_wp) THEN
+
+      !$ACC UPDATE HOST( temp )
+      IF ( PRESENT(kblock) .AND. PRESENT(kblock_size) .AND. PRESENT(klev) ) THEN
+
+        ! tied to patch(1), does not yet work for nested grids
+
+        DO jl = 1, size
+          ztt = 20._wp*temp(jl)
+          IF ( ztt <= ztmin .OR. ztt >= ztmax ) THEN
+
+            WRITE ( 0 , '(a,a,a,a,i5,a,i8,a,f8.2,a,f8.2,a,f8.2)' )                                 &
+                 & ' Lookup table problem in ', TRIM(name), ' at ',                                &
+                 & ' level   =',klev,                                                              &
+                 & ' cell ID =',p_patch(1)%cells%decomp_info%glb_index((kblock-1)*kblock_size+jl), &
+                 & ' lon(deg)=',p_patch(1)%cells%center(jl,kblock)%lon*rad2deg,                    &
+                 & ' lat(deg)=',p_patch(1)%cells%center(jl,kblock)%lat*rad2deg,                    &
+                 & ' value   =',temp(jl)
+
+          ENDIF
+        ENDDO
+
+      ENDIF
+
+      CALL lookuperror(name)
+
+    ENDIF
+
     CALL fetch_ua_spline(1,kidx, idx, zalpha, tlucu, ua, dua)
     !$ACC END DATA
     !$ACC END DATA
@@ -1241,7 +1306,7 @@ CONTAINS
   !! Compute saturation specific humidity
   !! from the given temperature and pressure.
   !!
-  SUBROUTINE compute_qsat( kbdim, is, loidx, ppsfc, ptsfc, pqs )
+  SUBROUTINE compute_qsat( kbdim, is, loidx, ppsfc, ptsfc, pqs, klev, jb, block_size )
 
     INTEGER, INTENT(IN)  :: kbdim, is
     INTEGER ,INTENT(IN)  :: loidx(kbdim)!<
@@ -1254,13 +1319,16 @@ CONTAINS
     REAL(wp) :: zpap, zcor
     REAL(wp) :: ua(kbdim)
 
+    INTEGER  :: jb, klev, block_size
+
     !-----
     lookupoverflow = .FALSE.
 
     !$ACC DATA PRESENT( loidx, ppsfc, ptsfc, pqs ) &
     !$ACC      CREATE( ua )
 
-    CALL lookup_ua_list_spline_2('compute_qsat',kbdim,is,loidx(:), ptsfc(:), ua(:))
+    CALL lookup_ua_list_spline_2('compute_qsat',kbdim,is,loidx(:), ptsfc(:), ua(:), &
+            &                          klev=klev, kblock=jb, kblock_size=block_size )
 !
     !$ACC PARALLEL
     !$ACC LOOP GANG VECTOR PRIVATE( jl, zpap, zes, zcor )
