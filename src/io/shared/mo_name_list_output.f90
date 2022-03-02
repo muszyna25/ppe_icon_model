@@ -97,7 +97,7 @@ MODULE mo_name_list_output
   USE mo_util_string,               ONLY: t_keyword_list, associate_keyword, with_keywords,         &
   &                                       int2string
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_output, ltimer,      &
-    &                                     print_timer
+    &                                     timer_wait_for_async_io, print_timer
   USE mo_level_selection_types,     ONLY: t_level_selection
   USE mo_name_list_output_gridinfo, ONLY: write_grid_info_grb2, GRID_INFO_NONE
   USE mo_util_file,                 ONLY: util_rename, get_filename, get_path
@@ -3335,6 +3335,8 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: &
       routine = modname//'::compute_wait_for_async_io'
 
+    IF (ltimer) CALL timer_start(timer_wait_for_async_io)
+
     ! Compute PE #0 receives message from I/O PEs
     !
     ! Note: We only need to wait for those I/O PEs which are involved
@@ -3374,6 +3376,9 @@ CONTAINS
     IF (ldebug) WRITE (0,*) "pe ", p_pe, ": waiting in barrier ", routine
     CALL p_barrier(comm=p_comm_work)
     IF (ldebug) WRITE (0,*) "pe ", p_pe, ": barrier done ", routine
+
+    IF (ltimer) CALL timer_stop(timer_wait_for_async_io)
+
   END SUBROUTINE compute_wait_for_async_io
 
   SUBROUTINE compute_final_wait_for_async_io

@@ -148,6 +148,7 @@ MODULE mo_timer
   PUBLIC :: timer_omp_radiation
   PUBLIC :: timer_lonlat_setup
   PUBLIC :: timer_write_output
+  PUBLIC :: timer_wait_for_async_io
   PUBLIC :: timer_model_init, timer_init_latbc
   PUBLIC :: timer_init_nwp_phy
   PUBLIC :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
@@ -363,6 +364,7 @@ MODULE mo_timer
 
   INTEGER :: timer_omp_radiation
   INTEGER :: timer_write_output
+  INTEGER :: timer_wait_for_async_io
   INTEGER :: timer_model_init, timer_init_latbc
   INTEGER :: timer_init_nwp_phy
   INTEGER :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
@@ -601,7 +603,8 @@ CONTAINS
     timer_icon_comm_wait         = new_timer("comm_wait")
     timer_icon_comm_barrier_2    = new_timer("comm_barrier_2")
 
-    timer_write_output  = new_timer("wrt_output")
+    timer_write_output           = new_timer("wrt_output")
+    timer_wait_for_async_io      = new_timer("wait_for_async_io")
 
     timer_integrate_nh      = new_timer  ("integrate_nh")
     timer_solve_nh          = new_timer  ("nh_solve")
