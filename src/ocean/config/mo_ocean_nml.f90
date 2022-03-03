@@ -264,6 +264,7 @@ MODULE mo_ocean_nml
   LOGICAL  :: limit_seaice          = .TRUE.     ! .TRUE.: set a cutoff limit to sea ice thickness
   INTEGER  :: limit_seaice_type     = 1 
   REAL(wp) :: seaice_limit          = 0.4_wp     ! limit sea ice thickness to fraction of surface layer thickness
+  REAL(wp) :: seaice_limit_abs      = 0.0_wp     ! absolute value of maximum ice thickness (only used if > 0.0)
 
   INTEGER  :: coriolis_type         = 1          ! 0=zero Coriolis, the non-rotating case
                                                  ! 1=full varying Coriolis
@@ -861,6 +862,14 @@ MODULE mo_ocean_nml
   ! include slp_pressure forcing in horizontal pressure gradient
   LOGICAL  :: atm_pressure_included_in_ocedyn  = .FALSE.
   LOGICAL  :: atm_pressure_included_in_icedyn  = .FALSE.
+  INTEGER  :: ssh_in_icedyn_type                   = 1  ! 0: ssh=0.0 for icedyn
+                                                        ! 1: ssh=ssh in icedyn
+                                                        ! 2: ssh approximated from ocean velocity
+  LOGICAL  :: ice_free_drift_only = .FALSE.
+  LOGICAL  :: ice_laplace_dynamics = .FALSE.
+  LOGICAL  :: ice_stabilization = .TRUE.
+  !!$LOGICAL  :: ice_vtk_output = .FALSE.
+  !!$INTEGER  :: vtk_int = 60*60*24*30
 
   LOGICAL  :: lfb_bgc_oce = .FALSE.   !chlorophyll determines optical properties of sea water  
   LOGICAL  :: lswr_jerlov = .TRUE.
@@ -935,6 +944,7 @@ MODULE mo_ocean_nml
     &                 relax_analytical_type               , &
     &                 limit_seaice                        , &
     &                 seaice_limit                        , &
+    &                 seaice_limit_abs                    , &
     &                 limit_seaice_type                   , &
     &                 type_surfRelax_Temp                 , &
     &                 relax_temperature_min               , &
@@ -955,6 +965,12 @@ MODULE mo_ocean_nml
     &                 forcing_smooth_steps                , &
     &                 forcing_windStress_weight           , &
     &                 use_new_forcing                     , &
+    &                 ssh_in_icedyn_type                  , &
+    &                 ice_free_drift_only                 , &
+    &                 ice_laplace_dynamics                , &
+    &                 ice_stabilization                   , &
+!!$    &                 ice_vtk_output                      , &
+!!$    &                 vtk_int                             , &
     &                 atm_pressure_included_in_icedyn     , &
     &                 atm_pressure_included_in_ocedyn     , &
     &                 lfb_bgc_oce                         , &

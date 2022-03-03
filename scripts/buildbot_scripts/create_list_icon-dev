@@ -33,7 +33,8 @@ $addexp "checksuite.icon-dev/check.atm_sma"            --machines mistral breeze
 $addexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
   --without-configureflags without-mpi enable-mixed --runflags "cpu_time=00:30:00 mpi_procs_pernode=5"  --list $listname
 # add omip binary-identical test on mistral
-$addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex \
+$addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_internal/omip/exp.test_ocean_newice_omip_10days \
+checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex \
  --machines mistral --machines mistral --without-configureflags enable-mixed --runflags "cpu_time=00:30:00 queue=compute" --list $listname
 $addexp checksuite.ocean_internal/hamocc/exp.test_concurrent_hamocc_omip_10days  \
 --machines mistral --without-configureflags without-mpi enable-mixed --runflags "cpu_time=00:30:00 no_of_nodes=2 queue=compute" --list $listname

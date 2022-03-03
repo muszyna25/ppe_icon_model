@@ -105,6 +105,7 @@ MODULE mo_sea_ice_nml
 !  REAL(wp),PUBLIC :: alpha_evp        ! Parameters  of modified EVP formulation in Bouillon (2013)
 !  REAL(wp),PUBLIC :: beta_evp
 
+  INTEGER, PUBLIC :: n_ice_iter
   REAL(wp),PUBLIC :: Pstar
   REAL(wp),PUBLIC :: ellipse          
   REAL(wp),PUBLIC :: c_pressure       
@@ -136,6 +137,7 @@ MODULE mo_sea_ice_nml
     &  albim, &
     &  sice, &
     &  pstar, &
+    &  n_ice_iter, &
     &  ellipse, &
     &  c_pressure, &
     &  t_heat_base, &
@@ -198,6 +200,7 @@ CONTAINS
 
 
    !RHEOLOGY
+    n_ice_iter  = 120
     Pstar       = 27500._wp        ! MPIOM uses 20000 [N/m^2]
     ellipse     = 2.0_wp
     c_pressure  = 20.0_wp
@@ -206,6 +209,7 @@ CONTAINS
 
     ramp_wind    = 1.0_wp
 
+!    delta_min    = 2.0e-9_wp ! Hibler, Hunke normally use 2.0e-9, which does much stronger limiting
     delta_min    = 2.0e-11_wp ! Hibler, Hunke normally use 2.0e-9, which does much stronger limiting
     evp_rheol_steps = 120
     Tevp_inv = 0.01_wp
