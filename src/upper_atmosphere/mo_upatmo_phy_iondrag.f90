@@ -71,8 +71,7 @@ MODULE mo_upatmo_phy_iondrag
 
   USE mo_kind,                 ONLY: wp
   USE mo_physical_constants,   ONLY: vtmpc2
-  USE mo_echam_vdiff_params,   ONLY: cvdifts
-  USE mo_impl_constants,       ONLY: SUCCESS
+  USE mo_impl_constants,       ONLY: SUCCESS, cvdifts
   USE mo_upatmo_impl_const,    ONLY: isolvar
 
   IMPLICIT NONE

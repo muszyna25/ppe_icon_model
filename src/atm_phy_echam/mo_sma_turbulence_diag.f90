@@ -37,7 +37,7 @@ MODULE mo_sma_turbulence_diag
     &                             min_rlvert_int
   USE mo_parallel_config   ,ONLY: p_test_run
   USE mo_loopindices       ,ONLY: get_indices_e, get_indices_c
-  USE mo_les_utilities     ,ONLY: brunt_vaisala_freq, vert_intp_full2half_cell_3d
+  USE mo_nh_vert_interp_les,ONLY: brunt_vaisala_freq, vert_intp_full2half_cell_3d
   USE mo_intp              ,ONLY: cells2verts_scalar, cells2edges_scalar
   USE mo_sync              ,ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
     &                             sync_patch_array_mult

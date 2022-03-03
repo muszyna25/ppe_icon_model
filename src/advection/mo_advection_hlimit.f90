@@ -63,12 +63,7 @@ MODULE mo_advection_hlimit
 
 
 #if defined( _OPENACC )
-#if defined(__ADVECTION_LIMITER_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
 CONTAINS
@@ -243,8 +238,6 @@ CONTAINS
 !$ACC      PCOPYIN( p_cc, p_mass_flx_e, p_rhodz_now, p_rhodz_new ), PCOPY( p_mflx_tracer_h ),&
 !$ACC      PRESENT( ptr_patch, ptr_int, iilc, iibc, iilnc, iibnc, iidx, iblk ),              &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-
-!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, p_mflx_tracer_h ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     IF (p_test_run) THEN
 !$ACC KERNELS PRESENT( r_p, r_m) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
@@ -565,7 +558,6 @@ CONTAINS
 !$OMP END PARALLEL
 
 !$ACC WAIT
-!$ACC UPDATE HOST( p_mflx_tracer_h ) IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
 !$ACC END DATA
 
   END SUBROUTINE hflx_limiter_mo
@@ -689,7 +681,6 @@ CONTAINS
 !$ACC DATA CREATE( r_m ), PCOPYIN( p_cc, p_rhodz_now ), PCOPY( p_mflx_tracer_h ),  &
 !$ACC      PRESENT( ptr_patch, ptr_int, iilc, iibc, iidx, iblk ),                          &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_h ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     IF (p_test_run) THEN
 !$ACC KERNELS PRESENT( r_m ) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
@@ -878,7 +869,6 @@ CONTAINS
 !$OMP END PARALLEL
 
 !$ACC WAIT
-!$ACC UPDATE HOST( p_mflx_tracer_h ) IF (acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE hflx_limiter_pd

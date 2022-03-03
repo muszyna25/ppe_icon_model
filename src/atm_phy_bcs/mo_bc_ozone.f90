@@ -38,11 +38,7 @@ MODULE mo_bc_ozone
   &                                      calculate_time_interpolation_weights
   IMPLICIT NONE
   PRIVATE
-#ifdef __NO_RTE_RRTMGP__
-  REAL(wp), PARAMETER               :: vmr2mmr_o3=amo3/amd  ! Volume mixing ratio to mass mixing ratio
-#else
   REAL(wp), PARAMETER               :: vmr2mmr_o3=1._wp     ! No conversion for RTE-RRTMGP
-#endif
   INTEGER(i8), SAVE                 :: pre_year(max_dom)=-HUGE(1) ! Variable to check if it is time to read
 
   PUBLIC                            :: ext_ozone
@@ -117,11 +113,7 @@ CONTAINS
         ! year of a simulation that started before this year, meaning that
         ! a year of external monthly ozone data is already stored.
         !
-#ifdef __NO_RTE_RRTMGP__
-        IF (echam_rad_config(jg)% irad_o3==8) THEN
-#else
         IF (echam_rad_config(jg)% irad_o3==5) THEN
-#endif
           !
           ! ozone is transient and the external monthly ozone data
           ! of this year and January of the next year must be read from file.
@@ -189,11 +181,7 @@ CONTAINS
         !
         SELECT CASE (echam_rad_config(jg)% irad_o3)
         !
-#ifdef __NO_RTE_RRTMGP__
-        CASE (2) ! Ozone has a climatological annual cycle defined by monthly data in an annual file
-#else
         CASE (6) ! Ozone has a climatological annual cycle defined by monthly data in an annual file
-#endif
           !
           IF ( nyears > 1 ) THEN
             imonth_beg = 0
@@ -291,11 +279,7 @@ CONTAINS
           ext_ozone(jg)% o3_plev(:,:,:,1) = vmr2mmr_o3*zo3_plev(:,:,:,1)
           !
           !
-#ifdef __NO_RTE_RRTMGP__
-        CASE (8, 10) ! Ozone is transient and defined by monthly data in annual files
-#else
         CASE (5) ! Ozone is transient and defined by monthly data in annual files
-#endif
           !
           IF ( nyears > 1 ) THEN
             imonth_beg = 0

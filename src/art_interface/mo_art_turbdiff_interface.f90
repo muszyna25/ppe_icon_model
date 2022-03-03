@@ -31,14 +31,12 @@ MODULE mo_art_turbdiff_interface
   USE mo_run_config,                    ONLY: lart
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_turbdiffInt
-#ifdef __ICON_ART
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_diag_types,                ONLY: t_art_diag
   USE mo_art_surface_value,             ONLY: art_surface_value
   USE mo_art_config,                    ONLY: art_config
 #ifdef _OPENACC
   USE mo_exception,                     ONLY: warning
-#endif
 #endif
 
   IMPLICIT NONE
@@ -101,7 +99,7 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
     &  opt_sv(:,:,:)                     !< surface value according to transfer coeff.
   LOGICAL, INTENT(in), OPTIONAL             :: &
     &  opt_fc
-#ifdef __ICON_ART
+
 !Local variables
   REAL(wp), POINTER         :: &
     &  sv(:,:,:),              & !< surface value of tracer
@@ -190,8 +188,6 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
     IF (timers_level > 3) CALL timer_stop(timer_art_turbdiffInt)
     IF (timers_level > 3) CALL timer_stop(timer_art)
   END IF
-
-#endif
 
 END SUBROUTINE art_turbdiff_interface
 !!

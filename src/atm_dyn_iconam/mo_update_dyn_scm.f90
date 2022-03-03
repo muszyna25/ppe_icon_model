@@ -46,13 +46,7 @@ MODULE mo_update_dyn_scm
   PUBLIC  :: add_slowphys_scm, rbf_coeff_scm
 
 #if defined( _OPENACC )
-#define ACC_DEBUG NOACC
-#if defined(__NH_SUPERVISE_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -99,10 +93,6 @@ CONTAINS
     i_nchdom = MAX(1,p_patch%n_childdom)
 
 !$ACC DATA PRESENT( p_nh )  IF ( i_am_accel_node .AND. acc_on )
-
-!$ACC UPDATE DEVICE ( p_nh%prog(nnow)%exner, p_nh%prog(nnow)%vn,                           &
-!$ACC                 p_nh%diag%ddt_exner_phy, p_nh%diag%ddt_vn_phy, p_nh%prog(nnew)%rho ) &
-!$ACC        IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
     rl_start = grf_bdywidth_c+1 
@@ -184,9 +174,6 @@ CONTAINS
     ! Synchronize updated prognostic variables
     CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%exner)
     CALL sync_patch_array(SYNC_E,p_patch,p_nh%prog(nnew)%vn)
-
-!$ACC UPDATE HOST( p_nh%prog(nnew)%exner, p_nh%prog(nnew)%vn, p_nh%prog(nnew)%theta_v ) &
-!$ACC        IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$ACC END DATA
 

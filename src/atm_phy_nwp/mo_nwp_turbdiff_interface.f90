@@ -55,10 +55,13 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_art_config,             ONLY: art_config
   USE mo_advection_config,       ONLY: advection_config
   USE mo_turbdiff_config,        ONLY: turbdiff_config
+#ifdef __ICON_ART
   USE mo_art_turbdiff_interface, ONLY: art_turbdiff_interface
-
+#endif
+#ifndef __NO_ICON_EDMF__
   USE mo_edmf_param,             ONLY: ntiles_edmf
   USE mo_vdfouter,               ONLY: vdfouter
+#endif
   USE mo_lnd_nwp_config,         ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water
   USE mo_grid_config,            ONLY: l_scm_mode
   USE mo_scm_nml,                ONLY: scm_sfc_mom, scm_sfc_temp ,scm_sfc_qv
@@ -369,6 +372,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       ENDIF ! turbdiff_config(jg)%ldiff_qs
 
       !$acc wait
+#ifdef __ICON_ART
       IF ( lart .AND. art_config(jg)%nturb_tracer > 0 ) THEN
          CALL art_turbdiff_interface( 'setup_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
            &                          ncloud_offset=ncloud_offset,                     &
@@ -378,6 +382,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
            &                          p_diag=p_diag, prm_diag=prm_diag,                &
            &                          jb=jb, idx_nturb_tracer=idx_nturb_tracer )
       ENDIF
+#endif
   
       IF ( ltestcase .AND. l_scm_mode .AND. &
         &  ((scm_sfc_mom .GE. 2) .OR. (scm_sfc_temp .GE. 2) .OR. (scm_sfc_qv .GE. 2)) ) THEN
@@ -598,12 +603,14 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       END IF
 
       !$acc wait
+#ifdef __ICON_ART
       IF ( lart .AND. art_config(jg)%nturb_tracer > 0 ) THEN
          CALL art_turbdiff_interface( 'update_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
            &                          ncloud_offset=ncloud_offset,                      &
            &                          ptr=ptr(:), dt=tcall_turb_jg,                     &
            &                          i_st=i_startidx, i_en=i_endidx )
       ENDIF
+#endif
 
       ! transform updated turbulent velocity scale back to TKE
       ! Note: ddt_tke is purely diagnostic and has already been added to z_tvs
@@ -633,6 +640,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         !$ACC END PARALLEL
       ENDIF
 
+#ifndef __NO_ICON_EDMF__
     CASE(iedmf)
 
 !-------------------------------------------------------------------------
@@ -806,6 +814,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
           prm_diag%ldshcv(jc,jb) = .TRUE.
         ENDIF
       ENDDO
+#endif
 
    CASE(igme)
 

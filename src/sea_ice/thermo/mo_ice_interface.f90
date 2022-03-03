@@ -51,9 +51,12 @@ MODULE mo_ice_interface
   USE mo_ice_slow_thermo,     ONLY: ice_slow_thermo
   USE mo_ice_parameterizations, ONLY: ice_cut_off, set_ice_albedo
   USE mo_ice_fem_interface,   ONLY: ice_fem_interface
+  USE mo_ice_fem_interpolation, ONLY: cvec2gvec_c_2d
+  USE mo_math_types,          ONLY: t_cartesian_coordinates
   USE mo_ice_advection,       ONLY: ice_advection_upwind
 
-  USE mo_ice_new_dynamics,   ONLY: ice_new_dynamics
+  USE mo_ice_new_dynamics,   ONLY: ice_new_dynamics, &
+    &                              interface_boundary_edge_marker, interface_boundary_cell_marker
   USE mo_ocean_nml,          ONLY: n_zlev
 
   USE mo_impl_constants,     ONLY: sea_boundary,sea, land, boundary
@@ -96,9 +99,27 @@ CONTAINS
 
     ! Local variables
     TYPE(t_patch),  POINTER :: p_patch
+    TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_subset_range), POINTER :: owned_cells
+
+    TYPE(t_cartesian_coordinates) :: cvec_ice_velocity(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+
+
+    REAL(wp) ::  boundary_cell_marker(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) ::  boundary_edge_marker(nproma,p_patch_3d%p_patch_2d(1)%nblks_e)
+    REAL(wp) ::  ice_x(nproma,p_patch_3d%p_patch_2d(1)%nblks_e)
+    REAL(wp) ::  ice_y(nproma,p_patch_3d%p_patch_2d(1)%nblks_e)
+    REAL(wp) ::  ice_z(nproma,p_patch_3d%p_patch_2d(1)%nblks_e)
+
+    REAL(wp) :: nix,niy,niz,tix,tiy,tiz
+
+    INTEGER  :: edge_block_1,edge_block_2,edge_block_3,edge_index_1,edge_index_2,edge_index_3
+    INTEGER  :: edge_block_i,start_index,end_index,edge_index_i,cell_block,cell_index
 
     !-----------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
+    all_edges       => p_patch%edges%all
+    owned_cells     => p_patch%cells%owned
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('bef.icedyn: hi  ',p_ice%hi    ,str_module,2, in_subset=p_patch%cells%owned)
@@ -138,6 +159,70 @@ CONTAINS
 
  !    ! fix possible overshoots/undershoots after advection (previously, ice_clean_up_dyn)
       CALL ice_cut_off( p_patch, p_ice )
+      IF (i_ice_dyn == 2) THEN
+        ! kartesischer Vektor auf Kantenmitte
+        cvec_ice_velocity(:,:)%x(1)=0.0_wp
+        cvec_ice_velocity(:,:)%x(2)=0.0_wp
+        cvec_ice_velocity(:,:)%x(3)=0.0_wp
+
+        boundary_cell_marker(:,:,:)=0.0_wp
+        boundary_edge_marker(:,:)=0.0_wp
+        ice_x(:,:)=0.0_wp
+        ice_y(:,:)=0.0_wp
+        ice_z(:,:)=0.0_wp
+
+        CALL interface_boundary_cell_marker(boundary_cell_marker, p_patch_3D, p_ice)
+        CALL interface_boundary_edge_marker(boundary_edge_marker,boundary_cell_marker, p_patch_3D, p_ice)
+
+        DO edge_block_i = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, edge_block_i, start_index, end_index)
+          DO edge_index_i =  start_index, end_index
+            nix=p_patch%edges%primal_cart_normal(edge_index_i,edge_block_i)%x(1)
+            tix=p_patch%edges%dual_cart_normal(edge_index_i,edge_block_i)%x(1)
+
+            niy=p_patch%edges%primal_cart_normal(edge_index_i,edge_block_i)%x(2)
+            tiy=p_patch%edges%dual_cart_normal(edge_index_i,edge_block_i)%x(2)
+
+            niz=p_patch%edges%primal_cart_normal(edge_index_i,edge_block_i)%x(3)
+            tiz=p_patch%edges%dual_cart_normal(edge_index_i,edge_block_i)%x(3)
+
+            ice_x(edge_index_i,edge_block_i)= boundary_edge_marker(edge_index_i,edge_block_i)*&
+                      &(nix*p_ice%vn_e(edge_index_i,edge_block_i)+tix*p_ice%vt_e(edge_index_i,edge_block_i))
+            ice_y(edge_index_i,edge_block_i)= boundary_edge_marker(edge_index_i,edge_block_i)*&
+                      &(niy*p_ice%vn_e(edge_index_i,edge_block_i)+tiy*p_ice%vt_e(edge_index_i,edge_block_i))
+            ice_z(edge_index_i,edge_block_i)= boundary_edge_marker(edge_index_i,edge_block_i)*&
+                      &(niz*p_ice%vn_e(edge_index_i,edge_block_i)+tiz*p_ice%vt_e(edge_index_i,edge_block_i))
+
+          ENDDO
+        ENDDO
+
+! Mittlung auf Zellmitte
+
+        DO cell_block = owned_cells%start_block, owned_cells%end_block
+          CALL get_index_range(owned_cells, cell_block, start_index, end_index)
+          DO cell_index = start_index, end_index
+
+            edge_index_1 = p_patch%cells%edge_idx(cell_index, cell_block, 1)
+            edge_block_1 = p_patch%cells%edge_blk(cell_index, cell_block, 1)
+
+            edge_index_2 = p_patch%cells%edge_idx(cell_index, cell_block, 2)
+            edge_block_2 = p_patch%cells%edge_blk(cell_index, cell_block, 2)
+
+            edge_index_3 = p_patch%cells%edge_idx(cell_index, cell_block, 3)
+            edge_block_3 = p_patch%cells%edge_blk(cell_index, cell_block, 3)
+
+            cvec_ice_velocity(cell_index,cell_block)%x(1)=1.0_wp/3.0_wp*(ice_x(edge_index_1,edge_block_1)+&
+                          &ice_x(edge_index_2,edge_block_2)+ice_x(edge_index_3,edge_block_3))
+            cvec_ice_velocity(cell_index,cell_block)%x(2)=1.0_wp/3.0_wp*(ice_y(edge_index_1,edge_block_1)+&
+                          &ice_y(edge_index_2,edge_block_2)+ice_y(edge_index_3,edge_block_3))
+            cvec_ice_velocity(cell_index,cell_block)%x(3)=1.0_wp/3.0_wp*(ice_z(edge_index_1,edge_block_1)+&
+                          &ice_z(edge_index_2,edge_block_2)+ice_z(edge_index_3,edge_block_3))
+          ENDDO
+        ENDDO
+
+        CALL cvec2gvec_c_2d(p_patch_3D, cvec_ice_velocity(:,:), p_ice%u, p_ice%v)
+
+      ENDIF
 
       IF (timers_level > 1) CALL timer_stop(timer_extra40)
 

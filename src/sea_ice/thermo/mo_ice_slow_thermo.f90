@@ -40,7 +40,8 @@ MODULE mo_ice_slow_thermo
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, alf, clw
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, hmin, hnull, leadclose_1, leadclose_2n, sice
   USE mo_ocean_nml,           ONLY: limit_seaice, limit_seaice_type, seaice_limit, &
-    & vert_cor_type
+    &                               vert_cor_type,                                 &
+    &                               surface_flux_type, seaice_limit_abs
   USE mo_ocean_state,         ONLY: v_base
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_ocean_surface_types, ONLY: t_ocean_surface
@@ -367,7 +368,11 @@ CONTAINS
           ! Growing ice from ocean water in fi1 and melted snow in fi2 which are not identical due to sea ice salinity.
 
           ! ice growth/melt plus snow_to_ice conversion proportional to salt difference of water and ice
+          IF (vert_cor_type == 0) THEN
           fi1(jc,jb) = - (1._wp-sice/sss(jc,jb)) * ( SUM( ice%delhi(jc,:,jb) )*rhoi + snowiceave(jc,jb)*rhos )/(rho_ref*dtime)
+          ELSEIF (vert_cor_type == 1) THEN
+            fi1(jc,jb) = - ( SUM( ice%delhi(jc,:,jb) )*rhoi + snowiceave(jc,jb)*rhos )/(rho_ref*dtime)
+          ENDIF
 
           ! Total snow melt (negative is net melt) is given by real snow melt and implied snow melt from snow-to ice conversion.
           ! Real snow melt is given by change in snow thickness, minus the new snow from snow fall.
@@ -376,13 +381,19 @@ CONTAINS
           fi2(jc,jb) = - MIN(snowmelted(jc,jb), 0.0_wp)/dtime
 
           ! new ice formation
+          IF (vert_cor_type == 0) THEN
           fi3(jc,jb) =-(1._wp-sice/sss(jc,jb))*ice%newice(jc,jb)*rhoi/(rho_ref*dtime)
+          ELSEIF (vert_cor_type == 1) THEN
+           fi3(jc,jb) = - ice%newice(jc,jb)*rhoi/(rho_ref*dtime)
+         ENDIF
 
           ! total freshwater flux from sea ice thermodynamics:
           p_oce_sfc%FrshFlux_TotalIce(jc,jb) = fi1(jc,jb) + fi2(jc,jb) + fi3(jc,jb)
+
 !          p_oce_sfc%FrshFlux_TotalIce(jc,jb) = -( ( SUM( ice%delhi(jc,:,jb))*rhoi &
 !            & + SUM( ice%delhs(jc,:,jb) )*rhos + ice%newice(jc,jb)*rhoi)/rho_ref &
 !            & - ice%totalsnowfall(jc,jb) )/dtime
+
 
         ENDIF
 
@@ -536,16 +547,28 @@ CONTAINS
 
         ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
             z_smax = seaice_limit * prism_thick_flat
+
             IF (vert_cor_type .eq. 1) THEN
               z_smax = z_smax*p_os%p_prog(nold(1))%stretch_c(jc, jb)
             END IF
+            IF (seaice_limit_abs > 0._wp .AND. z_smax > seaice_limit_abs) THEN
+              z_smax = seaice_limit_abs
+            ENDIF
+
             IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary  .AND.  p_ice%hi(jc,k,jb) > z_smax ) THEN
                 ! Tracer flux due to removal
+                if (vert_cor_type .eq. 1 .and. surface_flux_type >= 10) THEN  ! FrshFlx_Total_ice is used differently here
+                  p_oce_sfc%FrshFlux_TotalIce (jc,jb) = p_oce_sfc%FrshFlux_TotalIce (jc,jb)                      &
+                        & + (p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)  ! Ice
+                ELSE
                 p_oce_sfc%FrshFlux_TotalIce (jc,jb) = p_oce_sfc%FrshFlux_TotalIce (jc,jb)                      &
                       & + (1._wp-sice/sss(jc,jb))*(p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)  ! Ice
+
+                ENDIF
           
                 p_oce_sfc%FrshFlux_IceSalt(jc,jb) = p_oce_sfc%FrshFlux_IceSalt(jc,jb) &
                   & + sice * (p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)
+
                 ! Heat flux due to removal
                 !  #slo# 2015-02: - this heat did not come from the ocean, but from atmosphere, heating ocean is wrong
                 !                 - check if conc must enter here as well, check energy for coupling

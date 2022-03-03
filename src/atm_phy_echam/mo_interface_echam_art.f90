@@ -30,9 +30,9 @@ MODULE mo_interface_echam_art
 !!$  USE mo_echam_phy_config       ,ONLY: echam_phy_config
   USE mo_echam_phy_memory       ,ONLY: t_echam_phy_field, prm_field, &
     &                                  t_echam_phy_tend,  prm_tend
-
+#ifdef __ICON_ART
   USE mo_art_reaction_interface ,ONLY: art_reaction_interface
-
+#endif
   IMPLICIT NONE
   PRIVATE
   PUBLIC  :: interface_echam_art
@@ -74,6 +74,7 @@ CONTAINS
 
     IF ( is_in_sd_ed_interval ) THEN
        !
+#ifdef __ICON_ART
        IF ( is_active ) THEN
           !
           CALL art_reaction_interface(jg,                                           & !> in
@@ -83,6 +84,7 @@ CONTAINS
                &                      field%qtrc)
           !
        END IF
+#endif
        !
 !!$       ! accumulate tendencies for later updating the model state
 !!$       SELECT CASE(fc_art)

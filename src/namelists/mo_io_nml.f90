@@ -191,9 +191,9 @@ CONTAINS
       &              lmask_boundary, gust_interval, restart_write_mode,   &
       &              nrestart_streams, celltracks_interval, echotop_meta, &
       &              precip_interval, runoff_interval, maxt_interval,     &
-      &              nrestart_streams, dt_lpi, dt_celltracks, dt_radar_dbz, &
-      &              bvf2_mode, parcelfreq2_mode, sunshine_interval, itype_dursun, &
-      &              melt_interval
+      &              nrestart_streams, dt_lpi, dt_celltracks,             &
+      &              dt_radar_dbz, bvf2_mode, parcelfreq2_mode,           &
+      &              sunshine_interval, itype_dursun, melt_interval
 
     !-----------------------
     ! 1. default settings

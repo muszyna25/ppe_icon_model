@@ -292,8 +292,6 @@ cat > ${ocean_namelist} << EOF
   k_tracer_GM_kappa_parameter     = 1000.0     !
   k_tracer_isoneutral_parameter   = 1000.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter   = 0.0       !1.0E-5  !
-  lvertical_GM =.TRUE.                       ! true: use Danabasoglu & Marshall (2007) param. for vertical variable kappa
-  Nmin                            = 0.1      ! minimum values for the ratio of N2/N2_ref in D&M2007 param.
   SWITCH_OFF_DIAGONAL_VERT_EXPL          =.TRUE.
   GMREDI_COMBINED_DIAGNOSTIC             =.FALSE.
   SWITCH_ON_REDI_BALANCE_DIAGONSTIC      =.FALSE.
@@ -307,7 +305,7 @@ cat > ${ocean_namelist} << EOF
 /                                           
 &sea_ice_nml
   i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
-  i_ice_dyn                       =   1       ! 1/0=switch on/off AWI ice dynamics , 2=C-grid ice dynamics 
+  i_ice_dyn                       =   2       ! 1/0=switch on/off AWI ice dynamics , 2=C-grid ice dynamics 
 ! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
 ! use_constant_tfreez             = .TRUE.    ! default: true
 ! use_no_flux_gradients           = .FALSE.   ! default: true
@@ -385,6 +383,8 @@ EOF
 #-----------------------------------------------------------------------------
 . ${thisdir}/exec.iconrun
 #-----------------------------------------------------------------------------
+exit
+
 #  compare with reference
 if [[ x$BB_SYSTEM != x ]]; then
   rm -f ${final_status_file}

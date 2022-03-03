@@ -33,8 +33,9 @@ MODULE mo_ocean_GM_Redi
     & k_tracer_GM_kappa_parameter,EOS_TYPE,&
     & GMRedi_configuration,GMRedi_combined, GM_only,Redi_only,Cartesian_Mixing, &
     & tapering_scheme,tapering_DanaMcWilliams,tapering_Large,tapering_Griffies, &
+    & vert_mix_type, vmix_pp, vmix_kpp, vmix_tke, vmix_idemix_tke,OceanReferenceDensity,ReferencePressureIndbars, & ! by_Oliver
     & S_max, S_d, S_critical, c_speed, GMRedi_usesRelativeMaxSlopes,            &
-    & RossbyRadius_max, RossbyRadius_min,switch_off_diagonal_vert_expl,         &
+    & RossbyRadius_max, RossbyRadius_min,switch_off_diagonal_vert_expl,lvertical_GM,Nmin,     & ! by_Oliver: added lvertical_GM, Nmin
     & GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,REDI_INDIVIDUAL_DIAGNOSTIC,&
     &TEST_MODE_REDI_ONLY,TEST_MODE_GM_ONLY,LinearThermoExpansionCoefficient, LinearHalineContractionCoefficient,&
     & SWITCH_OFF_TAPERING,SWITCH_ON_REDI_BALANCE_DIAGONSTIC, SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION,&
@@ -68,6 +69,7 @@ MODULE mo_ocean_GM_Redi
   USE mo_ocean_thermodyn,           ONLY : calc_neutralslope_coeff_func_onColumn,&
                                          & calc_neutralslope_coeff_func_onColumn_UNESCO  
   USE mo_ocean_tracer_diffusion,    ONLY: tracer_diffusion_vertical_implicit    
+  USE mo_ocean_thermodyn,           ONLY: calculate_density_onColumn ! by_Oliver
 
   IMPLICIT NONE
   
@@ -92,6 +94,7 @@ MODULE mo_ocean_GM_Redi
 
   
 !  PRIVATE :: calc_bolus_velocity
+  PRIVATE :: vertical_GM
 
   TYPE(t_cartesian_coordinates), POINTER   :: taper_off_diagonal_vert(:,:,:)  
   TYPE(t_cartesian_coordinates), POINTER   :: taper_off_diagonal_horz(:,:,:)
@@ -1183,6 +1186,12 @@ CONTAINS
               !  & * cell_characteristic_length&
               !  &/(2.0_wp*param%k_tracer_isoneutral(cell_index,level,blockNo)*dtime)
 
+               ! FIXME: new from Peter
+               cell_critical_slope      = S_critical  &
+                 & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo)**2 &
+                 & /(param%k_tracer_isoneutral(cell_index,level,blockNo)*dtime)
+
+
               cell_max_slope      = S_max  &
                 & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
                 & * inv_cell_characteristic_length
@@ -1361,7 +1370,15 @@ CONTAINS
     K_I           => param%k_tracer_isoneutral
     K_D           => param%k_tracer_dianeutral !param%a_tracer_v(:,:,:,tracer_index) !  
     kappa         => param%k_tracer_GM_kappa
-    
+  
+    ! by_Oliver 
+    ! call Danabasoglu & Marshall (2007) parameterisation    
+    IF ( lvertical_GM ) THEN
+      CALL vertical_GM(patch_3d, ocean_state, param, op_coeff, kappa)
+      !FIXME: use Redi coeff. = kappa
+      K_I = kappa
+    ENDIF
+ 
     IF(SWITCH_OFF_TAPERING)THEN
      ocean_state%p_aux%taper_function_1(:,:,:)=1.0_wp
      ocean_state%p_aux%taper_function_2(:,:,:)=1.0_wp
@@ -2318,6 +2335,235 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
 !!$  END SUBROUTINE calc_bolus_velocity
 !!$  !-------------------------------------------------------------------------
 
+
+  !-------------------------------------------------------------------------
+  !>
+  !! !  SUBROUTINE Parameterisation for a vertical variation of the GM coefficient (kappa)
+  !! following Danabasoglu and Marshall (2007, doi:10.1016/j.ocemod.2007.03.006).
+  !! Written  by Oliver Gutjahr, MPI-M (2020).
+  !!
+  !! The parameterisation defines a vertical variable kappa:
+  !!  K = (N2 / N2_ref) * K_ref
+  !! with N2 the local buoyancy frequency computed at vertical interface levels,
+  !! N2_ref the reference buoyancy frequency just below the diabatic layer
+  !! depth (DLD) provided N2>0 there, otherwise N2_ref is first N2 >0 below.
+  !!  K_ref is the reference kappa defined in the namelist.
+  !!
+  !! For all shallower depth than DLD, the ratio N2/N2_ref = 1, implying no
+  !! vertical variation of K; in particular in the surface diabatic layer (or
+  !! mixed layer as approximation).
+  !!
+  !! Between the depth at which N2 = N2_ref and the ocean bottom, it is ensured
+  !! that
+  !!   Nmin <= (N2 / N2_ref) <= 1.0
+  !! where Nmin (>0) is a specified lower limit.
+  !!
+  !! In unstable regions (N2 < 0) N2/N2_ref = Nmin (0.1). This ensures the
+  !! vertical smoothness of the N2/N2_ref profile and relies on the enhancement
+  !! of vertical mixing coefficients to alleviate any local static instability.
+  !!
+  !! K and N2/N2_ref are calculated at every model time step. However, it could
+  !! be relaxed to only once per simulation day.
+  !!
+  !! There is no vertical averaging of the N2/N2_ref profile; the value at the
+  !! top of the grid cell is used for the hole grid cell.
+  !!
+  !! The resulting K is subject to usual diffusive numerical stability
+  !! criterion.
+  !! Danabasoglu and Marshall (2007) allow a maximum slope of 0.3. They further
+  !! set K=0 in the bottom halves of the grid cell, which further reduces K in
+  !! the bottom cell by one half.
+  !!
+  !! We do assume here that the DLD is sufficiently approximated with the mixed
+  !! layer depth (mld; see Danabasoglu et al., 2008).
+
+  !! As input we need N2, mld,k_tracer_GM_kappa_parameter and the absolute
+  !! depths of the interface levels.
+
+SUBROUTINE vertical_GM(patch_3d, ocean_state, param, op_coeff, kappa)
+    TYPE(t_patch_3d ),TARGET, INTENT(in)     :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
+    TYPE(t_ho_params),      INTENT(inout)    :: param
+    TYPE(t_operator_coeff), INTENT(in)       :: op_coeff
+    REAL(wp),DIMENSION(:,:,:),INTENT(INOUT)  :: kappa
+
+    ! Local variables
+    INTEGER :: start_cell_index, end_cell_index, cell_index,level,start_level,end_level,blockNo
+    INTEGER :: start_edge_index, end_edge_index, je, k, jc, jk
+    TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain, edges_in_domain
+    INTEGER                                  :: k_mld                    ! interface level of mixed layer depth
+    REAL(wp),DIMENSION(:,:), POINTER         :: mld                      ! diagnosed mixed layer depth
+    INTEGER, POINTER                         :: kbot(:,:)                ! bottom level
+    REAL(wp),POINTER                         :: N2(:,:,:)                ! buoyancy frequency
+    REAL(wp),POINTER                         :: interface_depth(:)       ! depth of interface levels
+    TYPE(t_patch), POINTER :: patch_2D
+    REAL(wp)   :: N2_ref(nproma,patch_3D%p_patch_2D(1)%nblks_e)          ! reference N2 value just below 
+                                                                         !  the surface diabatic layer (mixed layer)
+    REAL(wp)   :: Nratio(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%nblks_e) ! ratio of N2/N2_ref
+    !-------------------------------------------------------------------------------
+
+    ! These are necessary to calculate N2, can be removed once N2 becomes a
+    ! global variable
+    REAL(wp), POINTER :: temp(:,:,:)                                        ! potential temperature
+    REAL(wp), POINTER :: salt(:,:,:)                                        ! salinity 
+    REAL(wp), POINTER :: dzi(:,:,:)                                         ! inverse distance of cell centres
+
+    REAL(wp),TARGET :: Nsqr(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%nblks_e) ! temporary N2
+    REAL(wp) :: rho_up(n_zlev), rho_down(n_zlev)                            ! temporary density
+    REAL(wp) :: pressure(n_zlev), salinity(n_zlev)                          ! temporary pressure and salinity
+
+    !------------------------------------------------------------------------------- 
+
+    patch_2D        => patch_3d%p_patch_2d(1)
+    all_cells       => patch_2D%cells%all
+ 
+    cells_in_domain => patch_2D%cells%in_domain
+    start_level=1
+ 
+    ! Nmin is used from namelist
+
+    ! N2 has to be calculated (pp,tke) since it is not a global variable yet. 
+    !  In case of kpp, we can simply point to N2 to avoid redundant calculation.
+    ! FIXME: can be removed once N2 is a global variable.
+!    SELECT CASE(vert_mix_type)
+
+!      CASE(vmix_kpp)
+!         ! N2 was already calculated in KPP module
+!         N2 => param%cvmix_params%N2(:,:,:)
+!      CASE(vmix_pp,vmix_tke)
+
+
+         ! N2 has to be calculated (for all cases)
+         temp => ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+         salt => ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
+         dzi => patch_3d%p_patch_1d(1)%inv_prism_center_dist_c
+ 
+         Nsqr(:,:,:) = 0.0_wp
+         DO blockNo = all_cells%start_block, all_cells%end_block
+           CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+           DO jc = start_cell_index, end_cell_index
+             pressure(1:n_zlev) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 1:n_zlev, blockNo) * ReferencePressureIndbars
+             rho_up(1:n_zlev-1)  = calculate_density_onColumn(&
+               & temp(jc,1:n_zlev-1,blockNo), &
+               & salt(jc,1:n_zlev-1,blockNo), &
+               & pressure(2:n_zlev), n_zlev-1)
+             rho_down(2:n_zlev)  = calculate_density_onColumn(&
+               & temp(jc,2:n_zlev,blockNo), &
+               & salt(jc,2:n_zlev,blockNo), &
+               & pressure(2:n_zlev), n_zlev-1)
+             DO jk = 2, n_zlev
+               Nsqr(jc,jk,blockNo) = grav/OceanReferenceDensity * (rho_down(jk) - rho_up(jk-1)) * dzi(jc,jk,blockNo)
+             END DO
+           END DO
+         END DO
+         N2 => Nsqr(:,:,:)  
+ 
+!      CASE default
+!         write(*,*) "Unknown vert_mix_type!"
+!         stop
+!      END SELECT
+
+    ! mixed layer depth
+    mld => ocean_state%p_diag%mld 
+
+    ! absolute depth of interface levels
+    ! FIXME: use depth of cell centres?
+    interface_depth => patch_3d%p_patch_1d(1)%zlev_i(:)  
+
+    ! bottom level
+    kbot => patch_3d%p_patch_1d(1)%dolic_c(:,:)
+
+    ! nullify
+    N2_ref(:,:) = 0.0_wp
+    Nratio(:,:,:) = 1.0_wp
+
+    ! begin calculation
+    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, blockNo, start_cell_index,end_cell_index)
+
+          DO cell_index = start_cell_index, end_cell_index
+
+            !---------------------------------------------
+            ! 1) find interface level of mixed layer depth
+            !---------------------------------------------
+            k_mld = 1
+
+            DO level = start_level,kbot(cell_index,blockNo)
+
+               k_mld = level
+
+               DO k = 1,k_mld
+                 IF (k+1 > kbot(cell_index,blockNo)) THEN
+                   k_mld = kbot(cell_index,blockNo)
+                   EXIT
+                 ELSE IF ( interface_depth(k+1) >= mld(cell_index,blockNo) ) THEN
+                   k_mld = k
+                   EXIT
+                 END IF   
+               END DO
+            
+            END DO
+
+            !---------------------------------------------
+            ! 2) find N2_ref := first N2>0 below mld
+            !---------------------------------------------
+              DO level = k_mld+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo) 
+
+                IF ( N2(cell_index,level,blockNo) > 0 ) THEN
+
+                  N2_ref(cell_index,blockNo) = N2(cell_index,level,blockNo)
+                  EXIT
+                  ! FIXME: it seems that a safety is needed when no N2 is found
+
+                END IF
+                ! FIXME: what to do if there is no N2>0 in the water column?
+  
+
+              END DO
+
+              ! diagnostic for N2_ref
+              ocean_state%p_diag%N2_ref(cell_index,blockNo) = N2_ref(cell_index,blockNo)
+
+ 
+
+            !---------------------------------------------
+            ! 3) calculate N2/N2_ref ratio (with safeties)
+            !    and the vertical variable GM kappa
+            !---------------------------------------------
+            ! set all kappa=kappa_ref in the mixed layer (assuming N2/N2_ref = 1.0)
+            kappa(cell_index,1:k_mld,blockNo)  = k_tracer_GM_kappa_parameter            
+
+            ! modify kappa below the mixed layer with the N2 ratio
+            DO level = k_mld+1,patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+
+              ! calculate the N2 ratio, constrained to a minimum value of Nmin
+              ! and a maximum value of 1.0.
+              IF ( N2_ref(cell_index,blockNo) .EQ. 0 ) THEN
+
+                  Nratio(cell_index,level,blockNo) = Nmin
+              ELSE 
+                  Nratio(cell_index,level,blockNo) = MIN(MAX(N2(cell_index,level,blockNo) / N2_ref(cell_index,blockNo), Nmin),1.0_wp)
+
+              END IF
+
+              ! calculate vertical GM kappa 
+              kappa(cell_index,level,blockNo) = Nratio(cell_index,level,blockNo) * k_tracer_GM_kappa_parameter
+
+              !--- diagnostics 
+              ! Nratio
+              ocean_state%p_diag%Nratio(cell_index,level,blockNo) = Nratio(cell_index,level,blockNo)
+
+              ! kappa
+              ocean_state%p_diag%kappa_GM(cell_index,level,blockNo) = kappa(cell_index,level,blockNo)
+
+            END DO
+
+          END DO
+    END DO
+
+
+END SUBROUTINE vertical_GM
+
 !---------------------------------------------------------------------------
 
 
@@ -2701,5 +2947,4 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
  
 
 END MODULE mo_ocean_GM_Redi
-
 

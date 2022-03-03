@@ -83,7 +83,7 @@ LIBS="-Wl,--as-needed ${XML2_LIBS} ${ECCODES__LIBS} ${RTTOV_LIBS} ${AMD_LIBS} ${
 MPI_LAUNCH=''  # needed e.g. for yac configuration. What is the correct setting for gnu ?? 
 
 # full operational NWP configuration including ecRad and DACE+EMVORADO coupling
-EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --enable-loop-exchange --enable-grib2 --enable-mpi --enable-openmp --enable-rttov --enable-ecrad --enable-dace --enable-emvorado --enable-art --disable-rte-rrtmgp --disable-concurrent-psrad --disable-jsbach --disable-ocean --disable-coupling'
+EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --enable-loop-exchange --enable-grib2 --enable-mpi --enable-openmp --enable-rttov --enable-ecrad --enable-dace --enable-emvorado --enable-art --disable-echam --disable-jsbach --disable-ocean --disable-coupling'
 
 ################################################################################
 

@@ -25,6 +25,7 @@ MODULE mo_ice_fem_interface
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_run_config,          ONLY: dtime, ltimer
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_momentum, timer_ice_interp, timer_ice_advection
+  USE mo_exception,           ONLY: finish
 
 ! USE mo_grid_config,         ONLY: l_limited_area, n_dom   ! for now sea-ice works on global domain-only
   USE mo_parallel_config,     ONLY: nproma
@@ -36,7 +37,7 @@ MODULE mo_ice_fem_interface
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_dynamics_config,     ONLY: nold
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
-  USE mo_ocean_nml,           ONLY: atm_pressure_included_in_icedyn 
+  USE mo_ocean_nml,           ONLY: atm_pressure_included_in_icedyn, ssh_in_icedyn_type , vert_cor_type
   USE mo_ocean_surface_types, ONLY: t_atmos_for_ocean, t_ocean_surface
   USE mo_physical_constants,  ONLY: grav, rho_ref, sfc_press_pascal
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
@@ -95,7 +96,7 @@ CONTAINS
 
     ! Local variables
     TYPE(t_patch), POINTER :: p_patch
-    REAL(wp),      POINTER :: ssh(:,:) ! sea surface height (input only)         [m]
+    REAL(wp), ALLOCATABLE  :: ssh(:,:) ! sea surface height (input only)         [m]
     REAL(wp), ALLOCATABLE  :: ssh_reduced(:,:) ! reduced sea surface height to take slp coupling into account     [m]
     INTEGER                :: jc, jb, start_index, end_index
 
@@ -103,7 +104,18 @@ CONTAINS
     p_patch => p_patch_3D%p_patch_2D(1)
     all_cells     => p_patch_3d%p_patch_2d(1)%cells%all
 
-    ssh     => p_os%p_prog(nold(1))%h(:,:)
+    ALLOCATE(ssh(SIZE(p_ice%draftave(:,:),1),SIZE(p_ice%draftave(:,:),2)))
+    IF (ssh_in_icedyn_type == 1) THEN  ! Fully including ssh
+      IF (vert_cor_type == 1) THEN
+        ssh     = p_os%p_prog(nold(1))%eta_c(:,:) + p_ice%draftave(:,:)
+      ELSEIF (vert_cor_type == 0) THEN
+        ssh     = p_os%p_prog(nold(1))%h(:,:)
+      ENDIF
+    ELSEIF (ssh_in_icedyn_type == 0)THEN  ! Not including ssh at all
+      ssh(:,:) = 0.0_wp
+    ELSEIF (ssh_in_icedyn_type > 1)THEN
+      CALL finish('Ice dynamics: ', 'FEM dynamics do not include ssh approximation yet (ssh_in_icedyn=2)!')
+    ENDIF
 
 ! this is the formulation of MPIOM to let the sea dynamics feels the atm pressure
     IF ( atm_pressure_included_in_icedyn ) THEN

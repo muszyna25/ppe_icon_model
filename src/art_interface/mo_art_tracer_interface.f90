@@ -38,10 +38,8 @@ MODULE mo_art_tracer_interface
                                           &   getTotalMilliSecondsTimeDelta, getPTStringFromMS
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art_tracInt
-#ifdef __ICON_ART
   USE mo_art_tracer,                    ONLY: art_tracer
   USE mo_art_init,                      ONLY: art_init
-#endif
 
   IMPLICIT NONE
 
@@ -91,7 +89,6 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix, &
 
   !-----------------------------------------------------------------------
  
-#ifdef __ICON_ART
   IF (lart) THEN
     IF (timers_level > 3) CALL timer_start(timer_art_tracInt)
 
@@ -128,7 +125,6 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix, &
 
     IF (timers_level > 3) CALL timer_stop(timer_art_tracInt)
   ENDIF ! lart
-#endif
 
 END SUBROUTINE art_tracer_interface 
 !!

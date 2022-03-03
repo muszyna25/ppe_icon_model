@@ -91,7 +91,7 @@ LDFLAGS="-L${ZLIBROOT}/lib -L${AEC_DIR}/lib -L${SZIPROOT}/lib -L${HDF5_DIR}/lib 
 LIBS="-Wl,--as-needed ${XML2_LIBS} ${RTTOV_LIBS} ${LAPACK_LIBS} ${ECCODES__LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${SZIP_LIB} ${AEC_LIB} ${ZLIB_LIB}" 
 
 # full operational NWP configuration including ecRad and DACE+EMVORADO coupling
-EXTRA_CONFIG_ARGS='--host='${HOST}' --disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --disable-loop-exchange --enable-grib2 --enable-mpi --disable-openmp --enable-rttov --enable-ecrad --enable-dace --enable-emvorado --disable-rte-rrtmgp --disable-concurrent-psrad --disable-jsbach --disable-ocean --enable-coupling --enable-yaxt'
+EXTRA_CONFIG_ARGS='--host='${HOST}' --disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --disable-loop-exchange --enable-grib2 --enable-mpi --disable-openmp --enable-rttov --enable-ecrad --enable-dace --enable-emvorado --disable-echam --disable-jsbach --disable-ocean --enable-coupling --enable-yaxt'
 
 ################################################################################
 

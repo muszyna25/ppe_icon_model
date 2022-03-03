@@ -73,12 +73,7 @@ MODULE mo_advection_quadrature
 
 
 #if defined( _OPENACC )
-#if defined(__ADVECTION_QUADRATURE_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
   
@@ -186,7 +181,6 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_coords_dreg_v), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), COPYIN( shape_func_l ) &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,z_gauss_pts_1,z_gauss_pts_2,wgt_t_detjac,z_x,z_y &
@@ -239,7 +233,6 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE prep_gauss_quadrature_l
@@ -334,7 +327,6 @@ CONTAINS
 !$ACC DATA PCOPYIN( p_coords_dreg_v, falist), PCOPY( p_dreg_area ),   &
 !$ACC      COPYIN( shape_func_l ), PCOPYOUT( p_quad_vector_sum ),     &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,ie,z_gauss_pts_1,z_gauss_pts_2,wgt_t_detjac,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
@@ -382,7 +374,6 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE prep_gauss_quadrature_l_list
@@ -507,7 +498,6 @@ CONTAINS
 !$ACC DATA PCOPYIN( p_coords_dreg_v ), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
 !$ACC      COPYIN( z_wgt, z_eta, shape_func ),                                     &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac, &
@@ -582,7 +572,6 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE prep_gauss_quadrature_q
@@ -694,7 +683,6 @@ CONTAINS
 !$ACC DATA PCOPYIN( p_coords_dreg_v, falist ), PCOPY( p_dreg_area), PCOPYOUT( p_quad_vector_sum ), &
 !$ACC      COPYIN( z_wgt, z_eta, shape_func ), CREATE( z_x, z_y ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,ie,jg,z_gauss_pts,wgt_t_detjac, &
@@ -774,7 +762,6 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE prep_gauss_quadrature_q_list
@@ -917,7 +904,6 @@ CONTAINS
 !$ACC DATA PCOPYIN( p_coords_dreg_v ), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
 !$ACC      COPYIN( z_wgt, z_eta, shape_func ),                                     &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_coords_dreg_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
@@ -1062,7 +1048,6 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE prep_gauss_quadrature_c
@@ -1176,7 +1161,6 @@ CONTAINS
 !$ACC DATA PCOPYIN( p_coords_dreg_v, falist ), PCOPY( p_dreg_area ), PCOPYOUT( p_quad_vector_sum ),         &
 !$ACC      COPYIN( z_wgt, z_eta, shape_func), CREATE( z_gauss_pts, wgt_t_detjac, z_quad_vector, z_x, z_y ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,ie,jg,z_gauss_pts,wgt_t_detjac,&
@@ -1264,7 +1248,6 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE prep_gauss_quadrature_c_list

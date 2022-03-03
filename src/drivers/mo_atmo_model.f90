@@ -42,7 +42,8 @@ MODULE mo_atmo_model
 #endif
 #endif
   USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp, num_io_procs, &
-    &                                   proc0_shift, num_prefetch_proc, pio_type, num_io_procs_radar
+    &                                   proc0_shift, num_prefetch_proc, pio_type, num_io_procs_radar, &
+    &                                   ignore_nproma_use_nblocks_c, nproma, update_nproma_for_io_procs
   USE mo_master_config,           ONLY: isRestart
   USE mo_memory_log,              ONLY: memory_log_terminate
 #ifndef NOMPI
@@ -136,8 +137,9 @@ MODULE mo_atmo_model
 #endif
   USE mo_async_latbc_types,       ONLY: t_latbc_data
   ! ART
+#ifdef __ICON_ART
   USE mo_art_init_interface,      ONLY: art_init_interface
-  USE mo_parallel_config,         ONLY: ignore_nproma_use_nblocks_c, nproma, update_nproma_for_io_procs
+#endif
   USE mo_sync,                    ONLY: global_max
 
   !-------------------------------------------------------------------------
@@ -636,11 +638,13 @@ CONTAINS
     CALL messy_new_tracer
 #endif
 
+#ifdef __ICON_ART
     !------------------------------------------------------------------
     ! 11. Create ART data fields
     !------------------------------------------------------------------
 
     CALL art_init_interface(n_dom,'construct')
+#endif
 
     !------------------------------------------------------------------
 
@@ -717,8 +721,10 @@ CONTAINS
       CALL destruct_icon_communication()
 !    ENDIF
 
+#ifdef __ICON_ART
     ! Destruct ART data fields
     CALL art_init_interface(n_dom,'destruct')
+#endif
 
 #ifndef __NO_JSBACH__
     CALL jsbach_finalize()

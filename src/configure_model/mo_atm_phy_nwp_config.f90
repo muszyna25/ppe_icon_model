@@ -148,9 +148,10 @@ MODULE mo_atm_phy_nwp_config
     LOGICAL :: lhydrom_read_from_fg(1:20)  ! Flag for each hydrometeor tracer, if it has been read from fg file
     LOGICAL :: lhydrom_read_from_ana(1:20) ! Flag for each hydrometeor tracer, if it has been read from ana file
 
+#ifndef __NO_ICON_LES__
     LOGICAL :: is_les_phy          !>TRUE is turbulence is 3D 
                                    !>FALSE otherwise
-
+#endif
     INTEGER :: nclass_gscp         !> number of hydrometeor classes for 
                                    ! chosen grid scale microphysics
 
@@ -346,6 +347,7 @@ CONTAINS
         CALL finish('configure_atm_phy_nwp', "lshallowconv_only and lgrayzone_deepconv are mutually exclusive")
       ENDIF
 
+#ifndef __NO_ICON_LES__
       ! Configure LES physics (if activated)
       !
       atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
@@ -379,6 +381,7 @@ CONTAINS
         END IF
 
       ENDIF ! is_les_phy
+#endif
 
       !$acc enter data copyin(atm_phy_nwp_config(jg)%lenabled)
 

@@ -124,12 +124,7 @@ MODULE mo_advection_hflux
   PUBLIC :: upwind_hflux_miura3
 
 #if defined( _OPENACC )
-#if defined(__ADVECTION_HFLUX_NOACC)
-  LOGICAL, PARAMETER ::  acc_on = .FALSE.
-#else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
-#endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
   CHARACTER(len=*), PARAMETER :: modname = 'mo_advection_hflux'
@@ -257,8 +252,6 @@ CONTAINS
 
 !$ACC DATA  PRESENT( p_cc, p_mass_flx_e, p_rhodz_now, p_rhodz_new, p_vn, p_upflux ), &
 !$ACC       CREATE( z_real_vt ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, p_rhodz_now, p_rhodz_new, p_vn ), &
-!$ACC IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     !*******************************************************************
     !
@@ -774,7 +767,6 @@ CONTAINS
 
     END DO  ! Tracer loop
 
-!$ACC UPDATE HOST( p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
     CALL btraj%destruct()
@@ -880,7 +872,6 @@ CONTAINS
 
 !$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e ), PCOPYOUT( p_upflux ), &
 !$ACC       PRESENT( iilc, iibc ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -921,7 +912,6 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE upwind_hflux_up
@@ -1051,7 +1041,6 @@ CONTAINS
 !$ACC       PRESENT( btraj ), IF( i_am_accel_node .AND. acc_on)
 !$ACC DATA  PCOPYIN( opt_rhodz_now ), IF( PRESENT(opt_rhodz_now) .AND. i_am_accel_node .AND. acc_on )
 !$ACC DATA  PCOPYIN( opt_rhodz_new ), IF( PRESENT(opt_rhodz_new) .AND. i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, btraj, p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_grad,z_lsq_coeff
 #endif
@@ -1308,7 +1297,6 @@ CONTAINS
     ENDIF
 
 !$ACC WAIT
-!$ACC UPDATE HOST( p_out_e ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 !$ACC END DATA
 !$ACC END DATA
@@ -1507,7 +1495,6 @@ CONTAINS
 !$ACC       CREATE( z_grad, z_lsq_coeff, z_tracer_mflx, z_rhofluxdiv_c, z_fluxdiv_c, z_tracer, z_rho ), &
 !$ACC       PRESENT( iidx, iblk, btraj, p_int ), &
 !$ACC       IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     IF (p_test_run) THEN
       z_grad(:,:,:,:)   = 0._wp
@@ -1824,7 +1811,6 @@ CONTAINS
 !$OMP END PARALLEL
 
 !$ACC WAIT
-!$ACC UPDATE HOST( p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE upwind_hflux_miura_cycl
@@ -2024,7 +2010,6 @@ CONTAINS
 !$ACC       CREATE( z_lsq_coeff, z_coords_dreg_v ), IF( i_am_accel_node .AND. acc_on )
 !$ACC DATA  PCOPYIN( opt_rhodz_now ), IF( PRESENT(opt_rhodz_now) .AND. i_am_accel_node .AND. acc_on )
 !$ACC DATA  PCOPYIN( opt_rhodz_new ), IF( PRESENT(opt_rhodz_new) .AND. i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, p_vn, p_vt ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     IF (p_test_run) THEN
 !$ACC KERNELS IF (i_am_accel_node .AND. acc_on)
@@ -2320,7 +2305,6 @@ CONTAINS
       ENDIF
     END IF
 
-!$ACC UPDATE HOST( p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 !$ACC END DATA
 !$ACC END DATA

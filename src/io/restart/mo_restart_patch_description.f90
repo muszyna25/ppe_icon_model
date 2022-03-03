@@ -22,7 +22,9 @@ MODULE mo_restart_patch_description
   USE mo_mpi, ONLY: p_pe_work, my_process_is_work, process_mpi_all_comm, p_pe_work, process_mpi_root_id, &
                   & my_process_is_mpi_workroot, p_comm_work_2_restart
   USE mo_packed_message, ONLY: t_PackedMessage, kPackOp, kUnpackOp
+#ifndef __NO_ICON_UPPER__
   USE mo_upatmo_flowevent_utils, ONLY: t_upatmoRestartAttributes, upatmoRestartAttributesAssign, upatmoRestartAttributesPack
+#endif
   USE mo_restart_util, ONLY: restartBcastRoot 
 
   IMPLICIT NONE
@@ -53,7 +55,9 @@ MODULE mo_restart_patch_description
          opt_jstep_adv_marchuk_order, opt_ocean_zlevels
     REAL(wp), ALLOCATABLE :: opt_pvct(:), opt_t_elapsed_phy(:), &
       & opt_ocean_zheight_cellMiddle(:), opt_ocean_zheight_cellInterfaces(:)
+#ifndef __NO_ICON_UPPER__
     TYPE(t_upatmoRestartAttributes) :: opt_upatmo_restart_atts
+#endif
     TYPE(t_gpat_ptr) :: gpat(3)
   CONTAINS
     PROCEDURE :: init => restartPatchDescription_init
@@ -106,16 +110,22 @@ CONTAINS
 
   SUBROUTINE restartPatchDescription_update(me, patch, opt_pvct, opt_t_elapsed_phy, &
                                            &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
-                                           &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
-                                           &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces, &
-                                           &opt_upatmo_restart_atts)
+                                           &opt_nlev_snow, opt_nice_class, opt_ndom, & 
+#ifndef __NO_ICON_UPPER__
+                                           &opt_upatmo_restart_atts,                                    &
+#endif
+                                           &opt_ocean_zlevels, &
+                                           &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces )
+
     CLASS(t_restart_patch_description), INTENT(INOUT) :: me
     TYPE(t_patch), INTENT(IN) :: patch
     INTEGER, INTENT(IN), OPTIONAL :: opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
                                    & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
     REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
          & opt_ocean_zheight_cellInterfaces(:)
+#ifndef __NO_ICON_UPPER__
     TYPE(t_upatmoRestartAttributes), INTENT(IN), OPTIONAL :: opt_upatmo_restart_atts
+#endif
     CHARACTER(*), PARAMETER :: routine = modname//":restartPatchDescription_update"
 
     IF(me%id /= patch%id) CALL finish(routine, "assertion failed: wrong patch passed to update()")
@@ -139,7 +149,9 @@ CONTAINS
       CALL set_opt_int(me%opt_nice_class, opt_nice_class)
       IF (PRESENT(opt_ndom)) me%opt_ndom = opt_ndom
       CALL set_opt_int(me%opt_ocean_zlevels, opt_ocean_zlevels)
+#ifndef __NO_ICON_UPPER__
       CALL upatmoRestartAttributesAssign(me%id, me%opt_upatmo_restart_atts, opt_upatmo_restart_atts)
+#endif
       ! consistency check for OPTIONAL ocean variables
       IF(ALLOCATED(me%opt_ocean_zheight_cellMiddle)) THEN
         IF(.NOT. ALLOCATED(me%opt_ocean_Zheight_CellInterfaces) .OR. .NOT. me%opt_ocean_Zlevels%present) THEN
@@ -230,7 +242,9 @@ CONTAINS
     ! optional parameter arrays
     CALL pmsg%packer(op, me%opt_pvct)
     CALL pmsg%packer(op, me%opt_t_elapsed_phy)
+#ifndef __NO_ICON_UPPER__
     CALL upatmoRestartAttributesPack(me%id, me%opt_upatmo_restart_atts, pmsg, op)
+#endif
   CONTAINS
 
     SUBROUTINE packer_opt_int(oi)
