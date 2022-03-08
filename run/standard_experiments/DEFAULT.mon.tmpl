@@ -158,15 +158,16 @@ $(MON_DIR)/index.html: $(MON_INDEX_SCRIPT)
 	SHELL= filelock $@ -c '$(MON_INDEX_SCRIPT) $@'
 
 $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc: $(DATA_DIR)/$(EXP_ID)_%_$(START_DATE).nc $(MON_SCRIPT)
+	$(CDO) $(CDOFLAGS) select,startdate=$(START_DATE) $< $(<F)
 	SHELL= filelock $(TARGETS_DIR)/$(EXP_ID)_$*.nc -c \
 	   'set -e ;\
 	    if [ -f $(MON_DIR)/$(EXP_ID)_$*.nc ] ;\
 	    then \
-	        $(CDO) $(CDOFLAGS) mergetime $< $(MON_DIR)/$(EXP_ID)_$*.nc \
+	        $(CDO) $(CDOFLAGS) mergetime $(<F) $(MON_DIR)/$(EXP_ID)_$*.nc \
 	            $(EXP_ID)_$*.nc ;\
 	        mv $(EXP_ID)_$*.nc $(MON_DIR)/$(EXP_ID)_$*.nc ;\
 	    else \
-	        cp $< $(MON_DIR)/$(EXP_ID)_$*.nc ;\
+	        cp $(<F) $(MON_DIR)/$(EXP_ID)_$*.nc ;\
 	    fi'
 	touch $@
 
