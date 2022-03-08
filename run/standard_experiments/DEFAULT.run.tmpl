@@ -215,6 +215,9 @@ final_date = mtime.DateTime('$final_date')
 start_date = mtime.DateTime('$start_date')
 reference_date = initial_date + mtime.TimeDelta('-$restart_interval')
 next_date = start_date + mtime.TimeDelta('$restart_interval')
+if next_date > final_date:
+    logging.warn('next date after final date; setting next date to final date')
+    next_date = final_date
 end_date = next_date + mtime.TimeDelta('-%{ATMO_TIME_STEP}')
 atmo_reference_jstep = (initial_date, reference_date)//mtime.TimeDelta('%{ATMO_TIME_STEP}')
 ocean_reference_jstep = (initial_date, reference_date)//mtime.TimeDelta('%{OCEAN_TIME_STEP}')
