@@ -253,7 +253,7 @@ $(DATA_DIR)/$(EXP_ID)_hamoc%_{start_date}.nc: $(RUN_DIR)/$(EXP_ID)_hamoc%_{start
 #%    for target in output.pressure_level.sections|d([]):
 #%        set info = output.pressure_level[target]
 $(DATA_DIR)/$(EXP_ID)_%{target}_{start_date}.nc: $(DATA_DIR)/$(EXP_ID)_%{info.input_tag}_{start_date}.nc
-	$(CDO) $(CDOFLAGS) selvar,%{info.variable_names|join(',')} -ap2pl,%{info.pressure_levels|join(',')} $< $@~
+	$(CDO) $(CDOFLAGS) -ap2pl,%{info.pressure_levels|join(',')} -selvar,pfull,ps,%{info.variable_names|join(',')}  $< $@~
 	mv $@~ $@
 #%    endfor
 #%  endif
