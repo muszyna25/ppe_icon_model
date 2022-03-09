@@ -9,7 +9,7 @@ MODULE mo_rte_rrtmgp_interface
   USE mo_kind,                       ONLY: wp
   USE mo_math_constants,             ONLY: pi
   USE mo_physical_constants,         ONLY: rhoh2o
-  USE mo_exception,                  ONLY: finish, warning
+  USE mo_exception,                  ONLY: finish, warning, message
   USE mo_radiation_random,           ONLY: seed_size
   USE mo_cloud_optics_parameters,    ONLY: rad_perm
   USE mo_radiation_cloud_optics,     ONLY: cloud_optics
@@ -203,6 +203,9 @@ CONTAINS
          aer_tau_sw(:,:,:),  & !< aerosol optical thickness
          aer_ssa_sw(:,:,:),  & !< aerosol single scattering albedo
          aer_asy_sw(:,:,:)     !< aerosol asymmetry factor
+    
+    CHARACTER(len=*), PARAMETER :: thissubprog='mo_rte_rrtmgp_interface.f90:rte_rrtmgp_interface'
+
     ! --------------------------------------------------------------------------
     !
     ! Aerosol optical properties are computed at this level because they require
@@ -239,7 +242,7 @@ CONTAINS
       ! iaero=13: only Kinne aerosols are used
       ! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used
       ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
-        write (0,*) "Kinne"
+        CALL message(TRIM(thissubprog),'Running with Kinne aerosols')
         CALL set_bc_aeropt_kinne(this_datetime,                       &
               & jg,                                                    &
               & jcs, nproma,    nproma,                klev,           &
@@ -253,7 +256,7 @@ CONTAINS
       ! iaero=15: Stenchikov's volcanic aerosols are added to Kinne aerosols
       ! iaero=18: Stenchikov's volcanic aerosols are added to Kinne background
       !           aerosols (of natural origin, 1850)
-        write (0,*) "Stenchikov"
+        CALL message(TRIM(thissubprog),'Running with Stenchikov volcanic aerosols')
 #ifdef _OPENACC
         CALL warning('mo_rte_rrtmgp_interface/rte_rrtmgp_interface','Stenchikov aerosols ACC not implemented')
 #endif
@@ -283,7 +286,7 @@ CONTAINS
       IF (irad_aero==18) THEN
       ! iaero=18: Simple plumes are added to Stenchikov's volcanic aerosols
       !           and Kinne background aerosols (of natural origin, 1850)
-        write (0,*) "Plumes"
+        CALL message(TRIM(thissubprog),'Running with simple plume aerosols')
 #ifdef _OPENACC
         CALL warning('mo_rte_rrtmgp_interface/rte_rrtmgp_interface','Plumes ACC not implemented')
 #endif
