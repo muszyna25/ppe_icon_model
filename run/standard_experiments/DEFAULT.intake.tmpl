@@ -8,9 +8,11 @@ Create intake directory entries for a given period
 #%#-# Generate list of all active file definitions
 #%#-
 #%- set extension_map = {1: 'grb', 2: 'grb', 3: 'nc', 4: 'nc', 5: 'nc', 6: 'nc'}
+#%- set format_map = {'grb': 'grib', 'nc': 'netcdf'}
 #%- set file_infos = []
 #%  for namelist in namelists:
 #%    set namelist_data = namelists[namelist]
+#%    set realm = namelist|split('_')|last
 #%    for group in namelist_data.sections if group|match('output_nml'):
 #%      set group_data = namelist_data[group]
 #%      set hidden = group_data['.hide'] is set
@@ -35,15 +37,22 @@ Create intake directory entries for a given period
 #%          set file_interval = file_interval[0:-3]
 #%        endif
 #%        set info = {}
-#%        do info.update(filename_tmpl = filename_format|replace('<output_filename>', output_filename)|replace('<levtype_l>', levtype_l)+'.'+extension)
-#%        do info.update(experiment = EXP_ID)
+#%        do info.update(project = PROJECT|d('private'))
+#%        do info.update(institution_id = INSTITUTION_ID|d('MPI-M'))
+#%        do info.update(source_id = SOURCE_ID|d('ICON-ESM'))
+#%        do info.update(experiment_id = EXP_KIND)
+#%        do info.update(simulation_id = EXP_ID)
+#%        do info.update(realm = realm)
 #%        do info.update(frequency = group_data.output_interval)
+#%        do info.update(time_reduction = group_data.operation or 'inst')
+#%        do info.update(grid_label = 'gn')
 #%        do info.update(level_type = levtype_l)
-#%        do info.update(variable = group_data[levtype_l+'_varlist']|list)
+#%        do info.update(grid_id = 'not implemented')
+#%        do info.update(format = format_map[extension])
 #%        do info.update(output_start = output_start)
 #%        do info.update(output_end = output_end)
 #%        do info.update(file_interval = file_interval)
-#%        do info.update(operation = group_data.operation or 'inst')
+#%        do info.update(filename_tmpl = filename_format|replace('<output_filename>', output_filename)|replace('<levtype_l>', levtype_l)+'.'+extension)
 #%        do file_infos.append(info)
 #%      endif
 #%    endfor
@@ -140,9 +149,31 @@ file_infos = %{file_infos}
 
 intake_name = '%{JOB.url|d((DATA_ROOT, MODEL_SUBDIR, JOB.id, "index.json")|join("/"))}'
 
-attributes = ("variable", "experiment", "frequency", "level_type", "operation", "time_range")
-assets = "filename"
-columns = attributes + (assets,)
+groupby_attributes = (
+    "project",
+    "institution_id",
+    "source_id",
+    "experiment_id",
+    "simulation_id",
+    "realm",
+    "frequency",
+    "time_reduction",
+    "grid_label",
+    "level_type",
+)
+additional_attributes = (
+    "time_max",
+    "grid_id"
+)
+
+assets = "uri"
+format_column_name = "format"
+variable_column_name = "variable_id"
+time_column_name = "time_min"
+
+attributes = ((variable_column_name,) + groupby_attributes +
+    (time_column_name,) + additional_attributes)
+columns = attributes + (format_column_name, assets)
 
 try:
 
@@ -152,8 +183,8 @@ try:
         intake_attributes = tuple(att['column_name'] for att in intake_data['attributes'])
         intake_assets = intake_data['assets']['column_name']
 
-        if intake_attributes != attributes or intake_assets != assets:
-            logging.error("incompatible catalog '{0}'".format(intake_file))
+        if sorted(intake_attributes) != sorted(attributes) or intake_assets != assets:
+            logging.error("incompatible catalog '{0}'".format(intake_name))
             sys.exit(1)
 
 except (IOError, ValueError) as e:
@@ -168,20 +199,19 @@ except (IOError, ValueError) as e:
         "attributes": [{"column_name": att} for att in attributes],
         "assets": {
             "column_name": assets,
-            "format": "netcdf"
+            "format_column_name": "format"
         },
         "aggregation_control": {
-            "variable_column_name": "variable",
-            "groupby_attrs": [att for att in attributes
-                if att not in ["time_range", "variable"]],
+            "variable_column_name": variable_column_name,
+            "groupby_attrs": groupby_attributes,
             "aggregations": [
                 {
                     "type": "union",
-                    "attribute_name": "variable"
+                    "attribute_name": variable_column_name
                 },
                 {
                     "type": "join_existing",
-                    "attribute_name": "time_range",
+                    "attribute_name": time_column_name,
                     "options": {
                          "dim": "time",
                          "coords": "minimal",
@@ -209,6 +239,11 @@ for info in file_infos:
     output_start = mtime.DateTime(info['output_start'])
     output_end = mtime.DateTime(info['output_end'])
     file_interval = mtime.TimeDelta(info['file_interval'])
+    frequency = mtime.TimeDelta(info['frequency'])
+
+    info['frequency'] = ' '.join('{0}{1}'.format(value, name)
+        for (name, value) in frequency.items() if name != 'sign' and value)
+
 
     # Check if current interval is overlapping with file life-time
     if output_start < next_date and output_end > start_date:
@@ -226,13 +261,14 @@ for info in file_infos:
             logging.info("current file '%s'", info[assets])
 
             # Determine time range
-            info['time_range'] = str(date) + '-' + str(date+file_interval+offset)
+            info[time_column_name] = str(date)
+            info['time_max'] = str(date+file_interval+offset)
 
             # Get variables from file
             try:
                 with xarray.open_dataset(info[assets], use_cftime=True) as ds:
                     # Try to remove spurious entries (eg bounds)
-                    info['variable'] = [var for var in ds.data_vars
+                    info[variable_column_name] = [var for var in ds.data_vars
                         if not var.endswith('_bnds')]
 
                 key = tuple(str(info[att]) for att in attributes)
