@@ -11,9 +11,9 @@
 !! headers of the routines.
 
 MODULE mo_restart_util
-  USE mo_exception,          ONLY: get_filename_noext, finish
+  USE mo_exception,          ONLY: get_filename_noext, message, finish
   USE mo_fortran_tools,      ONLY: assign_if_present_allocatable
-  USE mo_impl_constants,     ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
+  USE mo_impl_constants,     ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T, MAX_CHAR_LENGTH
   USE mo_io_config,          ONLY: restartWritingParameters, kMultifileRestartModule
   USE mo_kind,               ONLY: i8
   USE mo_packed_message,     ONLY: t_PackedMessage, kPackOp
@@ -84,6 +84,7 @@ CONTAINS
     INTEGER :: restartModule
     TYPE(t_keyword_list), POINTER :: keywords
     TYPE(datetime), POINTER :: dt
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: restart_fname 
 
     dt => restartArgs%restart_datetime
     WRITE (datetimeString,'(i4.4,2(i2.2),a,3(i2.2),a)')    &

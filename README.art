@@ -6,3 +6,40 @@ Currently we cannot guarantee that every configuration of ICON-ART will work wit
 
 Please direct any ART-related queries to Sven Werchner, KIT (sven.werchner@kit.edu).
 
+
+
+USAGE of FPLUME:
+----------------
+FPlume is a 1D volcanic plume rise model that has been developed by Arnau Folch, Antonio Costa, 
+and Giovanni Macedonio(Folch et al. 2015).
+In the AERODYN branch of the ART-repository, FPlume has been coupled to ICON-ART to simulate
+volcanic emissions online (Bruckert et al., 2021).
+
+The most important settings are:
+- iart_fplume:
+  1: Emission of ash calculated with FPlume (and SO2, if eruption rate is given in .inp file) along
+     the vertical axis above the vent with a Suzuki profile 
+     (Marti et al. 2017, Bruckert et al. 2021)
+  2: Emission of ash and H2O as vapour (and SO2, if given) calculated with FPlume along the 
+     vertical axis above the vent with a Suzuki profile
+  3: as 1, but with emissions in the whole plume volume (high resolution needed, not yet implemented)
+  4: as 2, but with emissions in the whole plume volume (high resolution needed, not yet implemented)
+
+- cart_fplume:
+  insert path to FPlume input files without extension. The name of the .tgsd (containing the total
+  grain size distribution at the vent) and .inp (containing FPlume settings) file must be the same.
+  * further information on FPlume parameters in: 
+    http://datasim.ov.ingv.it/download/fplume/manual-fplume-1.1.pdf
+  * TIME_UTC Block has been modified for ICON-ART: start times of individual phases are defined 
+    here. Phases without puff are realized by zero exit velocity
+  * additional parameters cfraction and Gouhier in .inp file are needed by ICON-ART for the 
+    distribution of emission into the three modes and for the calculation of the fraction of very 
+    fine ash
+  * Example files in /pf/b/b380891/icon-kit/externals/art/runctrl_examples/emiss_ctrl:
+    fplume_raikoke.inp and fplume_raikoke.tgsd (case: 2019 Raikoke eruption) 
+
+- cart_aero_emiss_xml:
+  path to the aerosols emission xml for FPlume containing information on the ash emission. 
+  Example: /pf/b/b380891/icon-kit/externals/art/runctrl_examples/xml_ctrl/aero_emiss_fplume.xml
+
+Contact: Julia Bruckert (julia.bruckert@kit.edu)

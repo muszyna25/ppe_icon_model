@@ -102,8 +102,11 @@ MODULE mo_nh_interface_nwp
                                     &   nwp_diag_output_1, nwp_diag_output_2
 #ifdef __ICON_ART
   USE mo_art_diagnostics_interface,ONLY: art_diagnostics_interface
-  USE mo_art_washout_interface,    ONLY: art_washout_interface
-  USE mo_art_reaction_interface,   ONLY: art_reaction_interface
+
+  USE mo_art_washout_interface,   ONLY: art_washout_interface
+  USE mo_art_coagulation_interface, ONLY: art_coagulation_interface
+  USE mo_art_reaction_interface,  ONLY: art_reaction_interface
+  USE mo_art_aerodyn_interface,   ONLY: art_aerodyn_interface
 #endif
   USE mo_var_list,                ONLY: t_var_list_ptr
 #ifndef __NO_ICON_LES__
@@ -672,7 +675,6 @@ CONTAINS
       IF (timers_level > 2) CALL timer_stop(timer_nwp_surface)
     END IF
 
-
     !Call to turbulent parameterization schemes
     IF (  lcall_phy_jg(itturb) ) THEN
 
@@ -706,7 +708,6 @@ CONTAINS
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
 
     END IF
-
 
     !-------------------------------------------------------------------------
     !  prognostic microphysic and precipitation scheme
@@ -750,17 +751,33 @@ CONTAINS
         CALL art_reaction_interface(jg,                    & !> in
                 &                   mtime_datetime,        & !> in
                 &                   dt_phy_jg(itfastphy),  & !> in
-                &                   p_prog_list,           & !> inout
-                &                   pt_prog_rcf%tracer)      !>
-                
-      END IF
+                &                   p_prog_list,           & !> in
+                &                   pt_prog_rcf%tracer     ) !>
 
-      CALL art_washout_interface(pt_prog,pt_diag,              & !>in
-                &          dt_phy_jg(itfastphy),               & !>in
-                &          pt_patch,                           & !>in
-                &          prm_diag,                           & !>in
-                &          p_metrics,                          & !>in
-                &          pt_prog_rcf%tracer)                   !>inout
+      !Check where to put coagulation
+        CALL art_coagulation_interface(pt_prog,pt_diag,    & !>in
+                &          dt_phy_jg(itfastphy),           & !>in
+                &          pt_patch,                       & !>in
+                &          prm_diag,                       & !>in
+                &          p_metrics,                      & !>in
+                &          pt_prog_rcf%tracer)               !>inout
+
+        CALL art_aerodyn_interface (pt_patch,              & !> in
+                &                   dt_phy_jg(itfastphy),  & !> in
+                &                   p_prog_list,           & !> in
+                &                   pt_prog,               & !> in
+                &                   p_metrics,             & !> in
+                &                   pt_diag,               & !> inout
+                &                   pt_prog_rcf%tracer,    & !>
+                &                   prm_diag = prm_diag)     !> optional
+                
+        CALL art_washout_interface(pt_prog,pt_diag,        & !>in
+                &            dt_phy_jg(itfastphy),         & !>in
+                &            pt_patch,                     & !>in
+                &            prm_diag,                     & !>in
+                &            p_metrics,                    & !>in
+                &            pt_prog_rcf%tracer)             !>inout
+      END IF
     ENDIF !lart
 #endif
 
@@ -1008,7 +1025,6 @@ CONTAINS
 !$OMP END PARALLEL
 
     IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
-
     IF ( (lcall_phy_jg(itturb) .OR. linit) .AND. ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)

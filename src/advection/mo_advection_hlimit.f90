@@ -820,7 +820,7 @@ CONTAINS
     ! synchronize r_m
     !
     !$ACC WAIT
-    CALL sync_patch_array(SYNC_C1,ptr_patch,r_m,opt_varname='r_m')
+    IF(SIZE(r_m)/=0) CALL sync_patch_array(SYNC_C1,ptr_patch,r_m,opt_varname='r_m')
 
     !
     ! 3. Limit outward fluxes

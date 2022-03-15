@@ -49,7 +49,7 @@ MODULE mo_var_groups
   ! Note that the statically defined group list "var_groups" is
   ! non-public. Its contents are copied to a dynamically growing list
   ! "var_groups_dyn".
-  INTEGER, PARAMETER :: N_VAR_GROUPS_STATIC = 62
+  INTEGER, PARAMETER :: N_VAR_GROUPS_STATIC = 63
   CHARACTER(LEN=vname_len), PARAMETER :: VAR_GROUPS_STATIC(N_VAR_GROUPS_STATIC) = &
      [ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
@@ -108,6 +108,7 @@ MODULE mo_var_groups
     &  "icon_lbc_vars         ",  &  ! Variable set needed for ICON-LAM lateral boundary conditions
     &  "ART_AEROSOL           ",  &  ! ICON-ART fields for aerosol particles
     &  "ART_CHEMISTRY         ",  &  ! ICON-ART fields for chemical tracers
+    &  "ART_FPLUME            ",  &  ! ICON-ART fields for FPlume output
     &  "ART_DIAGNOSTICS       ",  &  ! ICON-ART fields for diagnostic fields
     &  "ART_ROUTINE_DIAG      ",  &  ! ICON-ART fields for routine diagnostic fields
     &  "RTTOV                 ",  &

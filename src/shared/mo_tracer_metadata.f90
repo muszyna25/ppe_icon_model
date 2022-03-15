@@ -63,14 +63,14 @@ CONTAINS
 
 
 
-  TYPE(t_aero_meta) FUNCTION create_tracer_metadata_aero(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer, &
-                      &                                  lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer,  &
-                      &                                  iwash_tracer,                                          &
-                      &                                  moment, mode, rho, mol_weight)
+  TYPE(t_aero_meta) FUNCTION create_tracer_metadata_aero(lis_tracer, name, lfeedback, ihadv_tracer,      &
+                      &                                  ivadv_tracer, lturb_tracer, lconv_tracer, ised_tracer, &
+                      &                                  ldep_tracer, iwash_tracer, moment, mode, substance,   &
+                      &                                  rho, mol_weight, linsol)
     ! Base type (t_tracer_meta) content
     LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer      ! this is a tracer field (TRUE/FALSE)
     CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name      ! Name of tracer
-    LOGICAL, INTENT(IN), OPTIONAL  :: lfeedback        ! feedback from child- to parent domain
+    LOGICAL, INTENT(IN), OPTIONAL  :: lfeedback       ! feedback from child- to parent domain
     INTEGER, INTENT(IN), OPTIONAL  :: ihadv_tracer    ! Method for horizontal transport
     INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer    ! Method for vertical transport
     LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer    ! Switch for turbulent transport
@@ -82,12 +82,15 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL  :: moment          ! moment of distribution (e.g. 0=number, 3=proportional to mass)
     CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: &
       &                               mode             ! Name of mode the tracer is contained in
+    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: substance  ! substance the tracer represents
     REAL(wp), INTENT(IN), OPTIONAL :: rho              ! Density [kg m-3]
     REAL(wp), INTENT(IN), OPTIONAL :: mol_weight       ! Molar mass [g mol-1]
+    LOGICAL,  INTENT(IN), OPTIONAL :: linsol           ! TRUE for insoluble tracer
 
     ! Fill the metadata of the base type
     CALL create_tracer_metadata_aero%construct_base(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer,  &
       &                                             lturb_tracer, lconv_tracer)
+
 
     ! Fill the meta of the extended type (t_aero_meta)
     IF(PRESENT(moment)) THEN
@@ -103,6 +106,13 @@ CONTAINS
       create_tracer_metadata_aero%mode = 'no_mode'
     ENDIF
 
+    ! Fill the meta of the extended type (t_aero_meta)
+    IF(PRESENT(substance)) THEN
+      create_tracer_metadata_aero%substance = TRIM(substance)
+    ELSE
+      create_tracer_metadata_aero%substance = 'no_substance'
+    ENDIF
+
     IF(PRESENT(rho)) THEN
       create_tracer_metadata_aero%rho = rho
     ELSE
@@ -115,11 +125,10 @@ CONTAINS
       create_tracer_metadata_aero%mol_weight = -1._wp
     ENDIF
 
-    ! Fill the meta of the extended type (t_chem_meta)
-    IF(PRESENT(mol_weight)) THEN
-      create_tracer_metadata_aero%mol_weight = mol_weight
+    IF(PRESENT(linsol)) THEN
+      create_tracer_metadata_aero%linsol = linsol
     ELSE
-      create_tracer_metadata_aero%mol_weight = -1._wp
+      create_tracer_metadata_aero%linsol = .FALSE.
     ENDIF
 
     ! ised_tracer

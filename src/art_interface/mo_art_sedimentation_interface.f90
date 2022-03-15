@@ -88,7 +88,8 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
   REAL(wp), INTENT(INOUT)           :: &
     &  tracer(:,:,:,:)                   !< tracer mixing ratio [kg/kg]
   LOGICAL, INTENT(IN)               :: &               
-    &  lprint_cfl                        !< determines if vertical CFL number shall be printed in upwind_vflux_ppm
+    &  lprint_cfl                        !< determines if vertical CFL number shall be printed 
+                                         !  in upwind_vflux_ppm
 ! Local Variables
   REAL(wp), ALLOCATABLE        :: &
     &  p_upflux_sed(:,:,:),       & !< upwind flux at half levels due to sedimentation
@@ -107,8 +108,6 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
   REAL(wp) ::       &
     &  sedim_update,              & !< tracer tendency due to sedimentation
     &  dt_sub                       !< integration time step of one substep
-  INTEGER,ALLOCATABLE          :: &
-    &  jsp_ar(:)                    !< Contains index of mass mixing ratios in tracer container
   INTEGER                      :: &
     &  jc, jk, jkp1, jb,          & !< loop index for: cell, level full, level half, block
     &  i_rlstart, i_rlend,        & !< Relaxation start and end
@@ -132,8 +131,8 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
                                     !  host model variables and internal used ART variables)
 
   lcompute_gt=.TRUE. ! compute geometrical terms
-  lcleanup_gt=.TRUE. ! clean up geometrical terms. obs. this i currently done for all components. improvement:
-                     ! compute values for first component, cleanup after last component.
+  lcleanup_gt=.TRUE. ! clean up geometrical terms. obs. this i currently done for all components.
+                     !improvement:compute values for first component, cleanup after last component.
   NULLIFY(flx_contra_vsed)
   NULLIFY(vsed)
 
@@ -194,16 +193,18 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
         SELECT TYPE (fields=>this_mode%fields)
 
           CLASS IS (t_fields_2mom)
-!$omp parallel do default(shared) private(jb, i, istart, iend, vsed0, vsed3, vdep0, vdep3, jsp_ar)
+!$omp parallel do default(shared) private(jb, i, istart, iend, vsed0, vsed3, vdep0, vdep3)
           DO jb = art_atmo%i_startblk, art_atmo%i_endblk
             CALL art_get_indices_c(jg, jb, istart, iend)
-            ! Before sedimentation/deposition velocity calculation, the modal parameters have to be calculated
-            CALL fields%modal_param(p_art_data(jg)%air_prop%art_free_path(:,:,jb),                     &
-              &                     istart, iend, art_atmo%nlev, jb, tracer(:,:,jb,:))
+            ! Before sedimentation/deposition velocity calculation, the modal parameters 
+            !   have to be calculated
+            CALL fields%modal_param(p_art_data(jg)%air_prop%art_free_path(:,:,jb),                &
+              &                     istart, iend, 1, art_atmo%nlev, jb, tracer(:,:,jb,:))
             ! Calculate sedimentation velocities for 0th and 3rd moment
-            CALL art_calc_v_sed(p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb), fields%density(:,:,jb),  &
-              &     fields%diameter(:,:,jb), fields%info%exp_aero, fields%knudsen_nr(:,:,jb),          &
-              &     istart, iend, art_atmo%nlev, vsed0(:,:), vsed3(:,:))
+            CALL art_calc_v_sed(p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb),                     &
+              &                 fields%density(:,:,jb), fields%diameter(:,:,jb),                  &
+              &                 fields%info%exp_aero, fields%knudsen_nr(:,:,jb),                  &
+              &                 istart, iend, art_atmo%nlev, vsed0(:,:), vsed3(:,:))
 
             !MB>>
             IF ( art_config(jg)%cart_type_sedim == "impl" ) THEN
@@ -218,10 +219,10 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
               !MB: remember the index convention: w(k) = w_{k-1/2}
               DO jk = 2, art_atmo%nlev ! all except top and bottom level
                 DO jc = istart, iend
-                  fields%flx_contra_vsed0(jc,jk,jb) =  p_metrics%wgtfac_c(jc,jk,jb)  * vsed0(jc,jk)   &
-                    &                         + (1._wp-p_metrics%wgtfac_c(jc,jk,jb)) * vsed0(jc,jk-1)
-                  fields%flx_contra_vsed3(jc,jk,jb) =  p_metrics%wgtfac_c(jc,jk,jb)  * vsed3(jc,jk)   &
-                    &                         + (1._wp-p_metrics%wgtfac_c(jc,jk,jb)) * vsed3(jc,jk-1)
+                  fields%flx_contra_vsed0(jc,jk,jb) = p_metrics%wgtfac_c(jc,jk,jb) * vsed0(jc,jk) &
+                    &                        + (1._wp-p_metrics%wgtfac_c(jc,jk,jb))* vsed0(jc,jk-1)
+                  fields%flx_contra_vsed3(jc,jk,jb) = p_metrics%wgtfac_c(jc,jk,jb) * vsed3(jc,jk) &
+                    &                        + (1._wp-p_metrics%wgtfac_c(jc,jk,jb))* vsed3(jc,jk-1)
                 ENDDO  ! jc
               ENDDO ! jk
   
@@ -263,14 +264,9 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
                  &              vsed0(:,art_atmo%nlev), vsed3(:,art_atmo%nlev),                 &
                  &              istart, iend, vdep0(:), vdep3(:))
             ! Store deposition velocities for the use in turbulence scheme
-            ALLOCATE(jsp_ar(fields%ntr-1))
-            DO i =1, fields%ntr-1
-              jsp_ar(i) = fields%itr3(i)
-            ENDDO
-            CALL art_store_v_dep(vdep0(:), vdep3(:), (fields%ntr-1), jsp_ar,                     &
-              &     fields%itr0, art_config(jg)%nturb_tracer,                                    &
-              &     p_prog%turb_tracer(jb,:),istart,iend,p_art_data(jg)%turb_fields%vdep(:,jb,:))
-            DEALLOCATE(jsp_ar)
+            CALL art_store_v_dep(vdep0(:), vdep3(:), (fields%ntr-1), fields%itr3,                &
+              &     fields%itr0, art_config(jg)%nturb_tracer, jb,                                &
+              &     p_prog%turb_tracer(:,:),istart,iend,p_art_data(jg)%turb_fields%vdep(:,:,:))
 
           ENDDO !jb
 !$omp end parallel do
@@ -280,11 +276,11 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
           DO jb = art_atmo%i_startblk, art_atmo%i_endblk
             CALL art_get_indices_c(jg, jb, istart, iend)
 
-            CALL art_sedi_1mom(art_atmo%temp(:,:,jb), art_atmo%pres(:,:,jb), art_atmo%rho(:,:,jb), &
-              &                p_diag%rho_ic(:,:,jb), p_metrics%wgtfac_c(:,:,jb),                  &
-              &                p_metrics%wgtfacq_c(:,:,jb), fields%diam, fields%rho,               &
-              &                p_prog%turb_tracer(jb,:), istart, iend, art_atmo%nlev, jb,          &
-              &                fields%itr, art_config(jg), p_art_data(jg),                         &
+            CALL art_sedi_1mom(art_atmo%temp(:,:,jb), art_atmo%pres(:,:,jb), art_atmo%rho(:,:,jb),&
+              &                p_diag%rho_ic(:,:,jb), p_metrics%wgtfac_c(:,:,jb),                 &
+              &                p_metrics%wgtfacq_c(:,:,jb), fields%diam, fields%rho,              &
+              &                p_prog%turb_tracer(jb,:), istart, iend, art_atmo%nlev, jb,         &
+              &                fields%itr, art_config(jg), p_art_data(jg),                        &
               &                fields%flx_contra_vsed(:,:,jb))
           ENDDO
 !$omp end parallel do
@@ -294,11 +290,11 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, p_diag, &
           DO jb = art_atmo%i_startblk, art_atmo%i_endblk
             CALL art_get_indices_c(jg, jb, istart, iend)
 
-            CALL art_sedi_1mom(art_atmo%temp(:,:,jb), art_atmo%pres(:,:,jb), art_atmo%rho(:,:,jb), &
-              &                p_diag%rho_ic(:,:,jb), p_metrics%wgtfac_c(:,:,jb),                  &
-              &                p_metrics%wgtfacq_c(:,:,jb), fields%diam, fields%rho,               &
-              &                p_prog%turb_tracer(jb,:), istart, iend, art_atmo%nlev, jb,          &
-              &                fields%itr, art_config(jg), p_art_data(jg),                         &
+            CALL art_sedi_1mom(art_atmo%temp(:,:,jb), art_atmo%pres(:,:,jb), art_atmo%rho(:,:,jb),&
+              &                p_diag%rho_ic(:,:,jb), p_metrics%wgtfac_c(:,:,jb),                 &
+              &                p_metrics%wgtfacq_c(:,:,jb), fields%diam, fields%rho,              &
+              &                p_prog%turb_tracer(jb,:), istart, iend, art_atmo%nlev, jb,         &
+              &                fields%itr, art_config(jg), p_art_data(jg),                        &
               &                fields%flx_contra_vsed(:,:,jb))
           ENDDO
 !$omp end parallel do
