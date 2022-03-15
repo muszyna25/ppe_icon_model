@@ -62,7 +62,7 @@ function set_cluster {
    xmlogin*) :
      echo "...MISTRAL at DKRZ"; CENTER="DKRZ"
      icon_data_poolFolder=/pool/data/ICON/grids/private/mpim/icon_preprocessing/source/ 
-     input_folder="~/TESTSUITE/"
+     input_folder="${WORK}/TESTSUITE/"
 	 FILETYPE="4" 
      output_folder="/scratch/b/${USER}/TESTSUITE_OUTPUT/"
      aer_opt="/pool/data/ICON/grids/public/mpim/independent"

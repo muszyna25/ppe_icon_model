@@ -1,24 +1,24 @@
 [submodule "externals/mtime"]
-        path = externals/mtime
+  path = externals/mtime
 	url = ../../icon-libraries/libmtime.git
 [submodule "externals/jsbach"]
-        path = externals/jsbach
+  path = externals/jsbach
 	url = ../../jsbach/jsbach.git
 [submodule "externals/yac"]
-        path = externals/yac
+  path = externals/yac
 	url = ../../dkrz-sw/YAC.git
 [submodule "externals/tixi"]
-        path = externals/tixi
+  path = externals/tixi
 	url = ../../icon-libraries/libtixi.git
 [submodule "externals/yaxt"]
-        path = externals/yaxt
+  path = externals/yaxt
 	url = ../../dkrz-sw/yaxt.git
 [submodule "externals/rte-rrtmgp"]
 	path = externals/rte-rrtmgp
 	url = https://github.com/earth-system-radiation/rte-rrtmgp.git
 [submodule "externals/cub"]
-        path = externals/cub
-        url = https://github.com/NVlabs/cub.git
+  path = externals/cub
+  url = https://github.com/NVlabs/cub.git
 [submodule "externals/omni-xmod-pool"]
 	path = externals/omni-xmod-pool
 	url = https://github.com/claw-project/omni-xmod-pool.git

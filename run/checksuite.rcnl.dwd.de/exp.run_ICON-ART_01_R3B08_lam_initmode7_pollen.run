@@ -49,6 +49,7 @@ fi
 
 # determine base directory
 ICONDIR=${PBS_O_WORKDIR}/..
+ARTXML_DIR=${PBS_O_WORKDIR}/checksuite.rcnl.dwd.de/ART_XML
 
 EXP="ICON-ART_Pollen" # experiment identifier
 EDIR="exp_01"         # working directory   ???
@@ -116,9 +117,9 @@ done
 ln -sf $DATAROOT/map_file.* .
 
 # copy ART pollen tracer and diagnostic definitions (includes definitions for Cs-137)
-ln -sf ${DATAROOT}/pollen/diagnostics.xml .
-ln -sf ${DATAROOT}/pollen/modes.xml .
-ln -sf ${DATAROOT}/pollen/tracers.xml .
+ln -sf ${ARTXML_DIR}/diagnostics.xml .
+ln -sf ${ARTXML_DIR}/modes.xml .
+ln -sf ${ARTXML_DIR}/tracers.xml .
 
 # copy ART pollen specific data
 ln -sf ${DATAROOT}/pollen/norm.T.stns.alnu.atab .
@@ -127,7 +128,7 @@ ln -sf ${DATAROOT}/pollen/ART_POC_iconR3B08-grid_0049.grb .
 ln -sf ${DATAROOT}/pollen/ART_POV_iconR3B08-grid_0049.grb .
 
 # copy ART point source
-ln -sf ${DATAROOT}/pntSrc.xml .
+ln -sf ${ARTXML_DIR}/pntSrc.xml .
 
 [[ -d out ]]       && rm -Rf out
 mkdir out/         # output directory

@@ -160,9 +160,11 @@ MODULE mo_nh_stepping
   USE mo_art_emission_interface,   ONLY: art_emission_interface
   USE mo_art_sedi_interface,       ONLY: art_sedi_interface
   USE mo_art_tools_interface,      ONLY: art_tools_interface
-  USE mo_art_init_interface,       ONLY: art_init_atmo_tracers_nwp,   &
-                                     &   art_init_atmo_tracers_echam, &
+  USE mo_art_init_interface,       ONLY: art_init_atmo_tracers_nwp,     &
+                                     &   art_init_atmo_tracers_echam,   &
+                                     &   art_init_radiation_properties, &
                                      &   art_update_atmo_phy
+  USE mo_art_config,               ONLY: art_config
 #endif
 
   USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars, update_sst_and_seaice
@@ -561,6 +563,14 @@ MODULE mo_nh_stepping
     END IF
 #endif
   END SELECT ! iforcing
+
+#ifdef __ICON_ART
+  IF (lart) THEN
+    DO jg=1, n_dom
+      CALL art_init_radiation_properties(iforcing, jg)
+    ENDDO
+  ENDIF
+#endif
 
   !------------------------------------------------------------------
   !  get and write out some of the initial values

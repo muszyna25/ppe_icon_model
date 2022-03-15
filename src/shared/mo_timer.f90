@@ -221,10 +221,10 @@ MODULE mo_timer
             timer_extra36, timer_extra37, timer_extra38, timer_extra39, timer_extra40
 
   ! ART timers of the interfaces
-  PUBLIC :: timer_art, timer_art_emissInt, timer_art_reacInt,                                  &
-            timer_art_cldInt, timer_art_diagInt, timer_art_sedInt, timer_art_toolInt,          &
-            timer_art_tracInt, timer_art_turbdiffInt, timer_art_washoutInt, timer_art_initInt, &
-            timer_art_radInt, timer_art_photo, timer_art_losschem
+  PUBLIC :: timer_art, timer_art_aeroInt, timer_art_coagInt, timer_art_emissInt,               &
+            timer_art_reacInt, timer_art_cldInt, timer_art_diagInt, timer_art_sedInt,          &
+            timer_art_toolInt, timer_art_tracInt, timer_art_turbdiffInt, timer_art_washoutInt, &
+            timer_art_initInt, timer_art_radInt, timer_art_photo, timer_art_losschem
 
   ! Timers for EMVORADO
   PUBLIC :: timer_radar_tot      , &
@@ -441,10 +441,10 @@ MODULE mo_timer
   INTEGER :: timer_ls_forcing
 
   ! ART timers around the ART interfaces
-  INTEGER :: timer_art, timer_art_emissInt, timer_art_reacInt,                                  &
-             timer_art_cldInt, timer_art_diagInt, timer_art_sedInt, timer_art_toolInt,          &
-             timer_art_tracInt, timer_art_turbdiffInt, timer_art_washoutInt, timer_art_initInt, &
-             timer_art_radInt, timer_art_photo, timer_art_losschem
+  INTEGER :: timer_art, timer_art_aeroInt, timer_art_coagInt, timer_art_emissInt,               &
+             timer_art_reacInt, timer_art_cldInt, timer_art_diagInt, timer_art_sedInt,          &
+             timer_art_toolInt, timer_art_tracInt, timer_art_turbdiffInt, timer_art_washoutInt, &
+             timer_art_initInt, timer_art_radInt, timer_art_photo, timer_art_losschem
 
   ! Timers for EMVORADO
   INTEGER :: timer_radar_tot      , &
@@ -894,6 +894,8 @@ CONTAINS
    
     ! ART timers around the ART interfaces
     timer_art = new_timer("ART")
+    timer_art_aeroInt = new_timer("art_aeroInt")
+    timer_art_coagInt = new_timer("art_coagInt")
     timer_art_emissInt = new_timer("art_emissInt") 
     timer_art_reacInt = new_timer("art_reacInt") 
     timer_art_photo = new_timer("art_photo") 

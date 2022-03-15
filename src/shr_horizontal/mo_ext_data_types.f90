@@ -341,6 +341,20 @@ MODULE mo_ext_data_types
     INTEGER :: i_lc_grass      !< Grassland//herbaceous.
     INTEGER :: i_lc_bare_soil  !< Land-cover classification index for bare soil.
     INTEGER :: i_lc_sparse     !< Land-cover classification index for sparse vergetation.
+    INTEGER :: i_lc_crop_irrig !< post-flooding or irrigated croplands. Currently used by ART only
+    INTEGER :: i_lc_crop_rain  !< Rainfed croplands. Currently used by ART only
+    INTEGER :: i_lc_crop_mos   !< Mosaic: cropland > vegetation. Currently used by ART only
+    INTEGER :: i_lc_veg_mos    !< Mosaic: vegetation > cropland. Currently used by ART only
+    INTEGER :: i_lc_forest_b_eg!< Broadleaved evergreen or semi-deciduous forest. Currently used by ART only
+    INTEGER :: i_lc_forest_b_d !< Broadleaved deciduous forest. Currently used by ART only
+    INTEGER :: i_lc_woodland   !< Deciduous forest/woodland. Currently used by ART only
+    INTEGER :: i_lc_forest_n_eg!< Needleleaved evergreen forest. Currently used by ART only
+    INTEGER :: i_lc_forest_n_d !< Needleleaved deciduous forest. Currently used by ART only
+    INTEGER :: i_lc_forest_bn  !< Mixed broadleaved/needleleaved. Currently used by ART only
+    INTEGER :: i_lc_shrub_mos  !< Mosaic: shrubland > grassland. Currently used by ART only
+    INTEGER :: i_lc_forest_rf  !< Broadleaved forest regulary flooded. Currently used by ART only
+    INTEGER :: i_lc_forest_pf  !< Broadleaved forest permanently flooded. Currently used by ART only
+    INTEGER :: i_lc_grass_rf   !< Grassland permanently flooded. Currently used by ART only
 
     ! for output purposes.
     TYPE(t_ptr_i2d3d), ALLOCATABLE :: lc_class_t_ptr(:)

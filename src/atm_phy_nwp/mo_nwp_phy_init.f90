@@ -996,7 +996,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
           CALL setup_ecrad(p_patch,ecrad_conf,ini_date)
           !
           ! Setup Tegen aerosol needs to be done only once for all domains
-          IF (irad_aero == 6) THEN
+          IF (irad_aero == 6 .OR. irad_aero == 9) THEN
             IF (ecrad_conf%i_gas_model == IGasModelIFSRRTMG) THEN
               CALL init_aerosol_props_tegen_ecrad(ecrad_conf%n_bands_sw, ecrad_conf%n_bands_lw, .TRUE.)
             ELSE
