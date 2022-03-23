@@ -534,16 +534,21 @@ echo $(date -u +'%Y-%m-%dT%H:%M:%SZ') ${start_date%:*} ${end_date%:*} ${%{JOB.id
 
 cd $SCRIPT_DIR
 
-#% for job in JOB['.trigger']|list:
-#%   if jobs[job]['.type'] == 'restart':
+#% for trigger in JOB['.trigger']|list:
+#%   set job = (trigger|split|list)[0]
+#%   set type = jobs[job]['.type']
+#%   if type == 'restart':
 if [ $finish_status = "RESTART" ]
 then
-  echo "restart: submitting '%{EXP_ID}.%{job}'"
-  %{JOB.batch_command} %{EXP_ID}.%{job}
+  echo "restart: submitting '%{EXP_ID}.%{trigger}'"
+  %{JOB.batch_command} %{EXP_ID}.%{trigger}
 fi
-#%   else:
-echo "submitting '%{EXP_ID}.%{job}'"
-%{JOB.batch_command} %{EXP_ID}.%{job} $start_date
+#%   elif type == 'serial':
+echo "running '%{EXP_ID}.%{trigger}'"
+./%{EXP_ID}.%{trigger} $start_date
+#%   else
+echo "submitting '%{EXP_ID}.%{trigger}'"
+%{JOB.batch_command} %{EXP_ID}.%{trigger} $start_date
 #%   endif
 #% endfor
 
