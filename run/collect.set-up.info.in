@@ -43,7 +43,7 @@ VERSION_='@PACKAGE_VERSION@'
 use_host='@host_fqdn@'
 use_site='local.net'
 case "$use_host" in
-  wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
+  wizard*|mlogin*|btlogin*|btc*|levante*) use_site=dkrz.de ;;
   daint*|tave*|santis*|kesch*|tsa*) use_site=cscs.ch ;;
   uc2*|fh2*|hk*) use_site=kit.edu ;;
   xc*|rcnl*|oflws*) use_site=dwd.de ;;
@@ -155,6 +155,11 @@ case "$use_site" in
 
   dkrz.de)
     case "$use_host" in
+      levante*)
+        # THIS SECTION IS A STUB
+        use_mpi_startrun='srun'
+        use_load_modules='cdo git python3 @top_srcdir@/etc/Modules/icon-levante'
+      ;;
       btlogin*|btc*|mlogin*|m*)
         use_load_profile='. /etc/profile'
         use_load_modules='ncl cdo git python @top_srcdir@/etc/Modules/icon-switch'
