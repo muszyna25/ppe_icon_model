@@ -31,12 +31,12 @@
 
 #=============================================================================
 set -e
-#%  if JOB.debug_level|d(0)|int > 0:
+#%  if JOB.debug_level|d(0)|int > 1:
 set -x
 #%  endif
 
 # Utilities
-PATH=%{MODEL_DIR}/utils:$PATH
+PATH=%{MODEL_DIR}/utils/slurm:%{MODEL_DIR}/utils:$PATH
 
 # Support log style output
 pipe=%{EXP_ID}_%{JOB.id}_$$.pipe
@@ -44,21 +44,6 @@ mkfifo $pipe
 trap "cd $PWD && rm -f $pipe" EXIT
 awk '{print strftime("%FT%T:"), $0; fflush()}' $pipe &
 exec > $pipe 2>&1
-
-#=============================================================================
-#
-# ICON run script:
-# !ATTENTION! Do not change the format of the following lines.
-#             They are evaluated by checksuite scripts.
-# created by ./run/make_target_runscript
-# target machine is %{use_target}
-# target use_compiler is %{use_compiler}
-# with_mpi=%{use_mpi}
-# with_openmp=%{use_openmp}
-# memory_model=large
-# submit with %{use_submit}
-#
-#=============================================================================
 
 #% do VARIABLES_.add('MODEL_DIR')
 #% do VARIABLES_.add('SCRIPT_DIR')
@@ -77,16 +62,13 @@ cd $BUILD_DIR/run
 #
 # OpenMP environment variables
 # ----------------------------
-export OMP_NUM_THREADS=1
-export ICON_THREADS=1
-export OMP_SCHEDULE=dynamic,1
-export OMP_DYNAMIC="false"
-export OMP_STACKSIZE=200M
+export OMP_NUM_THREADS=%{JOB.threads_per_task|d(1)}
+export ICON_THREADS=$OMP_NUM_THREADS
 #
 # MPI variables
 # -------------
-no_of_nodes=${SLURM_JOB_NUM_NODES:=%{JOB.nodes}}
-mpi_procs_pernode=$((${SLURM_JOB_CPUS_PER_NODE%%\(*} / 2))
+no_of_nodes=${SLURM_JOB_NUM_NODES:=%{JOB.nodes|d(1)}}
+mpi_procs_pernode=$((${SLURM_JOB_CPUS_PER_NODE%%\(*}%{'' if JOB.hardware_threads|d() else '/ 2'} / OMP_NUM_THREADS))
 ((mpi_total_procs=no_of_nodes * mpi_procs_pernode))
 #
 #=============================================================================
@@ -101,34 +83,32 @@ fi
 
 # environment variables for the experiment and the target system
 # --------------------------------------------------------------
-export EXPNAME="%{EXP_ID}"
-export KMP_AFFINITY="verbose,granularity=core,compact,1,1"
-export KMP_LIBRARY="turnaround"
-export KMP_KMP_SETTINGS="1"
-export OMP_WAIT_POLICY="active"
-export OMPI_MCA_pml="cm"
-export OMPI_MCA_mtl="mxm"
-export OMPI_MCA_coll="^fca"
-export MXM_RDMA_PORTS="mlx5_0:1"
-export HCOLL_MAIN_IB="mlx5_0:1"
-export HCOLL_ML_DISABLE_BARRIER="1"
-export HCOLL_ML_DISABLE_IBARRIER="1"
-export HCOLL_ML_DISABLE_BCAST="1"
-export HCOLL_ENABLE_MCAST_ALL="1"
-export HCOLL_ENABLE_MCAST="1"
-export OMPI_MCA_coll_sync_barrier_after_alltoallv="1"
-export OMPI_MCA_coll_sync_barrier_after_alltoallw="1"
-export MXM_HANDLE_ERRORS="bt"
-export UCX_HANDLE_ERRORS="bt"
-export MALLOC_TRIM_THRESHOLD_="-1"
+export EXPNAME=%{EXP_ID}
 
-# directories with absolute paths
-# -------------------------------
-icon_data_rootFolder="/pool/data/ICON"
+#%  for var in JOB.env:
+#%    set val = JOB.env[var]
+#%    if val:
+export %{var}=%{'"'+val+'"' if ' ' in val else val}
+#%    else:
+unset %{var}
+#%    endif
+#%  endfor
 
 # how to start the icon model
 # ---------------------------
-export START="%{MPI.command} --nodes=${SLURM_JOB_NUM_NODES:-1} --ntasks=$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=${mpi_procs_pernode} --cpus-per-task=$((2 * OMP_NUM_THREADS))"
+#%#
+#%  set mpi_command = MPI.command
+#%#
+#%  if JOB.use_cpu_mask|d():
+#%# TODO: need to adapt mask to no of tasks and threads
+#%  set mpi_command = mpi_command + ' --cpu-bind=v,mask_cpu=$(ccpumask -t $OMP_NUM_THREADS)'
+#%  endif
+#%#
+#%  if JOB.use_hostfile|d():
+#%  set mpi_command = mpi_command + ' --distribution=arbitrary'
+#%  endif
+
+export START="%{mpi_command} --nodes=$no_of_nodes --ntasks=$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=${mpi_procs_pernode} --cpus-per-task=$((2 * OMP_NUM_THREADS))"
 export MODEL="%{BIN_DIR}/%{MODEL_EXE}"
 
 # how to submit the next job
@@ -142,7 +122,7 @@ cdo_diff="cdo diffn"
 
 #=============================================================================
 
-ulimit -s 2097152
+ulimit -s %{JOB.stack_size}
 ulimit -c 0
 
 # ----------------------------------------------------------------------------
@@ -152,20 +132,17 @@ ulimit -c 0
 # (0) Basic model configuration
 # -----------------------------
 
-# 1 ocean node is sufficient for low resolution, 9 nodes for coupled is suitable.
-# faster: 2 nodes for ocean, 16 nodes in total
-#         running with Hamocc: 8 nodes for ocean, 22 in total for similar performance
+#%  if JOB.share_nodes|d():
+oce_per_node=%{JOB.ocean_tasks_per_node}
+atm_per_node=$((mpi_procs_pernode - oce_per_node))
+oce_procs=$((no_of_nodes * oce_per_node))
+mpi_oce_procs=$oce_procs
+atm_procs=$((no_of_nodes * atm_per_node))
+#%  else:
 mpi_oce_nodes=%{JOB.ocean_nodes}
-#mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested nodes
 ((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
+#%  endif
 #
-#--------------------------------------------------------------------------------------------------
-
-# (2) unset some setting of create_target_header for mistral
-
-unset OMPI_MCA_coll_fca_enable
-unset OMPI_MCA_coll_fca_priority
-
 #--------------------------------------------------------------------------------------------------
 
 # (4) Set variables to configure the experiment:
@@ -246,14 +223,6 @@ yN=${end_date%%-*}
 # Mark current run as started in log
 echo $(date -u +'%Y-%m-%dT%H:%M:%SZ') ${start_date%:*} ${end_date%:*} ${%{JOB.id_environ}} start >> $exp_log_file
 
-# asynchronous diagnostic output processes
-# ----------------------------------------
-
-# Note that "mpi_atm_io_procs" must match the number of output files
-mpi_atm_io_procs=0      # >0 for atmosphere plus land (not working for monitoring)
-mpi_oce_io_procs=0      # >0 for ocean is not working yet
-
-
 #------------------------------------------------------------------------------
 
 # (5) Define the model configuration
@@ -290,8 +259,6 @@ oce_inc_rank=1
 atm_min_rank=0
 atm_max_rank=`expr ${oce_min_rank} - 1`
 atm_inc_rank=1
-
-
 
 #
 # create ICON master, coupling and model namelists
@@ -338,8 +305,6 @@ EOF
 #-----------------------------------------------------------------------------
 # III. OCEAN and SEA-ICE (and HAMOCC) 
 #-----------------------------------------------------------------------------
-
-# ----------------------------------------------------------------------------
 #
 # ocean namelist
 # --------------
@@ -372,11 +337,6 @@ fi
 #
 # This section of the run script prepares and starts the model integration. 
 #
-# MODEL and START must be defined as environment variables or
-# they must be substituted with appropriate values.
-#
-# Marco Giorgetta, MPI-M, 2010-04-21
-#
 #-----------------------------------------------------------------------------
 # Reset files and file names for check_error and check_final_status
 final_status_file=${SCRIPT_DIR}/${job_name}.final_status
@@ -393,19 +353,128 @@ rm -f ${final_status_file} ${current_status_file}
 ls -l ${MODEL}
 check_error $? "${MODEL} does not exist?"
 #
-ldd -v ${MODEL}
+ldd ${MODEL}
 #
 #-----------------------------------------------------------------------------
 #
 # start experiment
 #
+#%  if JOB.use_hostfile|d() or JOB.use_mpmd|d():
+mpi_atm_io_procs=%{namelists.NAMELIST_atm.parallel_nml.num_io_procs}
+mpi_oce_io_procs=%{namelists.NAMELIST_oce.parallel_nml.num_io_procs}
+
+#%  endif
+#%  if JOB.use_hostfile|d():
+export SLURM_HOSTFILE=$EXPDIR/hst_file
+
+function fill_hostfile(){
+   total=$1
+   nio=$2
+   direction=$3
+
+   block=8
+
+   if [ $direction -eq 0 ] ; then
+     frst_block=0
+     last_block=$(( ($total/$no_of_nodes) % $block ))
+   else
+     last_block=0
+     frst_block=$(( ($total/$no_of_nodes) % $block ))
+   fi
+
+   iohsts=""
+   left=$total
+   while [ $left -gt $nio ] ; do
+     for hst in $(nodeset -e $SLURM_NODELIST); do
+       myblock=$block
+       if [ $left -le $(($last_block*$no_of_nodes)) ] ; then
+         myblock=$last_block
+       else
+         if [ $left -gt $(($total - $frst_block*$no_of_nodes)) ] ; then
+           myblock=$frst_block
+         fi
+       fi
+       if [ $left -le $(($myblock*$nio)) ] ; then
+         myblock=$(($myblock - 1))
+         iohsts="$iohsts $hst"
+       fi
+       for ib in $(seq 1 $myblock); do
+         echo "$hst"
+         left=$(($left - 1))
+       done
+     done
+   done
+   for hst in $iohsts; do
+     echo "$hst"
+   done
+}
+
+fill_hostfile $atm_procs $mpi_atm_io_procs 0 > $SLURM_HOSTFILE
+fill_hostfile $oce_procs $mpi_oce_io_procs 1 >> $SLURM_HOSTFILE
+
+#%  endif
+cp ${MODEL} .
+export MODEL=./icon
 
 rm -f finish.status
-#
+
+#%  if JOB.use_mpmd:
+if [ $mpi_atm_io_procs -eq 0 ] ; then
+  atm_io_line="0 numactl --interleave=0-3 -- ${MODEL}"
+else
+  if [ $((atm_per_node*2)) -lt  $mpi_procs_pernode ] ; then
+    atm_io_line="$((atm_procs -1 - mpi_atm_io_procs))-$((atm_procs -1)) numactl --interleave=0-3 -- ${MODEL}"
+  else
+    atm_io_line="$((atm_procs -1 - mpi_atm_io_procs))-$((atm_procs -1)) numactl --interleave=4-7 -- ${MODEL}"
+  fi
+fi
+if [ $mpi_oce_io_procs -eq 0 ] ; then
+  if [ $((atm_per_node*2)) -lt  $mpi_procs_pernode ] ; then
+    oce_io_line="$atm_procs numactl --interleave=0-3 -- ${MODEL}"
+  else
+    oce_io_line="$atm_procs numactl --interleave=4-7 -- ${MODEL}"
+  fi
+else
+  oce_io_line="$((atm_procs + oce_procs -1 - mpi_oce_io_procs))-$((atm_procs + oce_procs -1)) numactl --interleave=4-7 -- ${MODEL}"
+fi
+cat > icon_mpmd.conf <<EOF
+$atm_io_line
+$oce_io_line
+* numactl --localalloc -- ${MODEL}
+EOF
+
+#%  endif
+#%  if JOB.debug_level|d(0)|int > 0:
+thisscript=$(realpath $0)
+echo "#################################################"
+echo "###################  script  ####################"
+echo "#################################################"
+cat $thisscript
+cp -p $thisscript .
+echo "#################################################"
+echo "#################################################"
+echo "####################  env  ######################"
+echo "#################################################"
+rm -f env.txt
+env 2>&1 | tee env.txt
+echo "#################################################"
+echo "#################################################"
+echo "####################  ldd  ######################"
+echo "#################################################"
+rm -f ldd.txt
+echo $(realpath ${MODEL}) 2>&1 | tee ldd.txt
+srun -N1 -n1 -- ldd -v $(realpath ${MODEL}) 2>&1 | tee ldd.txt
+echo "#################################################"
+
+#%  endif
 date
-${START} ${MODEL} # > out.txt 2>&1
+#%  if JOB.use_mpmd:
+${START} --multi-prog icon_mpmd.conf
+#%  else:
+${START} ${MODEL}
+#%  endif
 date
-#
+
 if [ -r finish.status ] ; then
   check_final_status 0 "${START} ${MODEL}"
 else
