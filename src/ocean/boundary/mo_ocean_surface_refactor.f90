@@ -42,7 +42,7 @@ MODULE mo_ocean_surface_refactor
     &  i_sea_ice, zero_freshwater_flux, atmos_flux_analytical_type, atmos_precip_const, &  ! atmos_evap_constant
     &  limit_elevation, lhamocc, lswr_jerlov, lhamocc, lfb_bgc_oce, lcheck_salt_content, &
     &  lfix_salt_content, surface_flux_type, ice_flux_type, heatflux_forcing_on_sst, &
-    &  use_heatflux_rainevaprunoff 
+    &  lfwflux_enters_with_sst
 
   USE mo_sea_ice_nml,        ONLY: sice
 
@@ -2100,8 +2100,6 @@ CONTAINS
 
             heatflux_surface_layer=p_oce_sfc%HeatFlux_Total(jc,jb)-p_os%p_diag%heatabs(jc,jb)
 
-            IF (use_heatflux_rainevaprunoff) heatflux_surface_layer=heatflux_surface_layer   &
-                                   + p_os%p_diag%heatflux_rainevaprunoff(jc,jb)
 
             p_oce_sfc%sst(jc,jb) = p_oce_sfc%sst(jc,jb) + &
               &                    heatflux_surface_layer*dtime/(clw*rho_ref*zUnderIceIni(jc,jb))
@@ -2166,8 +2164,16 @@ CONTAINS
           DO jt = 1,2
 
             IF (p_oce_sfc%top_dilution_coeff(jc,jb) > 1.0_wp) THEN
-              p_os%p_prog(nold(1))%tracer(jc, 1, jb, jt) = p_os%p_prog(nold(1))%tracer(jc, 1, jb, jt) * &
-                        &  dz_old(1) / (dz_old(1) + z_change(1))
+              ! add surface fwflux with temperature of sst, dilute sss
+              IF ( jt .EQ. 1) THEN
+                IF (.NOT. lfwflux_enters_with_sst ) THEN
+                  p_os%p_prog(nold(1))%tracer(jc, 1, jb, jt) = p_os%p_prog(nold(1))%tracer(jc, 1, jb, jt) * &
+                       &  dz_old(1) / (dz_old(1) + z_change(1))
+                ENDIF
+              ELSE
+                p_os%p_prog(nold(1))%tracer(jc, 1, jb, jt) = p_os%p_prog(nold(1))%tracer(jc, 1, jb, jt) * &
+                     &  dz_old(1) / (dz_old(1) + z_change(1))
+              ENDIF
 
               ! If tdc > 1 then bottom layer conc is unaffected (levels have
               ! become thinner)
@@ -2185,8 +2191,16 @@ CONTAINS
                      &   / dz_new(jk) 
               ENDDO
 
-              p_os%p_prog(nold(1))%tracer(jc, 1, jb, jt) = p_os%p_prog(nold(1))%tracer(jc, 1, jb, jt) * &
-                        &  (dz_new(1) - z_change(1)) / dz_new(1)
+              IF ( jt .EQ. 1) THEN
+                IF (.NOT. lfwflux_enters_with_sst ) THEN
+                  p_os%p_prog(nold(1))%tracer(jc, 1, jb, jt) = p_os%p_prog(nold(1))%tracer(jc, 1, jb, jt) * &
+                       &  (dz_new(1) - z_change(1)) / dz_new(1)
+                ENDIF
+              ELSE
+                  p_os%p_prog(nold(1))%tracer(jc, 1, jb, jt) = p_os%p_prog(nold(1))%tracer(jc, 1, jb, jt) * &
+                       &  (dz_new(1) - z_change(1)) / dz_new(1)
+              ENDIF
+
             ENDIF
 
          ENDDO ! T and S
@@ -2349,8 +2363,6 @@ CONTAINS
             heatflux_surface_layer=p_oce_sfc%HeatFlux_Total(jc,jb)-p_os%p_diag%heatabs(jc,jb)
 
 
-            IF (use_heatflux_rainevaprunoff) heatflux_surface_layer=heatflux_surface_layer   &
-                                   + p_os%p_diag%heatflux_rainevaprunoff(jc,jb)
 
             p_oce_sfc%sst(jc,jb) = p_oce_sfc%sst(jc,jb) + &
               &                    heatflux_surface_layer*dtime/(clw*rho_ref*p_ice%zUnderIce(jc,jb))
@@ -2468,8 +2480,6 @@ CONTAINS
             ! substract the fraction of heatflux used for subsurface heating
             heatflux_surface_layer=p_oce_sfc%HeatFlux_Total(jc,jb)-p_os%p_diag%heatabs(jc,jb)
 
-            IF (use_heatflux_rainevaprunoff) heatflux_surface_layer=heatflux_surface_layer   &
-                                   + p_os%p_diag%heatflux_rainevaprunoff(jc,jb)
 
             p_oce_sfc%sst(jc,jb) = p_oce_sfc%sst(jc,jb) + &
               &                    heatflux_surface_layer*dtime/(clw*rho_ref*p_ice%zUnderIce(jc,jb))

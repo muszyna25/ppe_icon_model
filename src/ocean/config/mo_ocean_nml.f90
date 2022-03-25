@@ -824,7 +824,7 @@ MODULE mo_ocean_nml
   LOGICAL  :: use_new_forcing                      = .FALSE.
   INTEGER  :: surface_flux_type                    = 1
   LOGICAL  :: heatflux_forcing_on_sst              = .TRUE.
-  LOGICAL  :: use_heatflux_rainevaprunoff          = .FALSE.
+  LOGICAL  :: lfwflux_enters_with_sst              = .TRUE.
   LOGICAL  :: lcheck_salt_content                  = .FALSE.
   LOGICAL  :: check_total_volume                   = .FALSE.
   LOGICAL  :: lfix_salt_content                    = .FALSE.
@@ -921,7 +921,7 @@ MODULE mo_ocean_nml
     &                 forcing_enable_freshwater           , &
     &                 zero_freshwater_flux                , &
     &                 heatflux_forcing_on_sst             , &
-    &                 use_heatflux_rainevaprunoff         , &
+    &                 lfwflux_enters_with_sst             , &
     &                 surface_flux_type                   , &
     &                 lcheck_salt_content                 , &
     &                 lfix_salt_content                   , &
