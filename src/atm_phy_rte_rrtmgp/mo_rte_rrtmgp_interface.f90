@@ -35,6 +35,7 @@ MODULE mo_rte_rrtmgp_interface
    &                                       timer_lrtm, timer_srtm
   USE mo_radiation_config,           ONLY: lrad_aero_diag
   USE mo_echam_rad_config,           ONLY: echam_rad_config
+  USE mo_run_config,                 ONLY: msg_level
   USE mtime,                         ONLY: datetime
 
 
@@ -242,7 +243,8 @@ CONTAINS
       ! iaero=13: only Kinne aerosols are used
       ! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used
       ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
-        CALL message(TRIM(thissubprog),'Running with Kinne aerosols')
+        IF ( msg_level > 10 ) &
+           & CALL message(TRIM(thissubprog),'Running with Kinne aerosols')
         CALL set_bc_aeropt_kinne(this_datetime,                       &
               & jg,                                                    &
               & jcs, nproma,    nproma,                klev,           &
@@ -256,7 +258,8 @@ CONTAINS
       ! iaero=15: Stenchikov's volcanic aerosols are added to Kinne aerosols
       ! iaero=18: Stenchikov's volcanic aerosols are added to Kinne background
       !           aerosols (of natural origin, 1850)
-        CALL message(TRIM(thissubprog),'Running with Stenchikov volcanic aerosols')
+        IF ( msg_level > 10 ) &
+           & CALL message(TRIM(thissubprog),'Running with Stenchikov volcanic aerosols')
 #ifdef _OPENACC
         CALL warning('mo_rte_rrtmgp_interface/rte_rrtmgp_interface','Stenchikov aerosols ACC not implemented')
 #endif
@@ -286,7 +289,8 @@ CONTAINS
       IF (irad_aero==18) THEN
       ! iaero=18: Simple plumes are added to Stenchikov's volcanic aerosols
       !           and Kinne background aerosols (of natural origin, 1850)
-        CALL message(TRIM(thissubprog),'Running with simple plume aerosols')
+        IF ( msg_level > 10 ) &
+           & CALL message(TRIM(thissubprog),'Running with simple plume aerosols')
 #ifdef _OPENACC
         CALL warning('mo_rte_rrtmgp_interface/rte_rrtmgp_interface','Plumes ACC not implemented')
 #endif
