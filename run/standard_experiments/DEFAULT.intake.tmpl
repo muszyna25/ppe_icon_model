@@ -171,8 +171,9 @@ format_column_name = "format"
 variable_column_name = "variable_id"
 time_column_name = "time_min"
 
-attributes = ((variable_column_name,) + groupby_attributes +
-    (time_column_name,) + additional_attributes)
+non_variable_attributes = (groupby_attributes + (time_column_name,) +
+    additional_attributes)
+attributes = (variable_column_name,) + non_variable_attributes
 columns = attributes + (format_column_name, assets)
 
 try:
@@ -225,12 +226,20 @@ except (IOError, ValueError) as e:
 
 # Create catalog data for this year
 
-catalog_dict = {}
+def generate_keys(entry):
+    for var in entry[variable_column_name]:
+        yield ( (var,) +
+            tuple(str(entry[att]) for att in non_variable_attributes) )
+
+catalog_dict = [] # Note: this dict is a list
+catalog_index = {} # Contains an entry for each var name in var list
+
 for entry in intake_data['catalog_dict']:
     # Skip files that no longer exist
     if os.path.isfile(entry[assets]):
-        key = tuple(str(entry[att]) for att in attributes)
-        catalog_dict[key] = entry
+        catalog_dict.append(entry)
+        for key in generate_keys(entry):
+            catalog_index[key] = entry
     else:
         logging.warning("unsubscribing non-existing file '%s'", entry[assets])
 
@@ -272,12 +281,16 @@ for info in file_infos:
                         if not var.endswith('_bnds')]
 
                 key = tuple(str(info[att]) for att in attributes)
-                if (key in catalog_dict and
-                    info[assets] != catalog_dict[key][assets]):
+                if any( (key in catalog_index and
+                         info[assets] != catalog_index[key][assets]) 
+                        for key in generate_keys(info) ):
                     logging.warning("key '%s' is already taken by assets '%s'", 
-                        str(key), catalog_dict[key][assets])
+                        str(key), catalog_index[key][assets])
                 else:
-                    catalog_dict[key] = {col: info[col] for col in columns}
+                    entry = {col: info[col] for col in columns}
+                    catalog_dict.append(entry)
+                    for key in generate_keys(entry):
+                        catalog_index[key] = entry
 
             except IOError as x:
                 if x.errno != errno.ENOENT: raise
@@ -286,7 +299,7 @@ for info in file_infos:
 
             date += file_interval
 
-intake_data["catalog_dict"] = list(catalog_dict.values())
+intake_data["catalog_dict"] = catalog_dict
 
 # Write intake-esm catalog
 
