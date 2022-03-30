@@ -89,6 +89,8 @@ command_line.add_argument('-W', '--work-dir', action='store_true', help=
     'take files from work directory instead of data directory')
 command_line.add_argument('-I', '--input-dir', help=
     'take files from a non-standard directory')
+command_line.add_argument('-f', '--force', action='store_true', help=
+    'only warn about duplicated data instead of exiting with an error')
 command_line.add_argument('-V', '--version', action='version', version="""
 $Id: DEFAULT.intake.tmpl 0 2021-08-31 12:37:44Z m221078 $
 %{VERSIONS_|join('\n')}
@@ -231,13 +233,14 @@ def generate_keys(entry):
         yield ( (var,) +
             tuple(str(entry[att]) for att in non_variable_attributes) )
 
-catalog_dict = [] # Note: this dict is a list
+catalog_dict = {}
 catalog_index = {} # Contains an entry for each var name in var list
 
 for entry in intake_data['catalog_dict']:
     # Skip files that no longer exist
     if os.path.isfile(entry[assets]):
-        catalog_dict.append(entry)
+        key = tuple(str(entry[att]) for att in attributes)
+        catalog_dict[key] = entry
         for key in generate_keys(entry):
             catalog_index[key] = entry
     else:
@@ -280,15 +283,23 @@ for info in file_infos:
                     info[variable_column_name] = [var for var in ds.data_vars
                         if not var.endswith('_bnds')]
 
-                key = tuple(str(info[att]) for att in attributes)
-                if any( (key in catalog_index and
-                         info[assets] != catalog_index[key][assets]) 
-                        for key in generate_keys(info) ):
-                    logging.warning("key '%s' is already taken by assets '%s'", 
-                        str(key), catalog_index[key][assets])
+                duplicates = tuple(key for key in generate_keys(info)
+                    if key in catalog_index
+                    and info[assets] != catalog_index[key][assets])
+                if duplicates:
+                    if args.force:
+                        for key in duplicates:
+                            logging.warning("key '%s' is already taken by assets"
+                            " '%s'", str(key), catalog_index[key][assets])
+                    else:
+                        for key in duplicates:
+                            logging.error("key '%s' is already taken by assets"
+                            " '%s'", str(key), catalog_index[key][assets])
+                        sys.exit(1)
                 else:
                     entry = {col: info[col] for col in columns}
-                    catalog_dict.append(entry)
+                    key = tuple(str(entry[att]) for att in attributes)
+                    catalog_dict[key] = entry
                     for key in generate_keys(entry):
                         catalog_index[key] = entry
 
@@ -299,7 +310,7 @@ for info in file_infos:
 
             date += file_interval
 
-intake_data["catalog_dict"] = catalog_dict
+intake_data["catalog_dict"] = list(catalog_dict.values())
 
 # Write intake-esm catalog
 
