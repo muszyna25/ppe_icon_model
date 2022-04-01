@@ -283,7 +283,9 @@ for info in file_infos:
 
             # Get variables from file
             try:
-                with xarray.open_dataset(info[assets], use_cftime=True) as ds:
+                with xarray.open_dataset(info[assets], use_cftime=True,
+                    chunks={}) as ds:
+
                     # Try to remove spurious entries (eg bounds)
                     info[variable_column_name] = [var for var in ds.data_vars
                         if not var.endswith('_bnds')]
