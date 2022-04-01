@@ -21,6 +21,7 @@ Create monitoring from ICON experiment data for a given period
 import argparse
 import errno
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -34,8 +35,8 @@ def check_date(arg):
     try:
         value = mtime.DateTime(arg)
     except ValueError as ve:
-        raise argparse.ArgumentTypeError(ve.message)
-    return str(value.date)
+        raise argparse.ArgumentTypeError(str(ve))
+    return value
 
 command_line = argparse.ArgumentParser(description=__doc__.split('\n', 1)[0])
 command_line.add_argument('start_date', type=check_date, help=
@@ -50,12 +51,14 @@ command_line.add_argument('-c', '--clean', action='store_true', help=
 command_line.add_argument('-f', '--force', action='store_true', help=
     'continue to run even if working directory exists. '
     'Use ONLY after you made absolutely sure that no other job is running!')
+command_line.add_argument('-w', '--work-stamp', action='store_true', help=
+    'expect time stamps in model format instead of post-processed')
 args = command_line.parse_args()
 
 # Do time computations using mtime
 
 initial_date = mtime.DateTime('%{INITIAL_DATE}')
-start_date = mtime.DateTime(args.start_date)
+start_date = args.start_date
 
 if start_date < initial_date:
     logging.error("start_date is before initial_date")
@@ -69,25 +72,103 @@ if next_date > final_date:
     logging.warn('next date after final date; setting next date to final date')
     next_date = final_date
 
-end_date = next_date + mtime.TimeDelta('-P1D')
+offset = mtime.TimeDelta('-%{namelists.NAMELIST_atm.run_nml.modeltimestep}')
+end_date = next_date + offset
+
+# Determine date/time stamp formatting
+
+weed = re.compile(r'[-:]|\.\d+$') # for re-formatting of date/time stamps
+def data_stamp(date):
+    return re.sub(weed, '', str(date.date))
+def work_stamp(date):
+    return re.sub(weed, '', str(date)) + 'Z'
+
+stamp = work_stamp if args.work_stamp else data_stamp
 
 # Define required output
 
-#%  set set_tags = []
+#%- set set_tags = []
 #%  if JOB.tags is defined:
 #%      set tags = JOB.tags
 #%      for tag in tags.scalars|sort if tags[tag] is set:
 #%          do set_tags.append(tag)
 #%      endfor
 #%  endif
-tags = %{set_tags}
+#%- set extension_map = {1: 'grb', 2: 'grb', 3: 'nc', 4: 'nc', 5: 'nc', 6: 'nc'}
+#%- set file_infos = []
+#%  for namelist in namelists:
+#%    set namelist_data = namelists[namelist]
+#%    for group in namelist_data.sections if group|match('output_nml'):
+#%      set group_data = namelist_data[group]
+#%      set hidden = group_data['.hide'] is set
+#%      if not hidden:
+#%        set output_filename = group_data.output_filename
+#%        set output_tag = output_filename|match('^'+EXP_ID+'_(.*)$')
+#%        if output_tag and output_tag in set_tags:
+#%          set filename_format = group_data.filename_format
+#%          set extension = extension_map[group_data.filetype|d(4)|int]
+#%          set output_start = group_data.output_start
+#%          set output_start = output_start|replace('{initial_date}', INITIAL_DATE)
+#%          set output_start = output_start|replace('{final_date}', FINAL_DATE)
+#%          set output_end = group_data.output_end
+#%          set output_end = output_end|replace('{initial_date}', INITIAL_DATE)
+#%          set output_end = output_end|replace('{final_date}', FINAL_DATE)
+#%#         # Revert file life-time hack
+#%-         set file_interval = group_data.file_interval
+#%          if file_interval.endswith('T1S'):
+#%            set file_interval = file_interval[0:-3]
+#%          endif
+#%          set info = {}
+#%          do info.update(frequency = group_data.output_interval)
+#%          do info.update(time_reduction = group_data.operation or 'inst')
+#%          do info.update(output_start = output_start)
+#%          do info.update(output_end = output_end)
+#%          do info.update(file_interval = file_interval)
+#%          do info.update(filename_tmpl = filename_format|replace('<output_filename>', output_filename)|replace('<levtype_l>', levtype_l)+'.'+extension)
+#%          do file_infos.append(info)
+#%        endif
+#%      endif
+#%    endfor
+#%  endfor
+
+files = []
+for info in %{file_infos}:
+
+    output_start = mtime.DateTime(info['output_start'])
+    output_end = mtime.DateTime(info['output_end'])
+    file_interval = mtime.TimeDelta(info['file_interval'])
+
+    # Check if current interval is overlapping with file life-time
+    if output_start < next_date and output_end > start_date:
+
+        # Set lower and upper limits for file life-time wrtt current interval
+        file_start_date = max(start_date, output_start)
+        file_next_date = min(next_date, output_end)
+
+        # Generate output per file date
+        date = file_start_date
+        while date < file_next_date:
+            # Set current file name
+            filename = os.path.join(DATA_DIR,
+                info['filename_tmpl'].replace('<datetime2>', stamp(date)))
+            logging.info("current file '%s'", filename)
+
+            # Get variables from file
+            if os.path.isfile(os.path.join(DATA_DIR, filename)):
+                files.append(filename)
+            else:
+                logging.warning("file '%s' does not exist", filename)
+
+            date += file_interval
 
 # Set-up template variables
 
 template_dict = {}
-template_dict['start_date'] = args.start_date.replace('-', '')
-template_dict['end_date'] = str(end_date.date).replace('-', '')
-template_dict['tags'] = ' '.join(tags)
+template_dict['start_date'] = str(start_date)
+template_dict['end_date'] = str(end_date)
+template_dict['start_stamp'] = stamp(start_date)
+template_dict['end_stamp'] = stamp(end_date)
+template_dict['files'] = ' '.join(files)
 template_dict['mean_op'] = '%{JOB.mean_op|d('yearavg')}'
 
 # Prolog
@@ -104,7 +185,7 @@ except OSError as xcptn:
 template_dict['targets_dir'] = targets_dir
 
 work_dir = os.path.join('%{JOB.work_dir}',
-                        '%{JOB.id}_{start_date}-{end_date}'.
+                        '%{JOB.id}_{start_stamp}-{end_stamp}'.
                         format(**template_dict))
 
 logging.info('working directory is {0}'.format(work_dir))
@@ -141,23 +222,25 @@ MON_SCRIPT = $(SCRIPT_DIR)/$(EXP_ID).%{JOB.id}
 MON_INDEX_SCRIPT = $(SCRIPT_DIR)/$(EXP_ID).mon_index
 
 START_DATE = {start_date}
-TAGS = {tags}
+START_STAMP = {start_stamp}
+FILES = {files}
 TARGETS_DIR = {targets_dir}
 MEAN_OP = {mean_op}
 
-TARGETS = $(TAGS:%=$(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).html) $(MON_DIR)/index.html
+
+TARGETS = $(FILES:%=$(TARGETS_DIR)/%.html) $(MON_DIR)/index.html
 
 all: $(TARGETS)
 
 clean:
-	$(RM) $(TARGETS) $(TARGETS:.html=.pdf) $(TARGETS:.html=.nc)
+	$(RM) $(TARGETS) $(TARGETS:.html=.pdf) $(TARGETS:.html=)
 
-.PRECIOUS: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).pdf $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc
+.PRECIOUS: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_STAMP).pdf $(TARGETS_DIR)/$(EXP_ID)_%_$(START_STAMP).nc
 
 $(MON_DIR)/index.html: $(MON_INDEX_SCRIPT)
 	SHELL= filelock $@ -c '$(MON_INDEX_SCRIPT) $@'
 
-$(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc: $(DATA_DIR)/$(EXP_ID)_%_$(START_DATE).nc $(MON_SCRIPT)
+$(TARGETS_DIR)/$(EXP_ID)_%_$(START_STAMP).nc: $(DATA_DIR)/$(EXP_ID)_%_$(START_STAMP).nc $(MON_SCRIPT)
 	$(CDO) $(CDOFLAGS) select,startdate=$(START_DATE) $< $(<F)
 	SHELL= filelock $(TARGETS_DIR)/$(EXP_ID)_$*.nc -c \
 	   'set -e ;\
@@ -171,19 +254,19 @@ $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc: $(DATA_DIR)/$(EXP_ID)_%_$(START_DAT
 	    fi'
 	touch $@
 
-$(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).pdf: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc
+$(TARGETS_DIR)/$(EXP_ID)_%_$(START_STAMP).pdf: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_STAMP).nc
 	SHELL= filelock $(TARGETS_DIR)/$(EXP_ID)_$*.pdf \
 	    filelock -s $(TARGETS_DIR)/$(EXP_ID)_$*.nc -c \
 	   'set -e ;\
-      $(CDO) $(CDOFLAGS) $(MEAN_OP) $(MON_DIR)/$(EXP_ID)_$*.nc \
-	            $(EXP_ID)_$*_yearavg.nc ;\
+	    $(CDO) $(CDOFLAGS) $(MEAN_OP) $(MON_DIR)/$(EXP_ID)_$*.nc \
+	        $(EXP_ID)_$*_yearavg.nc ;\
 	    mv $(EXP_ID)_$*_yearavg.nc $(MON_DIR)/$(EXP_ID)_$*_yearavg.nc ;\
 	    cd $(MON_DIR) ;\
 	    $(PLOT_TIMESER) --manifest=$(EXP_ID)_$*.lst --mode=monitoring \
 	        --with1=$(EXP_ID)_$*.nc --with1a=$(EXP_ID)_$*_yearavg.nc --output=$(EXP_ID)_$*'
 	touch $@
 
-$(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).html: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).pdf
+$(TARGETS_DIR)/$(EXP_ID)_%_$(START_STAMP).html: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_STAMP).pdf
 	SHELL= filelock $(TARGETS_DIR)/$(EXP_ID)_$*.html \
 	    filelock -s $(TARGETS_DIR)/$(EXP_ID)_$*.pdf -c \
 	   'set -e ;\
