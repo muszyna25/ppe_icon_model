@@ -87,6 +87,8 @@ command_line.add_argument('-w', '--work-stamp', action='store_true', help=
     'expect time stamps in model format instead of post-processed')
 command_line.add_argument('-W', '--work-dir', action='store_true', help=
     'take files from work directory instead of data directory')
+command_line.add_argument('-N', '--include-next-date', action='store_true', help=
+    'also include files with time stamps for next start date')
 command_line.add_argument('-I', '--input-dir', help=
     'take files from a non-standard directory')
 command_line.add_argument('-f', '--force', action='store_true', help=
@@ -121,8 +123,10 @@ end_date = next_date + offset
 weed = re.compile(r'[-:]|\.\d+$') # for re-formatting of date/time stamps
 def data_stamp(date):
     return re.sub(weed, '', str(date.date))
+def run_stamp(date):
+    return re.sub(weed, '', str(date))
 def work_stamp(date):
-    return re.sub(weed, '', str(date)) + 'Z'
+    return run_stamp(date) + 'Z'
 
 start_stamp = data_stamp(start_date)
 end_stamp = data_stamp(end_date)
@@ -134,7 +138,7 @@ stamp = work_stamp if args.work_stamp else data_stamp
 input_dir = '%{DATA_DIR}'
 if args.work_dir:
     input_dir = os.path.join('%{WORK_DIR}', '%{jobs.run.subdir}').format(
-        start_stamp=start_stamp, end_stamp=end_stamp)
+        start_stamp=run_stamp(start_date), end_stamp=run_stamp(end_date))
 
 if args.input_dir:
     input_dir = args.input_dir
@@ -266,7 +270,8 @@ for info in file_infos:
 
         # Generate output per file date
         date = file_start_date
-        while date < file_next_date:
+        while ((args.include_next_date and date <= file_next_date)
+               or date < file_next_date):
             # Set current file name
             info[assets] = os.path.join(input_dir,
                 info['filename_tmpl'].replace('<datetime2>', stamp(date)))
