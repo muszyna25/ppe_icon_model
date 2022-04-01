@@ -262,7 +262,7 @@ for info in file_infos:
 
 
     # Check if current interval is overlapping with file life-time
-    if output_start < next_date and output_end > start_date:
+    if output_start < next_date and output_end >= start_date:
 
         # Set lower and upper limits for file life-time wrtt current interval
         file_start_date = max(start_date, output_start)
