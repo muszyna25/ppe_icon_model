@@ -43,7 +43,7 @@ Create intake directory entries for a given period
 #%        do info.update(experiment_id = EXP_KIND)
 #%        do info.update(simulation_id = EXP_ID)
 #%        do info.update(realm = realm)
-#%        do info.update(frequency = group_data.output_interval)
+#%        do info.update(output_interval = group_data.output_interval)
 #%        do info.update(time_reduction = group_data.operation or 'inst')
 #%        do info.update(grid_label = 'gn')
 #%        do info.update(level_type = levtype_l)
@@ -255,10 +255,11 @@ for info in file_infos:
     output_start = mtime.DateTime(info['output_start'])
     output_end = mtime.DateTime(info['output_end'])
     file_interval = mtime.TimeDelta(info['file_interval'])
-    frequency = mtime.TimeDelta(info['frequency'])
+    output_interval = mtime.TimeDelta(info['output_interval'])
+    neg_output_interval = mtime.TimeDelta('-'+info['output_interval'])
 
     info['frequency'] = ' '.join('{0}{1}'.format(value, name)
-        for (name, value) in frequency.items() if name != 'sign' and value)
+        for (name, value) in output_interval.items() if name != 'sign' and value)
 
 
     # Check if current interval is overlapping with file life-time
@@ -278,8 +279,16 @@ for info in file_infos:
             logging.info("current file '%s'", info[assets])
 
             # Determine time range
-            info[time_column_name] = str(date)
-            info['time_max'] = str(date+file_interval+offset)
+            if args.include_next_date and date != initial_date:
+                if date == file_next_date:
+                     info[time_column_name] = str(date)
+                     info['time_max'] = str(date)
+                else:
+                    info[time_column_name] = str(date+output_interval)
+                    info['time_max'] = str(date+file_interval+neg_output_interval)
+            else:
+                info[time_column_name] = str(date)
+                info['time_max'] = str(date+file_interval+neg_output_interval)
 
             # Get variables from file
             try:
