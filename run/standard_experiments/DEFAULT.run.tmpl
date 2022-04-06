@@ -99,16 +99,24 @@ unset %{var}
 #%#
 #%  set mpi_command = MPI.command
 #%#
-#%  if JOB.use_cpu_mask|d():
-#%  set mpi_command_1 = mpi_command|match('^(.*?)\s+--cpu-bind=\S*.*$')
-#%  set mpi_command_2 = mpi_command|match('^.*?\s+--cpu-bind=\S*(.*)$')
-#%  set mpi_command = mpi_command_1 + mpi_command_2 + ' --cpu-bind=v,mask_cpu=$(ccpumask -t $OMP_NUM_THREADS)'
+#%  if JOB.use_cpu_mask is set:
+#%#   TODO: add regexp replace to mkexp and use here
+#%-   if mpi_command|match('\s+--cpu-bind=\S*'):
+#%      set mpi_command_1 = mpi_command|match('^(.*?)\s+--cpu-bind=\S*.*$')
+#%      set mpi_command_2 = mpi_command|match('^.*?\s+--cpu-bind=\S*(.*)$')
+#%      set mpi_command = mpi_command_1 + mpi_command_2
+#%    endif
+#%    set mpi_command = mpi_command + ' --cpu-bind=v,mask_cpu=$(ccpumask -t $OMP_NUM_THREADS)'
 #%  endif
 #%#
-#%  if JOB.use_hostfile|d():
-#%  set mpi_command_1 = mpi_command|match('^(.*?)\s+--distribution=\S*.*$')
-#%  set mpi_command_2 = mpi_command|match('^.*?\s+--distribution=\S*(.*)$')
-#%  set mpi_command = mpi_command_1 + mpi_command_2 + ' --distribution=arbitrary'
+#%  if JOB.use_hostfile is set:
+#%#   TODO: add regexp replace to mkexp and use here
+#%    if mpi_command|match('\s+--distribution=\S*'):
+#%      set mpi_command_1 = mpi_command|match('^(.*?)\s+--distribution=\S*.*$')
+#%      set mpi_command_2 = mpi_command|match('^.*?\s+--distribution=\S*(.*)$')
+#%      set mpi_command = mpi_command_1 + mpi_command_2
+#%    endif
+#%    set mpi_command = mpi_command + ' --distribution=arbitrary'
 #%  endif
 
 export START="%{mpi_command} --nodes=$no_of_nodes --ntasks=$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=${mpi_procs_pernode} --cpus-per-task=$((2 * OMP_NUM_THREADS))"
@@ -362,12 +370,12 @@ ldd ${MODEL}
 #
 # start experiment
 #
-#%  if JOB.use_hostfile|d() or JOB.use_mpmd|d():
+#%  if JOB.use_hostfile is set or JOB.use_mpmd is set:
 mpi_atm_io_procs=%{namelists.NAMELIST_atm.parallel_nml.num_io_procs}
 mpi_oce_io_procs=%{namelists.NAMELIST_oce.parallel_nml.num_io_procs}
 
 #%  endif
-#%  if JOB.use_hostfile|d():
+#%  if JOB.use_hostfile is set:
 export SLURM_HOSTFILE=$EXPDIR/hst_file
 
 function fill_hostfile(){
@@ -421,7 +429,7 @@ export MODEL=./icon
 
 rm -f finish.status
 
-#%  if JOB.use_mpmd:
+#%  if JOB.use_mpmd is set:
 if [ $mpi_atm_io_procs -eq 0 ] ; then
   atm_io_line="0 numactl --interleave=0-3 -- ${MODEL}"
 else
@@ -471,7 +479,7 @@ echo "#################################################"
 
 #%  endif
 date
-#%  if JOB.use_mpmd:
+#%  if JOB.use_mpmd is set:
 ${START} --multi-prog icon_mpmd.conf
 #%  else:
 ${START} ${MODEL}
