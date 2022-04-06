@@ -130,8 +130,9 @@ stamp = work_stamp if args.work_stamp else data_stamp
 #%      endif
 #%    endfor
 #%  endfor
-
+#%#
 files = []
+data_dir = '%{DATA_DIR}'
 for info in %{file_infos}:
 
     output_start = mtime.DateTime(info['output_start'])
@@ -149,12 +150,11 @@ for info in %{file_infos}:
         date = file_start_date
         while date < file_next_date:
             # Set current file name
-            filename = os.path.join(DATA_DIR,
-                info['filename_tmpl'].replace('<datetime2>', stamp(date)))
+            filename = info['filename_tmpl'].replace('<datetime2>', stamp(date))
             logging.info("current file '%s'", filename)
 
             # Get variables from file
-            if os.path.isfile(os.path.join(DATA_DIR, filename)):
+            if os.path.isfile(os.path.join(data_dir, filename)):
                 files.append(filename)
             else:
                 logging.warning("file '%s' does not exist", filename)
@@ -227,8 +227,9 @@ FILES = {files}
 TARGETS_DIR = {targets_dir}
 MEAN_OP = {mean_op}
 
-
-TARGETS = $(FILES:%=$(TARGETS_DIR)/%.html) $(MON_DIR)/index.html
+FILES1 = $(FILES:.nc=)
+FILES2 = $(FILES1:.grb=)
+TARGETS = $(FILES2:%=$(TARGETS_DIR)/%.html) $(MON_DIR)/index.html
 
 all: $(TARGETS)
 
