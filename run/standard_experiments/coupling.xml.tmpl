@@ -268,7 +268,11 @@
             </timestep>
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements>
+#%    if river_runoff_spread|d(0.0)|float > 0.0:
+               <interpolation method="source_to_target_map" spread_distance="%{river_runoff_spread}" weighted="ARITHMETIC_AVERAGE"/>
+#%    else:
                <interpolation method="source_to_target_map"/>
+#%    endif
             </interpolation_requirements>
             <enforce_write_weight_file filename="%{runoff_weight_file|d('')}">%{'true' if runoff_weight_file|d('') else 'false'}</enforce_write_weight_file>
          </transient_couple>
