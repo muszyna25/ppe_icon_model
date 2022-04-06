@@ -4,7 +4,7 @@ MV = mv
 
 MKEXP = mkexp
 MKEXP_FLAGS = EXP_ID=$${EXP_TYPE} EXP_TYPE=$$EXP_TYPE ENVIRONMENT=$$ENVIRONMENT TOP_SRCDIR= MODEL_ROOT=. DATA_ROOT=. WORK_ROOT=. MODEL_SUBDIR= EXPERIMENTS_SUBDIR=$(CHECK_TARGET)/$$ENVIRONMENT jobs.run_dummy...extends=run jobs.run_dummy.namelists.NAMELIST_lnd.jsb_hydro_nml...remove=snow_depth_max
-MKEXP_ENVIRONMENTS = DEFAULT mistral
+MKEXP_ENVIRONMENTS = DEFAULT levante mistral
 MKEXP_KINDS = esmControl piControl
 MKEXP_QUALITIES = R2B3_R2B4 R2B4_R2B6
 MKEXP_CONFIG = examples/esm_R2B3_R2B4.config

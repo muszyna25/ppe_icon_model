@@ -100,12 +100,15 @@ unset %{var}
 #%  set mpi_command = MPI.command
 #%#
 #%  if JOB.use_cpu_mask|d():
-#%# TODO: need to adapt mask to no of tasks and threads
-#%  set mpi_command = mpi_command + ' --cpu-bind=v,mask_cpu=$(ccpumask -t $OMP_NUM_THREADS)'
+#%  set mpi_command_1 = mpi_command|match('^(.*?)\s+--cpu-bind=\S*.*$')
+#%  set mpi_command_2 = mpi_command|match('^.*?\s+--cpu-bind=\S*(.*)$')
+#%  set mpi_command = mpi_command_1 + mpi_command_2 + ' --cpu-bind=v,mask_cpu=$(ccpumask -t $OMP_NUM_THREADS)'
 #%  endif
 #%#
 #%  if JOB.use_hostfile|d():
-#%  set mpi_command = mpi_command + ' --distribution=arbitrary'
+#%  set mpi_command_1 = mpi_command|match('^(.*?)\s+--distribution=\S*.*$')
+#%  set mpi_command_2 = mpi_command|match('^.*?\s+--distribution=\S*(.*)$')
+#%  set mpi_command = mpi_command_1 + mpi_command_2 + ' --distribution=arbitrary'
 #%  endif
 
 export START="%{mpi_command} --nodes=$no_of_nodes --ntasks=$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=${mpi_procs_pernode} --cpus-per-task=$((2 * OMP_NUM_THREADS))"
