@@ -53,6 +53,10 @@ command_line.add_argument('-f', '--force', action='store_true', help=
     'Use ONLY after you made absolutely sure that no other job is running!')
 command_line.add_argument('-w', '--work-stamp', action='store_true', help=
     'expect time stamps in model format instead of post-processed')
+command_line.add_argument('-W', '--work-dir', action='store_true', help=
+    'take files from work directory instead of data directory')
+command_line.add_argument('-N', '--include-next-date', action='store_true', help=
+    'also include files with time stamps for next start date')
 args = command_line.parse_args()
 
 # Do time computations using mtime
@@ -80,10 +84,20 @@ end_date = next_date + offset
 weed = re.compile(r'[-:]|\.\d+$') # for re-formatting of date/time stamps
 def data_stamp(date):
     return re.sub(weed, '', str(date.date))
+def run_stamp(date):
+    return re.sub(weed, '', str(date))
 def work_stamp(date):
     return re.sub(weed, '', str(date)) + 'Z'
 
 stamp = work_stamp if args.work_stamp else data_stamp
+
+# Determine directory to read files from
+
+input_dir = '%{DATA_DIR}'
+if args.work_dir:
+    input_dir = os.path.join('%{WORK_DIR}', '%{jobs.run.subdir}').format(
+        start_stamp=run_stamp(start_date), end_stamp=run_stamp(end_date))
+
 
 # Define required output
 
@@ -132,7 +146,7 @@ stamp = work_stamp if args.work_stamp else data_stamp
 #%  endfor
 #%#
 files = []
-data_dir = '%{DATA_DIR}'
+
 for info in %{file_infos}:
 
     output_start = mtime.DateTime(info['output_start'])
@@ -140,7 +154,7 @@ for info in %{file_infos}:
     file_interval = mtime.TimeDelta(info['file_interval'])
 
     # Check if current interval is overlapping with file life-time
-    if output_start < next_date and output_end > start_date:
+    if output_start < next_date and output_end >= start_date:
 
         # Set lower and upper limits for file life-time wrtt current interval
         file_start_date = max(start_date, output_start)
@@ -148,13 +162,15 @@ for info in %{file_infos}:
 
         # Generate output per file date
         date = file_start_date
-        while date < file_next_date:
+
+        while ((args.include_next_date and date <= file_next_date)
+               or date < file_next_date):
             # Set current file name
             filename = info['filename_tmpl'].replace('<datetime2>', stamp(date))
             logging.info("current file '%s'", filename)
 
             # Get variables from file
-            if os.path.isfile(os.path.join(data_dir, filename)):
+            if os.path.isfile(os.path.join(input_dir, filename)):
                 files.append(filename)
             else:
                 logging.warning("file '%s' does not exist", filename)
@@ -165,11 +181,15 @@ for info in %{file_infos}:
 
 template_dict = {}
 template_dict['start_date'] = str(start_date)
+template_dict['min_date'] = str(start_date)
+if args.include_next_date:
+    template_dict['min_date'] = str(start_date+mtime.TimeDelta('PT1S'))
 template_dict['end_date'] = str(end_date)
 template_dict['start_stamp'] = stamp(start_date)
 template_dict['end_stamp'] = stamp(end_date)
 template_dict['files'] = ' '.join(files)
 template_dict['mean_op'] = '%{JOB.mean_op|d('yearavg')}'
+template_dict['input_dir'] = input_dir
 
 # Prolog
 
@@ -214,14 +234,14 @@ CDOFLAGS = -s -O
 PLOT_TIMESER = plot_timeser
 
 EXP_ID = %{EXP_ID}
-DATA_DIR = %{DATA_DIR}
+DATA_DIR = {input_dir}
 MON_DIR = %{MON_DIR}
 SCRIPT_DIR = %{SCRIPT_DIR}
 
 MON_SCRIPT = $(SCRIPT_DIR)/$(EXP_ID).%{JOB.id}
 MON_INDEX_SCRIPT = $(SCRIPT_DIR)/$(EXP_ID).mon_index
 
-START_DATE = {start_date}
+MIN_DATE = {min_date}
 START_STAMP = {start_stamp}
 FILES = {files}
 TARGETS_DIR = {targets_dir}
@@ -236,47 +256,47 @@ all: $(TARGETS)
 clean:
 	$(RM) $(TARGETS) $(TARGETS:.html=.pdf) $(TARGETS:.html=)
 
-.PRECIOUS: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_STAMP).pdf $(TARGETS_DIR)/$(EXP_ID)_%_$(START_STAMP).nc
+.PRECIOUS: $(TARGETS_DIR)/%.pdf $(TARGETS_DIR)/%.nc
 
 $(MON_DIR)/index.html: $(MON_INDEX_SCRIPT)
 	SHELL= filelock $@ -c '$(MON_INDEX_SCRIPT) $@'
 
-$(TARGETS_DIR)/$(EXP_ID)_%_$(START_STAMP).nc: $(DATA_DIR)/$(EXP_ID)_%_$(START_STAMP).nc $(MON_SCRIPT)
-	$(CDO) $(CDOFLAGS) select,startdate=$(START_DATE) $< $(<F)
-	SHELL= filelock $(TARGETS_DIR)/$(EXP_ID)_$*.nc -c \
-	   'set -e ;\
-	    if [ -f $(MON_DIR)/$(EXP_ID)_$*.nc ] ;\
+$(TARGETS_DIR)/%.nc: $(DATA_DIR)/%.nc $(MON_SCRIPT)
+	$(CDO) $(CDOFLAGS) select,startdate=$(MIN_DATE) $< $(<F)
+	base=$*; base=$${{base%_*}}; SHELL= filelock $(TARGETS_DIR)/$$base.nc -c \
+	   "set -e ;\
+	    if [ -f $(MON_DIR)/$$base.nc ] ;\
 	    then \
-	        $(CDO) $(CDOFLAGS) mergetime $(<F) $(MON_DIR)/$(EXP_ID)_$*.nc \
-	            $(EXP_ID)_$*.nc ;\
-	        mv $(EXP_ID)_$*.nc $(MON_DIR)/$(EXP_ID)_$*.nc ;\
+	        $(CDO) $(CDOFLAGS) mergetime $(<F) $(MON_DIR)/$$base.nc \
+	            $$base.nc ;\
+	        mv $$base.nc $(MON_DIR)/$$base.nc ;\
 	    else \
-	        cp $(<F) $(MON_DIR)/$(EXP_ID)_$*.nc ;\
-	    fi'
+	        cp $(<F) $(MON_DIR)/$$base.nc ;\
+	    fi"
 	touch $@
 
-$(TARGETS_DIR)/$(EXP_ID)_%_$(START_STAMP).pdf: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_STAMP).nc
-	SHELL= filelock $(TARGETS_DIR)/$(EXP_ID)_$*.pdf \
-	    filelock -s $(TARGETS_DIR)/$(EXP_ID)_$*.nc -c \
-	   'set -e ;\
-	    $(CDO) $(CDOFLAGS) $(MEAN_OP) $(MON_DIR)/$(EXP_ID)_$*.nc \
-	        $(EXP_ID)_$*_yearavg.nc ;\
-	    mv $(EXP_ID)_$*_yearavg.nc $(MON_DIR)/$(EXP_ID)_$*_yearavg.nc ;\
+$(TARGETS_DIR)/%.pdf: $(TARGETS_DIR)/%.nc
+	base=$*; base=$${{base%_*}}; SHELL= filelock $(TARGETS_DIR)/$$base.pdf \
+	    filelock -s $(TARGETS_DIR)/$$base.nc -c \
+	   "set -e ;\
+	    $(CDO) $(CDOFLAGS) $(MEAN_OP) $(MON_DIR)/$$base.nc \
+	        $$base_yearavg.nc ;\
+	    mv $$base_yearavg.nc $(MON_DIR)/$$base_yearavg.nc ;\
 	    cd $(MON_DIR) ;\
-	    $(PLOT_TIMESER) --manifest=$(EXP_ID)_$*.lst --mode=monitoring \
-	        --with1=$(EXP_ID)_$*.nc --with1a=$(EXP_ID)_$*_yearavg.nc --output=$(EXP_ID)_$*'
+	    $(PLOT_TIMESER) --manifest=$$base.lst --mode=monitoring \
+	        --with1=$$base.nc --with1a=$$base_yearavg.nc --output=$$base"
 	touch $@
 
-$(TARGETS_DIR)/$(EXP_ID)_%_$(START_STAMP).html: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_STAMP).pdf
-	SHELL= filelock $(TARGETS_DIR)/$(EXP_ID)_$*.html \
-	    filelock -s $(TARGETS_DIR)/$(EXP_ID)_$*.pdf -c \
-	   'set -e ;\
-	    mkdir -p $* ;\
-	    TEMP=$$PWD/$* ;\
+$(TARGETS_DIR)/%.html: $(TARGETS_DIR)/%.pdf
+	base=$*; base=$${{base%_*}}; SHELL= filelock $(TARGETS_DIR)/$$base.html \
+	    filelock -s $(TARGETS_DIR)/$$base.pdf -c \
+	   "set -e ;\
+	    mkdir -p $$base ;\
+	    TEMP=$$PWD/$$base ;\
 	    export TEMP ;\
 	    cd $(MON_DIR) ;\
-	    create_plot_browser -t "$(EXP_ID) $*" $(EXP_ID)_$*.lst \
-	        > $(EXP_ID)_$*.html'
+	    create_plot_browser -t $$base $$base.lst \
+	        > $$base.html"
 	touch $@ 
 '''
 
