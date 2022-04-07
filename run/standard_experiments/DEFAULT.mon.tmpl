@@ -4,7 +4,7 @@
 #SBATCH --qos=%{JOB.qos}
 #%  endif
 #SBATCH --job-name=%{EXP_ID}.%{JOB.id}
-#SBATCH --partition=prepost,shared
+#SBATCH --partition=%{JOB.partition}
 #%  if JOB.tasks is defined:
 #SBATCH --ntasks=%{JOB.tasks}
 #%  endif
@@ -280,11 +280,11 @@ $(TARGETS_DIR)/%.pdf: $(TARGETS_DIR)/%.nc
 	    filelock -s $(TARGETS_DIR)/$$base.nc -c \
 	   "set -e ;\
 	    $(CDO) $(CDOFLAGS) $(MEAN_OP) $(MON_DIR)/$$base.nc \
-	        $$base_yearavg.nc ;\
-	    mv $$base_yearavg.nc $(MON_DIR)/$$base_yearavg.nc ;\
+	        $${{base}}_$(MEAN_OP).nc ;\
+	    mv $${{base}}_$(MEAN_OP).nc $(MON_DIR)/$${{base}}_$(MEAN_OP).nc ;\
 	    cd $(MON_DIR) ;\
 	    $(PLOT_TIMESER) --manifest=$$base.lst --mode=monitoring \
-	        --with1=$$base.nc --with1a=$$base_yearavg.nc --output=$$base"
+	        --with1=$$base.nc --with1a=$${{base}}_$(MEAN_OP).nc --output=$$base"
 	touch $@
 
 $(TARGETS_DIR)/%.html: $(TARGETS_DIR)/%.pdf
