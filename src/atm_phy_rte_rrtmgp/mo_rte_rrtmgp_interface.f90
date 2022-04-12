@@ -239,7 +239,8 @@ CONTAINS
       aer_asy_sw(:,:,:) = 0.0_wp
       !$ACC end kernels
 
-      IF (irad_aero==13 .OR. irad_aero==15 .OR. irad_aero==18) THEN
+      IF (irad_aero==12 .OR. irad_aero==13 .OR. irad_aero==15 .OR. irad_aero==18) THEN
+      ! iaero=12: only Kinne aerosols from single year are used
       ! iaero=13: only Kinne aerosols are used
       ! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used
       ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
