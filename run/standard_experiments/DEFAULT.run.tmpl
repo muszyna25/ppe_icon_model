@@ -557,8 +557,12 @@ fi
 #%   elif type == 'serial':
 echo "running '%{EXP_ID}.%{trigger}'"
 ./%{EXP_ID}.%{trigger} $start_date
-#%   else
+#%   else:
 echo "submitting '%{EXP_ID}.%{trigger}'"
+# Clean SLURM environment
+eval $(python -c 'import os
+for key in os.environ:
+    if key.startswith("SLURM_"): print("unset "+key)')
 %{JOB.batch_command} %{EXP_ID}.%{trigger} $start_date
 #%   endif
 #% endfor
