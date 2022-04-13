@@ -201,7 +201,10 @@ logging.info('monitoring started '
 
 # Set-up directory structure
 
-targets_dir = os.path.join('%{MON_DIR}', 'targets')
+mon_dir = '%{MON_DIR}'
+template_dict['mon_dir'] = mon_dir
+
+targets_dir = os.path.join(mon_dir, 'targets')
 try: os.makedirs(targets_dir)
 except OSError as xcptn:
     if xcptn.errno != errno.EEXIST: raise
@@ -254,7 +257,7 @@ PLOT_TIMESER = plot_timeser
 
 EXP_ID = %{EXP_ID}
 DATA_DIR = {input_dir}
-MON_DIR = %{MON_DIR}
+MON_DIR = {mon_dir}
 SCRIPT_DIR = %{SCRIPT_DIR}
 
 MON_SCRIPT = $(SCRIPT_DIR)/$(EXP_ID).%{JOB.id}
@@ -367,6 +370,30 @@ if make_result:
     logging.error("'{0}' returned {1}".format(' '.join(make_args), make_result))
     sys.exit(1)
 
+#%  if JOB.upload_url is defined:
+
+logging.info('transfer data to upload URL')
+
+import itertools, fnmatch, urllib.request, mimetypes
+
+upload_url = '%{JOB.upload_url}'
+names = os.listdir(mon_dir)
+
+for name in itertools.chain.from_iterable(
+    fnmatch.filter(names, pattern) for pattern in ('*.pdf', '*.png', '*.html')
+):
+    with open(os.path.join(mon_dir, name), "rb") as input:
+        data = input.read()
+    url = upload_url.replace('/?', '/%{EXP_ID}/' + name + '?')
+    request = urllib.request.Request(url=url, data=data, method='PUT')
+    (mime_type, encoding) = mimetypes.guess_type(name)
+    request.add_header('Content-Type', mime_type)
+    with urllib.request.urlopen(request) as response:
+        pass
+    logging.info('%s (%s): %s (%d)',
+        name, mime_type, response.reason, response.status)
+
+#%  endif
 os.chdir('%{SCRIPT_DIR}')
 
 #%  if JOB.debug_level|d(0)|int < 1:
