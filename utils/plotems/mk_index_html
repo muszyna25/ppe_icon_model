@@ -60,6 +60,10 @@ Default is "Index of '%s'",
 
 Suppress I<up> link to higher index level.
 
+=item B<-I>
+
+Suppress use of 'index.html' in links.
+
 =back
 
 =head1 SEE ALSO
@@ -107,12 +111,13 @@ my $address = 'Max-Planck-Institut f&uuml;r Meteorologie';
 
 my $hide_size = 0;
 my $hide_up = 0;
+my $index_name = '/index.html';
 
 my %options;
 
 my @command_line = ($program, @ARGV);
 
-getopts('i:bf:st:ua:p', \%options) or die "Oops: invalid option\n";
+getopts('i:bf:st:ua:pI', \%options) or die "Oops: invalid option\n";
 
 if(exists($options{b})) {
     $file_header = 'Directory';
@@ -127,6 +132,7 @@ exists($options{s}) and $hide_size = 1;
 exists($options{t}) and $title = $options{t};
 exists($options{u}) and $hide_up = 1;
 exists($options{a}) and $address = $options{a};
+exists($options{I}) and $index_name = '';
 
 exists($options{p}) or $dir = basename($dir);
 
@@ -151,7 +157,7 @@ print "
         <link rel='stylesheet' href='css/lightbox.css'>
     </head>
     <body style='background-color:#FFFFFF'>
-        <address>$title".($hide_up ? '' : " | <a href='..'>up</a>")."</address>
+        <address>$title".($hide_up ? '' : " | <a href='..$index_name'>up</a>")."</address>
         <hr>
         <div style='height:90%;min-height:90%;overflow:auto'>
         <table>
@@ -189,7 +195,7 @@ for my $file (@ARGV) {
     my $date = gmtime($stat_info[9]);
     print "
             <tr $style>
-                <td><a href='$file' $attributes>$file</a></td>"
+                <td><a href='$file".(-d $file ? $index_name : '')."' $attributes>$file</a></td>"
 . ($hide_size ? '' :
 "
                 <td align='right'>$size</td>"
