@@ -145,9 +145,12 @@ if args.work_dir:
 #%    endfor
 #%  endfor
 #%#
+
+file_infos = %{file_infos}
+
 files = []
 
-for info in %{file_infos}:
+for info in file_infos:
 
     output_start = mtime.DateTime(info['output_start'])
     output_end = mtime.DateTime(info['output_end'])
@@ -209,6 +212,22 @@ work_dir = os.path.join('%{JOB.work_dir}',
                         format(**template_dict))
 
 logging.info('working directory is {0}'.format(work_dir))
+
+# TODO HACK! Avoid skipping of overlapping files if time was not corrected
+# by always re-doing start and end files ie removing the target stamps
+if args.include_next_date:
+    conflict_names = []
+    for info in file_infos:
+        for date in (start_date, next_date):
+            name = info['filename_tmpl'].replace('<datetime2>', stamp(date))
+            (base, ignore) = os.path.splitext(name)
+            conflict_names.extend((name, base+'.pdf', base+'.html'))
+    for name in conflict_names:
+        try:
+            os.remove(os.path.join(targets_dir, name))
+            logging.info("removed time stamp for '{0}'".format(name))
+        except OSError as xcptn:
+            if xcptn.errno != errno.ENOENT: raise
 
 try:
     os.makedirs(work_dir)
