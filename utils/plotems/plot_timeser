@@ -1,11 +1,12 @@
 #! /usr/bin/env nclsh
 ;
-; $Id: plot_timeser 633 2019-11-20 14:45:01Z m221078 $
+; $Id: plot_timeser 658 2022-04-19 14:44:16Z m221078 $
 ;
 
 load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
 load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_csm.ncl"
 load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/contrib/time_axis_labels.ncl"
 
 ;
 ; Global settings
@@ -24,6 +25,8 @@ default_attribute_names = (/"code"/)
 default_text_scale = 1.0
 default_line_scale = 1.0
 default_manifest = ""
+default_time_format = "%Y-%N-%D~C~%H:%M:%S"
+default_time_ticks = 33
 
 debug_mode = default_debug_mode
 
@@ -407,6 +410,14 @@ begin
     manifest = default_manifest
   end if
 
+  ; Supply format for time labels
+  if(.not. isvar("time_format")) then
+    time_format = default_time_format
+  end if
+  if(.not. isvar("time_ticks")) then
+    time_ticks = default_time_ticks
+  end if
+
   ; Set distinct colors for consecutive line plots
   ;
   ; Specs legend:
@@ -619,12 +630,13 @@ begin
   end if
 
   ; Traverse files back to front as list only provides 'push' operation
-  
+
   debug_print("scan time axes")
   debug_print("file '" + files(file_max) + "'")
   time = datafiles[file_max]->$time_name$
   hack_calendar_attribute(time)
-  x = [/ fill2(cd_calendar(time, 4)) /]
+  time_units = time@units
+  x = [/ fill2(time) /]
   x_min = min(x[0])
   x_max = max(x[0])
   debug_print("range [" + x_min + ", " + x_max + "]")
@@ -634,13 +646,15 @@ begin
         debug_print("file '" + files(file_idx) + "'")
         time = datafiles[file_idx]->$time_name$
         hack_calendar_attribute(time)
-        ListPush(x, fill2(cd_calendar(time, 4)))
+        ListPush(x, fill2(cd_convert(time, time_units)))
         x_min = min((/x_min, min(x[0])/))
         x_max = max((/x_max, max(x[0])/))
         debug_print("range [" + x_min + ", " + x_max + "]")
         delete(time)
     end do
   end if
+  x_values := fspan(x_min, x_max, time_ticks)
+  x_values@units = time_units
 
   ; Open graphic workstation
 
@@ -694,6 +708,12 @@ begin
 
   res@trXMinF = tofloat(x_min)
   res@trXMaxF = tofloat(x_max)
+
+  ; Setup time labels
+
+  res_time = True
+  res_time@ttmFormat = time_format
+  time_axis_labels(x_values, res, res_time)
 
   ; Setup page layout (panel)
 

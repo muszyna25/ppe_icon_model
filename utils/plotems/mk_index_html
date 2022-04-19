@@ -97,7 +97,10 @@ use Cwd;
 use File::Basename;
 use Getopt::Std;
 
+use POSIX qw(strftime);
+
 $Getopt::Std::STANDARD_HELP_VERSION = 1;
+$main::VERSION = '$Id: mk_index_html 656 2022-04-19 14:38:56Z m221078 $';
 
 my $program = basename($0);
 my $bin_dir = dirname($0);
@@ -105,8 +108,6 @@ my $lib_dir = (grep(-d, "$bin_dir/lightbox", "$bin_dir/../share/lightbox"))[0];
 
 my $dir = getcwd;
 my $file_name = 'index.html';
-my $title = "Index of '%s'";
-my $file_header = 'File';
 my $address = 'Max-Planck-Institut f&uuml;r Meteorologie';
 
 my $hide_size = 0;
@@ -117,10 +118,23 @@ my %options;
 
 my @command_line = ($program, @ARGV);
 
-getopts('i:bf:st:ua:pI', \%options) or die "Oops: invalid option\n";
+my %directory = ( en => 'Directory', de => 'Verzeichnis' );
+my %file = ( en => 'File', de => 'Datei' );
+my %index_of = ( en => 'Index of', de => 'Index f&uuml;r' );
+my %up = ( en => 'up', de => 'nach oben' );
+my %size = ( en => 'Size', de => 'Gr&ouml;&szlig;e' );
+my %date = ( en => 'Date', de => 'Datum' );
+
+getopts('i:bf:st:ua:pl:I', \%options) or die "Oops: invalid option\n";
+
+my $lang = 'en';
+exists($options{l}) and $lang = $options{l};
+
+my $title = "$index_of{$lang} '%s'";
+my $file_header = $file{$lang};
 
 if(exists($options{b})) {
-    $file_header = 'Directory';
+    $file_header = $directory{$lang};
     $hide_size = 1;
     $hide_up = 1;
     $title = 'Index';
@@ -144,7 +158,7 @@ select(INDEX_FILE);
 
 my @generator = map {/\s/?"'$_'":$_} (@command_line);
 my $generator = "@generator";
-my $generator_version = '$Id: mk_index_html 632 2019-11-20 14:35:11Z m221078 $';
+my $generator_version = $main::VERSION;
 
 print "
 <html>
@@ -157,7 +171,7 @@ print "
         <link rel='stylesheet' href='css/lightbox.css'>
     </head>
     <body style='background-color:#FFFFFF'>
-        <address>$title".($hide_up ? '' : " | <a href='..$index_name'>up</a>")."</address>
+        <address>$title".($hide_up ? '' : " | <a href='..$index_name'>$up{$lang}</a>")."</address>
         <hr>
         <div style='height:90%;min-height:90%;overflow:auto'>
         <table>
@@ -165,10 +179,10 @@ print "
                 <th>$file_header</th>"
 . ($hide_size ? '' :
 "
-                <th>Size (bytes)</th>"
+                <th>$size{$lang} (bytes)</th>"
 ) .
 "
-                <th>Date (UTC)</th>
+                <th>$date{$lang} (UTC)</th>
             </tr>
 ";
 my $i = 0;
@@ -192,7 +206,7 @@ for my $file (@ARGV) {
     my $size = reverse($stat_info[7]);
     $size =~ s/(\d\d\d)(?!$)/$1,/g;
     $size = reverse($size);
-    my $date = gmtime($stat_info[9]);
+    my $date = strftime('%F %T', gmtime($stat_info[9]));
     print "
             <tr $style>
                 <td><a href='$file".(-d $file ? $index_name : '')."' $attributes>$file</a></td>"

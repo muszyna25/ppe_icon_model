@@ -6,6 +6,26 @@ Plot'em ESMs!
 Release Changes
 ---------------
 
+Release 1.0.6
+=============
+
+mk_index_html
+-------------
+
+* Added German language support, using ISO timestamps
+* Added 'index.html' to links for SWIFT cloud browsing
+
+plot_timeser
+------------
+
+* Added time stamp formating (controlled by --time_format and --time_ticks)
+
+Tools
+-----
+
+* Added update script for use of plotems in ICON (update_icon)
+
+
 Release 1.0.5
 =============
 
