@@ -277,10 +277,12 @@ foreach $station ( @stations) {
 	print STDERR "iStation=$station_no{$station} for $station\n";
     }
     foreach $var (@var_plot) {
-	$oFile = $id . "_$station" . "_$var.$oType";
-	$ncl_arg = qq(iFile="$metgram_file" oFile="$oFile" oType="$oType" varName="$var" iStation=$station_no{$station} expnum="$title") .
-                   qq( levMin="$lev0" zAxis="$zAxis" tRange="$tRange" colormap="$colormap");
-	$ncl_arg =~ s/"/\\"/g;
+	my $station_safe = $station;
+	$station_safe =~ s/\W+/-/g;
+	$station_safe =~ s/^-|-$//g;
+	$oFile = $id . "_$station_safe" . "_$var.$oType";
+	$ncl_arg = qq(iFile='"$metgram_file"' oFile='"$oFile"' oType='"$oType"' varName='"$var"' iStation=$station_no{$station} expnum='"$title"') .
+                   qq( levMin='"$lev0"' zAxis='"$zAxis"' tRange='"$tRange"' colormap='"$colormap"');
 
 	if ( defined($var_name{$var})) {
             $ncl_script = $ncl_dir . "/mtgrm_plot.ncl"
