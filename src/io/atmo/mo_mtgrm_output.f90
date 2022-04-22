@@ -428,7 +428,8 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-11-09)
   !!
-  SUBROUTINE meteogram_setup_variables(meteogram_config, jg, ext_data, prog, diag, &
+  SUBROUTINE meteogram_setup_variables(meteogram_config, jg, iforcing, &
+    &                                  ext_data, prog, diag, &
     &                                  prm_diag, lnd_prog, lnd_diag, prog_wtr, &
     &                                  prm_nwp_tend, &
     &                                  atm_phy_nwp_config, var_info, &
@@ -438,6 +439,7 @@ CONTAINS
     TYPE(t_meteogram_output_config),     INTENT(IN) :: meteogram_config
     !> patch index
     INTEGER,                             INTENT(IN) :: jg
+    INTEGER,                             INTENT(IN) :: iforcing
     ! atmosphere external data
     TYPE(t_external_data),               INTENT(IN) :: ext_data
     ! physical model state and other auxiliary variables
@@ -492,27 +494,26 @@ CONTAINS
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
       &               "W", "m/s", "orthogonal vertical wind", &
       &               var_info, prog%w(:,:,:))
-
     ! add some output for turbulence diagnostic
-    CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
-      &               "TKE", "m^2/s^2", "turbulent kinetic energy", &
-      &               var_info, prog%tke(:,:,:))
-
-#ifndef __NO_ICON_LES__
-    IF ( .NOT. atm_phy_nwp_config%is_les_phy ) THEN
-#endif
+    IF ( iforcing == inwp ) THEN
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
-        &               "ddt_tke_hsh", "m^2/s^3", &
-        &               "TKE tendency horizonzal shear production", &
-        &               var_info, prm_nwp_tend%ddt_tke_hsh)
-      CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
-        &               "ddt_tke_pconv", "m^2/s^3", &
-        &               "TKE tendency due to subgrid-scale convection", &
-        &               var_info, prm_nwp_tend%ddt_tke_pconv)
+        &               "TKE", "m^2/s^2", "turbulent kinetic energy", &
+        &               var_info, prog%tke(:,:,:))
 #ifndef __NO_ICON_LES__
-    END IF
+      IF ( .NOT. atm_phy_nwp_config%is_les_phy ) THEN
 #endif
-
+        CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
+          &               "ddt_tke_hsh", "m^2/s^3", &
+          &               "TKE tendency horizonzal shear production", &
+          &               var_info, prm_nwp_tend%ddt_tke_hsh)
+        CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
+          &               "ddt_tke_pconv", "m^2/s^3", &
+          &               "TKE tendency due to subgrid-scale convection", &
+          &               var_info, prm_nwp_tend%ddt_tke_pconv)
+#ifndef __NO_ICON_LES__
+      END IF
+#endif
+    ENDIF ! iforcing == inwp
     ! For dry test cases: do not sample variables defined below this line:
     ! (but allow for TORUS moist runs; see call in mo_atmo_nonhydrostatic.F90)
     !IF (ltestcase .AND. les_config(jg)%is_dry_cbl) RETURN
@@ -536,14 +537,12 @@ CONTAINS
       &               IBSET(VAR_GROUP_ATMO_ML, FLAG_DIAG), &
       &               "REL_HUM", "%", "relative humidity", &
       &               var_info, prog%tracer_ptr(iqv)%p_3d(:,:,:))
-
     IF(atm_phy_nwp_config%lhave_graupel) THEN
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
         &               "QG", "kg kg-1", "graupel_mixing_ratio", &
         &               var_info, prog%tracer_ptr(iqg)%p_3d(:,:,:))
     END IF
-
-    IF(atm_phy_nwp_config%l2moment) THEN
+    If (atm_phy_nwp_config%l2moment) THEN
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
         &               "QH", "kg kg-1", "hail_mixing_ratio", &
         &               var_info, prog%tracer_ptr(iqh)%p_3d(:,:,:))
@@ -571,30 +570,32 @@ CONTAINS
         &               var_info, prog%tracer_ptr(ininact)%p_3d(:,:,:))
     END IF
 
-    CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
-      &               "QV_DIA", "kg kg-1", &
-      &               "total specific humidity (diagnostic)", &
-      &               var_info, prm_diag%tot_ptr(iqv)%p_3d(:,:,:))
-    CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
-      &               "QC_DIA", "kg kg-1", &
-      &               "total specific cloud water content (diagnostic)", &
-      &               var_info, prm_diag%tot_ptr(iqc)%p_3d(:,:,:))
-    CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
-      &               "QI_DIA", "kg kg-1", &
-      &               "total specific cloud ice content (diagnostic)", &
-      &               var_info, prm_diag%tot_ptr(iqi)%p_3d(:,:,:))
+    IF ( iforcing == inwp ) THEN
+      CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
+        &               "QV_DIA", "kg kg-1", &
+        &               "total specific humidity (diagnostic)", &
+        &               var_info, prm_diag%tot_ptr(iqv)%p_3d(:,:,:))
+      CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
+        &               "QC_DIA", "kg kg-1", &
+        &               "total specific cloud water content (diagnostic)", &
+        &               var_info, prm_diag%tot_ptr(iqc)%p_3d(:,:,:))
+      CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
+        &               "QI_DIA", "kg kg-1", &
+        &               "total specific cloud ice content (diagnostic)", &
+        &               var_info, prm_diag%tot_ptr(iqi)%p_3d(:,:,:))
+      CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
+        &               "CLC", "-", "cloud cover", &
+        &               var_info, prm_diag%clc(:,:,:))
+      CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
+        &               "TKVM", "m**2/s", &
+        &               "turbulent diffusion coefficients for momentum", &
+        &               var_info, prm_diag%tkvm(:,:,:))
+      CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
+        &               "TKVH", "m**2/s", &
+        &               "turbulent diffusion coefficients for heat", &
+        &               var_info, prm_diag%tkvh(:,:,:))
+    ENDIF ! iforcing == inwp
 
-    CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
-      &               "CLC", "-", "cloud cover", &
-      &               var_info, prm_diag%clc(:,:,:))
-    CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
-      &               "TKVM", "m**2/s", &
-      &               "turbulent diffusion coefficients for momentum", &
-      &               var_info, prm_diag%tkvm(:,:,:))
-    CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
-      &               "TKVH", "m**2/s", &
-      &               "turbulent diffusion coefficients for heat", &
-      &               var_info, prm_diag%tkvh(:,:,:))
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_HL, &
       &               "PHALF", "Pa", "Pressure on the half levels", &
       &               var_info, diag%pres_ifc(:,:,:))
@@ -682,153 +683,155 @@ CONTAINS
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "P_SFC", "Pa", "surface pressure", &
       &              sfc_var_info, diag%pres_sfc(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "TCM", "-", &
-      &              "turbulent transfer coefficients for momentum", &
-      &              sfc_var_info, prm_diag%tcm(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "TCH", "-", "turbulent transfer coefficients for heat", &
-      &              sfc_var_info, prm_diag%tch(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "SHFL", "W/m2", "sensible heat flux (surface)", &
-      &              sfc_var_info, prm_diag%shfl_s(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "LHFL", "W/m2", "latent heat flux (surface)", &
-      &              sfc_var_info, prm_diag%lhfl_s(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "QHFL_S", "kg/m2", "evapotranspiration flux (surface)", &
-      &              sfc_var_info, prm_diag%qhfl_s(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "VIO3", "Pa O3", "vertically integrated ozone amount", &
-      &              sfc_var_info, prm_diag%vio3(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "HMO3", "Pa", "height of O3 maximum", &
-      &              sfc_var_info, prm_diag%hmo3(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "T2M", "K", "temperature in 2m", &
-      &              sfc_var_info, prm_diag%t_2m(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "TD2M", "K", "dew-point temperature in 2m", &
-      &              sfc_var_info, prm_diag%td_2m(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "U10M", "m/s", "zonal wind in 10m", &
-      &              sfc_var_info, prm_diag%u_10m(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "V10M", "m/s", "meridional wind in 10m", &
-      &              sfc_var_info, prm_diag%v_10m(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "VBMAX10M", "m/s", "gust in 10m", &
-      &              sfc_var_info, prm_diag%gust10(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "dyn_gust", "m/s", "dynamical gust", &
-      &              sfc_var_info, prm_diag%dyn_gust(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "con_gust", "m/s", "convective gust", &
-      &              sfc_var_info, prm_diag%con_gust(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "cape_ml", "J/kg", "cape of mean surface layer parcel", &
-      &              sfc_var_info, prm_diag%cape_ml(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "SOBT", "W m-2", "shortwave net flux at toa", &
-      &              sfc_var_info, prm_diag%swflxtoa(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "THBT", "W m-2", "longwave net flux at toa", &
-      &              sfc_var_info, prm_diag%lwflxall(:,1,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "SOBS", "W m-2", "shortwave net flux at surface", &
-      &              sfc_var_info, prm_diag%swflxsfc(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "THBS", "W m-2", "longwave net flux at surface", &
-      &              sfc_var_info, prm_diag%lwflxsfc(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "ALB", "-", "surface shortwave albedo, diffuse", &
-      &              sfc_var_info, prm_diag%albdif(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "RAIN_GSP", "kg/m2", &
-      &              "accumulated grid-scale surface rain", &
-      &              sfc_var_info, prm_diag%rain_gsp(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "SNOW_GSP", "kg/m2", &
-      &              "accumulated grid-scale surface snow", &
-      &              sfc_var_info, prm_diag%snow_gsp(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "RAIN_CON", "kg/m2", &
-      &              "accumulated convective surface rain", &
-      &              sfc_var_info, prm_diag%rain_con(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "SNOW_CON", "kg/m2", &
-      &              "accumulated convective surface snow", &
-      &              sfc_var_info, prm_diag%snow_con(:,:))
-    IF(atm_phy_nwp_config%lhave_graupel) THEN
+
+    IF ( iforcing == inwp ) THEN
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "GRAUPEL_GSP", "kg/m2", &
-      &              "accumulated grid-scale surface graupel", &
-      &              sfc_var_info, prm_diag%graupel_gsp(:,:))
-    ENDIF
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "PREC_CON", "kg/m2", &
-      &              "accumulated convective surface precipitation", &
-      &              sfc_var_info, prm_diag%prec_con(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "PREC_GSP", "kg/m2", &
-      &              "accumulated grid-scale surface precipitation", &
-      &              sfc_var_info, prm_diag%prec_gsp(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "H_ICE", "m", "sea ice depth", &
-      &              sfc_var_info, prog_wtr%h_ice(:,:))
+        &              "TCM", "-", &
+        &              "turbulent transfer coefficients for momentum", &
+        &              sfc_var_info, prm_diag%tcm(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "TCH", "-", "turbulent transfer coefficients for heat", &
+        &              sfc_var_info, prm_diag%tch(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "SHFL", "W/m2", "sensible heat flux (surface)", &
+        &              sfc_var_info, prm_diag%shfl_s(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "LHFL", "W/m2", "latent heat flux (surface)", &
+        &              sfc_var_info, prm_diag%lhfl_s(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "QHFL_S", "kg/m2", "evapotranspiration flux (surface)", &
+        &              sfc_var_info, prm_diag%qhfl_s(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "VIO3", "Pa O3", "vertically integrated ozone amount", &
+        &              sfc_var_info, prm_diag%vio3(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "HMO3", "Pa", "height of O3 maximum", &
+        &              sfc_var_info, prm_diag%hmo3(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "T2M", "K", "temperature in 2m", &
+        &              sfc_var_info, prm_diag%t_2m(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "TD2M", "K", "dew-point temperature in 2m", &
+        &              sfc_var_info, prm_diag%td_2m(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "U10M", "m/s", "zonal wind in 10m", &
+        &              sfc_var_info, prm_diag%u_10m(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "V10M", "m/s", "meridional wind in 10m", &
+        &              sfc_var_info, prm_diag%v_10m(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "VBMAX10M", "m/s", "gust in 10m", &
+        &              sfc_var_info, prm_diag%gust10(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "dyn_gust", "m/s", "dynamical gust", &
+        &              sfc_var_info, prm_diag%dyn_gust(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "con_gust", "m/s", "convective gust", &
+        &              sfc_var_info, prm_diag%con_gust(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "cape_ml", "J/kg", "cape of mean surface layer parcel", &
+        &              sfc_var_info, prm_diag%cape_ml(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "SOBT", "W m-2", "shortwave net flux at toa", &
+        &              sfc_var_info, prm_diag%swflxtoa(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "THBT", "W m-2", "longwave net flux at toa", &
+        &              sfc_var_info, prm_diag%lwflxall(:,1,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "SOBS", "W m-2", "shortwave net flux at surface", &
+        &              sfc_var_info, prm_diag%swflxsfc(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "THBS", "W m-2", "longwave net flux at surface", &
+        &              sfc_var_info, prm_diag%lwflxsfc(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "ALB", "-", "surface shortwave albedo, diffuse", &
+        &              sfc_var_info, prm_diag%albdif(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "RAIN_GSP", "kg/m2", &
+        &              "accumulated grid-scale surface rain", &
+        &              sfc_var_info, prm_diag%rain_gsp(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "SNOW_GSP", "kg/m2", &
+        &              "accumulated grid-scale surface snow", &
+        &              sfc_var_info, prm_diag%snow_gsp(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "RAIN_CON", "kg/m2", &
+        &              "accumulated convective surface rain", &
+        &              sfc_var_info, prm_diag%rain_con(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "SNOW_CON", "kg/m2", &
+        &              "accumulated convective surface snow", &
+        &              sfc_var_info, prm_diag%snow_con(:,:))
+      IF(atm_phy_nwp_config%lhave_graupel) THEN
+        CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "GRAUPEL_GSP", "kg/m2", &
+        &              "accumulated grid-scale surface graupel", &
+        &              sfc_var_info, prm_diag%graupel_gsp(:,:))
+      ENDIF
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "PREC_CON", "kg/m2", &
+        &              "accumulated convective surface precipitation", &
+        &              sfc_var_info, prm_diag%prec_con(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "PREC_GSP", "kg/m2", &
+        &              "accumulated grid-scale surface precipitation", &
+        &              sfc_var_info, prm_diag%prec_gsp(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "H_ICE", "m", "sea ice depth", &
+        &              sfc_var_info, prog_wtr%h_ice(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "CLCT", "-", "total cloud cover", &
+        &              sfc_var_info, prm_diag%clct(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "CLCL", "-", "low level cloud cover", &
+        &              sfc_var_info, prm_diag%clcl(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "CLCM", "-", "mid level cloud cover", &
+        &              sfc_var_info, prm_diag%clcm(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "CLCH", "-", "high level cloud cover", &
+        &              sfc_var_info, prm_diag%clch(:,:))
 
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "CLCT", "-", "total cloud cover", &
-      &              sfc_var_info, prm_diag%clct(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "CLCL", "-", "low level cloud cover", &
-      &              sfc_var_info, prm_diag%clcl(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "CLCM", "-", "mid level cloud cover", &
-      &              sfc_var_info, prm_diag%clcm(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "CLCH", "-", "high level cloud cover", &
-      &              sfc_var_info, prm_diag%clch(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "hbas_con", "m", "height of convective cloud base",&
+        &              sfc_var_info, prm_diag%hbas_con(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "htop_con", "m", "height of convective cloud top",&
+        &              sfc_var_info, prm_diag%htop_con(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "UMFL_S", "N m-2", "u-momentum flux at the surface", &
+        &              sfc_var_info, prm_diag%umfl_s(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "VMFL_S", "N m-2", "v-momentum flux at the surface", &
+        &              sfc_var_info, prm_diag%vmfl_s(:,:))
 
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "hbas_con", "m", "height of convective cloud base",&
-      &              sfc_var_info, prm_diag%hbas_con(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "htop_con", "m", "height of convective cloud top",&
-      &              sfc_var_info, prm_diag%htop_con(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "UMFL_S", "N m-2", "u-momentum flux at the surface", &
-      &              sfc_var_info, prm_diag%umfl_s(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "VMFL_S", "N m-2", "v-momentum flux at the surface", &
-      &              sfc_var_info, prm_diag%vmfl_s(:,:))
-
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "SWDIFU_S", "W m-2", "shortwave upward flux at surface", &
-      &              sfc_var_info, prm_diag%swflx_up_sfc(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "SWDIFD_S", "W m-2", &
-      &              "shortwave diffuse downward flux at surface", &
-      &              sfc_var_info, prm_diag%swflx_dn_sfc_diff(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "PAB_S", "W m-2", &
-      &       "photosynthetically active shortwave downward flux at surface", &
-      &              sfc_var_info, prm_diag%swflx_par_sfc(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "SNOWFRAC", "%", &
-      &              "snow-cover fraction", &
-      &              sfc_var_info, lnd_diag%snowfrac(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "SNOWFRAC_LC", "%", &
-      &              "snow-cover fraction (related to landuse class", &
-      &              sfc_var_info, lnd_diag%snowfrac_lc(:,:))
-    ! There is no 2D-field for SWDIR_S available, so we provide swflx_dn_sfc_diff instead
-    ! The actual values will be diagnosed at a later point
-    CALL add_sfc_var(meteogram_config, var_list, &
-      &              IBSET(VAR_GROUP_SURFACE, FLAG_DIAG), &
-      &              "SWDIR_S", "W m-2", &
-      &              "shortwave direct downward flux at surface", &
-      &              sfc_var_info, prm_diag%swflx_dn_sfc_diff(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "SWDIFU_S", "W m-2", "shortwave upward flux at surface", &
+        &              sfc_var_info, prm_diag%swflx_up_sfc(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "SWDIFD_S", "W m-2", &
+        &              "shortwave diffuse downward flux at surface", &
+        &              sfc_var_info, prm_diag%swflx_dn_sfc_diff(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "PAB_S", "W m-2", &
+        &       "photosynthetically active shortwave downward flux at surface", &
+        &              sfc_var_info, prm_diag%swflx_par_sfc(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "SNOWFRAC", "%", &
+        &              "snow-cover fraction", &
+        &              sfc_var_info, lnd_diag%snowfrac(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "SNOWFRAC_LC", "%", &
+        &              "snow-cover fraction (related to landuse class", &
+        &              sfc_var_info, lnd_diag%snowfrac_lc(:,:))
+      ! There is no 2D-field for SWDIR_S available, so we provide swflx_dn_sfc_diff instead
+      ! The actual values will be diagnosed at a later point
+      CALL add_sfc_var(meteogram_config, var_list, &
+        &              IBSET(VAR_GROUP_SURFACE, FLAG_DIAG), &
+        &              "SWDIR_S", "W m-2", &
+        &              "shortwave direct downward flux at surface", &
+        &              sfc_var_info, prm_diag%swflx_dn_sfc_diff(:,:))
+    ENDIF ! iforcing == inwp
 
     ! -- tiled surface fields
     IF (meteogram_config%loutput_tiles) THEN     ! write some selected tile specific fields
@@ -928,19 +931,20 @@ CONTAINS
         &              sfc_var_info, diag%tracer_vi_ptr(iqs)%p_2d(:,:))
     END IF
 
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "TQV_DIA", "kg m-2", &
-      &              "total column integrated water vapour (diagnostic)", &
-      &              sfc_var_info, prm_diag%tci_ptr(iqv)%p_2d(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "TQC_DIA", "kg m-2", &
-      &              "total column integrated cloud water (diagnostic)", &
-      &              sfc_var_info, prm_diag%tci_ptr(iqc)%p_2d(:,:))
-    CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
-      &              "TQI_DIA", "kg m-2", &
-      &              "total column integrated cloud ice (diagnostic)", &
-      &              sfc_var_info, prm_diag%tci_ptr(iqi)%p_2d(:,:))
-
+    IF ( iforcing == inwp ) THEN
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "TQV_DIA", "kg m-2", &
+        &              "total column integrated water vapour (diagnostic)", &
+        &              sfc_var_info, prm_diag%tci_ptr(iqv)%p_2d(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "TQC_DIA", "kg m-2", &
+        &              "total column integrated cloud water (diagnostic)", &
+        &              sfc_var_info, prm_diag%tci_ptr(iqc)%p_2d(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "TQI_DIA", "kg m-2", &
+        &              "total column integrated cloud ice (diagnostic)", &
+        &              sfc_var_info, prm_diag%tci_ptr(iqi)%p_2d(:,:))
+    ENDIF ! iforcing == nwp
 
     IF (inextra_2d > 0) THEN
       ! Variable: Extra 2D
@@ -1330,7 +1334,8 @@ CONTAINS
         &      stat=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, &
         'ALLOCATE of meteogram data structures failed (part 1)')
-      CALL meteogram_setup_variables(meteogram_output_config, jg, ext_data, &
+      CALL meteogram_setup_variables(meteogram_output_config, jg, iforcing, &
+        &                            ext_data, &
         &                            p_nh_state%prog(nnow(jg)), &
         &                            p_nh_state%diag, prm_diag, &
         &                            p_lnd_state%prog_lnd(nnow(jg)), &
@@ -2847,6 +2852,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//":add_atmo_var_3d"
     INTEGER                         :: nlev, ivar
 
+    WRITE ( * , * ) " add_atmo_var_3d: calling for ", TRIM(zname)
     IF (LEN_TRIM(meteogram_config%var_list(1)) /= 0) THEN
       ! If the user has specified a list of variable names to be
       ! included in the meteogram, check if this variable is contained
@@ -2895,6 +2901,8 @@ CONTAINS
     ! Local variables
     INTEGER                          :: isource_idx, nidx
 
+    WRITE ( * , * ) " add_atmo_var_4d: calling for ", TRIM(zname)
+
     IF (PRESENT(iidx)) THEN
       CALL add_atmo_var_3d(meteogram_config, var_list, igroup_id, zname, &
         &                  zunit, zlong_name, var_info, source(:,:,:,iidx))
@@ -2925,6 +2933,8 @@ CONTAINS
     ! Local variables
     CHARACTER(*), PARAMETER :: routine = modname//":add_sfc_var_2d"
     INTEGER                         :: ivar
+
+    WRITE ( * , * ) " add_sfc_var_2d: calling for ", TRIM(zname)
 
     IF (LEN_TRIM(meteogram_config%var_list(1)) /= 0) THEN
       ! If the user has specified a list of variable names to be
@@ -2963,6 +2973,8 @@ CONTAINS
     INTEGER,           INTENT(IN), OPTIONAL :: iidx     !< third dim of variable (e.g. tile-nr)
     ! Local variables
     INTEGER                 :: isource_idx, nidx
+
+    WRITE ( * , * ) " add_sfc_var_3d: calling for ", TRIM(zname)
 
     IF (PRESENT(iidx)) THEN
       CALL add_sfc_var_2d(meteogram_config, var_list, igroup_id, zname, &
