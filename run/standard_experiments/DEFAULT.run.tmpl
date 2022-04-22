@@ -544,6 +544,8 @@ mv bgcout bgcout_${start_date}
 echo $(date -u +'%Y-%m-%dT%H:%M:%SZ') ${start_date%:*} ${end_date%:*} ${%{JOB.id_environ}}  end >> $exp_log_file
 
 cd $SCRIPT_DIR
+set +e
+status=0
 
 #% for trigger in JOB['.trigger']|list:
 #%   set job = (trigger|split|list)[0]
@@ -551,21 +553,31 @@ cd $SCRIPT_DIR
 #%   if type == 'restart':
 if [ $finish_status = "RESTART" ]
 then
-  echo "restart: submitting '%{EXP_ID}.%{trigger}'"
-  %{JOB.batch_command} %{EXP_ID}.%{trigger}
+  (
+#%     if JOB.use_hostfile is set:
+    # Clean SLURM_HOSTFILE
+    unset SLURM_HOSTFILE
+#%     endif
+    echo "restart: submitting '%{EXP_ID}.%{trigger}'"
+    %{JOB.batch_command} %{EXP_ID}.%{trigger}
+  ) || status=$?
 fi
 #%   elif type == 'serial':
 echo "running '%{EXP_ID}.%{trigger}'"
-./%{EXP_ID}.%{trigger} $start_date
+./%{EXP_ID}.%{trigger} $start_date || status=$?
 #%   else:
 echo "submitting '%{EXP_ID}.%{trigger}'"
-# Clean SLURM environment
-eval $(python -c 'import os
+(
+  # Clean SLURM environment
+  eval $(python -c 'import os
 for key in os.environ:
     if key.startswith("SLURM_"): print("unset "+key)')
-%{JOB.batch_command} %{EXP_ID}.%{trigger} $start_date
+  %{JOB.batch_command} %{EXP_ID}.%{trigger} $start_date
+) || status=$?
 #%   endif
 #% endfor
+
+exit $status
 
 #-----------------------------------------------------------------------------
 # vim:ft=sh
