@@ -112,7 +112,7 @@ if args.work_dir:
 #%- set file_infos = []
 #%  for namelist in namelists:
 #%    set namelist_data = namelists[namelist]
-#%    for group in namelist_data.sections if group|match('output_nml'):
+#%    for group in namelist_data.sections if group|match('^output_nml'):
 #%      set group_data = namelist_data[group]
 #%      set hidden = group_data['.hide'] is set
 #%      if not hidden:
