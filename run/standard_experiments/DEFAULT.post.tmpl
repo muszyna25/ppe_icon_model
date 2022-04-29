@@ -4,7 +4,7 @@
 #SBATCH --qos=%{JOB.qos}
 #%  endif
 #SBATCH --job-name=%{EXP_ID}.%{JOB.id}
-#SBATCH --partition=prepost,compute,compute2
+#SBATCH --partition=%{JOB.partition}
 # #SBATCH --ntasks=%{JOB.tasks}
 #%  if JOB.hardware_threads|default('') is not set:
 # #SBATCH --ntasks-per-core=1
