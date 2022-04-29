@@ -1622,7 +1622,9 @@ CONTAINS
         &        = atm%lc_class_t(tri_idx1, tri_idx2, 1:invariants%ntiles_mtgrm)
 
     CASE DEFAULT
-      invariants%hsurf(istation_buf)    =  0._wp
+      !!! invariants%hsurf(istation_buf)    =  0._wp
+      invariants%hsurf(istation_buf) &
+        &        =  atm%topography_c(tri_idx1, tri_idx2)
       invariants%frland(istation_buf)   =  0._wp
       invariants%soiltype(istation_buf) =  0
       !
