@@ -116,6 +116,8 @@ use Getopt::Long;
 Getopt::Long::Configure( qw(bundling permute) );
 use strict;
 
+use File::Basename;
+
 my $prog = $0;
 $prog =~ s?^.*/??;
 
@@ -268,7 +270,7 @@ $title = $metgram_file unless ( defined($title));
 my ( $oFile, $ncl_arg, $ncl_script, $ncl_cmd, $station);
 $title =~ s/ /\\ /g;
 
-my $ncl_dir = defined( $ENV{NCL_SCRIPT_DIR}) ? $ENV{NCL_SCRIPT_DIR} : '.';
+my $ncl_dir = defined( $ENV{NCL_SCRIPT_DIR}) ? $ENV{NCL_SCRIPT_DIR} : dirname($0);
 foreach $station ( @stations) {
     unless ( defined($station_no{$station})) {
 	print STDERR "Station $station is not in meteogram file $metgram_file!\n";
