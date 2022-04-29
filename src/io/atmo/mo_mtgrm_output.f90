@@ -181,6 +181,7 @@ MODULE mo_meteogram_output
   USE mo_name_list_output_types,ONLY: msg_io_meteogram_flush
   USE mo_util_phys,             ONLY: rel_hum, swdir_s
   USE mo_grid_config,           ONLY: grid_sphere_radius, is_plane_torus
+  USE mo_echam_phy_memory,      ONLY: prm_field
   IMPLICIT NONE
 
   PRIVATE
@@ -831,6 +832,27 @@ CONTAINS
         &              "SWDIR_S", "W m-2", &
         &              "shortwave direct downward flux at surface", &
         &              sfc_var_info, prm_diag%swflx_dn_sfc_diff(:,:))
+    ELSE ! ie .NOT. iforcing == inwp
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "RSDS", "W m-2", &
+        &              "surface downwelling shortwave radiation", &
+        &              sfc_var_info, prm_field(jg)%rsds(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "RVDS_DIF", "W m-2", &
+        &              "surface downwelling diffuse visible radiation", &
+        &              sfc_var_info, prm_field(jg)%rvds_dif(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "RNDS_DIF", "W m-2", &
+        &              "surface downwelling diffuse near infrared radiation", &
+        &              sfc_var_info, prm_field(jg)%rnds_dif(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "RVDS_DIR", "W m-2", &
+        &              "surface downwelling direct visible radiation", &
+        &              sfc_var_info, prm_field(jg)%rvds_dir(:,:))
+      CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
+        &              "RNDS_DIR", "W m-2", &
+        &              "surface downwelling direct near infrared radiation", &
+        &              sfc_var_info, prm_field(jg)%rnds_dir(:,:))
     ENDIF ! iforcing == inwp
 
     ! -- tiled surface fields
