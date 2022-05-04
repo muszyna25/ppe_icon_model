@@ -37,6 +37,7 @@ MODULE mo_echam_phy_memory
     &                               VINTP_METHOD_PRES,         &
     &                               VINTP_METHOD_LIN,          &
     &                               VINTP_METHOD_LIN_NLEVP1
+  USE mo_impl_constants,      ONLY: TASK_COMPUTE_PV
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL,    &
     &                               GRID_CELL
   USE mo_exception,           ONLY: message, finish
@@ -167,6 +168,7 @@ MODULE mo_echam_phy_memory
       & mrefvi    (:,:)=>NULL(),    &!< [kg/m2] reference air content, vertically integrated through the atmospheric column
       & wa        (:,:,:)=>NULL(),  &!< [m/s] vertical velocity in m/s (for Smagorinsky)
       & omega     (:,:,:)=>NULL(),  &!< [Pa/s]  vertical velocity in pressure coord. ("vervel" in ECHAM)
+      & pv        (:,:,:)=>NULL(),  &!< [K/m2/kg/s] Ertel potential vorticity (NWP pp)
       & geoi      (:,:,:)=>NULL(),  &!< [m2/s2] geopotential above ground at half levels (vertical interfaces)
       & geom      (:,:,:)=>NULL(),  &!< [m2/s2] geopotential above ground at full levels (layer ave. or mid-point value)
       & pfull     (:,:,:)=>NULL(),  &!< [Pa]    air pressure at model levels
@@ -1410,6 +1412,23 @@ CONTAINS
                 &             l_loglin=.FALSE., l_extrapol=.FALSE.),           &
                 & lopenacc=.TRUE.)
     __acc_attach(field%omega)
+
+    IF (is_variable_in_output(var_name=prefix//'pv')) THEN
+       cf_desc    = t_cf_var('potential_vorticity', 'K m2 kg-1 s-1', 'potential vorticity', datatype_flt)
+       grib2_desc = grib2_var(0, 2, 14, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+       CALL add_var( field_list,                                                  &
+                   & prefix//"pv", field%pv,                                      &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                        &
+                   & cf_desc, grib2_desc,                                         &
+                   & ldims=shape3d,                                               &
+                   & vert_interp=create_vert_interp_metadata(                     &
+                   &             vert_intp_type=vintp_types("P","Z","I"),         &
+                   &             vert_intp_method=VINTP_METHOD_LIN,               &
+                   &             l_loglin=.FALSE.,                                &
+                   &             l_extrapol=.FALSE.),                             &
+                   & l_pp_scheduler_task=TASK_COMPUTE_PV, lrestart=.FALSE.,       &
+                   & lopenacc=.TRUE.)
+    END IF
 
     ! &       field% geom      (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('geopotential_above_surface', 'm2 s-2', 'geopotential above surface', datatype_flt)
