@@ -89,11 +89,8 @@ if ( -d $srcdir."/.svn" ) {
     $revision =~ s/Revision: */r/;
     $revision =~ s/ *\n//;
 } elsif ( -d $srcdir."/.git" ) {
-    my @remote_urls = `git --git-dir $srcdir/.git remote -v`;
-    @remote_urls = grep(/fetch/, @remote_urls);
-    $remote_url = $remote_urls[0];
-    $remote_url =~ s/^origin[ \t]*//;
-    $remote_url =~ s/ *\(fetch\) *\n//;
+    $remote_url = `git --git-dir $srcdir/.git config --get remote.origin.url`;
+    chomp($remote_url);
     my @branches = `git --git-dir $srcdir/.git branch`;	
     @branches = grep(/^\*/, @branches); 
     $branch = $branches[0];
@@ -105,11 +102,8 @@ if ( -d $srcdir."/.svn" ) {
     $revision =~ s/commit *//;
     $revision =~ s/ *\n//;
     if ( -d $srcdir."/externals/art/.git" ) {
-        my @art_remote_urls = `git --git-dir $srcdir/externals/art/.git remote -v`;
-        @art_remote_urls = grep(/fetch/, @art_remote_urls);
-        $art_remote_url = $art_remote_urls[0];
-        $art_remote_url =~ s/^origin[ \t]*//;
-        $art_remote_url =~ s/ *\(fetch\) *\n//;
+        $art_remote_url = `git --git-dir $srcdir/externals/art/.git config --get remote.origin.url`;
+        chomp($art_remote_url);
         my @art_branches = `git --git-dir $srcdir//externals/art/.git branch`;	
         @art_branches = grep(/^\*/, @art_branches); 
         $art_branch = $art_branches[0];
