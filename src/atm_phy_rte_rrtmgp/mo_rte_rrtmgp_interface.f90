@@ -28,7 +28,7 @@ MODULE mo_rte_rrtmgp_interface
   USE mo_icon_fluxes_sw,             ONLY: ty_icon_fluxes_sw, set_fractions
   USE mo_rte_rrtmgp_setup,           ONLY: k_dist_lw, k_dist_sw, &
                                            cloud_optics_lw, cloud_optics_sw, &
-                                           stop_on_err
+                                           stop_on_err, inhoml, inhomi
 
   USE mo_rad_diag,                   ONLY: rad_aero_diag
   USE mo_timer,                      ONLY: ltimer, timer_start, timer_stop, &
@@ -1141,6 +1141,12 @@ CONTAINS
        CALL stop_on_err(rte_sw(atmos_sw, top_at_1, mu0, toa_flux, albdir, albdif, fluxes_swcs))
        !
     END IF
+
+
+    ! hack inhom implementation by scaling the liquid water path
+    ! it's important to run this AFTER the longwave
+    zlwp = zlwp * inhoml
+    ziwp = ziwp * inhomi
     
     ! new cloud optics: allocate memory for cloud optical properties:
     CALL stop_on_err(clouds_bnd_sw%alloc_2str(ncol, klev, &

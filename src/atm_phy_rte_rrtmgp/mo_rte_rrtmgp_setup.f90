@@ -14,11 +14,13 @@ MODULE mo_rte_rrtmgp_setup
 
   TYPE(ty_gas_optics_rrtmgp) :: k_dist_lw, k_dist_sw
   TYPE(ty_cloud_optics)      :: cloud_optics_lw, cloud_optics_sw
+  REAL(wp)                   :: inhoml, inhomi
 
   PUBLIC :: rte_rrtmgp_basic_setup
   PUBLIC :: k_dist_lw, k_dist_sw
   PUBLIC :: cloud_optics_lw, cloud_optics_sw
   PUBLIC :: stop_on_err
+  PUBLIC :: inhoml, inhomi
 
 CONTAINS
 
@@ -56,6 +58,8 @@ CONTAINS
 
 !!    CALL setup_cloud_optics(droplet_scale_, &
 !!      zinhoml1_, zinhoml2_, zinhoml3_, zinhomi_)
+    inhoml = zinhoml1_
+    inhomi = zinhomi_
 
     ! Turn off error checking
     CALL rte_config_checks(LOGICAL(.FALSE.,wl))  ! Dressing to please gfortran
