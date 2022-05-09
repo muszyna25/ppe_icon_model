@@ -147,7 +147,11 @@ if args.work_dir:
 #%  endfor
 #%#
 
-file_infos = %{file_infos}
+file_infos = [
+#%  for info in file_infos:
+    %{info},
+#%  endfor
+]
 
 files = []
 

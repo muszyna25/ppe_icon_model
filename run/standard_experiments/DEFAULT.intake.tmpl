@@ -150,7 +150,11 @@ logging.info('%{JOB.id} process started for %s-%s', start_stamp, end_stamp)
 
 # Define file metadata
 
-file_infos = %{file_infos}
+file_infos = [
+#%  for info in file_infos:
+    %{info},
+#%  endfor
+]
 
 # Read intake-esm catalog
 
