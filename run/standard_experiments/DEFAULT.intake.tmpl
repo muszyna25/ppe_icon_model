@@ -13,9 +13,10 @@ Create intake directory entries for a given period
 #%  for namelist in namelists:
 #%    set namelist_data = namelists[namelist]
 #%    set realm = namelist|split('_')|last
+#%    set remove_list = namelist_data['.remove']|d([])|list
 #%    for group in namelist_data.sections if group|match('^output_nml'):
 #%      set group_data = namelist_data[group]
-#%      set hidden = group_data['.hide'] is set
+#%      set hidden = (group_data['.hide'] is set) or (group in remove_list)
 #%      if not hidden:
 #%        set level_types = []
 #%        for name in group_data.scalars if name|match('^(.+)_varlist$')

@@ -112,9 +112,10 @@ if args.work_dir:
 #%- set file_infos = []
 #%  for namelist in namelists:
 #%    set namelist_data = namelists[namelist]
+#%    set remove_list = namelist_data['.remove']|d([])|list
 #%    for group in namelist_data.sections if group|match('^output_nml'):
 #%      set group_data = namelist_data[group]
-#%      set hidden = group_data['.hide'] is set
+#%      set hidden = (group_data['.hide'] is set) or (group in remove_list)
 #%      if not hidden:
 #%        set output_filename = group_data.output_filename
 #%        set output_tag = output_filename|match('^'+EXP_ID+'_(.*)$')
