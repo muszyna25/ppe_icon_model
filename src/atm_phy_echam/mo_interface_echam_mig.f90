@@ -235,7 +235,7 @@ CONTAINS
             !  to constant pressure
             !
             tend_ta_mig = (xlta(jl,jk)-field% ta(jl,jk,jb))*zdtr                &
-                                        & * cvd/field% cpair(jl,jk,jb)
+                                     & * field% cvair(jl,jk,jb)/field% cpair(jl,jk,jb)
             tend_qtrc_mig_iqv = MAX(-field% qtrc(jl,jk,jb,iqv)*zdtr,            &
                                         & (xlqv(jl,jk)-field% qtrc(jl,jk,jb,iqv))*zdtr)
             tend_qtrc_mig_iqc = MAX(-field% qtrc(jl,jk,jb,iqc)*zdtr,            &
