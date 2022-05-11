@@ -139,12 +139,12 @@ CONTAINS
       !!-------------------------------------------------------------------------
       !> Initial saturation adjustment (a second one follows at the end of the microphysics)
       !!-------------------------------------------------------------------------
-#ifdef _OPENACC
+!!#ifdef _OPENACC
         !$ACC WAIT
         CALL satad_v_3d_gpu(                               &
-#else
-        CALL satad_v_3d(                                   &
-#endif
+!!#else
+!!        CALL satad_v_3d(                                   &
+!!#endif
               & maxiter  = 10                             ,& !> IN
               & tol      = 1.e-3_wp                       ,& !> IN
               & te       = xlta               (:,:)       ,& !> INOUT
@@ -192,11 +192,11 @@ CONTAINS
         !!-------------------------------------------------------------------------
         !> Final saturation adjustment (as this has been removed from the end of the microphysics)
         !!-------------------------------------------------------------------------
-#ifdef _OPENACC
+!!#ifdef _OPENACC
         CALL satad_v_3d_gpu(                                &
-#else
-        CALL satad_v_3d(                                    &
-#endif
+!!#else
+!!        CALL satad_v_3d(                                    &
+!!#endif
               & maxiter  = 10                             ,& !> IN
               & tol      = 1.e-3_wp                       ,& !> IN
               & te       = xlta (:,:)                     ,& !> INOUT

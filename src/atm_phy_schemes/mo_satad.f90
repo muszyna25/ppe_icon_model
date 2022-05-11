@@ -53,6 +53,8 @@ USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water va
                                  o_m_rdv        , & !! 1 - r_d/r_v
                                  rdv            , & !! r_d / r_v
                                  cvd            , & !!
+                                 cpv            , & !!
+                                 cvv            , & !!
                                  cl    => clw   , & !! specific heat of water
                                  lwd   => alv   , & !! latent heat of vaporization
                                  led   => als   , & !! latent heat of sublimation
@@ -79,6 +81,7 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
   PUBLIC  :: dqsatdT
   PUBLIC  :: dqsatdT_ice
   PUBLIC  :: qsat_rho
+  PUBLIC  :: dqsatdT_rho
   PUBLIC  :: latent_heat_vaporization
   PUBLIC  :: latent_heat_sublimation
   PUBLIC  :: latent_heat_melting
@@ -86,9 +89,6 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
   INTEGER, PARAMETER :: ipsat = 1    ! (1) Tetens (1930)
                                      ! (2) Murphy-Koop for liq and ice 
 
-  REAL (KIND=ireals), PARAMETER :: cp_v = 1850._ireals ! specific heat of water vapor J
-                                                       ! at constant pressure
-                                                       ! (Landolt-Bornstein)
   REAL (KIND=ireals), PARAMETER :: ci = 2108.0_ireals  ! specific heat of ice
   
   real(ireals), parameter  ::      &
@@ -191,6 +191,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 
   REAL    (KIND=ireals   ) ::  &
        Ttest(idim,kdim), qtest(idim,kdim), qw(idim,kdim), qwd, qwa, dqwd, fT, dfT, & !, cvvmcl, qd,
+       cve, u_old, ue,  &
        zqwmin              ! Minimum cloud water content for adjustment
 
   REAL    (KIND=ireals),  DIMENSION(idim,kdim) ::  &
@@ -242,7 +243,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
         ! At such points, the Newton iteration is not necessary and the
         ! adjusted values of T, p, qv and qc can be obtained directly.
 
-        lwdocvd(i,k) = latent_heat_vaporization(te(i,k)) / cvd
+        lwdocvd(i,k) = latent_heat_vaporization(te(i,k)) / (cvd + (cl-cvd)*qw(i,k))
 
         Ttest(i,k) = te(i,k) - lwdocvd(i,k)*qce(i,k)
 
@@ -320,8 +321,10 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
             qwd  = qsat_rho(twork(indx), rhotot(i,k))
             dqwd = dqsatdT_rho(qwd, twork(indx), rhotot(i,k))
             ! Newton:
-            fT = twork(indx) - te(i,k) + lwdocvd(i,k)*(qwd - qve(i,k))
-            dfT = 1.0_ireals + lwdocvd(i,k)*dqwd
+            cve= cvd + (cl-cvd)*qw(i,k)
+            u_old = cve*te(i,k) + qve(i,k)*(lwd - (cpv-cl)*tmelt + (cvv-cl)*te(i,k) )
+            fT = cve*twork(indx)  + qwd*( lwd - (cpv-cl)*tmelt + (cvv-cl)*twork(indx) ) - u_old
+            dfT = cve + qwd * (cvv-cl) + dqwd*( lwd - (cpv-cl)*tmelt + (cvv-cl)*twork(indx) )
             twork(indx) = twork(indx) - fT / dfT;
           END IF
         END DO
@@ -446,6 +449,7 @@ SUBROUTINE satad_v_3D_gpu (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 
   REAL    (KIND=ireals   ) ::  &
        Ttest, qtest, qw, qwd, qwa, dqwd, fT, dfT, & !, cvvmcl, qd,
+       cve, u_old, ue, &
        zqwmin              ! Minimum cloud water content for adjustment
 
   REAL    (KIND=ireals) ::  &
@@ -456,9 +460,6 @@ SUBROUTINE satad_v_3D_gpu (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 
   LOGICAL :: iter_mask
 
-  REAL (KIND=ireals), PARAMETER :: cp_v = 1850._ireals ! specific heat of water vapor J
-                                                       !at constant pressure
-                                                       ! (Landolt-Bornstein)
   LOGICAL :: ll_satad, lqtvar
 
 
@@ -498,8 +499,13 @@ SUBROUTINE satad_v_3D_gpu (maxiter, tol, te, qve, qce,    & ! IN, INOUT
       ! At such points, the Newton iteration is not necessary and the
       ! adjusted values of T, p, qv and qc can be obtained directly.
 
-      lwdocvd = latent_heat_vaporization(te(i,k)) / cvd
-      Ttest = te(i,k) - lwdocvd*qce(i,k)
+      !lwdocvd = latent_heat_vaporization(te(i,k)) / (cvd + (cl-cvd)*qw)
+      !
+      !Ttest = te(i,k) - lwdocvd*qce(i,k)
+      cve = cvd + (cl-cvd)*qw
+      ue = cve*te(i,k) + latent_heat_vaporization(te(i,k)) * qve(i,k)
+      Ttest = (ue - (lwd - (cpv-cl)*tmelt)*qw)/(cvd + (cvv - cvd)*qw)
+
       qtest = qsat_rho(Ttest, rhotot(i,k))
 
       ll_satad = .TRUE.
@@ -544,11 +550,14 @@ SUBROUTINE satad_v_3D_gpu (maxiter, tol, te, qve, qce,    & ! IN, INOUT
             qwd  = qsat_rho(twork, rhotot(i,k))
             dqwd = dqsatdT_rho(qwd, twork, rhotot(i,k) )
             ! Newton:
-            fT = twork - te(i,k) + lwdocvd*(qwd - qve(i,k))
-            dfT = 1.0_ireals + lwdocvd*dqwd
+            cve= cvd + (cl-cvd)*qw
+            u_old = cve*te(i,k) + qve(i,k)*(lwd - (cpv-cl)*tmelt + (cvv-cl)*te(i,k) )
+            fT = cve*twork  + qwd*( lwd - (cpv-cl)*tmelt + (cvv-cl)*twork ) - u_old
+            dfT = cve + qwd * (cvv-cl) + dqwd*( lwd - (cpv-cl)*tmelt + (cvv-cl)*twork )
             twork = twork - fT / dfT;
           END IF
         END IF
+    !--jsr_baustelle2
       END DO !while
 
       ! Distribute the results back to gridpoints:
@@ -740,7 +749,7 @@ FUNCTION latent_heat_vaporization(temp)
   REAL(KIND=ireals), INTENT(IN) :: temp
   !$ACC ROUTINE SEQ
   
-  latent_heat_vaporization = lwd + (cp_v - cl)*(temp-tmelt) - r_v*temp
+  latent_heat_vaporization = lwd + (cpv - cl)*(temp-tmelt) - r_v*temp
   
 END FUNCTION latent_heat_vaporization
 
@@ -762,7 +771,7 @@ FUNCTION latent_heat_sublimation(temp)
   REAL(KIND=ireals), INTENT(IN) :: temp
   !$ACC ROUTINE SEQ
   
-  latent_heat_sublimation = led + (cp_v - ci)*(temp-tmelt) - r_v*temp
+  latent_heat_sublimation = led + (cpv - ci)*(temp-tmelt) - r_v*temp
   
 END FUNCTION latent_heat_sublimation
 
