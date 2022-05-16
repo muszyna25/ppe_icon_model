@@ -233,7 +233,8 @@ MODULE mo_bc_aeropt_splumes
   SUBROUTINE sp_aop_profile(           nlevels        ,&
      & jcs            ,ncol           ,ncol_max       ,lambda         ,oro            ,lon            , &
      & lat            ,year_fr        ,z              ,dz             ,dNovrN         ,aod_prof       , &
-     & ssa_prof       ,asy_prof       )
+  !RJH_oxf: added iiaero to switch x_cdnc formulation to Herbert JGR 2021
+     & ssa_prof       ,asy_prof       ,iiaero)
     !
     ! ---------- 
     !
@@ -241,7 +242,8 @@ MODULE mo_bc_aeropt_splumes
        & nlevels,                 & !< number of levels
        & jcs,                     & !< start index in block 
        & ncol,                    & !< number of columns (end index)
-       & ncol_max                   !< first dimension of 2d-vars as declared in calling (sub)program [nproma]
+       & ncol_max,                & !< first dimension of 2d-vars as declared in calling (sub)program [nproma]
+       & iiaero                     !< RJH_oxf irad_aero switch for dNovrN calculation
 
     REAL(wp), INTENT(IN)       :: &
        & lambda,                  & !< wavelength
@@ -422,9 +424,19 @@ MODULE mo_bc_aeropt_splumes
     !
     ! calcuate effective radius normalization (divisor) factor
     !
-    DO icol=jcs,ncol
-      dNovrN(icol) = LOG((1000.0_wp * (caod_sp(icol) + caod_bg(icol))) + 1.0_wp)/LOG((1000.0_wp * caod_bg(icol)) + 1.0_wp)
-    END DO
+    IF (iiaero==33 .OR. iiaero==34 .OR. iiaero==35) THEN
+       !RJH_oxf: default MACv2-SP formulation saturates very quickly.
+       !         Replaced by semi-empirical relationship in Herbert et al. (2021, JGR Atmos)
+       !         when irad_aero == 33, 34, 35
+       DO icol=jcs,ncol
+          dNovrN(icol) = LOG((5.0_wp * (caod_sp(icol) + caod_bg(icol))) + 1.0_wp)/LOG((5.0_wp * caod_bg(icol)) + 1.0_wp)
+       END DO
+    ELSE
+       !RJH_oxf: use standard formulation
+       DO icol=jcs,ncol
+          dNovrN(icol) = LOG((1000.0_wp * (caod_sp(icol) + caod_bg(icol))) + 1.0_wp)/LOG((1000.0_wp * caod_bg(icol)) + 1.0_wp)
+       END DO
+    END IF
 
     RETURN
   END SUBROUTINE sp_aop_profile
@@ -438,7 +450,8 @@ MODULE mo_bc_aeropt_splumes
   SUBROUTINE add_bc_aeropt_splumes                                                ( &
      & jg, jcs        ,kproma         ,kbdim          ,klev           ,krow        ,&
      & nb_sw          ,this_datetime  ,zf             ,dz             ,z_sfc       ,&
-     & aod_sw_vr      ,ssa_sw_vr      ,asy_sw_vr      ,x_cdnc                      )
+!RJH_oxf: added iaero to switch between direct effect and cdnc perturbation
+     & aod_sw_vr      ,ssa_sw_vr      ,asy_sw_vr      ,x_cdnc         ,iaero       )
     !
     ! --- 0.1 Variables passed through argument list
     INTEGER, INTENT(IN) ::            &
@@ -456,6 +469,10 @@ MODULE mo_bc_aeropt_splumes
          zf(kbdim,klev),            & !< geometric height at full level [m]
          dz(kbdim,klev),            & !< geometric height thickness     [m]
          z_sfc(kbdim)                 !< geometric height of surface    [m]
+
+    INTEGER, INTENT (IN)        :: &
+         iaero                        ! RJH_oxf: Used to isolate direct effect when
+                                      !          using irad_aero == 33 / 34
 
     REAL(wp), INTENT (INOUT) ::       &
          aod_sw_vr(kbdim,klev,nb_sw) ,& !< Aerosol shortwave optical depth
@@ -512,39 +529,47 @@ MODULE mo_bc_aeropt_splumes
            & jcs                ,kproma             ,kbdim               ,lambda              , &
            & z_sfc(:)           ,lon_sp(:)          ,lat_sp(:)           ,year_fr             , &
            & z_fl_vr(:,:)       ,dz_vr(:,:)         ,sp_xcdnc(:)         ,sp_aod_vr(:,:)      , &
-           & sp_ssa_vr(:,:)     ,sp_asy_vr(:,:)                                               )
+           & sp_ssa_vr(:,:)     ,sp_asy_vr(:,:)     ,iaero                                    ) !RJH_oxf added iaero
 
-        DO jk=1,klev
-          DO jl=jcs,kproma
-            asy_sw_vr(jl,jk,jwl) = asy_sw_vr(jl,jk,jwl) * ssa_sw_vr(jl,jk,jwl) * aod_sw_vr(jl,jk,jwl)    &
-                 + sp_asy_vr(jl,jk)   * sp_ssa_vr(jl,jk)    * sp_aod_vr(jl,jk)
-            ssa_sw_vr(jl,jk,jwl) = ssa_sw_vr(jl,jk,jwl) * aod_sw_vr(jl,jk,jwl)                           &
-                 + sp_ssa_vr(jl,jk)   * sp_aod_vr(jl,jk)
-            aod_sw_vr(jl,jk,jwl) = aod_sw_vr(jl,jk,jwl) + sp_aod_vr(jl,jk)
+        ! RJH_oxford: isolate indirect effect by omitting aerosol profile but keeping x_cdnc when iaero == 35
+        IF (iaero /= 35) THEN
+          DO jk=1,klev
+            DO jl=jcs,kproma
+              asy_sw_vr(jl,jk,jwl) = asy_sw_vr(jl,jk,jwl) * ssa_sw_vr(jl,jk,jwl) * aod_sw_vr(jl,jk,jwl)    &
+                   + sp_asy_vr(jl,jk)   * sp_ssa_vr(jl,jk)    * sp_aod_vr(jl,jk)
+              ssa_sw_vr(jl,jk,jwl) = ssa_sw_vr(jl,jk,jwl) * aod_sw_vr(jl,jk,jwl)                           &
+                   + sp_ssa_vr(jl,jk)   * sp_aod_vr(jl,jk)
+              aod_sw_vr(jl,jk,jwl) = aod_sw_vr(jl,jk,jwl) + sp_aod_vr(jl,jk)
 
-            !asy_sw_vr(jl,jk,jwl) = MERGE(asy_sw_vr(jl,jk,jwl)/ssa_sw_vr(jl,jk,jwl),asy_sw_vr(jl,jk,jwl), &
-                 !ssa_sw_vr(jl,jk,jwl) > TINY(1.0_wp))
-            !ssa_sw_vr(jl,jk,jwl) = MERGE(ssa_sw_vr(jl,jk,jwl)/aod_sw_vr(jl,jk,jwl),ssa_sw_vr(jl,jk,jwl), &
-                 !aod_sw_vr(jl,jk,jwl) > TINY(1.0_wp))
-            IF (ssa_sw_vr(jl,jk,jwl) > TINY(1.0_wp)) THEN
-              asy_sw_vr(jl,jk,jwl) = asy_sw_vr(jl,jk,jwl)/ssa_sw_vr(jl,jk,jwl)
-            ELSE
-              asy_sw_vr(jl,jk,jwl) = asy_sw_vr(jl,jk,jwl)
-            END IF
+              !asy_sw_vr(jl,jk,jwl) = MERGE(asy_sw_vr(jl,jk,jwl)/ssa_sw_vr(jl,jk,jwl),asy_sw_vr(jl,jk,jwl), &
+                   !ssa_sw_vr(jl,jk,jwl) > TINY(1.0_wp))
+              !ssa_sw_vr(jl,jk,jwl) = MERGE(ssa_sw_vr(jl,jk,jwl)/aod_sw_vr(jl,jk,jwl),ssa_sw_vr(jl,jk,jwl), &
+                   !aod_sw_vr(jl,jk,jwl) > TINY(1.0_wp))
+              IF (ssa_sw_vr(jl,jk,jwl) > TINY(1.0_wp)) THEN
+                asy_sw_vr(jl,jk,jwl) = asy_sw_vr(jl,jk,jwl)/ssa_sw_vr(jl,jk,jwl)
+              ELSE
+                asy_sw_vr(jl,jk,jwl) = asy_sw_vr(jl,jk,jwl)
+              END IF
 
-            IF (aod_sw_vr(jl,jk,jwl) > TINY(1.0_wp)) THEN
-              ssa_sw_vr(jl,jk,jwl) = ssa_sw_vr(jl,jk,jwl)/aod_sw_vr(jl,jk,jwl)
-            ELSE
-              ssa_sw_vr(jl,jk,jwl) = ssa_sw_vr(jl,jk,jwl)
-            END IF
+              IF (aod_sw_vr(jl,jk,jwl) > TINY(1.0_wp)) THEN
+                ssa_sw_vr(jl,jk,jwl) = ssa_sw_vr(jl,jk,jwl)/aod_sw_vr(jl,jk,jwl)
+              ELSE
+                ssa_sw_vr(jl,jk,jwl) = ssa_sw_vr(jl,jk,jwl)
+              END IF
 
+            END DO
           END DO
-        END DO
-      END DO
+        END IF !RJH_oxf
 
-      DO jl=jcs,kproma
-        x_cdnc(jl) = sp_xcdnc(jl)
-      END DO
+      END DO !jwl
+
+      ! RJH_oxf: isolate direct effect by keepeing aerosol profile but omitting x_cdnc when iaero == 34
+      IF (iaero /= 34) THEN ! RJH_oxf
+        DO jl=jcs,kproma
+          x_cdnc(jl) = sp_xcdnc(jl)
+        END DO
+      END IF ! RJH_oxf
+
       RETURN
     END IF
  

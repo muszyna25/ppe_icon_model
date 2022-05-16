@@ -21,6 +21,7 @@ MODULE mo_echam_phy_cleanup
   USE mo_echam_phy_config,         ONLY: echam_phy_tc, dt_zero
   USE mo_echam_cnv_config,         ONLY: dealloc_echam_cnv_config
   USE mo_vdiff_solver,             ONLY: cleanup_vdiff_solver
+  USE mo_ndscaling_memory,         ONLY: destruct_ndscaling_list !RJH_pxf: Cleanup ND scaling memory
 
   IMPLICIT NONE
   PRIVATE
@@ -59,6 +60,8 @@ CONTAINS
     IF (lany) CALL destruct_radiation_forcing_list
    
     CALL destruct_echam_phy_state
+
+    CALL destruct_ndscaling_list !RJH_oxf
 
   END SUBROUTINE cleanup_echam_phy
   !-------------

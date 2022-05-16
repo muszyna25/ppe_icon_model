@@ -34,6 +34,8 @@ MODULE mo_interface_echam_mig
   USE mo_echam_mig_config    ,ONLY: echam_mig_config
   USE mo_fortran_tools       ,ONLY: init
   USE mo_exception           ,ONLY: warning
+  USE mo_ndscaling_memory    ,ONLY: prm_ndscaling       ! RJH_oxf: memory for nd scaling field
+  USE mo_echam_rad_config    ,ONLY: echam_rad_config    ! RJH_oxf: rad config field needed to extract irad_aero
 
   IMPLICIT NONE
   PRIVATE
@@ -63,6 +65,7 @@ CONTAINS
     INTEGER                             :: fc_mig, jkscov
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
+    INTEGER                 ,POINTER    :: irad_aero     !RJH_oxf
 
     ! Local variables
     !
@@ -98,6 +101,9 @@ CONTAINS
     associated_ta_mig   = ASSOCIATED(tend% ta_mig)
     associated_qtrc_mig = ASSOCIATED(tend% qtrc_mig)
 
+    !RJH_oxf pointer to irad_aero
+    irad_aero  => echam_rad_config(jg)% irad_aero
+
     !$ACC DATA PCREATE( zqrsflux, zqnc           , &
     !$ACC               xlta                     , &
     !$ACC               xlqv, xlqc               , &
@@ -106,9 +112,21 @@ CONTAINS
     !$ACC      PRESENT( field, tend              )
 
     !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1)
-    DO jl = 1, nproma
-      zqnc(jl) = cloud_num
-    END DO
+
+    IF (irad_aero >= 33) THEN
+      ! RJH_oxf: if using irad_aero >= 33 then modify the default cloud_num value
+      !          by the enhancement factor (dNovrN) calculated by MACv2-SP plume model
+      DO jl = jcs,jce
+        ! RJH_oxf: constrain zqnc to minimum of cloud_num
+        zqnc(jl) = MAX(cloud_num, cloud_num*prm_ndscaling(jg)%dNovrN(jl,jb))
+        ! RJH_oxf: save graupel scheme CDNC to field for diags
+        prm_ndscaling(jg)%migCDNC(jl,jb) = zqnc(jl)
+      END DO
+    ELSE
+      DO jl = 1, nproma
+        zqnc(jl) = cloud_num
+      END DO
+    END IF
 
     ! reciprocal of timestep
     zdtr = 1.0_wp/pdtime

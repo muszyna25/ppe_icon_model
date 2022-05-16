@@ -31,6 +31,8 @@ MODULE mo_echam_phy_diag
   USE mo_run_config          ,ONLY: iqv
   USE mo_echam_cop_config    ,ONLY: echam_cop_config
   USE mo_echam_sfc_indices   ,ONLY: nsfc_type, iwtr, iice, ilnd
+  USE mo_ndscaling_memory    ,ONLY: prm_ndscaling       ! RJH_oxf: memory for nd scaling field
+  USE mo_echam_rad_config    ,ONLY: echam_rad_config    ! RJH_oxf: rad config field needed to extract irad_aero
 
   IMPLICIT NONE
   PRIVATE
@@ -200,7 +202,20 @@ CONTAINS
         ELSE
           zcdnc=zn2*1.e6_wp
         END IF
-        field% acdnc(jc,jk,jb) = zcdnc
+
+        ! RJH_oxf: if irad_aero == 33 or 35 then increase default zcdnc by dNovrN
+        !            calculated in the MACv2-SP plume model using Herbert et al
+        !            2021 (JGR:aAtmos) parameterisation for CDNC-vs-AOD
+        !          irad_aero==33 includes ACI and ARI effects
+        !          irad_aero==34 isolates ARI (dont change zcdnc)
+        !          irad_aero==35 isolates ACI (change zcdnc)
+        IF (echam_rad_config(jg)% irad_aero == 33 .OR. &
+            echam_rad_config(jg)% irad_aero == 35) THEN
+          field% acdnc(jc,jk,jb) = zcdnc * prm_ndscaling(jg)%migCDNC(jc,jb)
+        ELSE
+          field% acdnc(jc,jk,jb) = zcdnc
+        END IF 
+
         !
       END DO
     END DO

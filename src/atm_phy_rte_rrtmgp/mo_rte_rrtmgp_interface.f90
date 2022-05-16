@@ -37,7 +37,7 @@ MODULE mo_rte_rrtmgp_interface
   USE mo_echam_rad_config,           ONLY: echam_rad_config
   USE mo_run_config,                 ONLY: msg_level
   USE mtime,                         ONLY: datetime
-
+  USE mo_ndscaling_memory,           ONLY: prm_ndscaling !RJH_oxf: memory for nd scaling field
 
 #ifdef RRTMGP_MERGE_DEBUG
   USE mo_rte_rrtmgp_merge_debug, ONLY: write_record_interface_echam
@@ -218,6 +218,7 @@ CONTAINS
     ! iaero=13: only tropospheric Kinne aerosols
     ! iaero=14: only Stenchikov's volcanic aerosols
     ! iaero=15: tropospheric Kinne aerosols + volcanic Stenchikov's aerosols
+    ! iaero=33/34/35: as iaero=13 + simple plumes + coupled x_cdnc to cloud mphys - RJH_oxf
     ! set all aerosols to zero first
 
     lneed_aerosols = (irad_aero /= 0)
@@ -239,11 +240,14 @@ CONTAINS
       aer_asy_sw(:,:,:) = 0.0_wp
       !$ACC end kernels
 
-      IF (irad_aero==12 .OR. irad_aero==13 .OR. irad_aero==15 .OR. irad_aero==18) THEN
+      IF (irad_aero==12 .OR. irad_aero==13 .OR. irad_aero==15 .OR. irad_aero==18 &
+                        .OR. irad_aero==33 .OR. irad_aero==34 .OR. irad_aero==35) THEN
       ! iaero=12: only Kinne aerosols from single year are used
       ! iaero=13: only Kinne aerosols are used
       ! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used
       ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
+      ! iaero=33/34/35: only Kinne aerosols are used + simple plumes later 
+      !                 + x_cdnc coupled to mphys - RJH_oxf
         IF ( msg_level > 10 ) &
            & CALL message(TRIM(thissubprog),'Running with Kinne aerosols')
         CALL set_bc_aeropt_kinne(this_datetime,                       &
@@ -287,22 +291,28 @@ CONTAINS
       !!$           & aer_tau_lw,    aer_tau_sw,         aer_ssa_sw,    &
       !!$           & aer_asy_sw                                               )
       !!$    END IF
-      IF (irad_aero==18) THEN
+      IF (irad_aero==18 .OR. irad_aero==33 .OR. irad_aero==34 .OR. irad_aero==35) THEN
       ! iaero=18: Simple plumes are added to Stenchikov's volcanic aerosols
       !           and Kinne background aerosols (of natural origin, 1850)
+      ! iaero=33/34/35: simple plumes are added to Kinne tropo background aerosols - RJH_oxf
         IF ( msg_level > 10 ) &
            & CALL message(TRIM(thissubprog),'Running with simple plume aerosols')
 #ifdef _OPENACC
         CALL warning('mo_rte_rrtmgp_interface/rte_rrtmgp_interface','Plumes ACC not implemented')
 #endif
         !$acc update host(aer_tau_lw, aer_tau_sw, aer_ssa_sw, aer_asy_sw, zf, dz, zh(:,klev+1))
-        CALL add_bc_aeropt_splumes(jg,                                     &
-              & jcs, nproma,           nproma,                 klev,             &
-              & jb,             nbndsw,                this_datetime,    &
-              & zf,               dz,                    zh(:,klev+1),     &
-              & aer_tau_sw,    aer_ssa_sw,         aer_asy_sw,     &
-              & x_cdnc                                                     )
+        CALL add_bc_aeropt_splumes(jg,                               &
+              & jcs, nproma,   nproma,             klev,             &
+              & jb,            nbndsw,             this_datetime,    &
+              & zf,            dz,                 zh(:,klev+1),     &
+              & aer_tau_sw,    aer_ssa_sw,         aer_asy_sw,       &
+        ! RJH_oxf: iaero added isolate indirect/direct effect and switch calculation of dNovrN
+              & x_cdnc,        irad_aero                             )
         !$acc update device(aer_tau_sw, aer_ssa_sw, aer_asy_sw)
+
+        ! RJH_oxf: if iaero is 33 update ndscaling field with x_cdnc from simple plumes
+        IF (irad_aero==33 .OR. irad_aero==34 .OR. irad_aero==35) prm_ndscaling(jg)%dNovrN(:,jb)=x_cdnc(:)
+
       END IF
 
       ! this should be decativated in the concurrent version and make the aer_* global variables for output
