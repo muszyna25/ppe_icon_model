@@ -106,6 +106,8 @@ USE mo_echam_vdf_config,    ONLY: echam_vdf_config
 USE mo_echam_phy_memory,    ONLY: construct_echam_phy_state
 USE mo_cloud_two_memory,    ONLY: construct_cloud_two_memory
 USE mo_radiation_forcing_memory, ONLY: construct_rad_forcing_list => construct_radiation_forcing_list
+!RJH_oxf: Introduce precip scaling memory
+USE mo_ndscaling_memory,    ONLY: construct_ndscaling_list
 USE mo_physical_constants,  ONLY: amd, amco2
 USE mo_echam_phy_init,      ONLY: init_echam_phy_params, init_echam_phy_external, &
    &                              init_echam_phy_field, init_o3_lcariolle
@@ -367,6 +369,11 @@ CONTAINS
      CALL init_radar_data(p_patch(1:), radar_data)
      CALL construct_lhn(lhn_fields,p_patch(1:))
    ENDIF
+
+    !RJH_oxf: Construct ND scaling memory
+    IF (echam_rad_config(1)% irad_aero >= 33 .AND. iforcing == iecham) THEN
+       CALL construct_ndscaling_list ( p_patch(1:) )
+    ENDIF
 
     !------------------------------------------------------------------
     ! Prepare for time integration
