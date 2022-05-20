@@ -793,6 +793,11 @@ CONTAINS
         CALL setup_bc_aeropt_splumes
       END IF
 
+      !RJH_oxf
+      IF (ANY(echam_rad_config(:)%irad_aero >= 33)) THEN
+        CALL setup_bc_aeropt_splumes
+      END IF
+
       !
     END IF
 

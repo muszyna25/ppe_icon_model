@@ -1451,9 +1451,10 @@ CONTAINS
         &                         aer_piz_sw_vr,                 &
         &                         aer_cg_sw_vr)
 #endif
-    CASE (12,13)
+    CASE (12,13,33,34,35)
        ! this is for rrtm radiation in the NWP part, we do not introduce
        ! the simple plumes here
+       ! RJH_oxf: added 33,34,35 here
        CALL set_bc_aeropt_kinne( current_date                        ,&
         & jg                                                        ,&
         & 1, jce           ,kbdim                 ,klev             ,&

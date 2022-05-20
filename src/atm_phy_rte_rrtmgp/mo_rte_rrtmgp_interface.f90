@@ -215,10 +215,12 @@ CONTAINS
     !
     ! IF (aero == ...) THEN
     ! iaero=0: No aerosol
-    ! iaero=13: only tropospheric Kinne aerosols
+    ! iaero=13: only tropospheric Kinne aerosols (single year)
+    ! iaero=13: only tropospheric Kinne aerosols (multiple years)
     ! iaero=14: only Stenchikov's volcanic aerosols
     ! iaero=15: tropospheric Kinne aerosols + volcanic Stenchikov's aerosols
-    ! iaero=33/34/35: as iaero=13 + simple plumes + coupled x_cdnc to cloud mphys - RJH_oxf
+    ! iaero=33/34/35: as per nextgems cycle2 irad_aero = 12 + simple plumes
+    !                  + coupled x_cdnc to cloud mphys - RJH_oxf
     ! set all aerosols to zero first
 
     lneed_aerosols = (irad_aero /= 0)
@@ -241,7 +243,7 @@ CONTAINS
       !$ACC end kernels
 
       IF (irad_aero==12 .OR. irad_aero==13 .OR. irad_aero==15 .OR. irad_aero==18 &
-                        .OR. irad_aero==33 .OR. irad_aero==34 .OR. irad_aero==35) THEN
+                     &  .OR. irad_aero==33 .OR. irad_aero==34 .OR. irad_aero==35) THEN
       ! iaero=12: only Kinne aerosols from single year are used
       ! iaero=13: only Kinne aerosols are used
       ! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used
