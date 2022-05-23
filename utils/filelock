@@ -8,7 +8,7 @@ EXCL_LOCK=true
 
 # Operation modes.
 # No support for non-blocking, timeout, or fd closing yet.
-while getopts sx OPTOPT
+while getopts sxh OPTOPT
 do
     case $OPTOPT in
         x) EXCL_LOCK=true;;
