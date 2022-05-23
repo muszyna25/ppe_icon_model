@@ -113,7 +113,7 @@ next_date = args.next_date
 #     sys.exit(1)
 
 if not next_date:
-    interval = mtime.TimeDelta('%{INTERVAL}')
+    interval = mtime.TimeDelta('%{JOB.interval|d(INTERVAL)}')
     next_date = start_date + interval
 
 offset = mtime.TimeDelta('-%{namelists.NAMELIST_atm.run_nml.modeltimestep}')
