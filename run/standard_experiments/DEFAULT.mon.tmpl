@@ -169,19 +169,20 @@ for info in file_infos:
         file_next_date = min(next_date, output_end)
 
         # Generate output per file date
-        date = file_start_date
+        date = output_start
 
         while ((args.include_next_date and date <= file_next_date)
                or date < file_next_date):
-            # Set current file name
-            filename = info['filename_tmpl'].replace('<datetime2>', stamp(date))
-            logging.info("current file '%s'", filename)
+            if file_start_date <= date:
+                # Set current file name
+                filename = info['filename_tmpl'].replace('<datetime2>', stamp(date))
+                logging.info("current file '%s'", filename)
 
-            # Get variables from file
-            if os.path.isfile(os.path.join(input_dir, filename)):
-                files.append(filename)
-            else:
-                logging.warning("file '%s' does not exist", filename)
+                # Get variables from file
+                if os.path.isfile(os.path.join(input_dir, filename)):
+                    files.append(filename)
+                else:
+                    logging.warning("file '%s' does not exist", filename)
 
             date += file_interval
 
