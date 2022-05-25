@@ -275,59 +275,60 @@ for info in file_infos:
         file_next_date = min(next_date, output_end)
 
         # Generate output per file date
-        date = file_start_date
+        date = output_start
+
         while ((args.include_next_date and date <= file_next_date)
                or date < file_next_date):
-            # Set current file name
-            info[assets] = os.path.join(input_dir,
-                info['filename_tmpl'].replace('<datetime2>', stamp(date)))
-            logging.info("current file '%s'", info[assets])
+            if file_start_date <= date:
+                # Set current file name
+                info[assets] = os.path.join(input_dir,
+                    info['filename_tmpl'].replace('<datetime2>', stamp(date)))
+                logging.info("current file '%s'", info[assets])
 
-            # Determine time range
-            if args.include_next_date and date != initial_date:
-                if date == file_next_date:
-                     info[time_column_name] = str(date)
-                     info['time_max'] = str(date)
-                else:
-                    info[time_column_name] = str(date+output_interval)
-                    info['time_max'] = str(date+file_interval+neg_output_interval)
-            else:
-                info[time_column_name] = str(date)
-                info['time_max'] = str(date+file_interval+neg_output_interval)
-
-            # Get variables from file
-            try:
-                with xarray.open_dataset(info[assets], use_cftime=True,
-                    chunks={}) as ds:
-
-                    # Try to remove spurious entries (eg bounds)
-                    info[variable_column_name] = [var for var in ds.data_vars
-                        if not var.endswith('_bnds')]
-
-                duplicates = tuple(key for key in generate_keys(info)
-                    if key in catalog_index
-                    and info[assets] != catalog_index[key][assets])
-                if duplicates:
-                    if args.force:
-                        for key in duplicates:
-                            logging.warning("key '%s' is already taken by assets"
-                            " '%s'", str(key), catalog_index[key][assets])
+                # Determine time range
+                if args.include_next_date and date != initial_date:
+                    if date == file_next_date:
+                         info[time_column_name] = str(date)
+                         info['time_max'] = str(date)
                     else:
-                        for key in duplicates:
-                            logging.error("key '%s' is already taken by assets"
-                            " '%s'", str(key), catalog_index[key][assets])
-                        sys.exit(1)
+                        info[time_column_name] = str(date+output_interval)
+                        info['time_max'] = str(date+file_interval+neg_output_interval)
                 else:
-                    entry = {col: info[col] for col in columns}
-                    key = tuple(str(entry[att]) for att in attributes)
-                    catalog_dict[key] = entry
-                    for key in generate_keys(entry):
-                        catalog_index[key] = entry
+                    info[time_column_name] = str(date)
+                    info['time_max'] = str(date+file_interval+neg_output_interval)
 
-            except IOError as x:
-                if x.errno != errno.ENOENT: raise
-                logging.warning("skipped: "+x.strerror)
-                
+                # Get variables from file
+                try:
+                    with xarray.open_dataset(info[assets], use_cftime=True,
+                        chunks={}) as ds:
+
+                        # Try to remove spurious entries (eg bounds)
+                        info[variable_column_name] = [var for var in ds.data_vars
+                            if not var.endswith('_bnds')]
+
+                    duplicates = tuple(key for key in generate_keys(info)
+                        if key in catalog_index
+                        and info[assets] != catalog_index[key][assets])
+                    if duplicates:
+                        if args.force:
+                            for key in duplicates:
+                                logging.warning("key '%s' is already taken by assets"
+                                " '%s'", str(key), catalog_index[key][assets])
+                        else:
+                            for key in duplicates:
+                                logging.error("key '%s' is already taken by assets"
+                                " '%s'", str(key), catalog_index[key][assets])
+                            sys.exit(1)
+                    else:
+                        entry = {col: info[col] for col in columns}
+                        key = tuple(str(entry[att]) for att in attributes)
+                        catalog_dict[key] = entry
+                        for key in generate_keys(entry):
+                            catalog_index[key] = entry
+
+                except IOError as x:
+                    if x.errno != errno.ENOENT: raise
+                    logging.warning("skipped: "+x.strerror)
 
             date += file_interval
 
