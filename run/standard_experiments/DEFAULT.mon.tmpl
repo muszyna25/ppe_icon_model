@@ -68,7 +68,7 @@ if start_date < initial_date:
     logging.error("start_date is before initial_date")
     sys.exit(1)
     
-interval = mtime.TimeDelta('%{INTERVAL}')
+interval = mtime.TimeDelta('%{JOB.interval|d(INTERVAL)}')
 final_date = mtime.DateTime('%{FINAL_DATE}')
 next_date = start_date + interval
 
