@@ -227,7 +227,11 @@ logging.info('working directory is {0}'.format(work_dir))
 if args.include_next_date:
     conflict_names = []
     for info in file_infos:
-        for date in (start_date, next_date):
+        dates = []
+        if start_date != initial_date:
+            dates.append(start_date)
+        dates.append(next_date)
+        for date in dates:
             name = info['filename_tmpl'].replace('<datetime2>', stamp(date))
             (base, ignore) = os.path.splitext(name)
             conflict_names.extend((name, base+'.pdf', base+'.html'))
