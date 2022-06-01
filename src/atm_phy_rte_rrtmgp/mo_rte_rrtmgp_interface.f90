@@ -318,7 +318,8 @@ CONTAINS
       END IF
 
       ! this should be decativated in the concurrent version and make the aer_* global variables for output
-      IF (lrad_aero_diag) THEN
+      ! RJH_oxf: want rad properties output for plume model modifications (and background irad_aero = 12)
+      IF (lrad_aero_diag .OR. irad_aero >= 33 .OR. irad_aero == 12) THEN
         CALL rad_aero_diag (                                  &
           & 1,               nproma,          nproma,         &
           & klev,            nbndlw,          nbndsw,         &

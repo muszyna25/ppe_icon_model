@@ -197,13 +197,13 @@ CONTAINS
           zn1= cn1sea
           zn2= cn2sea
         END IF
+
         IF (field%pfull(jc,jk,jb).LT.80000._wp) THEN
           zcdnc=1.e6_wp*(zn1+(zn2-zn1)*(EXP(1._wp-zprat)))
         ELSE
           zcdnc=zn2*1.e6_wp
         END IF
-
-        ! RJH_oxf: if irad_aero == 33 or 35 then increase default zcdnc by dNovrN
+        ! RJH_oxf: if irad_aero == 33 or 35 then increase MAX cdnc (zn1) by dNovrN
         !            calculated in the MACv2-SP plume model using Herbert et al
         !            2021 (JGR:aAtmos) parameterisation for CDNC-vs-AOD
         !          irad_aero==33 includes ACI and ARI effects
@@ -211,11 +211,14 @@ CONTAINS
         !          irad_aero==35 isolates ACI (change zcdnc)
         IF (echam_rad_config(jg)% irad_aero == 33 .OR. &
             echam_rad_config(jg)% irad_aero == 35) THEN
-          field% acdnc(jc,jk,jb) = zcdnc * prm_ndscaling(jg)%migCDNC(jc,jb)
+          zn1 = zn1 * prm_ndscaling(jg)%migCDNC(jc,jb)
+        ENDIF
+        !
+        IF (field%pfull(jc,jk,jb).LT.80000._wp) THEN
+          zcdnc=1.e6_wp*(zn1+(zn2-zn1)*(EXP(1._wp-zprat)))
         ELSE
-          field% acdnc(jc,jk,jb) = zcdnc
-        END IF 
-
+          zcdnc=zn2*1.e6_wp
+        END IF
         !
       END DO
     END DO
