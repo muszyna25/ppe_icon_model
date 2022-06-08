@@ -56,16 +56,20 @@ wait_for () { while ! "$@"; do sleep $WAIT; done > /dev/null 2>&1; }
 run_over () { "$@" > /dev/null 2>&1; }
 
 wait_for ln -s $linktag "$lockfile"
+trap 'rm -vf "$lockfile"' 15
 if $EXCL_LOCK
 then
     run_over mkdir "$shareddir" # allows to use rmdir as semaphore
     wait_for rmdir "$shareddir"
     wait_for ln -s $linktag "$exclfile"
+    trap 'rm -vf "$exclfile" "$lockfile"' 15
     trap 'rm -f "$exclfile"' 0
 else
     wait_for ln -s $linktag "$exclfile"
+    trap 'rm -vf "$exclfile" "$lockfile"' 15
     run_over mkdir "$shareddir"
     run_over ln -s $linktag "$sharedfile"
+    trap 'rm -vf "$sharedfile" "$lockfile"' 15
     rm -f "$exclfile"
     # Use master lock on clean-up to avoid race with excl lock's mkdir
     trap '
@@ -74,6 +78,12 @@ else
         run_over rmdir "$shareddir"
         rm -f "$lockfile"
     ' 0
+fi
+if $EXCL_LOCK
+then
+    trap 'rm -vf "$exclfile"' 15
+else
+    trap 'rm -vf "$sharedfile"' 15
 fi
 rm -f "$lockfile"
 
