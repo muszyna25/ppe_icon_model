@@ -198,6 +198,8 @@ template_dict['start_stamp'] = stamp(start_date)
 template_dict['end_stamp'] = stamp(end_date)
 template_dict['files'] = ' '.join(files)
 template_dict['mean_op'] = '%{JOB.mean_op|d('yearavg')}'
+template_dict['mean_op_name'] = re.sub(r'\W+', '_',
+                                       template_dict['mean_op']).strip('_')
 template_dict['input_dir'] = input_dir
 
 # Prolog
@@ -278,6 +280,7 @@ START_STAMP = {start_stamp}
 FILES = {files}
 TARGETS_DIR = {targets_dir}
 MEAN_OP = {mean_op}
+MEAN_OP_NAME = {mean_op_name}
 
 FILES1 = $(FILES:.nc=)
 FILES2 = $(FILES1:.grb=)
@@ -312,11 +315,11 @@ $(TARGETS_DIR)/%.pdf: $(TARGETS_DIR)/%.nc
 	    filelock -s $(TARGETS_DIR)/$$base.nc -c \
 	   "set -e ;\
 	    $(CDO) $(CDOFLAGS) $(MEAN_OP) $(MON_DIR)/$$base.nc \
-	        $${{base}}_$(MEAN_OP).nc ;\
-	    mv $${{base}}_$(MEAN_OP).nc $(MON_DIR)/$${{base}}_$(MEAN_OP).nc ;\
+	        $${{base}}_$(MEAN_OP_NAME).nc ;\
+	    mv $${{base}}_$(MEAN_OP_NAME).nc $(MON_DIR)/$${{base}}_$(MEAN_OP_NAME).nc ;\
 	    cd $(MON_DIR) ;\
 	    $(PLOT_TIMESER) --manifest=$$base.lst --mode=monitoring \
-	        --with1=$$base.nc --with1a=$${{base}}_$(MEAN_OP).nc --output=$$base"
+	        --with1=$$base.nc --with1a=$${{base}}_$(MEAN_OP_NAME).nc --output=$$base"
 	touch $@
 
 $(TARGETS_DIR)/%.html: $(TARGETS_DIR)/%.pdf
