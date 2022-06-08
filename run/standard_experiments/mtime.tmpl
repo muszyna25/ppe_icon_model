@@ -5,9 +5,11 @@
 from distutils.sysconfig import get_python_lib
 lib_dir = sysconfig.get_python_lib(prefix='%{PREFIX}')
 #%  else:
+import os
 os.chdir('%{BUILD_DIR}/externals/mtime/src')
 lib_dir = ''
 #%  endif
+import sys
 sys.path.insert(1, lib_dir)
 import mtime
 

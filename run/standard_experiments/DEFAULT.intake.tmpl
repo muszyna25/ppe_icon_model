@@ -61,6 +61,7 @@ Create intake directory entries for a given period
 
 import argparse
 import errno
+import glob
 import json
 import os
 import re
@@ -88,8 +89,6 @@ command_line.add_argument('-w', '--work-stamp', action='store_true', help=
     'expect time stamps in model format instead of post-processed')
 command_line.add_argument('-W', '--work-dir', action='store_true', help=
     'take files from work directory instead of data directory')
-command_line.add_argument('-N', '--include-next-date', action='store_true', help=
-    'also include files with time stamps for next start date')
 command_line.add_argument('-I', '--input-dir', help=
     'take files from a non-standard directory')
 command_line.add_argument('-f', '--force', action='store_true', help=
@@ -113,7 +112,7 @@ next_date = args.next_date
 #     sys.exit(1)
 
 if not next_date:
-    interval = mtime.TimeDelta('%{INTERVAL}')
+    interval = mtime.TimeDelta('%{JOB.interval|d(INTERVAL)}')
     next_date = start_date + interval
 
 offset = mtime.TimeDelta('-%{namelists.NAMELIST_atm.run_nml.modeltimestep}')
@@ -256,7 +255,6 @@ for entry in intake_data['catalog_dict']:
         logging.warning("unsubscribing non-existing file '%s'", entry[assets])
 
 for info in file_infos:
-
     output_start = mtime.DateTime(info['output_start'])
     output_end = mtime.DateTime(info['output_end'])
     file_interval = mtime.TimeDelta(info['file_interval'])
@@ -266,70 +264,54 @@ for info in file_infos:
     info['frequency'] = ' '.join('{0}{1}'.format(value, name)
         for (name, value) in output_interval.items() if name != 'sign' and value)
 
+    # Use wildcards to expand timestamps in file names
+    file_glob = os.path.join(input_dir,
+        info['filename_tmpl'].replace('<datetime2>', '????????T??????Z'))
+    for file_name in glob.glob(file_glob):
 
-    # Check if current interval is overlapping with file life-time
-    if output_start < next_date and output_end >= start_date:
+        # Set current file name
+        info[assets] = file_name
+        logging.info("current file '%s'", info[assets])
 
-        # Set lower and upper limits for file life-time wrtt current interval
-        file_start_date = max(start_date, output_start)
-        file_next_date = min(next_date, output_end)
+        with xarray.open_dataset(info[assets], use_cftime=True,
+            chunks={}) as ds:
 
-        # Generate output per file date
-        date = file_start_date
-        while ((args.include_next_date and date <= file_next_date)
-               or date < file_next_date):
-            # Set current file name
-            info[assets] = os.path.join(input_dir,
-                info['filename_tmpl'].replace('<datetime2>', stamp(date)))
-            logging.info("current file '%s'", info[assets])
+            # Get min and max from time axis, format properly
+            info[time_column_name] = str(output_start)
+            info['time_max'] = str(output_end)
+            for coord in ds.coords:
+                if ds[coord].attrs.get('axis', '') == 'T':
+                    time_min = ds[coord].min().data[()]
+                    info[time_column_name] = (time_min.isoformat() +
+                        '.%03.0f'%(time_min.microsecond/1000))
+                    time_max = ds[coord].max().data[()]
+                    info['time_max'] = (time_max.isoformat() +
+                        '.%03.0f'%(time_max.microsecond/1000))
+                    break
 
-            # Determine time range
-            if args.include_next_date and date != initial_date:
-                if date == file_next_date:
-                     info[time_column_name] = str(date)
-                     info['time_max'] = str(date)
-                else:
-                    info[time_column_name] = str(date+output_interval)
-                    info['time_max'] = str(date+file_interval+neg_output_interval)
+            # Try to remove spurious entries (eg bounds)
+            info[variable_column_name] = [var for var in ds.data_vars
+                if not var.endswith('_bnds')]
+
+        duplicates = tuple(key for key in generate_keys(info)
+            if key in catalog_index
+            and info[assets] != catalog_index[key][assets])
+        if duplicates:
+            if args.force:
+                for key in duplicates:
+                    logging.warning("key '%s' is already taken by assets"
+                    " '%s'", str(key), catalog_index[key][assets])
             else:
-                info[time_column_name] = str(date)
-                info['time_max'] = str(date+file_interval+neg_output_interval)
-
-            # Get variables from file
-            try:
-                with xarray.open_dataset(info[assets], use_cftime=True,
-                    chunks={}) as ds:
-
-                    # Try to remove spurious entries (eg bounds)
-                    info[variable_column_name] = [var for var in ds.data_vars
-                        if not var.endswith('_bnds')]
-
-                duplicates = tuple(key for key in generate_keys(info)
-                    if key in catalog_index
-                    and info[assets] != catalog_index[key][assets])
-                if duplicates:
-                    if args.force:
-                        for key in duplicates:
-                            logging.warning("key '%s' is already taken by assets"
-                            " '%s'", str(key), catalog_index[key][assets])
-                    else:
-                        for key in duplicates:
-                            logging.error("key '%s' is already taken by assets"
-                            " '%s'", str(key), catalog_index[key][assets])
-                        sys.exit(1)
-                else:
-                    entry = {col: info[col] for col in columns}
-                    key = tuple(str(entry[att]) for att in attributes)
-                    catalog_dict[key] = entry
-                    for key in generate_keys(entry):
-                        catalog_index[key] = entry
-
-            except IOError as x:
-                if x.errno != errno.ENOENT: raise
-                logging.warning("skipped: "+x.strerror)
-                
-
-            date += file_interval
+                for key in duplicates:
+                    logging.error("key '%s' is already taken by assets"
+                    " '%s'", str(key), catalog_index[key][assets])
+                sys.exit(1)
+        else:
+            entry = {col: info[col] for col in columns}
+            key = tuple(str(entry[att]) for att in attributes)
+            catalog_dict[key] = entry
+            for key in generate_keys(entry):
+                catalog_index[key] = entry
 
 intake_data["catalog_dict"] = list(catalog_dict.values())
 

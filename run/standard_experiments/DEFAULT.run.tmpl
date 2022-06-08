@@ -188,16 +188,9 @@ read start_date < $start_date_file
 #%  endif
 #%#
 code=$(python -c "
-#%  if PREFIX:
-import sys
-from distutils.sysconfig import get_python_lib
-sys.path.insert(1, get_python_lib(prefix='%{PREFIX}'))
-#%  else
-import os
-os.chdir('$BUILD_DIR/externals/mtime/src')
-#%  endif
-import mtime
-mtime.setCalendar(mtime.CALENDAR_TYPE.%{calendar_mtime})
+#% include 'standard_experiments/mtime.tmpl'
+#% include 'standard_experiments/logging.tmpl'
+
 initial_date = mtime.DateTime('$initial_date')
 final_date = mtime.DateTime('$final_date')
 start_date = mtime.DateTime('$start_date')
