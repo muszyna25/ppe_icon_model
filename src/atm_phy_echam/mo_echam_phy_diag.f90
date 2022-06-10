@@ -165,6 +165,8 @@ CONTAINS
     !
     REAL(wp) :: cn1lnd, cn2lnd, cn1sea, cn2sea
     !
+    REAL(wp) :: cdnc_bg = 80._wp
+    !
     cn1lnd = echam_cop_config(jg)% cn1lnd
     cn2lnd = echam_cop_config(jg)% cn2lnd
     cn1sea = echam_cop_config(jg)% cn1sea
@@ -190,13 +192,18 @@ CONTAINS
         !
         zprat=(MIN(8._wp,80000._wp/field%pfull(jc,jk,jb)))**2
 
-        IF (lland(jc).AND.(.NOT.lglac(jc))) THEN
-          zn1= cn1lnd
-          zn2= cn2lnd
-        ELSE
-          zn1= cn1sea
-          zn2= cn2sea
-        END IF
+        ! RJH_oxf: in all experiments (32 to 35) set background cdnc to 80 
+        IF (echam_rad_config(jg)%irad_aero >= 32) THEN
+          zn1 = cdnc_bg
+        ELSE 
+          IF (lland(jc).AND.(.NOT.lglac(jc))) THEN
+            zn1= cn1lnd
+            zn2= cn2lnd
+          ELSE
+            zn1= cn1sea
+            zn2= cn2sea
+          END IF
+        ENDIF
 
         IF (field%pfull(jc,jk,jb).LT.80000._wp) THEN
           zcdnc=1.e6_wp*(zn1+(zn2-zn1)*(EXP(1._wp-zprat)))

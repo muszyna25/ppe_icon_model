@@ -105,7 +105,7 @@ CONTAINS
     INTEGER :: ndomain, jg, ist, nblks, nlev
     CHARACTER(len=*), PARAMETER :: thissubprog = 'construct_ndscaling_list of mo_ndscaling_memory'
 
-    IF (.NOT.(echam_rad_config(1)%irad_aero >= 33)) RETURN
+    IF (.NOT.(echam_rad_config(1)%irad_aero >= 32)) RETURN
     CALL message(thismodule,'Construction of ndscaling_list started.')
 
     ! Allocate pointer arrays prm_field and prm_tend,
@@ -151,7 +151,7 @@ CONTAINS
     INTEGER :: ist      !< system status code
     CHARACTER(len=*), PARAMETER :: thissubprog='destruct_ndscaling_list of mo_ndscaling_memory'
     !---
-    IF (.NOT.(echam_rad_config(1)% irad_aero >= 33)) RETURN
+    IF (.NOT.(echam_rad_config(1)% irad_aero >= 32)) RETURN
     CALL message(TRIM(thissubprog),'Destruction of ndscaling_list started.')
 
     ndomain = SIZE(prm_ndscaling)
@@ -218,7 +218,7 @@ CONTAINS
                 & lrestart = .FALSE. )
 
     cf_desc    = t_cf_var('migCDNC', 'cm-3', 'CDNC following scaling by dNovrN in graupel scheme', datatype_flt)
-    grib2_desc = grib2_var(0,6,28, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(0,6,29, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'migCDNC', field%migCDNC,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d, &
                 & lrestart = .FALSE. )

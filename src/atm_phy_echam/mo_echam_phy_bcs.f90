@@ -315,7 +315,7 @@ CONTAINS
         !
         ! tropospheric aerosol optical properties after S. Kinne
         IF (echam_rad_config(jg)% irad_aero == 12 .OR. &
-          & echam_rad_config(jg)% irad_aero >= 33) THEN  !RJH_oxf
+          & echam_rad_config(jg)% irad_aero >= 32) THEN  !RJH_oxf
           l_filename_year = .FALSE.
           CALL read_bc_aeropt_kinne(mtime_old, patch, l_filename_year, nbndlw, nbndsw)
         END IF

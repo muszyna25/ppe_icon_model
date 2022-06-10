@@ -76,13 +76,7 @@ CONTAINS
                 tend_qtrc_mig_iqr, tend_qtrc_mig_iqs, tend_qtrc_mig_iqg
     LOGICAL  :: associated_ta_mig, associated_qtrc_mig
  
-    !RJH_oxf: added for land/sea background CDNC contrast
-    !         code copied from src/atm_phy_echam/mo_echam_phy_diag.f90
-    LOGICAL                             :: lland ! land flag
-    LOGICAL                             :: lglac ! glacier flag 
-    REAL(wp) :: cloud_num_land = 180.e+06_wp     ! land background CDNC per m3
-    REAL(wp) :: cloud_num_sea  = 80.e+06_wp      ! sea background CDNC per m3
-
+    REAL(wp) :: cdnc_bg = 80.e+06_wp     ! background CDNC per m3
     !
     ! Local variables for security
     !
@@ -121,31 +115,14 @@ CONTAINS
 
     !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1)
 
-    IF (irad_aero >= 33) THEN
-      ! RJH_oxf: if using irad_aero >= 33 then modify the default cloud_num value
+    IF (irad_aero >= 32) THEN
+      ! RJH_oxf: if using irad_aero >= 32 then modify the default cloud_num value
       !          by the enhancement factor (dNovrN) calculated by MACv2-SP plume model
       DO jl = jcs,jce
-        !! RJH_oxf: constrain zqnc to minimum of cloud_num
-        !!zqnc(jl) = MAX(cloud_num, cloud_num*prm_ndscaling(jg)%dNovrN(jl,jb))
-        !! RJH_oxf: save graupel scheme CDNC to field for diags
-        !!prm_ndscaling(jg)%migCDNC(jl,jb) = zqnc(jl)
-
-        !RJH_oxf: alternative method for background CDNC using 80/180 for
-        !         Sea/Land code taken from atm_phy_echam/mo_echam_phy_diag.f90
-
-        lland = field%sftlf (jl,jb) > 0._wp
-        lglac = field%sftgif(jl,jb) > 0._wp
- 
-        IF (lland .AND. (.NOT.lglac)) THEN
-          ! LAND background of 180 cdnc
-          zqnc(jl) = MAX(cloud_num_land, cloud_num_land*prm_ndscaling(jg)%dNovrN(jl,jb))
-          prm_ndscaling(jg)%migCDNC(jl,jb) = zqnc(jl) 
-        ELSE 
-          ! SEA background of 80 cdnc
-          zqnc(jl) = MAX(cloud_num_sea, cloud_num_sea*prm_ndscaling(jg)%dNovrN(jl,jb))
-          prm_ndscaling(jg)%migCDNC(jl,jb) = zqnc(jl)
-        END IF        
-
+        ! RJH_oxf: constrain zqnc to minimum of cloud_num
+        zqnc(jl) = MAX(cdnc_bg, cdnc_bg*prm_ndscaling(jg)%dNovrN(jl,jb))
+        ! RJH_oxf: save graupel scheme CDNC to field for diags
+        prm_ndscaling(jg)%migCDNC(jl,jb) = zqnc(jl)
       END DO
     ELSE
       DO jl = 1, nproma

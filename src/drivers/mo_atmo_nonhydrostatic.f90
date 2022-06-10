@@ -371,7 +371,7 @@ CONTAINS
    ENDIF
 
     !RJH_oxf: Construct ND scaling memory
-    IF (echam_rad_config(1)% irad_aero >= 33 .AND. iforcing == iecham) THEN
+    IF (echam_rad_config(1)% irad_aero >= 32 .AND. iforcing == iecham) THEN
        CALL construct_ndscaling_list ( p_patch(1:) )
     ENDIF
 

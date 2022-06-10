@@ -242,9 +242,13 @@ CONTAINS
       aer_asy_sw(:,:,:) = 0.0_wp
       !$ACC end kernels
 
-      IF (irad_aero==12 .OR. irad_aero==13 .OR. irad_aero==15 .OR. irad_aero==18 &
-                     &  .OR. irad_aero==33 .OR. irad_aero==34 .OR. irad_aero==35) THEN
-      ! iaero=12: only Kinne aerosols from single year are used
+      !RJH_oxf:  initialise the dNovrN field to 1
+      IF (irad_aero >= 32) THEN
+        prm_ndscaling(jg)%dNovrN(:,jb)=1.0_wp
+      ENDIF
+
+      IF (irad_aero==12 .OR. irad_aero==13 .OR. irad_aero==15 .OR. irad_aero==18 .OR. irad_aero>=32) THEN
+      ! iaero=12/32: only Kinne aerosols from single year are used
       ! iaero=13: only Kinne aerosols are used
       ! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used
       ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
@@ -293,7 +297,7 @@ CONTAINS
       !!$           & aer_tau_lw,    aer_tau_sw,         aer_ssa_sw,    &
       !!$           & aer_asy_sw                                               )
       !!$    END IF
-      IF (irad_aero==18 .OR. irad_aero==33 .OR. irad_aero==34 .OR. irad_aero==35) THEN
+      IF (irad_aero==18 .OR. irad_aero>=33) THEN
       ! iaero=18: Simple plumes are added to Stenchikov's volcanic aerosols
       !           and Kinne background aerosols (of natural origin, 1850)
       ! iaero=33/34/35: simple plumes are added to Kinne tropo background aerosols - RJH_oxf
@@ -313,13 +317,13 @@ CONTAINS
         !$acc update device(aer_tau_sw, aer_ssa_sw, aer_asy_sw)
 
         ! RJH_oxf: if iaero is 33 update ndscaling field with x_cdnc from simple plumes
-        IF (irad_aero==33 .OR. irad_aero==34 .OR. irad_aero==35) prm_ndscaling(jg)%dNovrN(:,jb)=x_cdnc(:)
+        IF (irad_aero>=33) prm_ndscaling(jg)%dNovrN(:,jb)=x_cdnc(:)
 
       END IF
 
       ! this should be decativated in the concurrent version and make the aer_* global variables for output
-      ! RJH_oxf: want rad properties output for plume model modifications (and background irad_aero = 12)
-      IF (lrad_aero_diag .OR. irad_aero >= 33 .OR. irad_aero == 12) THEN
+      ! RJH_oxf: want rad properties output for plume model modifications (and background irad_aero = 32)
+      IF (lrad_aero_diag .OR. irad_aero >= 32) THEN
         CALL rad_aero_diag (                                  &
           & 1,               nproma,          nproma,         &
           & klev,            nbndlw,          nbndsw,         &
