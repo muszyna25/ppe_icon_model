@@ -202,6 +202,7 @@ if next_date > final_date:
 end_date = next_date + mtime.TimeDelta('-%{ATMO_TIME_STEP}')
 atmo_reference_jstep = (initial_date, reference_date)//mtime.TimeDelta('%{ATMO_TIME_STEP}')
 ocean_reference_jstep = (initial_date, reference_date)//mtime.TimeDelta('%{OCEAN_TIME_STEP}')
+disturbance_dates = [mtime.DateTime(d) for d in %{DISTURBANCE_DATES|list}]
 
 print('initial_date=' + str(initial_date))
 print('final_date=' + str(final_date))
@@ -211,6 +212,7 @@ print('end_date=' + str(end_date))
 print('next_date=' + str(next_date))
 print('atmo_reference_jstep=' + str(atmo_reference_jstep))
 print('ocean_reference_jstep=' + str(ocean_reference_jstep))
+print('use_disturbance=' + str(start_date in disturbance_dates).lower())
 ")
 eval "$code"
 
@@ -322,7 +324,7 @@ EOF
 
 #% set (file, group, setting, delta) = DISTURBANCE_SETTINGS|split(' ')
 #% set value = namelists[file][group][setting]|float + delta|float
-if [[ " %{DISTURBANCE_YEARS|join(" ")} " == *" ${y0} "* ]]
+if $use_disturbance || [[ " %{DISTURBANCE_YEARS|join(" ")} " == *" ${y0} "* ]]
 then   
     print "disturbing model in year ${y0}, setting rayleigh_coeff to %{value}"
     patch_namelist %{group} %{setting} %{value} %{file}
