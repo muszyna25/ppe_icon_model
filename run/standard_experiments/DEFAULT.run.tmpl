@@ -326,7 +326,7 @@ EOF
 #% set value = namelists[file][group][setting]|float + delta|float
 if $use_disturbance || [[ " %{DISTURBANCE_YEARS|join(" ")} " == *" ${y0} "* ]]
 then   
-    print "disturbing model in year ${y0}, setting rayleigh_coeff to %{value}"
+    echo "disturbing model in year ${y0}, setting rayleigh_coeff to %{value}"
     patch_namelist %{group} %{setting} %{value} %{file}
 fi
 
