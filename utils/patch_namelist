@@ -43,14 +43,16 @@ while(<>) {
     if(/^\s*&$group\s*$/..m{^\s*/\s*$}) {
     #if(/^\s*&$group\s*$/) {
         $group_found = 1;
-        if(/^\s*$variable\s*=\s*(.*?)\s*$/) {
+        if(/^(\s*$variable\s*=\s*)(.*?)(\s*)$/) {
             $variable_found = 1;
-            my $old_value = $1;
+            my $before = $1;
+            my $old_value = $2;
+            my $after = $3;
             if($old_value eq $value) {
                 warn("Hey: value for '$variable' under '$group' in '$ARGV' is unchanged\n");
             }
             else {
-                s/^(\s*$variable\s*=\s*)$old_value(\s*)$/$1$value$2/;
+                $_ = $before.$value.$after;
             }
         }
         elsif(m{^\s*/\s*$} && !$variable_found) {
