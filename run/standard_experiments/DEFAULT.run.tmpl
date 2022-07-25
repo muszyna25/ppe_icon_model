@@ -4,7 +4,7 @@
 #
 # %{mkexp_input}
 #
-# $Id: DEFAULT.run.tmpl 11 2021-06-25 06:53:19Z m221078 $
+# $Id: DEFAULT.run.tmpl 12 2022-07-07 16:11:08Z k203123 $
 #
 # %{VERSIONS_|join('\n# ')}
 #
@@ -202,6 +202,23 @@ if next_date > final_date:
 end_date = next_date + mtime.TimeDelta('-%{ATMO_TIME_STEP}')
 atmo_reference_jstep = (initial_date, reference_date)//mtime.TimeDelta('%{ATMO_TIME_STEP}')
 ocean_reference_jstep = (initial_date, reference_date)//mtime.TimeDelta('%{OCEAN_TIME_STEP}')
+#%  set disturbance_settings = DISTURBANCE_SETTINGS|list
+#%  set is_legacy_disturbance = disturbance_settings|length == 1 and disturbance_settings|first|split|length < 5
+disturbance_commands = []
+#%  if is_legacy_disturbance:
+#%      set (file, group, var, delta) = disturbance_settings|first|split
+#%      set value = namelists[file][group][var]|float + delta|float
+if start_date in [mtime.DateTime(date) for date in %{DISTURBANCE_DATES|d(DISTURBANCE_YEARS|join(' ')|split)|list}]:
+    disturbance_commands.append('patch_namelist %{group} %{var} %{value} %{file}')
+#%  else:
+#%      for setting in disturbance_settings:
+#%          set (file, group, var, delta, dates) = setting|split(none, 4)
+#%          set value = namelists[file][group][var]|float + delta|float
+if start_date in [mtime.DateTime(date) for date in %{dates|split}]:
+    disturbance_commands.append('patch_namelist %{group} %{var} %{value} %{file}')
+#%      endfor
+#%  endif
+disturbance_command = '; '.join(disturbance_commands)
 
 print('initial_date=' + str(initial_date))
 print('final_date=' + str(final_date))
@@ -211,6 +228,7 @@ print('end_date=' + str(end_date))
 print('next_date=' + str(next_date))
 print('atmo_reference_jstep=' + str(atmo_reference_jstep))
 print('ocean_reference_jstep=' + str(ocean_reference_jstep))
+print('disturbance_command=\'' + disturbance_command + '\'')
 ")
 eval "$code"
 
@@ -320,12 +338,10 @@ EOF
 # Selectively add disturbance to overcome model failure
 # ------------------------------------------------
 
-#% set (file, group, setting, delta) = DISTURBANCE_SETTINGS|split(' ')
-#% set value = namelists[file][group][setting]|float + delta|float
-if [[ " %{DISTURBANCE_YEARS|join(" ")} " == *" ${y0} "* ]]
+if [[ "$disturbance_command" ]]
 then   
-    print "disturbing model in year ${y0}, setting rayleigh_coeff to %{value}"
-    patch_namelist %{group} %{setting} %{value} %{file}
+    echo "disturbing model for start date ${start_date}, using '$disturbance_command'"
+    eval "$disturbance_command"
 fi
 
 #-----------------------------------------------------------------------------

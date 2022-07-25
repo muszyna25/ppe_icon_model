@@ -261,13 +261,16 @@ for info in file_infos:
     output_interval = mtime.TimeDelta(info['output_interval'])
     neg_output_interval = mtime.TimeDelta('-'+info['output_interval'])
 
-    info['frequency'] = ' '.join('{0}{1}'.format(value, name)
-        for (name, value) in output_interval.items() if name != 'sign' and value)
+    if output_start == output_end:
+        info['frequency'] = 'fx'
+    else:
+        info['frequency'] = ' '.join('{0}{1}'.format(value, name)
+            for (name, value) in output_interval.items() if name != 'sign' and value)
 
     # Use wildcards to expand timestamps in file names
     file_glob = os.path.join(input_dir,
         info['filename_tmpl'].replace('<datetime2>', '????????T??????Z'))
-    for file_name in glob.glob(file_glob):
+    for file_name in sorted(glob.glob(file_glob)):
 
         # Set current file name
         info[assets] = file_name
@@ -292,6 +295,10 @@ for info in file_infos:
             # Try to remove spurious entries (eg bounds)
             info[variable_column_name] = [var for var in ds.data_vars
                 if not var.endswith('_bnds')]
+
+            # Get uuid of horizontal grid as grid_id
+            if 'uuidOfHGrid' in ds.attrs:
+                info['grid_id'] = ds.uuidOfHGrid
 
         duplicates = tuple(key for key in generate_keys(info)
             if key in catalog_index
