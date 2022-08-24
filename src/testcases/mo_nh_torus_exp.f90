@@ -1372,7 +1372,7 @@ MODULE mo_nh_torus_exp
     les_config(jg)%psfc = pr0
 
     ! height on mass levels
-    hght = ptr_metrics%z_mc(2,:,2)
+    hght = ptr_metrics%z_mc(1,:,1) ! AW2022 change, originally ptr_metrics%z_mc(2,:,2)
 
     ! Tracers: all zero by default
     ptr_nh_prog%tracer(:,:,:,:) = 0._wp
@@ -1433,7 +1433,9 @@ MODULE mo_nh_torus_exp
       WRITE(0,*) 'sfc pres (hPa)',ptr_nh_diag%pres_sfc(1,1)*1.e-2
       WRITE(0,*) 'hght (m), theta_v (K), qv (g/kg)'
       DO jk = 1, nlev
-        WRITE(0,*) ptr_metrics%z_mc(2,jk,2), ptr_nh_prog%theta_v(1,jk,1), ptr_nh_prog%tracer(1,jk,1,iqv)*1.e3
+        ! AW2022 change to avoid initialization errors
+        WRITE(0,*) ptr_metrics%z_mc(1,jk,1), ptr_nh_prog%theta_v(1,jk,1), ptr_nh_prog%tracer(1,jk,1,iqv)*1.e3
+        !WRITE(0,*) ptr_metrics%z_mc(2,jk,2), ptr_nh_prog%theta_v(1,jk,1), ptr_nh_prog%tracer(1,jk,1,iqv)*1.e3
       ENDDO
     ENDIF
 
