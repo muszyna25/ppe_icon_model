@@ -71,7 +71,7 @@ MODULE mo_nh_testcases_nml
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
     &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y,      &
     &       tracer_inidist_list, zp_ape, ztmc_ape, is_dry_cbl, isrfc_type,   &
-    &       shflx, lhflx, ufric, 
+    &       shflx, lhflx, ufric 
 
   PUBLIC :: dcmip_bw
   PUBLIC :: is_toy_chem, toy_chem
