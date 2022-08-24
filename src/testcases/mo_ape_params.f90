@@ -23,7 +23,7 @@ MODULE mo_ape_params
   USE mo_math_constants,     ONLY: pi
   USE mo_physical_constants, ONLY: tmelt
 #ifndef __NO_ICON_ATMO__
-  USE mo_nh_testcases_nml,   ONLY: ape_sst_val
+  USE mo_nh_testcases_nml,   ONLY: ape_sst_val, sst0, dsst, half_width
 #endif
   USE mo_impl_constants,     ONLY: max_char_length
   USE mo_exception,          ONLY: finish
@@ -31,7 +31,7 @@ MODULE mo_ape_params
   IMPLICIT NONE
 
   PUBLIC
-  PRIVATE :: ape_sst1, ape_sst2, ape_sst3, ape_sst4, ape_sst_qobs, ape_sst_ice, ape_sst_const
+  PRIVATE :: ape_sst1, ape_sst2, ape_sst3, ape_sst4, ape_sst_qobs, ape_sst_cos_mockWalker_torus, ape_sst_gauss_mockWalker_torus, ape_sst_ice, ape_sst_const
 
   ! Requirements for APE
 
@@ -150,6 +150,41 @@ CONTAINS
 
   END FUNCTION ape_sst_qobs
 
+
+  !! AW 2022: Adding zonally-asymmetric SST init
+  ELEMENTAL FUNCTION ape_sst_cos_mockWalker_torus( lon ) RESULT(sst)
+
+    REAL(wp),INTENT(in)  :: lon
+    REAL(wp)             :: sst
+
+    ! n.b. ICON uses longitude in [-pi, pi] range!
+    ! Gaussian perturbation = exp(-( lon / 0.2pi)**2 ) + tmelt + 25.85 
+    ! Gives ratio of 4:1 for shallow:deep 
+    ! and 299K vs 300K, respectively
+    !sst = sst0 + dsst*EXP(-1._wp * ( lon / half_width )**2 )  
+    ! Bretherton et al Boundary condition
+    sst = sst0 + dsst*COS(lon)
+
+  END FUNCTION ape_sst_cos_mockWalker_torus
+
+
+  !! AW 2022: Adding zonally-asymmetric SST init
+  ELEMENTAL FUNCTION ape_sst_gauss_mockWalker_torus( lon ) RESULT(sst)
+
+    REAL(wp),INTENT(in)  :: lon
+    REAL(wp)             :: sst
+
+    ! n.b. ICON uses longitude in [-pi, pi] range!
+    ! Gaussian perturbation = exp(-( lon / 0.2pi)**2 ) + tmelt + 25.85 
+    ! Gives ratio of 4:1 for shallow:deep 
+    ! and 299K vs 300K, respectively
+    !sst = sst0 + dsst*EXP(-1._wp * ( lon / half_width )**2 )  
+    ! Bretherton et al Boundary condition
+    sst = sst0 + dsst*EXP(-1._wp * ( lon / half_width )**2 )
+
+  END FUNCTION ape_sst_gauss_mockWalker_torus
+
+
   !!KF attempt to generate freezing temperatures for the ocean
  !! Zonally symmetric analytic distributions of sea surface temperature (SST)
   !! for the "control" case of the APE.
@@ -190,8 +225,9 @@ CONTAINS
 
   !-----------
 
-  FUNCTION ape_sst(sst_case,lat) RESULT(sst)
+  FUNCTION ape_sst(sst_case,lat,lon) RESULT(sst)
     REAL(wp),INTENT(IN)                       :: lat
+    REAL(wp),INTENT(IN)                       :: lon
     CHARACTER(len=max_char_length),INTENT(IN) :: sst_case
     REAL(wp)                                  :: sst
 
@@ -212,6 +248,10 @@ CONTAINS
       sst=ape_sst_ice(lat)
     CASE ('sst_const')
       sst=ape_sst_const()
+    CASE ('mockWalker_torus_cos')
+      sst=ape_sst_cos_mockWalker_torus(lon)
+    CASE ('mockWalker_torus_gauss')
+      sst=ape_sst_gauss_mockWalker_torus(lon)
     CASE DEFAULT
       CALL finish( TRIM(FUNCTION),'wrong sst name, must be sst1, sst2, sst3, sst4, sst_qobs, sst_ice or sst_const')
     END SELECT

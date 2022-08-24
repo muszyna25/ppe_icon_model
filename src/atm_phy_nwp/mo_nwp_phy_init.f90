@@ -189,7 +189,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
   INTEGER             :: jk, jk1
   REAL(wp)            :: rsltn   ! horizontal resolution
   REAL(wp)            :: pref(p_patch%nlev)
-  REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
+  REAL(wp)            :: zlat, zlon, zprat, zn1, zn2, zcdnc
   REAL(wp)            :: zpres, zpres0
   REAL(wp)            :: gz0(nproma), l_hori(nproma)
   REAL(wp)            :: scale_fac ! scale factor used only for RCE cases
@@ -469,10 +469,11 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
           DO jc = i_startidx, i_endidx
             zlat = p_patch%cells%center(jc,jb)%lat
-            p_prog_lnd_now%t_g  (jc,jb)   = ape_sst(ape_sst_case,zlat) ! set SST
-            p_prog_lnd_new%t_g  (jc,jb)   = ape_sst(ape_sst_case,zlat)
-            p_prog_lnd_now%t_g_t(jc,jb,1) = ape_sst(ape_sst_case,zlat)
-            p_prog_lnd_new%t_g_t(jc,jb,1) = ape_sst(ape_sst_case,zlat)
+            zlon = p_patch%cells%center(jc,jb)%lon
+            p_prog_lnd_now%t_g  (jc,jb)   = ape_sst(ape_sst_case,zlat,zlon) ! set SST
+            p_prog_lnd_new%t_g  (jc,jb)   = ape_sst(ape_sst_case,zlat,zlon)
+            p_prog_lnd_now%t_g_t(jc,jb,1) = ape_sst(ape_sst_case,zlat,zlon)
+            p_prog_lnd_new%t_g_t(jc,jb,1) = ape_sst(ape_sst_case,zlat,zlon)
             ! Humidity at water surface = humidity at saturation
             p_diag_lnd%qv_s(jc,jb)     = &
               &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))

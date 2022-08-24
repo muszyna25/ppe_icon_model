@@ -64,13 +64,14 @@ MODULE mo_nh_testcases_nml
     &       mount_height, mount_width, mount_width_2,                        & 
     &       torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,                &
     &       jw_up, jw_u0, jw_temp0, rh_at_1000hpa, relhum, qv_max, lapse_r,  &
+    &       sst0, dsst, half_width,                                          &
     &       tpe_moist, tpe_psfc, tpe_temp, t0, z0, gamma0, gamma1,           &
     &       RCE_Tprescr_noise, temp_case, temp_fwhm_frac,                    &
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale, tpe_mu,      & 
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
     &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y,      &
     &       tracer_inidist_list, zp_ape, ztmc_ape, is_dry_cbl, isrfc_type,   &
-    &       shflx, lhflx, ufric
+    &       shflx, lhflx, ufric, 
 
   PUBLIC :: dcmip_bw
   PUBLIC :: is_toy_chem, toy_chem
@@ -121,6 +122,10 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: w_perturb, th_perturb !Random perturbation scale for torus based experiments
   REAL(wp) :: sol_const              ! [W/m2] solar constant
   REAL(wp) :: zenithang              ! [degrees] zenith angle 
+
+  REAL(wp) :: sst0                   ! AW 2022: Params for mock-Walker gaussian setup
+  REAL(wp) :: dsst
+  REAL(wp) :: half_width
 
   LOGICAL  :: is_dry_cbl             ! switch for dry convective boundary layer simulations
   INTEGER  :: isrfc_type             ! 0:No effect, 1:fixed surface  heat fluxes
@@ -203,8 +208,9 @@ MODULE mo_nh_testcases_nml
                             psfc_cbl, sol_const, zenithang, bubctr_x,        &
                             bubctr_y, is_toy_chem, toy_chem, dcmip_bw,       &
                             tracer_inidist_list, lahade, is_dry_cbl,         &
-                            isrfc_type, shflx, lhflx, ufric
-
+                            isrfc_type, shflx, lhflx, ufric,                 &
+                            sst0, dsst, half_width
+                          
   ! Non-namelist-variables
   LOGICAL :: ltestcase_update  ! Is current testcase subject to update during integration?
                       
@@ -282,6 +288,11 @@ MODULE mo_nh_testcases_nml
     shflx                  = 0.1_wp
     lhflx                  = 0.0_wp
     ufric                  = 0.45_wp
+
+    sst0                   = 299._wp ! AW 2022
+    dsst                   = 1._wp
+    half_width             = 1.04719755_wp   ! roughly pi/3._wp
+
     ! assuming that default is on triangles the next switch is set
     ! crosscheck follows in the respective module
     linit_tracer_fv        = .TRUE. ! finite volume initialization for tracer

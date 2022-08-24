@@ -2168,7 +2168,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       DO idx = start_cell_index, end_cell_index
          DO level=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(idx,block))
           ocean_temperature(idx,level,block) = MIN(MAX( &
-            & ape_sst(initial_sst_type, patch_2d%cells%center(idx,block)%lat) - tmelt,  & ! SST in Celsius
+            & ape_sst(initial_sst_type, patch_2d%cells%center(idx,block)%lat, patch_2d%cells%center(idx,block)%lat) - tmelt,  & ! SST in Celsius
             & initial_temperature_bottom), initial_temperature_top)
         END DO
       END DO

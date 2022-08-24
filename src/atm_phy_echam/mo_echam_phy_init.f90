@@ -924,6 +924,7 @@ CONTAINS
 
     INTEGER  :: jg, ncd, rls, rle, jb, jbs, jbe, jc, jcs, jce
     REAL(wp) :: zlat
+    REAL(wp) :: zlon
 
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
     TYPE(t_echam_phy_tend) ,POINTER :: tend  => NULL()
@@ -1082,7 +1083,8 @@ CONTAINS
           IF (.NOT. isrestart()) THEN
             DO jc = jcs,jce
               zlat = p_patch%cells%center(jc,jb)%lat
-              field% ts_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
+              zlon = p_patch%cells%center(jc,jb)%lon
+              field% ts_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat,zlon)
             END DO
           END IF
           !
@@ -1134,8 +1136,9 @@ CONTAINS
           IF (.NOT. isrestart()) THEN
             DO jc = jcs,jce
               zlat = p_patch%cells%center(jc,jb)%lat
+              zlon = p_patch%cells%center(jc,jb)%lon
               ! SST must reach Tf where there's ice. It may be better to modify ape_sst it self.
-              field% ts_tile (jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) + Tf
+              field% ts_tile (jc,jb,iwtr) = ape_sst(ape_sst_case,zlat,zlon) + Tf
               field% ts_tile (jc,jb,iice) = Tf + tmelt ! K
               field% Tsurf   (jc,1, jb  ) = Tf         ! degC
               field% T1      (jc,1, jb  ) = Tf         ! degC
@@ -1182,7 +1185,8 @@ CONTAINS
           IF (.NOT. isrestart()) THEN
             DO jc = jcs,jce
               zlat = p_patch%cells%center(jc,jb)%lat
-              field% ts_tile (jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
+              zlon = p_patch%cells%center(jc,jb)%lon
+              field% ts_tile (jc,jb,iwtr) = ape_sst(ape_sst_case,zlat,zlon)
               field% ts_tile (jc,jb,iice) = Tf + tmelt ! K
               field% Tsurf   (jc,1,jb)    = Tf         ! degC
               field% T1      (jc,1,jb)    = Tf         ! degC
