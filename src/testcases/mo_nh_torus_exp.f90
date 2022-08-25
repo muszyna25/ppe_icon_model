@@ -1372,7 +1372,8 @@ MODULE mo_nh_torus_exp
     les_config(jg)%psfc = pr0
 
     ! height on mass levels
-    hght = ptr_metrics%z_mc(1,:,1) ! AW2022 change, originally ptr_metrics%z_mc(2,:,2)
+    !hght = ptr_metrics%z_mc(1,:,1) ! AW2022 change, originally ptr_metrics%z_mc(2,:,2)
+    hght = ptr_metrics%z_mc(npromz_c,:,nblks_c) ! SR says this is a safer choice
 
     ! Tracers: all zero by default
     ptr_nh_prog%tracer(:,:,:,:) = 0._wp
