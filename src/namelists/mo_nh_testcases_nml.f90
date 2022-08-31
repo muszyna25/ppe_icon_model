@@ -71,7 +71,7 @@ MODULE mo_nh_testcases_nml
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
     &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y,      &
     &       tracer_inidist_list, zp_ape, ztmc_ape, is_dry_cbl, isrfc_type,   &
-    &       shflx, lhflx, ufric 
+    &       shflx, lhflx, ufric, qflux_case, qflux_const, dmixsea 
 
   PUBLIC :: dcmip_bw
   PUBLIC :: is_toy_chem, toy_chem
@@ -81,6 +81,7 @@ MODULE mo_nh_testcases_nml
   CHARACTER(len=MAX_CHAR_LENGTH) :: nh_test_name
   CHARACTER(len=MAX_CHAR_LENGTH) :: temp_case
   CHARACTER(len=MAX_CHAR_LENGTH) :: ape_sst_case      !SST for APE experiments
+  CHARACTER(len=MAX_CHAR_LENGTH) :: qflux_case        !qflux case for idealized runs experiments
 
   LOGICAL  :: lhs_nh_vn_ptb          ! if true, random noise is added to vn in HS_nh test case
   LOGICAL  :: lhs_fric_heat          ! if true, frictional heating is switched on in HS_nh
@@ -126,6 +127,9 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: sst0                   ! AW 2022: Params for mock-Walker gaussian setup
   REAL(wp) :: dsst
   REAL(wp) :: half_width
+
+  REAL(wp) :: dmixsea
+  REAL(wp) :: qflux_const
 
   LOGICAL  :: is_dry_cbl             ! switch for dry convective boundary layer simulations
   INTEGER  :: isrfc_type             ! 0:No effect, 1:fixed surface  heat fluxes
@@ -209,7 +213,7 @@ MODULE mo_nh_testcases_nml
                             bubctr_y, is_toy_chem, toy_chem, dcmip_bw,       &
                             tracer_inidist_list, lahade, is_dry_cbl,         &
                             isrfc_type, shflx, lhflx, ufric,                 &
-                            sst0, dsst, half_width
+                            sst0, dsst, half_width, qflux_case, qflux_const, dmixsea
                           
   ! Non-namelist-variables
   LOGICAL :: ltestcase_update  ! Is current testcase subject to update during integration?
@@ -288,6 +292,10 @@ MODULE mo_nh_testcases_nml
     shflx                  = 0.1_wp
     lhflx                  = 0.0_wp
     ufric                  = 0.45_wp
+
+    qflux_case             = 'qflux_zero' ! 'qflux_zero', 'qflux_const', 'qflux_mockwalker'
+    qflux_const            = 35._wp
+    dmixsea                = 10._wp
 
     sst0                   = 299._wp ! AW 2022
     dsst                   = 1._wp

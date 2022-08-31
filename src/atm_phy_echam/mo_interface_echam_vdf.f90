@@ -645,7 +645,7 @@ CONTAINS
           !
           IF (ltimer) CALL timer_start(timer_vdf_sf)
 
-          CALL update_surface(jg, jcs, jce, nproma, field%kice,               &! in
+          CALL update_surface(jg, jcs, jce, nproma, jb, field%kice,               &! in
                &              nlev, nsfc_type,                                &! in
                &              iwtr, iice, ilnd,                               &! in, indices of surface types
                &              datetime_old,                                   &! in, date and time at beginning of this time step
