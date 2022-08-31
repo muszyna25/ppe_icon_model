@@ -1,11 +1,11 @@
 !>
 !! @brief Subroutine ml_ocean computes the surface temperature of a mixed
 !! layer slab ocean based only on the vertical energy budget.  currently
-!! there is no land/lakes, no ice, and no flux heat correction
+!! there is no land/lakes, no ice, and only a very simple Qflux correction
 !!
 !! original purpose: use for a Radiative Convective Equilibrium APE exp
-!!
-!! @author Levi G Silvers, MPI-M
+!! 
+!! @author Levi G Silvers, MPI-M; Andrew I L Williams, Oxford
 !!
 !! @par Copyright and License
 !!
@@ -20,19 +20,24 @@ MODULE mo_ml_ocean
 
   USE mo_kind,               ONLY: wp
   USE mo_physical_constants, ONLY: rho_ref  
+  USE mo_nh_testcases_nml,   ONLY: qflux_case, dmixsea
+  USE mo_model_domain,       ONLY: p_patch
+  USE mo_ml_qflux,           ONLY: ml_qflux
 
   IMPLICIT NONE
   PUBLIC :: ml_ocean
 
 CONTAINS
 
-  SUBROUTINE ml_ocean ( kproma, start_column, end_column, pdtime,pahflw,pahfsw,ptrflw,psoflw,ptsw )
+  SUBROUTINE ml_ocean ( jg, kproma, jcs, jce, jb, pdtime,pahflw,pahfsw,ptrflw,psoflw,ptsw )
 
     !
     ! Arguments
     !
+    INTEGER, INTENT(IN)    :: jg
     INTEGER, INTENT(IN)    :: kproma
-    INTEGER, INTENT(IN)    :: start_column, end_column
+    INTEGER, INTENT(IN)    :: jcs, jce
+    INTEGER, INTENT(IN)    :: jb
     REAL(wp),INTENT(IN)    :: pdtime                   !< time step
     REAL(wp),INTENT(IN)    :: pahflw(kproma)           ! latent heat flux over water
     REAL(wp),INTENT(IN)    :: pahfsw(kproma)           ! sensible heat flux over water
@@ -43,8 +48,9 @@ CONTAINS
     ! Local variables
     !
     INTEGER  :: jl
-    REAL(wp) :: dmixsea,cpsea,zmixcap,zfluxw
-
+    REAL(wp) :: cpsea,zmixcap,zfluxw !dmixsea
+    REAL(wp) :: qflux_val, zlat, zlon
+   
     !$ACC DATA PRESENT( pahflw, pahfsw, ptrflw, psoflw, ptsw )
 
     !
@@ -55,16 +61,22 @@ CONTAINS
     !  zmixcap=zrho_sea*zcpwater*zdmix
     !  zmonlen=2592000._dp
     !
-    dmixsea   = 50._wp   ! [m] depth of mixed layer (zdmix)
+    !dmixsea   = 50._wp   ! [m] depth of mixed layer (zdmix)
+    
     cpsea     = 3994._wp ! [J/(kg K)] specific heat capacity of water (what temp? looks low to me)
 
     zmixcap   = rho_ref*cpsea*dmixsea ! mixed layer heat capacity? 
 
     !$ACC PARALLEL DEFAULT(PRESENT)
     !$ACC LOOP GANG VECTOR PRIVATE( zfluxw )
-    DO jl = start_column,  end_column
+    DO jl = jcs, jce
 
-      zfluxw             = pahflw(jl) + pahfsw(jl) + ptrflw(jl) + psoflw(jl)
+      zlat = p_patch(jg)%cells%center(jl,jb)%lat 
+      zlon = p_patch(jg)%cells%center(jl,jb)%lon
+
+      qflux_val          = ml_qflux(qflux_case, zlat, zlon)
+
+      zfluxw             = pahflw(jl) + pahfsw(jl) + ptrflw(jl) + psoflw(jl) - qflux_val
       ptsw(jl)           = ptsw(jl) + pdtime * zfluxw/zmixcap
 
     END DO

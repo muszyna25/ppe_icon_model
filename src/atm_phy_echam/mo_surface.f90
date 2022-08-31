@@ -68,7 +68,7 @@ CONTAINS
   !!
   !!
   SUBROUTINE update_surface( jg,                                &! in
-                           & jcs, kproma, kbdim,                &! in
+                           & jcs, kproma, kbdim, jb,            &! in
                            & kice,                              &! in
                            & klev, ksfc_type,                   &! in
                            & idx_wtr, idx_ice, idx_lnd,         &! in
@@ -151,6 +151,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pdtime
     INTEGER, INTENT(IN) :: jg
     INTEGER, INTENT(IN) :: jcs, kproma, kbdim
+    INTEGER, INTENT(IN) :: jb
     INTEGER, INTENT(IN) :: klev, ksfc_type
     INTEGER, INTENT(IN) :: idx_wtr, idx_ice, idx_lnd
     REAL(wp),INTENT(IN) :: pfrc      (:,:) ! (kbdim,ksfc_type)
@@ -1080,7 +1081,7 @@ CONTAINS
           ztsfc_wtr(jl)=ptsfc_tile(jl, idx_wtr)
         ENDDO
         !$ACC WAIT
-        CALL ml_ocean ( kbdim, jcs, kproma, pdtime, &
+        CALL ml_ocean ( jg, kbdim, jcs, kproma, jb, pdtime, &
           & pahflw=plhflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
           & pahfsw=pshflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
           & ptrflw=rlns(:),                       &
