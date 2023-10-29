@@ -5,7 +5,7 @@ read it in a plain text editor. Please, visit ICON project page on DKRZ GitLab
 viewer of your choice (https://www.google.com/search?q=markdown+viewer).
 -->
 
-## This is a cloned ICON repository that is used for physics perturbed experiments.
+## This is a cloned ICON repository that is used for physics perturbed ensemble experiments.
 
 # Introduction
 
