@@ -1,0 +1,41 @@
+#!/bin/bash
+
+input_dir=/work/n02/shared/ICON_shared/code_to_run_on_archer2/NextGEMS_cycle2
+
+# make sure you are in the root dir..
+
+if test -f ./config/dkrz/mistral.pgi-19.9.0; then
+
+   echo 'making a config directory for archer'
+   mkdir ./config/archer2
+
+   echo 'copying files needed to compile and configure on cce'
+   cp $input_dir/modules_cray .
+   cp $input_dir/sbatch_configure_cray .
+   cp $input_dir/archer2.cray ./config/archer2/
+
+   echo 'copying files needed to compile and configure on gcc'
+   cp $input_dir/modules_gnu .
+   cp $input_dir/sbatch_configure_gnu .
+   cp $input_dir/archer2.gnu ./config/archer2/
+
+   echo 'copying set-up info file that for some reason is never included'
+   cp $input_dir/set-up.info.in ./run/
+  
+   echo 'copying cycle2 example run into the run directory'
+   cp /work/n02/shared/ICON_shared/example_runs/cycle2_ICON_noOcean_example.run ./run/
+
+   echo 'copying slurm submission script example into root dir'
+   cp $input_dir/submit_run.sh .
+
+else
+
+  echo '***'
+  echo 'youre not in the correct directory - go to the root of the ICON NextGEMS cycle2 working branch'
+  echo '***'
+   
+fi
+
+
+
+

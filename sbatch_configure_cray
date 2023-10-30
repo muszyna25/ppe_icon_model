@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Slurm job options (job-name, compute nodes, job time)
+#SBATCH --job-name=configure_icon_cray
+#SBATCH --account=n02-RECAP
+#SBATCH --mem=0
+
+#SBATCH --time=0:10:00
+#SBATCH --nodes=1
+#SBATCH --tasks-per-node=128
+#SBATCH --cpus-per-task=1
+#SBATCH --partition=standard
+#SBATCH --qos=short
+#SBATCH --reservation=shortqos
+
+export LD_LIBRARY_PATH=$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH
+export MPI_LAUNCH='/usr/bin/srun'
+
+base_dir=/work/n02/n02/rherbe/ICON/nextgems_cycle2
+
+cd $base_dir
+. modules_cray
+
+module list &> compile_module_list.out
+
+echo 'make distclean...'
+make distclean
+echo 'configure...'
+config/archer2/archer2.cray &> configure.out
+
+if test -f ./bin/icon; then
+    rm bin/icon
+fi
+
+echo 'make yourself as it takes a long time...'
+echo 'command is:'
+echo '   make -j 16 &> make.out'
+

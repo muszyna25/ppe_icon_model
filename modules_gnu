@@ -1,0 +1,7 @@
+#!/bin/bash
+
+module purge
+module load PrgEnv-gnu
+module load cray-hdf5-parallel
+module load cray-netcdf-hdf5parallel
+module load libxml2

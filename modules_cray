@@ -1,0 +1,6 @@
+#!/bin/bash
+module restore
+module load cray-hdf5
+module load cray-netcdf
+module load libxml2
+module load cce/12.0.3
